@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { getUserFromReq, publicUser } from '@/lib/auth'
+
+// GET: friends list, incoming requests, outgoing requests
+export async function GET(req: NextRequest) {
+  const me = await getUserFromReq(req)
+  if (!me) return NextResponse.json({ error: 'Login required' }, { status: 401 })
+
+  const sent = await db.friendship.findMany({
+    where: { requesterId: me.id },
+    include: { addressee: true },
+  })
+  const received = await db.friendship.findMany({
+    where: { addresseeId: me.id },
+    include: { requester: true },
+  })
+
+  const friends = [...sent, ...received]
+    .filter((f) => f.status === 'accepted')
+    .map((f) => ({
+      ...publicUser(f.requesterId === me.id ? f.addressee : f.requester),
+      friendshipId: f.id,
+    }))
+
+  const incoming = received
+    .filter((f) => f.status === 'pending')
+    .map((f) => ({ id: f.id, user: publicUser(f.requester), createdAt: f.createdAt }))
+
+  const outgoing = sent
+    .filter((f) => f.status === 'pending')
+    .map((f) => ({ id: f.id, user: publicUser(f.addressee), createdAt: f.createdAt }))
+
+  return NextResponse.json({ friends, incoming, outgoing })
+}
+
+// POST: send a friend request by username
+export async function POST(req: NextRequest) {
+  const me = await getUserFromReq(req)
+  if (!me) return NextResponse.json({ error: 'Login required' }, { status: 401 })
+
+  const body = await req.json()
+  const username = String(body.username || '').trim()
+  if (!username) return NextResponse.json({ error: 'Type a username!' }, { status: 400 })
+
+  const target = await db.user.findUnique({ where: { username } })
+  if (!target) return NextResponse.json({ error: `No user named "${username}" found.` }, { status: 404 })
+  if (target.id === me.id) return NextResponse.json({ error: "You can't friend yourself!" }, { status: 400 })
+
+  const existing = await db.friendship.findUnique({
+    where: { requesterId_addresseeId: { requesterId: me.id, addresseeId: target.id } },
+  })
+  if (existing) {
+    return NextResponse.json({
+      error: existing.status === 'accepted' ? 'Already friends!' : 'Request already sent.',
+    }, { status: 409 })
+  }
+
+  const reverse = await db.friendship.findUnique({
+    where: { requesterId_addresseeId: { requesterId: target.id, addresseeId: me.id } },
+  })
+  if (reverse) {
+    if (reverse.status === 'accepted') {
+      return NextResponse.json({ error: 'Already friends!' }, { status: 409 })
+    }
+    // they already asked us -> auto accept
+    await db.friendship.update({ where: { id: reverse.id }, data: { status: 'accepted' } })
+    return NextResponse.json({ ok: true, autoAccepted: true, user: publicUser(target) })
+  }
+
+  await db.friendship.create({
+    data: { requesterId: me.id, addresseeId: target.id, status: 'pending' },
+  })
+  return NextResponse.json({ ok: true, user: publicUser(target) })
+}

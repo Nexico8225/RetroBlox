@@ -1,0 +1,31 @@
+/* AUTO-GENERATED from public/retro/font/meta.json (scripts/crop_retrofont.py) —
+   per-glyph aspect ratios so letter widths are known before images load. */
+export const FONT_MAX_H = 114
+export const FONT_GLYPHS: Record<string, number> = {
+  "A": 1.0707,
+  "B": 0.9022,
+  "C": 0.98,
+  "D": 1.0326,
+  "E": 0.6491,
+  "F": 0.6018,
+  "G": 1.02,
+  "H": 0.807,
+  "I": 0.49,
+  "J": 1.05,
+  "K": 0.92,
+  "L": 0.6389,
+  "M": 1.1212,
+  "N": 0.92,
+  "O": 0.913,
+  "P": 0.8679,
+  "Q": 0.95,
+  "R": 0.9074,
+  "S": 0.99,
+  "T": 0.9074,
+  "U": 0.913,
+  "V": 1.04,
+  "W": 1.1889,
+  "X": 1.0,
+  "Y": 1.08,
+  "Z": 0.9293,
+}

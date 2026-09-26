@@ -1,0 +1,587 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String       @id @default(cuid())
+  username      String       @unique
+  usernameLower String?      @unique // case-insensitive uniqueness ("people can't have the same username")
+  passwordHash  String
+  role          String       @default("user") // "user" | "admin" — admins can delete any game
+  gender        String? // "male" | "female"
+  birthday      String? // "YYYY-MM-DD"
+  avatarUrl     String? // data-URL or file URL, custom profile image
+  bio           String       @default("")
+  createdAt     DateTime     @default(now())
+  lastSeen      DateTime     @default(now())
+  games         Game[]
+  comments      Comment[]
+  likes         GameLike[]
+  favorites     Favorite[]
+  sessions      Session[]
+  requestsSent  Friendship[] @relation("requester")
+  requestsRecv  Friendship[] @relation("addressee")
+  ownedGroups   Group[]      @relation("GroupOwner")
+  memberships   GroupMember[]
+  groupPosts    GroupPost[]
+  groupReplies  GroupPostReply[]
+  plays         GamePlay[]
+  playSessions  PlaySession[]
+  badges        PlayerBadge[]
+  downloadsMade GameDownload[]
+  labPosts      LabPost[]
+  labReplies    LabReply[]
+  communityPosts   CommunityPost[]
+  communityComments CommunityComment[]
+  followsSent   Follow[]     @relation("follower")
+  followsRecv   Follow[]     @relation("following")
+  chatsSent     ChatMessage[] @relation("chatSender")
+  chatsRecv     ChatMessage[] @relation("chatRecipient")
+  videos        Video[]
+  videoComments VideoComment[]
+  createdSubs   Sub[]
+  musicTracks  MusicTrack[]
+  avatarConfig  AvatarConfig?
+  inventory     InventoryEntry[]
+  ugcItems      AvatarItem[]
+  rbxBalance    Int           @default(0) // server-side RBX wallet — only the ledger moves it
+  rbxTransactions RbxTransaction[]
+  payments      Payment[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model UploadedFile {
+  id        String   @id @default(cuid())
+  filename  String
+  path      String
+  mimeType  String
+  size      Int
+  // bytes stored IN the database so files survive on any host
+  // (the deployed domain has the DB but not the server's disk)
+  data      Bytes?
+  createdAt DateTime @default(now())
+}
+
+model Game {
+  id             String       @id @default(cuid())
+  name           String
+  description    String       @default("")
+  genre          String       @default("Adventure")
+  subgenre       String       @default("")
+  engine         String       @default("Other") // Unity | Godot | Unreal | Other
+  maturity       String       @default("Minimal") // Minimal | Mild | Moderate
+  iconUrl        String? // data URL
+  thumbnailUrl   String? // data URL
+  fileId         String? // game build file id
+  fileName       String? // original filename of the build
+  sourceFileId   String? // optional source code file id (like GitHub repo zip)
+  sourceFileName String?
+  downloads      Int          @default(0)
+  views          Int          @default(0) // game page views
+  statsJson      String       @default("{}") // daily {"YYYY-MM-DD": {v: views, d: downloads}}
+  mediaJson      String       @default("[]") // Steam-style media: [{fileId,type:"video"|"image",name}]
+  gem            Boolean      @default(false) // Hidden Gem — marked by admins, powers the Hidden Gems filter
+  groupId        String? // set when the game was published into a group
+  group          Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  creatorId      String
+  creator        User         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now())
+  comments       Comment[]
+  likes          GameLike[]
+  favorites      Favorite[]
+  plays          GamePlay[]
+  playSessions   PlaySession[]
+  downloadsBy    GameDownload[]
+}
+
+model GameLike {
+  id     String @id @default(cuid())
+  userId String
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  value  Int // 1 = like, -1 = dislike
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+}
+
+model Favorite {
+  id     String  @id @default(cuid())
+  userId String
+  gameId String
+  game   Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  text        String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  parentId    String? // set when this is a reply to another review/comment
+  parent      Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[] @relation("CommentReplies")
+  mediaFileId String? // optional image/video/audio attachment
+  mediaType   String? // "image" | "video" | "audio"
+  mediaName   String?
+  rating      Int? // Steam-style 0-5 stars (optional on a review)
+  rec         Int? // 1 = Recommended, 0 = Not Recommended (Steam thumbs)
+  upIds       String   @default("[]") // JSON array of user ids who marked the review Helpful
+  createdAt   DateTime @default(now())
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  requesterId String
+  requester   User     @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addresseeId String
+  addressee   User     @relation("addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  status      String   @default("pending") // pending | accepted
+  createdAt   DateTime @default(now())
+
+  @@unique([requesterId, addresseeId])
+}
+
+// ---------------- Follows (follow people, see follower counts) ----------------
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+}
+
+// ---------------- Private chat (Discord-style DMs between friends) ----------------
+
+model ChatMessage {
+  id          String    @id @default(cuid())
+  senderId    String
+  sender      User      @relation("chatSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   User      @relation("chatRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  text        String    @default("")
+  fileId      String? // image / video / audio / gif attachment
+  fileType    String? // "image" | "video" | "audio"
+  fileName    String?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+// ---------------- Groups (classic Roblox-style communities) ----------------
+
+model Group {
+  id          String        @id @default(cuid())
+  name        String
+  description String        @default("")
+  iconUrl     String? // data URL, optional group emblem
+  ownerId     String
+  owner       User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  members     GroupMember[]
+  games       Game[]
+  roles       GroupRole[]
+  posts       GroupPost[]
+  ugcItems    AvatarItem[]
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String   @default("member") // owner | member | <GroupRole.name>
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+// ---------------- Group roles (owner / admin / moderator / custom) ----------------
+
+model GroupRole {
+  id        String @id @default(cuid())
+  groupId   String
+  group     Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name      String // "Admin", "Moderator", or anything custom
+  color     String @default("#0d69ac")
+  rank      Int    @default(50) // lower = more power (10 admin, 20 moderator, 50 member)
+  permsJson String @default("[]") // JSON array: post | moderate | roles | games | settings
+  createdAt DateTime @default(now())
+
+  @@unique([groupId, name])
+}
+
+// ---------------- Group wall posts (post inside groups, like the community) ----------------
+
+model GroupPost {
+  id          String           @id @default(cuid())
+  groupId     String
+  group       Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  body        String
+  mediaFileId String? // optional image or video attachment
+  mediaType   String? // "image" | "video"
+  mediaName   String?
+  likeIds     String           @default("[]") // JSON array of user ids who liked
+  authorId    String
+  author      User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  replies     GroupPostReply[]
+}
+
+model GroupPostReply {
+  id       String    @id @default(cuid())
+  postId   String
+  post     GroupPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  text     String
+  authorId String
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// ---------------- Games you played / downloaded (home page rails + profile stats) ----------------
+
+model GamePlay {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId        String
+  game          Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  playCount     Int      @default(1)
+  seconds       Int      @default(0) // total playtime (all sessions, accumulated by the heartbeat)
+  firstPlayedAt DateTime @default(now())
+  lastPlayedAt  DateTime @default(now())
+
+  @@unique([userId, gameId])
+}
+
+// one row per in-game session; the player heartbeats every ~60s while playing
+// (Steam-style: "played 12.4 hrs last 2 weeks" comes from summing these)
+model PlaySession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId     String
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  seconds    Int      @default(0)
+  startedAt  DateTime @default(now())
+  lastBeatAt DateTime @default(now())
+
+  @@index([userId, lastBeatAt])
+  @@index([gameId])
+}
+
+// site-wide achievements (Steam-style badge showcase on the profile)
+model PlayerBadge {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId    String // key from BADGES in src/lib/badges.ts
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+model GameDownload {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  count     Int      @default(1)
+  lastAt    DateTime @default(now())
+
+  @@unique([userId, gameId])
+}
+
+// ---------------- RetroLabs (dev forum: tutorials, source code, showcase) ----------------
+
+model LabPost {
+  id           String     @id @default(cuid())
+  board        String // Tutorials | Source Code | Showcase | Help
+  title        String
+  body         String     @default("")
+  videoUrl     String? // optional video link (YouTube etc.)
+  mediaJson    String     @default("[]") // JSON [{fileId,type:"image"|"video",name}] uploaded media
+  codeFileId   String? // optional source code upload
+  codeFileName String?
+  likeIds      String     @default("[]") // JSON array of user ids who liked
+  downIds      String     @default("[]") // JSON array of user ids who disliked
+  editedAt     DateTime?  // set when the author edits the post (shows "edited")
+  views        Int        @default(0)
+  authorId     String
+  author       User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  replies      LabReply[]
+}
+
+model LabReply {
+  id        String   @id @default(cuid())
+  text      String
+  postId    String
+  post      LabPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likeIds   String   @default("[]") // JSON array of user ids who liked
+  createdAt DateTime @default(now())
+}
+
+// ---------------- Community (player lounge, reddit-style) ----------------
+
+model CommunityPost {
+  id          String             @id @default(cuid())
+  title       String
+  body        String             @default("")
+  flair       String             @default("General") // General | Memes | Help | Finds | Off-Topic (default r/)
+  subId       String? // set when posted into a player-created r/ community
+  sub         Sub?               @relation(fields: [subId], references: [id], onDelete: SetNull)
+  linkUrl     String?
+  mediaFileId String? // optional uploaded image or video
+  mediaType   String? // "image" | "video"
+  mediaName   String?
+  videoId     String? // when mediaType=video this post ALSO lives on /videos/[id]
+  upIds       String             @default("[]") // JSON arrays of user ids
+  downIds     String             @default("[]")
+  authorId    String
+  author      User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime           @default(now())
+  comments    CommunityComment[]
+}
+
+model CommunityComment {
+  id          String        @id @default(cuid())
+  text        String
+  postId      String
+  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId    String? // set when this is a reply to another comment
+  parent      CommunityComment?  @relation("CommunityCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     CommunityComment[] @relation("CommunityCommentReplies")
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likeIds     String        @default("[]") // JSON array of user ids who liked
+  mediaFileId String? // optional image/video attachment
+  mediaType   String?
+  mediaName   String?
+  createdAt   DateTime      @default(now())
+}
+
+// ---------------- Player-created r/ communities ----------------
+
+model Sub {
+  id            String          @id @default(cuid())
+  slug          String          @unique // "memes" -> r/memes (3-21 chars)
+  name          String // display name
+  description   String          @default("")
+  iconFileId    String? // optional round icon
+  bannerFileId  String? // optional banner image
+  color         String          @default("#0d69ac") // accent color for the r/ chip
+  memberIds     String          @default("[]") // JSON array of user ids
+  postIds       CommunityPost[]
+  creatorId     String
+  creator       User            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt     DateTime        @default(now())
+}
+
+// ---------------- Videos (YouTube-style: upload, watch, comment) ----------------
+
+model Video {
+  id          String         @id @default(cuid())
+  title       String
+  description String         @default("")
+  fileId      String // uploaded video file id (served via /api/files)
+  fileName    String?
+  thumbFileId String? // optional custom thumbnail image
+  postId      String? // set when the video was uploaded through a community post
+  upIds       String         @default("[]") // JSON arrays of user ids (like / dislike)
+  downIds     String         @default("[]")
+  views       Int            @default(0)
+  authorId    String
+  author      User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  comments    VideoComment[]
+}
+
+model VideoComment {
+  id          String   @id @default(cuid())
+  text        String
+  videoId     String
+  video       Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  parentId    String? // set when this is a reply to another comment
+  parent      VideoComment?  @relation("VideoCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     VideoComment[] @relation("VideoCommentReplies")
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  mediaFileId String? // optional image/video/audio attachment
+  mediaType   String?
+  mediaName   String?
+  createdAt   DateTime @default(now())
+}
+
+// ---------------- RetroBlox Platform: avatars, UGC, inventory, game saves ----------------
+// The avatar belongs to the RetroBlox ACCOUNT, not to any single game. Games get it
+// through the platform API (GET /api/users/{userId}/avatar) — never from the database.
+
+model AvatarConfig {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bodyAssetId     String   @default("body_01") // asset service IDs (body_01, head_02, ...)
+  headAssetId     String   @default("head_01")
+  shirtAssetId    String   @default("shirt_01")
+  pantsAssetId    String   @default("pants_01")
+  accessoriesJson String   @default("[]") // JSON array of worn accessory asset IDs (hats, gear...)
+  colorsJson      String   @default("{}") // JSON per-part body colors {head,torso,armL,armR,legL,legR} -> "#RRGGBB"
+  faceScale       Float    @default(1) // face decal size multiplier (0.5 = tiny, 2 = huge; 1 = the classic look)
+  bundleAssetId   String?  // worn bundle — replaces body parts (null = the classic blocky body)
+  animPackAssetId String?  // active animation pack — its clips replace idle/walk/jump/climb in realtime (null = classic anims)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}
+
+// Avatar UGC: any hat / face / shirt / pants / gear a member (or a group) publishes.
+// assetId is the public ID games resolve through the asset service (/api/assets/{assetId}).
+model AvatarItem {
+  id          String   @id @default(cuid())
+  assetId     String   @unique // "hat_4", "face_9", "gear_2" ...
+  name        String
+  description String   @default("")
+  type        String // hat | face | tshirt | shirt | pants | gear | accessory
+  price       Int      @default(0) // starting price in RBX — 0 = free item
+  isLimited   Boolean  @default(false) // classic rare: buyers pay 2x the starting price
+  imageFileId String // image served via /api/files/{id} — for 3D UGC this is the try-on thumbnail captured in the placement editor
+  modelFileId String? // 3D UGC only: the GLB model (converted client-side at publish) served via /api/files/{id}
+  placementJson String? // 3D UGC only: creator-placed transform {p:[x,y,z], r:[x,y,z] deg, s:[x,y,z]} — rendered EXACTLY as placed, never auto-corrected
+  textureFileId String? // 3D UGC only: optional texture image wrapped around the model (creator uploads it at publish)
+  baseColor String? // 3D UGC only: optional tint painted on the model when it has no texture (#RRGGBB)
+  // ---- rigged UGC (emotes / bundles / animation packs) ----
+  animClipsJson   String? // emote/anim: {"clips":["Wave"],"map":{"idle":"Idle","walk":"Walk"}} — clip names inside the GLB
+  animTargetJson  String? // emote/anim: {"kind":"avatar"|"bundle"|"ugc","assetId":"..."} — the creator's suggested preview context
+  bundlePartsJson String? // bundle: ["head","torso","armL","armR","legL","legR"] — which body parts it replaces
+  hasRig          Boolean @default(false) // the GLB carries a skeleton/anims — usable as a rig for animations
+  // ---- limited economy ----
+  stock       Int?    // LIMITED only: total copies that will ever exist (null = unlimited); sold == stock -> SOLD OUT
+  ownersBoost Int     @default(0) // admin-only: added to the real owners count on display (rarity theatre, the admin decides)
+  creatorId   String
+  creator     User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  groupId     String? // set when published from a group
+  group       Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime? // soft delete — UGC is NEVER hard-deleted, an admin can always restore it
+  ownedBy     InventoryEntry[]
+}
+
+// Who owns which UGC item (publishers get their item automatically; "Get" grants it too)
+model InventoryEntry {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  acquiredAt DateTime   @default(now())
+
+  @@unique([userId, itemId])
+}
+
+// ---------------- RBX wallet (real money via Stripe) ----------------
+// Buyable RBX packages. Seeded once with the classic amounts, then editable
+// from the admin panel — the SERVER's copy of a package is the only source
+// of truth for both the USD price and the RBX amount.
+model RbxPackage {
+  id         String   @id @default(cuid())
+  code       String   @unique // "PACKAGE_100" — what the frontend sends (never a price)
+  name       String   // "100 RBX"
+  rbxAmount  Int // RBX credited on a successful payment
+  priceCents Int // USD price in cents
+  currency   String   @default("usd")
+  active     Boolean  @default(true) // inactive packages vanish from the store
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  payments   Payment[]
+}
+
+// Immutable RBX ledger. Every balance change is a row here first —
+// stripeEventId is unique so a retried Stripe webhook can NEVER credit twice.
+model RbxTransaction {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount                Int // signed: positive = credit, negative = debit/reversal
+  type                  String // purchase | admin_grant | spend | refund | reversal
+  balanceBefore         Int
+  balanceAfter          Int
+  note                  String   @default("")
+  packageId             String?
+  stripeEventId         String?  @unique // idempotency guard — one grant per Stripe event
+  stripePaymentIntentId String?
+  createdAt             DateTime @default(now())
+}
+
+// One row per Stripe Checkout attempt (pending -> succeeded / failed / expired)
+// plus the running refund counters (money AND rbx are tracked separately so
+// partial refunds stay safe).
+model Payment {
+  id                      String   @id @default(cuid())
+  userId                  String?
+  user                    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  stripeCheckoutSessionId String   @unique
+  stripePaymentIntentId   String?
+  stripeEventId           String? // last webhook event that touched this payment
+  packageId               String?
+  package                 RbxPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  amountPaid              Int      @default(0) // cents
+  currency                String   @default("usd")
+  status                  String   @default("pending") // pending | succeeded | failed | expired | refunded | partially_refunded
+  refundedCents           Int      @default(0) // running total of money refunded
+  rbxCredited             Int      @default(0)
+  rbxReversed             Int      @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+// ---------------- Music library (upload + play RetroBlox tracks) ----------------
+// The classic audio library: anyone uploads a track, everyone listens.
+// Audio files stream through /api/files/{id} (Range requests supported).
+model MusicTrack {
+  id        String    @id @default(cuid())
+  title     String
+  creatorId String
+  creator   User      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  fileId    String // the audio file (mp3 / ogg / wav) served via /api/files/{id}
+  fileName  String?
+  plays     Int       @default(0)
+  createdAt DateTime  @default(now())
+  deletedAt DateTime? // soft delete — UGC is NEVER hard-deleted
+}
+
+// Game data / save API — per game + player + key, written only through the platform API
+model GameData {
+  id        String   @id @default(cuid())
+  gameId    String // RetroBlox game id
+  userId    String // player the save belongs to
+  key       String
+  value     String   @default("{}") // arbitrary JSON the game stores
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameId, userId, key])
+}
