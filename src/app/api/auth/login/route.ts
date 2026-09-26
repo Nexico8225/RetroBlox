@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword, makeToken, publicUser, setSessionCookie } from '@/lib/auth'
+import { ensureTables, diagnoseDb } from '@/lib/dbdiag'
 
 export async function POST(req: NextRequest) {
+  // paramedic first: if the cloud database is reachable but EMPTY, this
+  // creates all tables on the spot (idempotent, only touches empty DBs)
+  await ensureTables()
   try {
     const body = await req.json()
     const username = String(body.username || '').trim()
@@ -50,11 +54,11 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error('login error', e)
     // 99% of the time this is the database being unreachable (bad DATABASE_URL,
-    // missing token, tables never created). Send the human to the doctor page.
+    // missing token, tables never created). Name the exact cause in the banner.
+    const reason = await diagnoseDb()
     return NextResponse.json(
       {
-        error:
-          'The server could not reach the database. Open /api/health in your browser to see exactly what is wrong.',
+        error: `The server could not reach the database. ${reason} (Full check: open /api/health.)`,
         code: 'server',
       },
       { status: 500 }
