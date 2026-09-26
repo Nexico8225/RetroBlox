@@ -35,7 +35,7 @@ export function RetroFontText({
     >
       {chars.map((ch, i) => {
         if (ch === ' ') {
-          return <span key={i} style={{ display: 'inline-block', width: Math.round(size * 0.28) }} aria-hidden="true" />
+          return <span key={i} style={{ display: 'inline-block', width: Math.round(size * 0.36) }} aria-hidden="true" />
         }
         const g = GLYPHS[ch.toUpperCase()]
         if (g === undefined || !/[A-Za-z]/.test(ch)) {
@@ -59,7 +59,7 @@ export function RetroFontText({
             style={{
               height: size,
               width: Math.round(size * g),
-              marginRight: Math.round(size * 0.035),
+              marginRight: Math.round(size * 0.07),
               display: 'inline-block',
               userSelect: 'none',
             }}

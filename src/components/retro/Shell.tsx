@@ -132,7 +132,7 @@ export function Header() {
             <img src="/retro/logo.png" alt="RetroBlox logo" width={34} height={34} style={{ display: 'block' }} />
           </span>
           <span className="rb-brand-desktop">
-            <RetroFontText text="RetroBlox" size={25} style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.45))' }} />
+            <RetroFontText text="RetroBlox" size={21} style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.45))' }} />
           </span>
         </Link>
 

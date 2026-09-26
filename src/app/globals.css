@@ -32,11 +32,6 @@
 }
 
 :root {
-  /* PvZ daylight palette — exactly FIVE hues, no gradient soup:
-     warm cream canvas, deep brown ink, grass green, sun yellow,
-     and the RetroBlox brand red reserved for the important button.
-     (var names keep their old blue/green labels so components keep
-     working — the VALUES are the new warm palette) */
   --rb-red: #e2231a;
   --rb-red-dark: #b81b13;
   --rb-blue: #00A2FF;
@@ -44,19 +39,16 @@
   --rb-blue-darker: #00639e;
   --rb-green: #02b757;
   --rb-green-dark: #029a4a;
-  --rb-sun: #02b757;
-  --rb-sun-dark: #029a4a;
   --rb-bg: #e3e3e3;
   --rb-box: #ffffff;
   --rb-border: #b6c0cb;
   --rb-border-light: #dde3ea;
-  --rb-head-grad-a: #ffffff;
+  --rb-head-grad-a: #f5f6f7;
   --rb-head-grad-b: #ebedee;
   --rb-text: #191919;
   --rb-text-dim: #68737f;
   --rb-nav: #0070b6;
   --rb-nav-hover: #0085cf;
-  --rb-nav-dark: #005a94;
 }
 
 html,
@@ -66,14 +58,16 @@ body {
 
 body {
   font-family: 'Source Sans Pro', 'Source Sans 3', 'Segoe UI', 'Noto Sans', Verdana, Tahoma, sans-serif;
-  /* BIG, readable scale — 13px was museum-label size */
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.55;
   color: var(--rb-text);
-  background-color: var(--rb-bg);
-  /* one soft print-dot paper — daylight warmth, zero gradient stacks */
-  background-image: radial-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px);
-  background-size: 9px 9px;
+  background-color: #e6eaf0;
+  /* soft daylight sheen + a whisper of sky glow + the 2016 print-dot paper */
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(235, 240, 246, 0.35) 40%, rgba(214, 222, 232, 0.55) 100%),
+    radial-gradient(1200px 460px at 50% -160px, rgba(0, 162, 255, 0.09), transparent 65%),
+    radial-gradient(rgba(0, 0, 0, 0.016) 1px, transparent 1px);
+  background-size: auto, auto, 9px 9px;
   background-attachment: fixed;
 }
 
@@ -119,19 +113,6 @@ body * {
   font-weight: 600 !important;
 }
 
-/* the display layer that is ALLOWED to be loud: big friendly headings
-   (the body * normal rule above would flatten inline fontWeight:800) */
-.rb-heavy {
-  font-weight: 800 !important;
-  letter-spacing: 0.5px;
-}
-
-/* the auth CTA press — squash like a PvZ seed packet */
-.rb-auth-cta:active {
-  transform: translateY(2px) !important;
-  border-bottom-width: 1px !important;
-}
-
 /* keyboard focus ring — same blue outline as other webs */
 button:focus-visible,
 a:focus-visible,
@@ -143,15 +124,15 @@ a:focus-visible,
 
 /* ---------- Retro building blocks ---------- */
 .rb-box {
-  background: var(--rb-box);
-  border: 1.5px solid var(--rb-border);
-  border-radius: 14px;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.07), 0 10px 24px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdfe 100%);
+  border: 1px solid var(--rb-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(23, 46, 66, 0.1), 0 6px 18px rgba(23, 46, 66, 0.06);
 }
 /* match the panel head to the card's rounded top (no overflow:hidden —
    popovers and drag highlights inside cards must not get clipped) */
 .rb-box > .rb-panel-head:first-child {
-  border-radius: 12.5px 12.5px 0 0;
+  border-radius: 7px 7px 0 0;
 }
 
 /* catalog / game cards: a gentle lift on hover so the grid feels alive */
@@ -164,14 +145,14 @@ a:focus-visible,
 }
 
 .rb-panel-head {
-  background: #ebedee;
-  border-bottom: 1.5px solid var(--rb-border-light);
-  color: #68737f;
+  background: linear-gradient(180deg, #f7f8f9 0%, #eef0f2 100%);
+  border-bottom: 1px solid var(--rb-border-light);
+  color: #4a5866;
   font-family: var(--rb-display);
   font-weight: 400 !important;
-  font-size: 16px;
-  letter-spacing: 0.3px;
-  padding: 13px 16px 13px 18px;
+  font-size: 15px;
+  letter-spacing: 0.4px;
+  padding: 11px 14px 11px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -183,8 +164,8 @@ a:focus-visible,
   left: 0;
   top: 0;
   bottom: 0;
-  width: 4px;
-  background: var(--rb-nav);
+  width: 3px;
+  background: var(--rb-blue);
 }
 
 .rb-link {
@@ -196,96 +177,87 @@ a:focus-visible,
   color: var(--rb-blue-dark);
 }
 
-/* chunky daylight buttons — solid colors with ONE darker bottom edge
-   instead of a gradient stack. Press = the edge squashes. That is the
-   toy-like PvZ soul, done without a single gradient. */
+/* 2016 flat buttons — light gray squares, blue/green/red action colors */
 .rb-btn {
   font-family: inherit;
-  font-size: 14px;
-  padding: 9px 18px;
-  border: 1.5px solid #9aa5b1;
-  border-bottom-width: 3px;
-  border-radius: 10px;
-  background: #ebedee;
-  color: #2b2b2b;
-  box-shadow: none;
-  transition: filter 100ms, transform 60ms, border-bottom-width 60ms;
+  font-size: 12px;
+  padding: 8px 17px;
+  border: 1px solid #adadad;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #ffffff 0%, #efefef 50%, #e0e0e0 100%);
+  color: #333;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: filter 100ms;
 }
 .rb-btn:hover {
-  background: #f5f6f7;
-  border-color: #9aa5b1;
+  background: linear-gradient(180deg, #ffffff 0%, #eaf4fb 50%, #d9ecf8 100%);
+  border-color: #7cbde0;
 }
 .rb-btn:active {
-  transform: translateY(2px);
-  border-bottom-width: 1px;
+  background: linear-gradient(180deg, #dcdcdc 0%, #ededed 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 .rb-btn:disabled {
   opacity: 0.55;
 }
 
-/* primary action — grass green */
+/* 2016 blue action — the Sign Up / primary button on the old bar */
 .rb-btn-blue {
-  background: var(--rb-nav);
-  border-color: var(--rb-nav-dark);
+  background: linear-gradient(180deg, #2ea3e0 0%, #0d69ac 100%);
+  border-color: #005f9c;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 .rb-btn-blue:hover {
-  background: var(--rb-nav-hover);
+  background: linear-gradient(180deg, #45b1e8 0%, #1173b8 100%);
 }
 .rb-btn-blue:active {
-  transform: translateY(2px);
-  border-bottom-width: 1px;
+  background: linear-gradient(180deg, #0d69ac 0%, #005f9c 100%);
 }
 
 .rb-btn-red {
-  background: var(--rb-red);
-  border-color: var(--rb-red-dark);
+  background: linear-gradient(180deg, #f0544a 0%, #e2231a 55%, #c01d15 100%);
+  border-color: #a01610;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 .rb-btn-red:hover {
-  background: #ef3b31;
+  background: linear-gradient(180deg, #ff6a60 0%, #ea2f26 55%, #cc221a 100%);
 }
 .rb-btn-red:active {
-  transform: translateY(2px);
-  border-bottom-width: 1px;
+  background: linear-gradient(180deg, #c01d15 0%, #e2231a 100%);
 }
 
-/* the sunny button — Play / buy / anything fun */
 .rb-btn-green {
-  background: var(--rb-sun);
-  border-color: var(--rb-sun-dark);
-  color: #ffffff;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: linear-gradient(180deg, #0fd06a 0%, #02b757 55%, #029a4a 100%);
+  border-color: #028a42;
+  color: #fff;
 }
 .rb-btn-green:hover {
-  background: #0fc362;
+  background: linear-gradient(180deg, #2fdc7e 0%, #0ac760 55%, #06a551 100%);
 }
 .rb-btn-green:active {
-  transform: translateY(2px);
-  border-bottom-width: 1px;
+  background: linear-gradient(180deg, #029a4a 0%, #02b757 100%);
 }
 
-/* retro inputs — warm paper, roomy and readable */
+/* retro inputs — soft squares, 2016 style */
 .rb-input,
 .rb-select,
 .rb-textarea {
   font-family: inherit;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--rb-text);
-  background: #ffffff;
-  border: 1.5px solid var(--rb-border);
-  border-radius: 10px;
-  padding: 10px 13px;
+  background: #fff;
+  border: 1px solid #c9d0d8;
+  border-radius: 5px;
+  padding: 7px 12px;
   outline: none;
 }
 .rb-input:focus,
 .rb-select:focus,
 .rb-textarea:focus {
-  border-color: var(--rb-nav);
-  box-shadow: 0 0 0 3px rgba(0, 113, 188, 0.18);
+  border-color: var(--rb-blue);
+  box-shadow: 0 0 3px rgba(0, 162, 255, 0.45);
 }
 
 /* Online dot */
@@ -309,46 +281,46 @@ a:focus-visible,
 
 /* status badge chip (messages/friends counts) */
 .rb-badge {
-  background: var(--rb-red);
+  background: linear-gradient(180deg, #f4685f, #c81c14);
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   border-radius: 999px;
-  min-width: 19px;
-  height: 19px;
+  min-width: 17px;
+  height: 17px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
-  border: 1.5px solid var(--rb-red-dark);
-  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35);
+  padding: 0 4px;
+  border: 1px solid #8f150e;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 /* gold ADMIN chip shown next to staff usernames */
 .rb-admin-badge {
   display: inline-flex;
   align-items: center;
-  background: var(--rb-sun);
-  border: 1.5px solid var(--rb-sun-dark);
-  border-radius: 6px;
-  color: #ffffff;
-  font-size: 10px;
+  background: linear-gradient(180deg, #ffe9a8, #f5c542);
+  border: 1px solid #b5890f;
+  border-radius: 3px;
+  color: #6b4e00;
+  font-size: 9px;
   letter-spacing: 0.5px;
-  padding: 1px 6px;
+  padding: 1px 5px;
   text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.55);
+  box-shadow: inset 1px 1px 0 #fff8dc;
   vertical-align: middle;
 }
 
 /* like/dislike ratio bar */
 .rb-ratio {
-  height: 7px;
-  background: #dde3ea;
-  border: 1px solid #b6c0cb;
-  border-radius: 999px;
+  height: 6px;
+  background: #c6ccd2;
+  border: 1px solid #9aa6b1;
   overflow: hidden;
 }
 .rb-ratio > div {
   height: 100%;
-  background: var(--rb-nav);
+  background: linear-gradient(180deg, #7ec95c, #4c9e34);
 }
 
 /* 2016 page titles — big Source Sans Pro LIGHT, the signature of the old
@@ -356,9 +328,9 @@ a:focus-visible,
    this is a lighter weight, not a bolder one. */
 .rb-page-title {
   font-weight: 300 !important;
-  font-size: 30px;
+  font-size: 25px;
   line-height: 1.15;
-  color: var(--rb-text);
+  color: #191919;
   letter-spacing: 0.2px;
 }
 
@@ -387,28 +359,36 @@ a:focus-visible,
 
 /* ---------- header / sidebar / footer ---------- */
 .rb-header {
-  background: var(--rb-nav);
-  border-bottom: 4px solid var(--rb-nav-dark);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(180deg, #0f83c9 0%, var(--rb-nav) 45%, #005f9c 100%);
+  border-bottom: 1px solid #004e83;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
   position: sticky;
   top: 0;
   z-index: 50;
 }
-/* (the old CRT scanline overlay is gone — flat, calm, readable) */
+/* faint CRT scanlines over the blue bar — you only notice them sideways,
+   and that is exactly the point */
+.rb-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
+}
 .rb-nav-item {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 
-/* the 2016 header search — white box with the sunny Go button */
+/* the 2016 header search — white box with the blue Go button */
 .rb-header-search .rb-btn {
-  background: var(--rb-sun);
-  border-color: var(--rb-sun-dark);
-  color: #ffffff;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: linear-gradient(180deg, #2ea3e0 0%, #0d69ac 100%);
+  border-color: #005f9c;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 .rb-header-search .rb-btn:hover {
-  background: #0fc362;
-  border-color: var(--rb-sun-dark);
+  background: linear-gradient(180deg, #45b1e8 0%, #1173b8 100%);
+  border-color: #005f9c;
 }
 .rb-header-inner {
   max-width: 1200px;
@@ -421,9 +401,9 @@ a:focus-visible,
 }
 .rb-nav-item {
   color: #fff;
-  font-size: 14px;
-  padding: 8px 16px;
-  border-radius: 8px;
+  font-size: 13px;
+  padding: 7px 15px;
+  border-radius: 4px;
   text-decoration: none;
   white-space: nowrap;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
@@ -433,11 +413,11 @@ a:focus-visible,
   border-color: transparent !important;
 }
 
-/* the classic nav strip — the old site's second header row */
+/* the classic white nav strip — the old site's second header row */
 .rb-navbar {
-  background: #eef0f3;
-  border-bottom: 1.5px solid var(--rb-border-light);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, #ffffff 0%, #f0f5fa 100%);
+  border-bottom: 1px solid #c9d6e2;
+  box-shadow: 0 2px 6px rgba(23, 74, 120, 0.1);
 }
 .rb-navbar-inner {
   max-width: 1200px;
@@ -451,34 +431,34 @@ a:focus-visible,
   scrollbar-width: thin;
 }
 .rb-navbar-item {
-  padding: 7px 14px;
-  font-size: 13px;
+  padding: 6px 12px;
+  font-size: 12px;
   font-weight: 700;
-  color: #68737f;
+  color: #1c4e7c;
   text-decoration: none;
   white-space: nowrap;
-  border-radius: 8px;
-  border: 1.5px solid transparent;
+  border-radius: 4px;
+  border: 1px solid transparent;
   flex-shrink: 0;
 }
 .rb-navbar-item:hover {
-  background: #f2f3f4;
-  color: #191919;
+  background: #e1f2fb;
+  color: #00639e;
 }
 .rb-navbar-item.rb-navbar-active {
-  background: var(--rb-sun);
-  color: #ffffff;
-  border-color: var(--rb-sun-dark);
+  background: #e1f2fb;
+  color: #00639e;
+  border-color: #b5d9ee;
 }
 
 /* sidebar group headers ("Play", "Create", "Avatar & Shop"...) */
 .rb-side-sec {
   margin: 10px 13px 3px;
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 1.3px;
   text-transform: uppercase;
-  color: #68737f;
+  color: #7c8ea0;
 }
 .rb-side-sec:first-of-type {
   margin-top: 8px;
@@ -488,24 +468,24 @@ a:focus-visible,
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 10px 13px;
+  padding: 9px 13px;
   border: none;
-  border-bottom: 1px solid #dde3ea;
-  font-size: 13.5px;
+  border-bottom: 1px solid #ececec;
+  font-size: 12px;
   text-align: left;
   text-decoration: none;
   box-sizing: border-box;
 }
 .rb-side-item:hover {
-  background: #ebedee;
+  background: #f2f8fd;
 }
 .rb-footer {
-  border-top: 1.5px solid var(--rb-border-light);
-  background: #e8eaed;
+  border-top: 1px solid #cccccc;
+  background: linear-gradient(180deg, #e9edf2 0%, #dfe4eb 100%);
   padding: 20px 16px 18px;
   text-align: center;
-  font-size: 11.5px;
-  color: #68737f;
+  font-size: 10px;
+  color: #767676;
   line-height: 1.8;
   margin-top: auto;
 }
@@ -523,19 +503,19 @@ a:focus-visible,
 /* thin retro scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #b6c0cb #e8eaed;
+  scrollbar-color: #9db2c4 #e6ecf1;
 }
 *::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
 *::-webkit-scrollbar-track {
-  background: #e8eaed;
-  border: 1px solid #dde3ea;
+  background: #e6ecf1;
+  border: 1px solid #c4cfd9;
 }
 *::-webkit-scrollbar-thumb {
-  background: #b6c0cb;
-  border: 1px solid #9aa5b1;
+  background: linear-gradient(180deg, #cfdce7, #9db2c4);
+  border: 1px solid #8ba0b3;
 }
 
 /* invisible overlay controls on the sign-in/up artwork */
@@ -682,38 +662,36 @@ select.rb-magic option {
   border-color: #9db2c4;
 }
 .rb-gender-btn.rb-gender-female {
-  background: #ffd3e8;
-  border-color: #f48ab8;
+  background: linear-gradient(180deg, #ffd3e8, #ff9ecf);
+  border-color: #ff4fa8;
   color: #b02a72;
-  box-shadow: 0 0 7px rgba(255, 79, 168, 0.4);
+  box-shadow: 0 0 7px rgba(255, 79, 168, 0.55);
 }
 .rb-gender-btn.rb-gender-male {
-  background: #d5e6ff;
-  border-color: #6f9fe8;
+  background: linear-gradient(180deg, #b9d8ff, #7fb2f4);
+  border-color: #2f6fe0;
   color: #1c4e9e;
-  box-shadow: 0 0 7px rgba(47, 111, 224, 0.4);
+  box-shadow: 0 0 7px rgba(47, 111, 224, 0.55);
 }
 
 .rb-auth-submit {
   width: 100%;
   height: 46px;
-  border-radius: 10px;
-  border: 1.5px solid var(--rb-red-dark);
-  border-bottom-width: 4px;
-  background: var(--rb-red);
+  border-radius: 8px;
+  border: 1px solid #8f150e;
+  background: linear-gradient(180deg, #f0403a 0%, #d5231c 55%, #b81b13 100%);
   color: #fff;
   font-family: Verdana, Geneva, Tahoma, sans-serif;
   font-size: 16px;
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35);
-  box-shadow: none;
-  transition: filter 110ms, transform 60ms, border-bottom-width 60ms;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35), 0 2px 5px rgba(0, 0, 0, 0.25);
+  transition: filter 110ms;
 }
 .rb-auth-submit:hover {
   filter: brightness(1.09);
 }
 .rb-auth-submit:active {
-  transform: translateY(2px);
-  border-bottom-width: 1px;
+  filter: brightness(0.94);
 }
 .rb-auth-submit:disabled {
   opacity: 0.6;
@@ -803,17 +781,16 @@ select.rb-magic option {
 .rb-captcha-refresh {
   height: 34px;
   width: 36px;
-  border: 1.5px solid #9aa5b1;
-  border-bottom-width: 3px;
-  border-radius: 8px;
-  background: #ebedee;
-  color: #2b2b2b;
+  border: 1px solid #8ba4b8;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #ffffff 0%, #dbe4ec 55%, #c3d0dc 100%);
+  color: #24425f;
   font-size: 17px;
   line-height: 1;
-  box-shadow: none;
+  box-shadow: inset 1px 1px 0 #fff, 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 .rb-captcha-refresh:active {
-  background: #dde3ea;
+  background: linear-gradient(180deg, #c3d0dc, #dbe4ec);
 }
 
 /* ---------- media attachments everywhere ---------- */
@@ -889,7 +866,7 @@ select.rb-magic option {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  background: #f8f9fa;
+  background: linear-gradient(180deg, #f4f8fb, #e9eff5);
   min-height: 320px;
   max-height: 64vh;
 }
@@ -912,8 +889,8 @@ select.rb-magic option {
   overflow-wrap: anywhere;
 }
 .rb-chat-row.rb-mine .rb-chat-bubble {
-  background: #d9ecff;
-  border-color: #9fc8ee;
+  background: linear-gradient(180deg, #e3efff, #cfe2fb);
+  border-color: #9fc0ea;
 }
 .rb-chat-meta {
   font-size: 9px;
@@ -973,14 +950,14 @@ select.rb-magic option {
   transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
 }
 .rb-feed-card:hover {
-  border-color: #b6c0cb;
-  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.12);
+  border-color: #7fa8cc;
+  box-shadow: 2px 3px 0 rgba(13, 105, 172, 0.12);
   transform: translateY(-1px);
 }
 .rb-skel-block {
   display: block;
   border-radius: 3px;
-  background: linear-gradient(90deg, #dde3ea 25%, #eef0f3 50%, #dde3ea 75%);
+  background: linear-gradient(90deg, #e2e8ee 25%, #eef2f6 50%, #e2e8ee 75%);
   background-size: 200% 100%;
   animation: rb-shimmer 1.4s ease-in-out infinite;
 }
@@ -998,14 +975,14 @@ select.rb-magic option {
   gap: 5px;
   font-size: 10px;
   padding: 3px 9px;
-  border-radius: 6px;
-  border: 1.5px solid #b6c0cb;
-  background: #ebedee;
-  color: #2b2b2b;
+  border-radius: 4px;
+  border: 1px solid #b4c2cf;
+  background: linear-gradient(180deg, #fff, #dbe4ec);
+  color: #24425f;
   cursor: pointer;
 }
 .rb-like-btn.rb-liked {
-  background: #ffd9e8;
+  background: linear-gradient(180deg, #ffe3ec, #ffc2d5);
   border-color: #e0679f;
   color: #a8265f;
 }
@@ -1164,16 +1141,15 @@ body.rb-konami .rb-header-inner::after {
     width: 38px;
     height: 38px;
     flex-shrink: 0;
-    background: var(--rb-nav);
-    border: 1.5px solid var(--rb-nav-dark);
-    border-bottom-width: 3px;
-    border-radius: 8px;
-    box-shadow: none;
+    background: linear-gradient(180deg, #0085cf, #0069a8);
+    border: 1px solid #005f9c;
+    border-radius: 4px;
+    box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35);
     color: #fff;
     padding: 0;
   }
   .rb-mobile-burger:active {
-    background: var(--rb-nav-dark);
+    background: linear-gradient(180deg, #0069a8, #005f9c);
   }
 
   /* ---- slide-in drawer: every page the tab bar can't fit ---- */
@@ -1254,7 +1230,7 @@ body.rb-konami .rb-header-inner::after {
   }
   .rb-drawer-item.rb-drawer-active {
     background: #e1f2fb;
-    box-shadow: inset 3px 0 0 #0070b6;
+    box-shadow: inset 3px 0 0 #ffd34e;
   }
   .rb-drawer-logout {
     margin: 12px 10px 2px;
@@ -1282,7 +1258,7 @@ body.rb-konami .rb-header-inner::after {
     bottom: 0;
     z-index: 55;
     background: var(--rb-nav);
-    border-top: 1.5px solid var(--rb-nav-dark);
+    border-top: 1px solid #005f9c;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
@@ -1327,29 +1303,29 @@ body.rb-konami .rb-header-inner::after {
     width: 46px;
     height: 46px;
     border-radius: 11px;
-    background: var(--rb-sun);
-    border: 2px solid var(--rb-sun-dark);
+    background: linear-gradient(180deg, #ffe07a 0%, #f5b81e 100%);
+    border: 2px solid #b5890f;
     box-shadow:
-      0 3px 0 var(--rb-sun-dark),
+      0 3px 0 #b5890f,
       0 5px 9px rgba(0, 0, 0, 0.25);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
+    color: #6b4e00;
     text-shadow: none;
   }
   .rb-mobile-tab-create:active .rb-create-fab {
     transform: translateX(-50%) translateY(2px);
     box-shadow:
-      0 1px 0 #027038,
+      0 1px 0 #b5890f,
       0 2px 5px rgba(0, 0, 0, 0.25);
   }
   .rb-ctab-label {
     margin-top: 30px;
-    color: #ffffff;
+    color: #fff3c9;
   }
   .rb-mobile-tab-create.rb-tab-active .rb-create-fab {
-    background: #0fc362;
+    background: linear-gradient(180deg, #fff1b0 0%, #ffcf40 100%);
   }
 
   .rb-mobile-only {
@@ -1750,18 +1726,18 @@ body.rb-konami .rb-header-inner::after {
   gap: 5px;
   font-size: 11px;
   padding: 4px 10px;
-  border-radius: 6px;
-  border: 1.5px solid #b6c0cb;
-  background: #ebedee;
-  color: #2b2b2b;
-  box-shadow: none;
+  border-radius: 4px;
+  border: 1px solid #7cbde0;
+  background: linear-gradient(180deg, #ffffff, #dceefb);
+  color: #0a5c8f;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
 }
 .rb-fx-toggle:hover {
-  background: #f5f6f7;
-  border-color: #9aa5b1;
+  background: linear-gradient(180deg, #ffffff, #c8e6f9);
+  border-color: #0d69ac;
 }
 .rb-fx-toggle-open {
-  background: #dde3ea;
+  background: linear-gradient(180deg, #dceefb, #b3d9f2);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 .rb-fx-caret {
@@ -1800,16 +1776,16 @@ body.rb-konami .rb-header-inner::after {
   gap: 6px;
   font-size: 11px;
   padding: 4px 8px;
-  border-radius: 6px;
-  border: 1.5px solid #b6c0cb;
-  background: #eef0f3;
-  color: #2b2b2b;
+  border-radius: 4px;
+  border: 1px solid #c9d4de;
+  background: linear-gradient(180deg, #ffffff, #f2f6fa);
+  color: #24425f;
   text-align: left;
   overflow: hidden;
 }
 .rb-fxbtn:hover {
-  border-color: #9aa5b1;
-  background: #f5f6f7;
+  border-color: #0d69ac;
+  background: linear-gradient(180deg, #ffffff, #e3f2fd);
 }
 .rb-fxbtn-label {
   overflow: hidden;
@@ -1861,9 +1837,9 @@ body.rb-konami .rb-header-inner::after {
   align-items: center;
   gap: 7px;
   padding: 6px 11px;
-  background: #ebedee;
-  border-bottom: 1px dashed #b6c0cb;
-  color: #68737f;
+  background: linear-gradient(180deg, #eef6fc, #e2eef8);
+  border-bottom: 1px dashed #a8d4ef;
+  color: #0a5c8f;
   font-size: 10px;
   letter-spacing: 1.1px;
   text-transform: uppercase;

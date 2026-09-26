@@ -48,15 +48,14 @@ function AuthError({ msg }: { msg: string }) {
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 60,
-        border: '2px solid #e2a79f',
-        borderLeft: '6px solid #e2231a',
-        borderRadius: 10,
-        padding: '12px 20px',
-        background: '#fdf3f2',
-        color: '#7a2c22',
-        fontSize: 14,
-        boxShadow: '0 10px 26px rgba(0, 0, 0,.35)',
-        maxWidth: 'min(92vw, 560px)',
+        border: '1px solid #ff6259',
+        borderRadius: 8,
+        padding: '10px 18px',
+        background: 'linear-gradient(180deg,#3a1512,#2a0f0d)',
+        color: '#ffd9d6',
+        fontSize: 12,
+        boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+        maxWidth: 'min(92vw, 520px)',
         textAlign: 'center',
       }}
     >
@@ -65,23 +64,23 @@ function AuthError({ msg }: { msg: string }) {
   )
 }
 
-/* ---------- the PvZ-grade outdoor stage ----------
-   ONE centered column: wordmark, big caps headline, card. The key art
-   keeps the soul; a warm cream veil ties it into the new palette. */
+/* ---------- the classic outdoor stage ---------- */
 
 function AuthStage({
   onSubmit,
-  title,
   children,
 }: {
   onSubmit: (e: React.FormEvent) => void
-  title: string
   children: React.ReactNode
 }) {
   const narrow = useNarrow()
   return (
     <div
       style={{
+        // flex:1 inside a full-height column wrapper — the form ALWAYS has
+        // room: short screens scroll naturally instead of clipping, and on
+        // tall screens the scene fills the viewport exactly (no phantom
+        // scrollbar from the footnote strip)
         flex: 1,
         width: '100%',
         boxSizing: 'border-box',
@@ -90,34 +89,25 @@ function AuthStage({
         position: 'relative',
         overflowX: 'hidden',
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: narrow ? 'column' : 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: narrow ? 18 : 22,
-        padding: narrow ? '34px 14px 48px' : '30px 40px 52px',
+        gap: narrow ? 26 : 64,
+        padding: narrow ? '40px 18px 56px' : '32px 48px 56px',
       }}
     >
-      {/* warm cream veil so the whole scene sits in the new palette */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'linear-gradient(180deg, rgba(246,239,220,.18) 0%, rgba(246,239,220,.05) 45%, rgba(56,43,26,.38) 100%)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* ---------- the wordmark — big, tight, bobbing ---------- */}
+      {/* ---------- LEFT: just the wordmark ---------- */}
       <div
         style={{
           position: 'relative',
+          flex: narrow ? '0 0 auto' : '1 1 520px',
+          width: narrow ? '100%' : undefined,
+          maxWidth: 620,
+          textAlign: narrow ? 'center' : 'left',
           zIndex: 2,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          gap: 10,
+          alignItems: narrow ? 'center' : 'flex-start',
         }}
       >
         <div style={{ position: 'relative', transform: 'rotate(-2deg)' }}>
@@ -127,7 +117,7 @@ function AuthStage({
             style={{
               position: 'absolute',
               inset: '-30px -40px',
-              background: 'radial-gradient(60% 70% at 45% 50%, rgba(255,255,255,.5), transparent 70%)',
+              background: 'radial-gradient(60% 70% at 45% 50%, rgba(255,255,255,.55), transparent 70%)',
               filter: 'blur(8px)',
             }}
           />
@@ -138,59 +128,28 @@ function AuthStage({
               filter: 'drop-shadow(0 4px 0 #a8231c) drop-shadow(0 10px 16px rgba(23,42,63,.4))',
             }}
           >
-            <RetroFontText text="RetroBlox" size={narrow ? 36 : 88} style={{ position: 'relative' }} />
+            <RetroFontText text="RetroBlox" size={narrow ? 32 : 68} style={{ position: 'relative' }} />
           </div>
-        </div>
-        <div
-          className="rb-display"
-          style={{
-            color: '#fff',
-            fontSize: narrow ? 13 : 15,
-            letterSpacing: 4,
-            textShadow: '0 2px 0 rgba(58,43,26,.75), 0 4px 10px rgba(23,42,63,.45)',
-          }}
-        >
-          PLAY · CREATE · SHARE
         </div>
       </div>
 
-      {/* ---------- the big friendly headline ---------- */}
-      <h1
-        className="rb-heavy"
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          margin: 0,
-          textAlign: 'center',
-          textTransform: 'uppercase',
-          fontSize: narrow ? 21 : 27,
-          lineHeight: 1.2,
-          color: '#fff',
-          textShadow:
-            '0 2px 0 #191919, 0 -1px 0 #191919, 2px 0 0 #191919, -2px 0 0 #191919, 0 5px 14px rgba(23,42,63,.5)',
-        }}
-      >
-        {title}
-      </h1>
-
-      {/* ---------- the classic card, centered ---------- */}
+      {/* ---------- RIGHT: the classic white card ---------- */}
       <form
         onSubmit={onSubmit}
         style={{
           position: 'relative',
           zIndex: 2,
           flexShrink: 0,
-          width: narrow ? '100%' : 420,
+          width: narrow ? '100%' : 400,
           maxWidth: 440,
-          background: '#ffffff',
-          border: '2px solid #b6c0cb',
-          borderBottom: '5px solid #b6c0cb',
-          borderRadius: 16,
-          boxShadow: '0 18px 44px rgba(23,42,63,.35), 0 2px 0 rgba(255,255,255,.65) inset',
+          background: 'linear-gradient(180deg,#ffffff 0%,#f2f7fb 100%)',
+          border: '3px solid #1e78c8',
+          borderRadius: 12,
+          boxShadow: '0 24px 54px rgba(16,52,86,.4), inset 0 0 0 2px rgba(255,255,255,.9)',
           overflow: 'hidden',
         }}
       >
-        <div style={{ padding: narrow ? '22px 22px 26px' : '26px 28px 30px' }}>{children}</div>
+        <div style={{ padding: narrow ? '22px 22px 26px' : '26px 30px 30px' }}>{children}</div>
       </form>
     </div>
   )
@@ -200,52 +159,49 @@ function AuthStage({
 
 const LABEL: React.CSSProperties = {
   display: 'block',
-  fontSize: 12,
+  fontSize: 11,
   letterSpacing: 1.1,
   textTransform: 'uppercase',
-  color: '#68737f',
+  color: '#43505c',
   fontWeight: 700,
-  marginBottom: 6,
+  marginBottom: 5,
 }
 
 const INPUT: React.CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
   background: '#ffffff',
-  border: '1.5px solid #b6c0cb',
-  borderRadius: 10,
-  color: '#191919',
-  fontSize: 16,
-  padding: '12px 14px',
+  border: '1.5px solid #b9c6d0',
+  borderRadius: 8,
+  color: '#1c2733',
+  fontSize: 14,
+  padding: '10px 12px',
   outline: 'none',
   transition: 'border 120ms, box-shadow 120ms',
 }
 
 function inputFocus(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
-  e.currentTarget.style.borderColor = '#0070b6'
-  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 113, 188,.18)'
+  e.currentTarget.style.borderColor = '#1e78c8'
+  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(30,120,200,.16)'
 }
 function inputBlur(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
-  e.currentTarget.style.borderColor = '#b6c0cb'
+  e.currentTarget.style.borderColor = '#b9c6d0'
   e.currentTarget.style.boxShadow = 'none'
 }
 
-/* the big red CTA — flat, chunky, one dark bottom edge. Press it and it
-   squashes (the .rb-auth-cta class does the squash, see globals.css) */
 const RED_BUTTON: React.CSSProperties = {
   width: '100%',
-  border: '2px solid #b81b13',
-  borderBottomWidth: 5,
-  borderRadius: 12,
+  border: 'none',
+  borderRadius: 8,
   color: '#fff',
-  fontSize: 17,
+  fontSize: 14.5,
   letterSpacing: 0.4,
-  padding: '13px 0',
-  background: '#e2231a',
-  boxShadow: 'none',
+  padding: '11px 0',
+  background: 'linear-gradient(180deg,#f0392f 0%,#d21f16 55%,#b81b13 100%)',
+  boxShadow: '0 5px 14px rgba(226,35,26,.35), inset 0 1px 0 rgba(255,255,255,.22)',
   textShadow: '0 1px 1px rgba(0,0,0,.3)',
   cursor: 'pointer',
-  transition: 'filter 120ms, transform 60ms',
+  transition: 'filter 120ms, transform 80ms',
 }
 
 function ghostButton(): React.CSSProperties {
@@ -253,14 +209,13 @@ function ghostButton(): React.CSSProperties {
     width: '100%',
     display: 'block',
     textAlign: 'center',
-    borderRadius: 10,
-    fontSize: 14.5,
+    borderRadius: 8,
+    fontSize: 13,
     fontWeight: 700,
-    padding: '11px 0',
-    background: '#ebedee',
-    border: '1.5px solid #9aa5b1',
-    borderBottomWidth: 3,
-    color: '#2b2b2b',
+    padding: '10px 0',
+    background: '#eaf4fc',
+    border: '1.5px solid #9cc6e8',
+    color: '#1668a8',
     textDecoration: 'none',
     transition: 'background 120ms',
   }
@@ -349,8 +304,8 @@ function CaptchaRow({ code, onRefresh }: { code: string; onRefresh: () => void }
           width: 150,
           height: 46,
           display: 'block',
-          border: '1.5px solid #b6c0cb',
-          borderRadius: 8,
+          border: '1.5px solid #b9c6d0',
+          borderRadius: 6,
         }}
       />
       <button
@@ -361,10 +316,9 @@ function CaptchaRow({ code, onRefresh }: { code: string; onRefresh: () => void }
         className="rb-clickable"
         style={{
           width: 40,
-          border: '1.5px solid #9aa5b1',
-          borderBottomWidth: 3,
-          borderRadius: 8,
-          background: '#ebedee',
+          border: '1.5px solid #b9c6d0',
+          borderRadius: 6,
+          background: '#f2f6f9',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -374,7 +328,7 @@ function CaptchaRow({ code, onRefresh }: { code: string; onRefresh: () => void }
         <svg viewBox="0 0 24 24" width="17" height="17">
           <path
             d="M4 12a8 8 0 1 1 2.5 5.8M4 12v5h5"
-            stroke="#68737f"
+            stroke="#5f7183"
             strokeWidth="2.4"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -394,10 +348,10 @@ function AuthFootnote({ children }: { children: React.ReactNode }) {
       style={{
         marginTop: 0,
         textAlign: 'center',
-        fontSize: 11.5,
-        color: '#ebedee',
+        fontSize: 10.5,
+        color: 'rgba(255,255,255,.92)',
         letterSpacing: 0.3,
-        background: 'rgba(44,33,21,.55)',
+        background: 'rgba(10,24,12,.55)',
         padding: '10px 18px 12px',
         textShadow: '0 1px 2px rgba(0,0,0,.5)',
       }}
@@ -451,12 +405,11 @@ export function SignInView({ next }: { next?: string }) {
       }
       goNext()
     } catch (err) {
-      // the server's message is already specific ("No account named X",
-      // "Wrong password", "database unreachable"). Only add the spelling
-      // hint when it is actually about the account itself.
-      const msg = err instanceof Error ? err.message : 'Login failed'
-      const aboutTheAccount = /No account|Wrong password|Invalid/i.test(msg)
-      setError(aboutTheAccount ? `${msg} Check your spelling, or create a new account below.` : msg)
+      setError(
+        err instanceof Error
+          ? `${err.message} Check your spelling, or create a new account below.`
+          : 'Login failed'
+      )
       setBusy(false)
     }
   }
@@ -465,8 +418,12 @@ export function SignInView({ next }: { next?: string }) {
     <>
       <AuthError msg={error} />
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
-      <AuthStage onSubmit={submit} title="Login and start having fun">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+      <AuthStage onSubmit={submit}>
+        <h1 style={{ margin: '0 0 20px', fontSize: 19, color: '#1c3a52', letterSpacing: 0.2, fontWeight: 800 }}>
+          Login and start having fun
+        </h1>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <label style={LABEL} htmlFor="si-username">Username</label>
             <input
@@ -502,7 +459,7 @@ export function SignInView({ next }: { next?: string }) {
           <button
             type="submit"
             disabled={busy}
-            className="rb-clickable rb-auth-cta"
+            className="rb-clickable"
             style={{ ...RED_BUTTON, opacity: busy ? 0.75 : 1 }}
             onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.08)')}
             onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
@@ -512,9 +469,9 @@ export function SignInView({ next }: { next?: string }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0 12px' }}>
-          <div style={{ flex: 1, height: 1.5, background: '#dde3ea' }} />
-          <span style={{ fontSize: 11.5, letterSpacing: 1.5, color: '#68737f', textTransform: 'uppercase', fontWeight: 700 }}>New here?</span>
-          <div style={{ flex: 1, height: 1.5, background: '#dde3ea' }} />
+          <div style={{ flex: 1, height: 1, background: '#d7e1ea' }} />
+          <span style={{ fontSize: 10.5, letterSpacing: 1.5, color: '#5f7183', textTransform: 'uppercase', fontWeight: 700 }}>New here?</span>
+          <div style={{ flex: 1, height: 1, background: '#d7e1ea' }} />
         </div>
 
         <Link href="/signup" style={ghostButton()}>
@@ -532,7 +489,7 @@ export function SignInView({ next }: { next?: string }) {
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 const CHEVRON_URL =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b5a3d' stroke-width='2' fill='none'/%3E%3C/svg%3E\")"
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235f7183' stroke-width='2' fill='none'/%3E%3C/svg%3E\")"
 
 function selectStyle(): React.CSSProperties {
   return {
@@ -625,8 +582,12 @@ export function SignUpView({ next }: { next?: string }) {
     <>
       <AuthError msg={error} />
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
-      <AuthStage onSubmit={submit} title="Sign up and start having fun">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+      <AuthStage onSubmit={submit}>
+        <h1 style={{ margin: '0 0 18px', fontSize: 19, color: '#1c3a52', letterSpacing: 0.2, fontWeight: 800 }}>
+          Sign up and start having fun
+        </h1>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <label style={LABEL} htmlFor="su-username">Username</label>
             <input
@@ -741,10 +702,10 @@ export function SignUpView({ next }: { next?: string }) {
                   borderRadius: 8,
                   fontSize: 12.5,
                   fontWeight: 600,
-                  color: gender === 'female' ? '#8c2b5e' : '#68737f',
-                  background: gender === 'female' ? '#ffb1d4' : '#ebedee',
-                  border: gender === 'female' ? '2px solid #d5649f' : '1.5px solid #b6c0cb',
-                  boxShadow: gender === 'female' ? '0 0 0 3px rgba(255,111,168,.22)' : 'none',
+                  color: gender === 'female' ? '#fff' : '#43505c',
+                  background: gender === 'female' ? 'linear-gradient(180deg,#ff5fa8,#e0357f)' : '#f2f6f9',
+                  border: gender === 'female' ? '1px solid #ff7fbb' : '1.5px solid #c3cfda',
+                  boxShadow: gender === 'female' ? '0 0 0 3px rgba(255,79,168,.18)' : 'none',
                   transition: 'background 140ms, border 140ms, box-shadow 140ms',
                 }}
               >
@@ -770,10 +731,10 @@ export function SignUpView({ next }: { next?: string }) {
                   borderRadius: 8,
                   fontSize: 12.5,
                   fontWeight: 600,
-                  color: gender === 'male' ? '#1c4e9e' : '#68737f',
-                  background: gender === 'male' ? '#a9c8f5' : '#ebedee',
-                  border: gender === 'male' ? '2px solid #4a72c0' : '1.5px solid #b6c0cb',
-                  boxShadow: gender === 'male' ? '0 0 0 3px rgba(74,114,192,.22)' : 'none',
+                  color: gender === 'male' ? '#fff' : '#43505c',
+                  background: gender === 'male' ? 'linear-gradient(180deg,#4f8ff0,#2f6fd0)' : '#f2f6f9',
+                  border: gender === 'male' ? '1px solid #7fadf5' : '1.5px solid #c3cfda',
+                  boxShadow: gender === 'male' ? '0 0 0 3px rgba(47,111,224,.2)' : 'none',
                   transition: 'background 140ms, border 140ms, box-shadow 140ms',
                 }}
               >
@@ -809,7 +770,7 @@ export function SignUpView({ next }: { next?: string }) {
           <button
             type="submit"
             disabled={busy}
-            className="rb-clickable rb-auth-cta"
+            className="rb-clickable"
             style={{ ...RED_BUTTON, opacity: busy ? 0.75 : 1, marginTop: 2 }}
             onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.08)')}
             onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
@@ -819,9 +780,9 @@ export function SignUpView({ next }: { next?: string }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0 12px' }}>
-          <div style={{ flex: 1, height: 1.5, background: '#dde3ea' }} />
-          <span style={{ fontSize: 11.5, letterSpacing: 1.5, color: '#68737f', textTransform: 'uppercase', fontWeight: 700 }}>Already have an account?</span>
-          <div style={{ flex: 1, height: 1.5, background: '#dde3ea' }} />
+          <div style={{ flex: 1, height: 1, background: '#d7e1ea' }} />
+          <span style={{ fontSize: 10.5, letterSpacing: 1.5, color: '#5f7183', textTransform: 'uppercase', fontWeight: 700 }}>Already have an account?</span>
+          <div style={{ flex: 1, height: 1, background: '#d7e1ea' }} />
         </div>
 
         <Link href="/login" style={ghostButton()}>

@@ -363,7 +363,7 @@ export function ItemDetailView({ id }: { id: string }) {
 
             {/* PRICE BLOCK */}
             {item.isLimited ? (
-              <div style={{ border: '1px solid #b6c0cb', background: '#ffffff', padding: '10px 12px', marginBottom: 12 }}>
+              <div style={{ border: '1px solid #e0c98a', background: '#fffdf4', padding: '10px 12px', marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#8a6d1a', fontWeight: 'bold' }}>Original Price</div>
