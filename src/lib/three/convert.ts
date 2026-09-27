@@ -38,10 +38,12 @@ function hasRealColor(m: THREE.MeshStandardMaterial): boolean {
 /** Normalize every material to matte PBR before the GLB is written, so the
  *  item looks IDENTICAL on the site, in the Godot kit and in future SDKs.
  *
- *  Why this matters: Blender FBX files arrive as Phong/Lambert materials.
- *  They keep their Base Color here (grey stays grey, brown stays brown),
- *  and metalness is zeroed because the classic look is matte plastic —
- *  never a metal mirror.
+ *  THE ROBLOX RULE — DATA WINS: everything the model file carries comes
+ *  through. Blender FBX files arrive as Phong/Lambert materials, and this
+ *  copies the FULL set of data they hold (base color, diffuse texture,
+ *  normal map, bump map, AO map, emissive map, opacity, vertex colors),
+ *  not just the paint. Metalness is zeroed because the classic look is
+ *  matte plastic — never a metal mirror.
  *
  *  Returns a warning string when the model landed with NO material colors
  *  at all — that is the classic "my UGC is plain white in game" trap that
@@ -61,16 +63,31 @@ function normalizeMaterials(root: THREE.Object3D): string | null {
           ? (src.clone() as THREE.MeshStandardMaterial)
           : new THREE.MeshStandardMaterial()
       if (std !== src) {
-        // Phong / Lambert (what FBX and OBJ come in as) -> PBR, keeping the paint
+        // Phong / Lambert (what FBX and OBJ come in as) -> PBR, keeping
+        // EVERY piece of data the source material holds — grey stays grey,
+        // brown stays brown, textures and lighting extras survive too.
         std.name = src.name
-        std.color = (src.color ?? new THREE.Color(1, 1, 1)).clone()
         const phong = src as unknown as THREE.MeshPhongMaterial
+        std.color = (src.color ?? new THREE.Color(1, 1, 1)).clone()
         if (phong.map) std.map = phong.map
+        if (phong.normalMap) std.normalMap = phong.normalMap
+        if (phong.bumpMap) {
+          std.bumpMap = phong.bumpMap
+          std.bumpScale = phong.bumpScale
+        }
+        if (phong.aoMap) {
+          std.aoMap = phong.aoMap
+          std.aoMapIntensity = phong.aoMapIntensity
+        }
+        if (phong.emissiveMap) std.emissiveMap = phong.emissiveMap
+        if (phong.specularMap) std.roughnessMap = phong.specularMap
         if (phong.emissive) std.emissive = phong.emissive.clone()
         std.transparent = src.transparent
         std.opacity = src.opacity
         std.alphaTest = src.alphaTest
         std.side = src.side
+        std.depthWrite = src.depthWrite
+        std.vertexColors = (src as unknown as THREE.MeshBasicMaterial).vertexColors === true
       }
       std.metalness = 0
       std.roughness = 0.85
@@ -78,12 +95,27 @@ function normalizeMaterials(root: THREE.Object3D): string | null {
       return std
     })
     mesh.material = Array.isArray(mesh.material) ? next : next[0]
+    // FACE-CORNER DATA: if the mesh carries per-corner colors (Blender
+    // vertex paint, exported as COLOR_0), force the materials to use them —
+    // otherwise the GLB export silently drops COLOR_0 and that data is
+    // gone forever. Roblox keeps this data; so do we.
+    const geom = mesh.geometry as THREE.BufferGeometry | undefined
+    if (geom?.attributes?.color) {
+      const arr = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      arr.forEach((mm) => {
+        const std = mm as THREE.MeshStandardMaterial
+        std.vertexColors = true
+        std.needsUpdate = true
+      })
+      colored = true
+    }
   })
   if (meshes === 0 || colored) return null
   return (
     'This model has no material colors — it would show up plain white in game. ' +
-    'In Blender: give every material a Principled BSDF with Base Color (grey, brown, anything), ' +
-    'or export glTF Binary (.glb). You can also paint it here with a texture or a flat color.'
+    'Fix in Blender: give every material a Principled BSDF with Base Color (grey, brown, anything). ' +
+    'If your color comes from an image texture, re-export FBX with Path Mode "Copy" + "Embed Textures" ticked ' +
+    '(or export .glb, which always embeds textures). You can also paint it here with a texture or a flat color.'
   )
 }
 
