@@ -1600,8 +1600,9 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               </div>
               {is3D && (
                 <div style={{ fontSize: 9, color: '#1c4e7c', marginTop: 3, lineHeight: 1.4 }}>
-                  Using Blender materials (colors / textures)? Export <strong>glTF Binary (.glb)</strong> — File &gt; Export &gt; glTF 2.0.
-                  It always keeps your materials; FBX needs Copy + Embed and still drops things.
+                  <strong>Using materials or textures? Upload .glb.</strong> Blender: File &gt; Export &gt; glTF 2.0
+                  (format = glTF Binary) — GLB always keeps every material and texture. FBX drops them unless you use
+                  Path Mode Copy + Embed Textures.
                 </div>
               )}
               {is3D && modelBlob && (
