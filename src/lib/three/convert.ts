@@ -11,6 +11,7 @@
 
 import * as THREE from 'three'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
@@ -33,6 +34,17 @@ function hasRealColor(m: THREE.MeshStandardMaterial): boolean {
   if (m.map) return true
   const c = m.color
   return !(c.r >= NO_COLOR_EPSILON && c.g >= NO_COLOR_EPSILON && c.b >= NO_COLOR_EPSILON)
+}
+
+/** FBX loader with a TGA decoder registered. Blender-embedded .tga textures
+ *  are common (older pipelines save images as TGA), and FBXLoader SILENTLY
+ *  DROPS them — "TGA loader not found, skipping" — when no handler is
+ *  registered. A dropped texture is one of the classic "my model uploads
+ *  fully white" causes, even with Path Mode Copy + Embed Textures ticked. */
+function fbxLoader(): FBXLoader {
+  const manager = new THREE.LoadingManager()
+  manager.addHandler(/\.tga$/i, new TGALoader())
+  return new FBXLoader(manager)
 }
 
 /** Normalize every material to matte PBR before the GLB is written, so the
@@ -114,8 +126,9 @@ function normalizeMaterials(root: THREE.Object3D): string | null {
   return (
     'This model has no material colors — it would show up plain white in game. ' +
     'Fix in Blender: give every material a Principled BSDF with Base Color (grey, brown, anything). ' +
-    'If your color comes from an image texture, re-export FBX with Path Mode "Copy" + "Embed Textures" ticked ' +
-    '(or export .glb, which always embeds textures). You can also paint it here with a texture or a flat color.'
+    'Image textures: connect straight into Base Color, re-save TGA/TIFF images as PNG first, and export with Path Mode "Copy" + "Embed Textures" — ' +
+    'or just export .glb (glTF 2.0), which always keeps colors and textures. ' +
+    'You can also paint it here with a texture or a flat color.'
   )
 }
 
@@ -141,7 +154,7 @@ export async function fileToGlbWithCheck(file: File, opts?: { keepAnimations?: b
     animations = keep ? gltf.animations : undefined
   } else if (name.endsWith('.fbx')) {
     try {
-      const obj = new FBXLoader().parse(await file.arrayBuffer(), '')
+      const obj = fbxLoader().parse(await file.arrayBuffer(), '')
       object = obj
       animations = keep ? (obj as THREE.Group & { animations: THREE.AnimationClip[] }).animations : undefined
     } catch (e) {
@@ -197,7 +210,7 @@ export async function fileToGlb(file: File, opts?: { keepAnimations?: boolean })
   if (name.endsWith('.fbx')) {
     try {
       const buf = await file.arrayBuffer()
-      const obj = new FBXLoader().parse(buf, '')
+      const obj = fbxLoader().parse(buf, '')
       return await objectToGlb(obj, keep ? (obj as THREE.Group & { animations: THREE.AnimationClip[] }).animations : undefined)
     } catch (e) {
       throw new Error(
