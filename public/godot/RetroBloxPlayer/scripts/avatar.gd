@@ -19,7 +19,13 @@ extends Node3D
 var _oof_audio: AudioStream
 const HEAD_INDEX: int = 0
 const RIG_SCENE_PATH: String = "res://assets/models/R6IK.fbx"
-const RIG_HEIGHT: float = 2.9  # matches the box rig and the player capsule
+const RIG_HEIGHT: float = 5.0  # STUDS: the classic character is exactly 5 studs tall
+
+# the real R6IK animations, straight from the FBX (old Roblox moves)
+const ANIM_IDLE: StringName = &"Old_Idle"
+const ANIM_WALK: StringName = &"Old_Walk"
+const ANIM_JUMP: StringName = &"Old_Jump"
+const ANIM_CLIMB: StringName = &"Climb"
 
 # classic noob defaults — guests and brand-new accounts wear these
 const NOOB_HEAD := Color("f5cd30")
@@ -73,6 +79,8 @@ var _time: float = 0.0
 var _face_boxes: Array[MeshInstance3D] = []
 var _face_decal: MeshInstance3D
 var _applied_colors: Dictionary = {}     # part index -> Color, reapplied if the rig upgrades
+var _anim_player: AnimationPlayer        # the R6IK rig's own AnimationPlayer (old Roblox clips)
+var _current_anim: StringName = &""
 
 
 func _ready() -> void:
@@ -165,12 +173,50 @@ func clear_face() -> void:
                 _face_decal.queue_free()
         _face_decal = null
 
-func animate(delta: float, speed: float, grounded: bool) -> void:
+func animate(delta: float, speed: float, grounded: bool, climbing: bool = false) -> void:
         _ensure_built()
         _time += delta
+        if _using_r6ik and _anim_player != null:
+                _animate_r6ik(speed, grounded, climbing)
+                return
+        _animate_boxes(delta, speed, grounded, climbing)
+
+## The real R6IK clips — Old_Idle / Old_Walk / Old_Jump / Climb, exactly the
+## animations that ship inside the rig. The walk/climb clips are speed-scaled
+## to the actual movement so feet do not slide; the jump clip plays once and
+## holds its last frame until you land (classic old-Roblox jump).
+func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
+        var next: StringName = ANIM_IDLE
+        var rate := 1.0
+        if climbing:
+                next = ANIM_CLIMB
+                rate = clampf(speed / 6.0, 0.5, 1.5)
+        elif not grounded:
+                next = ANIM_JUMP
+        elif speed > 1.2:
+                next = ANIM_WALK
+                rate = clampf(speed / 8.0, 0.8, 2.2)
+        if _current_anim != next:
+                _current_anim = next
+                # snappy jump, gentle blends everywhere else
+                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
+        elif next == ANIM_WALK or next == ANIM_CLIMB:
+                _anim_player.speed_scale = rate
+
+## Box-fallback rig: procedural limb swings, same classic feel.
+func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var movement: float = clampf(abs(speed) / 5.0, 0.0, 1.0)
         var walk_rate: float = 4.8 + movement * 2.0
         var swing: float = sin(_time * walk_rate) * movement
+        if climbing:
+                # alternating reach-up, like climbing a truss
+                var alt := sin(_time * 6.5) * 0.9
+                if _pivots[2] != null:
+                        _pivots[2].rotation.x = -2.4 + alt * 0.4
+                        _pivots[3].rotation.x = -2.4 - alt * 0.4
+                        _pivots[4].rotation.x = alt * 0.5
+                        _pivots[5].rotation.x = -alt * 0.5
+                return
         # classic playground feel: arms/legs swing from the shoulder/hip,
         # arms fly up mid-air (matches the site's catalog player)
         if grounded:
@@ -289,11 +335,20 @@ func _try_r6ik() -> bool:
                 inst.free()
                 return false
 
-        # the FBX carries an AnimationPlayer for its skeleton; the body meshes
-        # are not skinned, so silence it instead of letting it autoplay
+        # ---- the rig's own AnimationPlayer carries the old Roblox clips
+        # (Old_Idle / Old_Walk / Old_Jump / Climb ...) and its tracks drive the
+        # visible body parts directly — so we USE it instead of silencing it.
         for node in inst.find_children("*", "AnimationPlayer", true, false):
-                (node as AnimationPlayer).autoplay = ""
-                (node as AnimationPlayer).stop()
+                var anim_player := node as AnimationPlayer
+                anim_player.autoplay = ""
+                anim_player.stop()
+                # IDLE processing: advances every frame, honoring speed_scale
+                # (used to speed the walk clip up and down with the player)
+                # the jump clip must hold its last frame mid-air, not loop
+                var jump_anim := anim_player.get_animation(ANIM_JUMP)
+                if jump_anim != null:
+                        jump_anim.loop_mode = Animation.LOOP_NONE
+                _anim_player = anim_player
 
         # ---- normalize: RIG_HEIGHT tall, feet on y=0, centered on x/z ----
         # bounds are computed from REAL vertices — the FBX part nodes carry
@@ -308,12 +363,12 @@ func _try_r6ik() -> bool:
                 part_boxes[index] = box
                 raw_bounds = box if not have_bounds else raw_bounds.merge(box)
                 have_bounds = true
-        var scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
+        var rig_scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
         var raw_center := raw_bounds.get_center()
         var model := Node3D.new()
         model.name = "R6IKModel"
-        model.scale = Vector3.ONE * scale
-        model.position = Vector3(-raw_center.x * scale, -raw_bounds.position.y * scale, -raw_center.z * scale)
+        model.scale = Vector3.ONE * rig_scale
+        model.position = Vector3(-raw_center.x * rig_scale, -raw_bounds.position.y * rig_scale, -raw_center.z * rig_scale)
         model.add_child(inst)
         add_child(model)
 
@@ -338,19 +393,7 @@ func _try_r6ik() -> bool:
                 mount.transform = mi.global_transform.affine_inverse() * Transform3D(global_transform.basis, world_center)
                 _mounts.append(mount)
         for i in range(6):
-                _pivots.append(null)  # pivots added for limbs below
-
-        # ---- swing pivots: shoulder/hip = top of each limb, like the site ----
-        for pair in [[ARM_L, 2], [ARM_R, 3], [LEG_L, 4], [LEG_R, 5]]:
-                var index: int = pair[0]
-                var mi := parts[index]
-                var box := _part_aabb[index]
-                var pivot := Node3D.new()
-                pivot.name = "SwingPivot_%d" % index
-                add_child(pivot)
-                pivot.position = Vector3(box.get_center().x, box.end.y, box.get_center().z)
-                mi.reparent(pivot)   # keeps the global transform — the part does not move
-                _pivots[index] = pivot
+                _pivots.append(null)  # R6IK mode is driven by the AnimationPlayer, not pivots
 
         # ---- hide the box-fallback rig ----
         for i in range(6):
