@@ -36,15 +36,97 @@ function hasRealColor(m: THREE.MeshStandardMaterial): boolean {
   return !(c.r >= NO_COLOR_EPSILON && c.g >= NO_COLOR_EPSILON && c.b >= NO_COLOR_EPSILON)
 }
 
-/** FBX loader with a TGA decoder registered. Blender-embedded .tga textures
- *  are common (older pipelines save images as TGA), and FBXLoader SILENTLY
- *  DROPS them — "TGA loader not found, skipping" — when no handler is
- *  registered. A dropped texture is one of the classic "my model uploads
- *  fully white" causes, even with Path Mode Copy + Embed Textures ticked. */
-function fbxLoader(): FBXLoader {
+/** Parse an FBX AND wait for its embedded textures to finish decoding.
+ *
+ *  Blender-embedded .tga textures are common (older pipelines save images as
+ *  TGA), and FBXLoader SILENTLY DROPS them — "TGA loader not found, skipping"
+ *  — when no handler is registered. A dropped texture is one of the classic
+ *  "my model uploads fully white" causes, even with Path Mode Copy + Embed
+ *  Textures ticked. So a TGALoader is registered on the LoadingManager.
+ *
+ *  THE RACE THIS FIXES: FBXLoader.parse() returns SYNCHRONOUSLY, but texture
+ *  decodes (TGA, PNG, JPG — all of them) run ASYNC through the LoadingManager.
+ *  GLTFExporter throws "THREE.GLTFExporter: Invalid image type" on any texture
+ *  whose image is not decoded yet — which failed the whole publish. So after
+ *  parse we drain the manager (onLoad) before the scene moves on. A timeout
+ *  guards against a texture that never finishes; objectToGlb strips any
+ *  still-unloaded texture so the export survives with what did decode. */
+async function parseFbx(buffer: ArrayBuffer): Promise<THREE.Group & { animations: THREE.AnimationClip[] }> {
   const manager = new THREE.LoadingManager()
   manager.addHandler(/\.tga$/i, new TGALoader())
-  return new FBXLoader(manager)
+
+  // itemStart fires once per requested texture — the only signal that tells
+  // us whether to wait (itemsTotal is a closure variable we cannot read).
+  let texturesRequested = 0
+  const realStart = manager.itemStart.bind(manager)
+  manager.itemStart = (url: string) => {
+    texturesRequested++
+    realStart(url)
+  }
+
+  const obj = new FBXLoader(manager).parse(buffer, '') as THREE.Group & { animations: THREE.AnimationClip[] }
+
+  if (texturesRequested > 0) {
+    await new Promise<void>((resolve) => {
+      let settled = false
+      const finish = () => {
+        if (!settled) {
+          settled = true
+          resolve()
+        }
+      }
+      manager.onLoad = finish
+      setTimeout(finish, 8000) // never hang the publish form on a stuck texture
+    })
+  }
+  return obj
+}
+
+/** Does this texture carry an image GLTFExporter can actually embed?
+ *  Mirrors the exporter's own checks (processImage): it throws "No valid
+ *  image data found" on image === null and crashes reading .width when
+ *  image === undefined, and DataTexture payloads only work when they hold
+ *  real bytes. Anything half-decoded gets rejected here, dropped there. */
+export function textureIsExportable(tex: THREE.Texture | null | undefined): boolean {
+  if (!tex) return true // no texture in this slot = nothing to guard
+  const img = tex.image as
+    | HTMLImageElement | HTMLCanvasElement | ImageBitmap | OffscreenCanvas
+    | { data?: unknown; width?: unknown; height?: unknown }
+    | null | undefined
+  if (img == null) return false // null / undefined — decode never finished
+  if (
+    (typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement) ||
+    (typeof HTMLCanvasElement !== 'undefined' && img instanceof HTMLCanvasElement) ||
+    (typeof ImageBitmap !== 'undefined' && img instanceof ImageBitmap) ||
+    (typeof OffscreenCanvas !== 'undefined' && img instanceof OffscreenCanvas)
+  ) {
+    return true
+  }
+  // DataTexture payload (what TGALoader produces once decoded)
+  const d = img as { data?: unknown; width?: unknown; height?: unknown }
+  return d.data != null && typeof d.width === 'number' && d.width > 0 && typeof d.height === 'number' && d.height > 0
+}
+
+/** Last-resort guard right before export: any texture whose image never
+ *  decoded (manager timeout hit) would make GLTFExporter throw. Drop it so
+ *  the publish goes through with every texture that DID decode. */
+export function dropUnloadedTextures(root: THREE.Object3D) {
+  const SLOTS = ['map', 'normalMap', 'bumpMap', 'aoMap', 'emissiveMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'specularMap'] as const
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh || mesh.material == null) return
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const m of mats) {
+      const std = m as THREE.MeshStandardMaterial
+      for (const slot of SLOTS) {
+        const tex = std[slot] as THREE.Texture | null | undefined
+        if (tex && !textureIsExportable(tex)) {
+          ;(std as unknown as Record<string, unknown>)[slot] = null
+          std.needsUpdate = true
+        }
+      }
+    }
+  })
 }
 
 /** Normalize every material to matte PBR before the GLB is written, so the
@@ -154,9 +236,9 @@ export async function fileToGlbWithCheck(file: File, opts?: { keepAnimations?: b
     animations = keep ? gltf.animations : undefined
   } else if (name.endsWith('.fbx')) {
     try {
-      const obj = fbxLoader().parse(await file.arrayBuffer(), '')
+      const obj = await parseFbx(await file.arrayBuffer())
       object = obj
-      animations = keep ? (obj as THREE.Group & { animations: THREE.AnimationClip[] }).animations : undefined
+      animations = keep ? obj.animations : undefined
     } catch (e) {
       throw new Error(
         `Could not read that FBX${e instanceof Error ? ` (${e.message.slice(0, 90)})` : ''}. ` +
@@ -190,6 +272,7 @@ export async function fileToGlbWithCheck(file: File, opts?: { keepAnimations?: b
 
 async function objectToGlb(object: THREE.Object3D, animations?: THREE.AnimationClip[]): Promise<Blob> {
   stripNonMeshes(object)
+  dropUnloadedTextures(object)
   const exporter = new GLTFExporter()
   const buf = (await exporter.parseAsync(object, {
     binary: true,
@@ -209,9 +292,8 @@ export async function fileToGlb(file: File, opts?: { keepAnimations?: boolean })
 
   if (name.endsWith('.fbx')) {
     try {
-      const buf = await file.arrayBuffer()
-      const obj = fbxLoader().parse(buf, '')
-      return await objectToGlb(obj, keep ? (obj as THREE.Group & { animations: THREE.AnimationClip[] }).animations : undefined)
+      const obj = await parseFbx(await file.arrayBuffer())
+      return await objectToGlb(obj, keep ? obj.animations : undefined)
     } catch (e) {
       throw new Error(
         `Could not read that FBX${e instanceof Error ? ` (${e.message.slice(0, 90)})` : ''}. ` +
