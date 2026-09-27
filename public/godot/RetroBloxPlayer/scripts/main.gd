@@ -49,13 +49,15 @@ var auth: CanvasLayer
 @onready var camera: Camera3D = $CameraRig/SpringArm3D/Camera3D
 var camera_yaw: float = 0.0
 var camera_pitch: float = -0.26
-var camera_distance: float = 8.5
+var camera_distance: float = 14.5   # studs — classic default zoom for a 5-stud character
 var camera_initialized: bool = false
 var quitting: bool = false
 var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
 
 # --- platform account ---
-var api_url: String = "http://localhost:3000"
+# The production RetroBlox site — sign-in, avatars, catalog. Override with
+# the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
+var api_url: String = "https://retro-blox.vercel.app"
 var api_ref: RetrobloxApiScript
 var platform_user_id: String = ""
 var my_avatar: Dictionary = {}
@@ -121,7 +123,7 @@ func _read_configuration() -> void:
         discovery_port = clampi(int(config.get_value("network", "discovery_port", 42421)), 1024, 65535)
         max_players = clampi(int(config.get_value("network", "max_players", 32)), 2, 64)
         room_name = str(config.get_value("game", "room_name", "RetroBlox Baseplate")).left(32)
-        api_url = str(config.get_value("platform", "api_url", "http://localhost:3000")).strip_edges().trim_suffix("/")
+        api_url = str(config.get_value("platform", "api_url", "https://retro-blox.vercel.app")).strip_edges().trim_suffix("/")
 
         profile = ConfigFile.new()
         if profile.load("user://profile.cfg") != OK:
@@ -249,6 +251,13 @@ func _input(event: InputEvent) -> void:
                         hud.begin_chat()
                         get_viewport().set_input_as_handled()
                         return
+                if event.keycode == KEY_SLASH and not hud.input_busy():
+                        # the classic: "/" pops the chat already in typing mode
+                        # (handled BEFORE the GUI sees it, so the "/" itself is
+                        # never typed into the box)
+                        hud.begin_chat()
+                        get_viewport().set_input_as_handled()
+                        return
                 if event.keycode == KEY_SHIFT and not hud.input_busy():
                         _set_shiftlock(not shiftlock)
                         get_viewport().set_input_as_handled()
@@ -259,9 +268,9 @@ func _input(event: InputEvent) -> void:
                 camera_pitch = clampf(camera_pitch - event.relative.y * 0.003 * mouse_sensitivity, -1.2, 0.8)
         if event is InputEventMouseButton and event.pressed:
                 if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-                        camera_distance = clampf(camera_distance - 0.8, 0.25, 16.0)
+                        camera_distance = clampf(camera_distance - 1.4, 0.5, 30.0)
                 elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-                        camera_distance = clampf(camera_distance + 0.8, 0.25, 16.0)
+                        camera_distance = clampf(camera_distance + 1.4, 0.5, 30.0)
 
 func _set_shiftlock(enabled: bool) -> void:
         shiftlock = enabled
@@ -315,7 +324,7 @@ func _process(delta: float) -> void:
         var local = players.get(local_id)
         var busy: bool = hud.input_busy()
         var capture: bool = not busy and (shiftlock or camera_distance < 1.0 or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
-        var wanted_mode: int = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
+        var wanted_mode: Input.MouseMode = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
         if Input.mouse_mode != wanted_mode:
                 Input.mouse_mode = wanted_mode
         hud.crosshair.visible = not busy and (shiftlock or camera_distance < 1.0)
@@ -324,7 +333,7 @@ func _process(delta: float) -> void:
                 shoulder_blend = lerpf(shoulder_blend, shoulder_target, 1.0 - exp(-10.0 * delta))
                 # shift lock rests the camera on your right shoulder, classic style
                 var right := Vector3(cos(camera_yaw), 0.0, -sin(camera_yaw))
-                var target: Vector3 = local.global_position + Vector3(0, 2.5, 0) + right * shoulder_blend
+                var target: Vector3 = local.global_position + Vector3(0, 4.3, 0) + right * shoulder_blend
                 if not camera_initialized:
                         camera_pivot.global_position = target
                         camera_initialized = true
@@ -581,8 +590,8 @@ func _register_player(requested_name: String, version: String, user_id: String) 
                 if p.display_name == safe_name:
                         safe_name = safe_name.left(12) + "-%04d" % (id % 10000)
                         break
-        var position: Vector3 = arena.spawn_point(players.size())
-        _spawn_player(id, safe_name, position, true, 0, user_id)
+        var spawn_pos: Vector3 = arena.spawn_point(players.size())
+        _spawn_player(id, safe_name, spawn_pos, true, 0, user_id)
         var roster: Array = []
         for other_id in players:
                 var p = players[other_id]
