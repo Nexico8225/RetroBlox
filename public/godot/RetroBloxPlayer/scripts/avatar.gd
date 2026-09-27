@@ -1,8 +1,11 @@
 extends Node3D
 
-## A six-part classic block avatar. The RetroBlox platform paints it:
-## see avatar_platform.gd (colors, clothing textures, face, UGC).
-## Main gameplay code can configure it before or after adding it to the tree.
+## A six-part classic block avatar, built from scenes/avatar.tscn.
+## Open that scene in the editor to resize or restyle any part — the script
+## finds the nodes by their unique names and paints them at runtime.
+## The RetroBlox platform dresses it: see avatar_platform.gd (colors, clothing
+## textures, face, UGC). Main gameplay code can configure it before or after
+## adding it to the tree.
 
 const OOF_AUDIO: AudioStream = preload("res://assets/oof.wav")
 const HEAD_INDEX: int = 0
@@ -19,6 +22,14 @@ const ARM_L := 2
 const ARM_R := 3
 const LEG_L := 4
 const LEG_R := 5
+
+# unique names of the scene nodes this script drives (scenes/avatar.tscn)
+const PIVOT_NODES: Array[String] = [
+        "%HeadPivot", "%TorsoPivot", "%LeftArmPivot", "%RightArmPivot", "%LeftLegPivot", "%RightLegPivot",
+]
+const PART_NODES: Array[String] = [
+        "%Head", "%Torso", "%LeftArm", "%RightArm", "%LeftLeg", "%RightLeg",
+]
 
 var parts: Array[MeshInstance3D] = []
 
@@ -178,68 +189,25 @@ func burst(world: Node3D, impulse_seed: int) -> void:
 func set_local_hidden(hidden: bool) -> void:
         visible = not hidden
 
+## The scene (scenes/avatar.tscn) provides every node; this only wires up the
+## arrays the gameplay code drives. Runs once, even outside the tree.
 func _ensure_built() -> void:
         if _built:
                 return
         _built = true
-        _face_material = _make_material(Color("#192c3a"))
         parts.clear()
         _pivots.clear()
         _part_sizes.clear()
-
-        var head_pivot: Node3D = _new_pivot("HeadPivot", Vector3(0.0, 2.45, 0.0))
-        var head: MeshInstance3D = _new_part(head_pivot, "Head", Vector3(0.95, 0.90, 0.85))
-        parts.append(head)
-        _part_sizes.append(Vector3(0.95, 0.90, 0.85))
-        _pivots.append(head_pivot)
-        _make_face(head_pivot)
-
-        var torso_pivot: Node3D = _new_pivot("TorsoPivot", Vector3(0.0, 1.54, 0.0))
-        var torso: MeshInstance3D = _new_part(torso_pivot, "Torso", Vector3(1.40, 1.12, 0.78))
-        parts.append(torso)
-        _part_sizes.append(Vector3(1.40, 1.12, 0.78))
-        _pivots.append(torso_pivot)
-
-        var left_arm_pivot: Node3D = _new_pivot("LeftArmPivot", Vector3(-1.00, 2.07, 0.0))
-        var left_arm: MeshInstance3D = _new_part(left_arm_pivot, "LeftArm", Vector3(0.46, 1.06, 0.56))
-        left_arm.position.y = -0.53
-        parts.append(left_arm)
-        _part_sizes.append(Vector3(0.46, 1.06, 0.56))
-        _pivots.append(left_arm_pivot)
-
-        var right_arm_pivot: Node3D = _new_pivot("RightArmPivot", Vector3(1.00, 2.07, 0.0))
-        var right_arm: MeshInstance3D = _new_part(right_arm_pivot, "RightArm", Vector3(0.46, 1.06, 0.56))
-        right_arm.position.y = -0.53
-        parts.append(right_arm)
-        _part_sizes.append(Vector3(0.46, 1.06, 0.56))
-        _pivots.append(right_arm_pivot)
-
-        var left_leg_pivot: Node3D = _new_pivot("LeftLegPivot", Vector3(-0.38, 0.98, 0.0))
-        var left_leg: MeshInstance3D = _new_part(left_leg_pivot, "LeftLeg", Vector3(0.52, 0.98, 0.62))
-        left_leg.position.y = -0.49
-        parts.append(left_leg)
-        _part_sizes.append(Vector3(0.52, 0.98, 0.62))
-        _pivots.append(left_leg_pivot)
-
-        var right_leg_pivot: Node3D = _new_pivot("RightLegPivot", Vector3(0.38, 0.98, 0.0))
-        var right_leg: MeshInstance3D = _new_part(right_leg_pivot, "RightLeg", Vector3(0.52, 0.98, 0.62))
-        right_leg.position.y = -0.49
-        parts.append(right_leg)
-        _part_sizes.append(Vector3(0.52, 0.98, 0.62))
-        _pivots.append(right_leg_pivot)
-
-        _nameplate = Label3D.new()
-        _nameplate.name = "Nameplate"
-        _nameplate.position = Vector3(0.0, 3.25, 0.0)
+        for i in range(PART_NODES.size()):
+                var part: MeshInstance3D = get_node(PART_NODES[i])
+                parts.append(part)
+                _pivots.append(get_node(PIVOT_NODES[i]))
+                var box := part.mesh as BoxMesh
+                _part_sizes.append(box.size if box != null else Vector3.ONE)
+        _face_material = get_node("%EyeLeft").material_override as StandardMaterial3D
+        _face_boxes.assign([get_node("%EyeLeft"), get_node("%EyeRight"), get_node("%Mouth")])
+        _nameplate = get_node("%Nameplate")
         _nameplate.text = _display_name
-        _nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-        _nameplate.font_size = 30
-        _nameplate.pixel_size = 0.0045
-        _nameplate.modulate = Color("#ffffff")
-        _nameplate.outline_size = 8
-        _nameplate.outline_modulate = Color(0.05, 0.12, 0.17, 0.85)
-        _nameplate.no_depth_test = true
-        add_child(_nameplate)
 
 func _paint_noob() -> void:
         set_part_color(HEAD, NOOB_HEAD)
@@ -248,44 +216,6 @@ func _paint_noob() -> void:
         set_part_color(ARM_R, NOOB_HEAD)
         set_part_color(LEG_L, NOOB_LEGS)
         set_part_color(LEG_R, NOOB_LEGS)
-
-func _new_pivot(pivot_name: String, pivot_position: Vector3) -> Node3D:
-        var pivot: Node3D = Node3D.new()
-        pivot.name = pivot_name
-        pivot.position = pivot_position
-        add_child(pivot)
-        return pivot
-
-func _new_part(parent: Node3D, part_name: String, size: Vector3) -> MeshInstance3D:
-        var mesh_instance: MeshInstance3D = MeshInstance3D.new()
-        mesh_instance.name = part_name
-        var mesh: BoxMesh = BoxMesh.new()
-        mesh.size = size
-        mesh_instance.mesh = mesh
-        parent.add_child(mesh_instance)
-        return mesh_instance
-
-func _make_face(head_parent: Node3D, track := true) -> void:
-        if track:
-                _face_boxes.clear()
-                _face_boxes.append(_new_face_box(head_parent, "EyeLeft", Vector3(0.13, 0.17, 0.035), Vector3(-0.20, 0.12, -0.445)))
-                _face_boxes.append(_new_face_box(head_parent, "EyeRight", Vector3(0.13, 0.17, 0.035), Vector3(0.20, 0.12, -0.445)))
-                _face_boxes.append(_new_face_box(head_parent, "Mouth", Vector3(0.28, 0.065, 0.035), Vector3(0.0, -0.16, -0.448)))
-        else:
-                _new_face_box(head_parent, "EyeLeft", Vector3(0.13, 0.17, 0.035), Vector3(-0.20, 0.12, -0.445))
-                _new_face_box(head_parent, "EyeRight", Vector3(0.13, 0.17, 0.035), Vector3(0.20, 0.12, -0.445))
-                _new_face_box(head_parent, "Mouth", Vector3(0.28, 0.065, 0.035), Vector3(0.0, -0.16, -0.448))
-
-func _new_face_box(parent: Node3D, box_name: String, size: Vector3, local_position: Vector3) -> MeshInstance3D:
-        var face: MeshInstance3D = MeshInstance3D.new()
-        face.name = box_name
-        var mesh: BoxMesh = BoxMesh.new()
-        mesh.size = size
-        face.mesh = mesh
-        face.material_override = _face_material
-        face.position = local_position
-        parent.add_child(face)
-        return face
 
 func _make_debris_piece(debris_group: Node3D, index: int) -> RigidBody3D:
         var source: MeshInstance3D = parts[index]
@@ -303,7 +233,7 @@ func _make_debris_piece(debris_group: Node3D, index: int) -> RigidBody3D:
         mesh_copy.name = "Mesh"
         mesh_copy.mesh = source.mesh
         mesh_copy.material_override = source.material_override
-        for surface in source.mesh.get_surface_count():
+        for surface: int in range(source.mesh.get_surface_count()):
                 var override := source.get_surface_override_material(surface)
                 if override != null:
                         mesh_copy.set_surface_override_material(surface, override)
@@ -314,7 +244,13 @@ func _make_debris_piece(debris_group: Node3D, index: int) -> RigidBody3D:
         collision.shape = shape
         piece.add_child(collision)
         if index == HEAD_INDEX:
-                _make_face(piece, false)  # debris keeps a simple face, never re-track
+                # debris keeps a simple face, cloned from the scene's eye/mouth boxes
+                for face_box in _face_boxes:
+                        var clone := MeshInstance3D.new()
+                        clone.mesh = face_box.mesh
+                        clone.material_override = face_box.material_override
+                        clone.position = face_box.position
+                        piece.add_child(clone)
         return piece
 
 func _make_material(color: Color) -> StandardMaterial3D:

@@ -4,9 +4,9 @@ extends Node3D
 ## Sign in (or sign up) INSIDE the game, your account avatar loads from the
 ## RetroBlox website, and everyone in the room sees it. Shift Lock included.
 const Player = preload("res://scripts/player.gd")
-const Arena = preload("res://scripts/arena.gd")
-const Hud = preload("res://scripts/hud.gd")
-const AuthScreen = preload("res://scripts/auth_screen.gd")
+const PlayerScene = preload("res://scenes/player.tscn")
+const HudScene = preload("res://scenes/hud.tscn")
+const AuthScreenScene = preload("res://scenes/auth_screen.tscn")
 const VERSION: String = "RETROBLOX_1"
 const DISCOVER: String = "RETROBLOX_1_DISCOVER"
 const RESPAWN_SECONDS: float = 2.8
@@ -34,14 +34,16 @@ var snapshot_time: float = 0.0
 var send_time: float = 0.0
 var jump_serial: int = 0
 var sequence: int = 0
-var arena: Node3D
-var player_root: Node3D
-var debris_root: Node3D
 var hud: CanvasLayer
 var auth: CanvasLayer
-var camera_pivot: Node3D
-var spring_arm: SpringArm3D
-var camera: Camera3D
+
+# the world lives in main.tscn — Arena, Players, Debris and the CameraRig
+@onready var arena: Node3D = $Arena
+@onready var player_root: Node3D = $Players
+@onready var debris_root: Node3D = $Debris
+@onready var camera_pivot: Node3D = $CameraRig
+@onready var spring_arm: SpringArm3D = $CameraRig/SpringArm3D
+@onready var camera: Camera3D = $CameraRig/SpringArm3D/Camera3D
 var camera_yaw: float = 0.0
 var camera_pitch: float = -0.26
 var camera_distance: float = 8.5
@@ -72,17 +74,8 @@ func _ready() -> void:
         _read_configuration()
         _setup_input()
         _apply_volume()
-        arena = Arena.new()
-        arena.name = "Arena"
-        add_child(arena)
-        player_root = Node3D.new()
-        player_root.name = "Players"
-        add_child(player_root)
-        debris_root = Node3D.new()
-        debris_root.name = "Debris"
-        add_child(debris_root)
         if not dedicated:
-                hud = Hud.new()
+                hud = HudScene.instantiate() as CanvasLayer
                 add_child(hud)
                 hud.chat_submitted.connect(send_chat)
                 hud.resume_requested.connect(func(): hud.set_menu(false))
@@ -96,9 +89,8 @@ func _ready() -> void:
                 hud.set_sliders(mouse_sensitivity, volume_setting)
                 hud.set_shiftlock(shiftlock)
                 hud.add_chat("", "Welcome! Only connected players appear here.", true)
-                _make_camera()
                 # the door: sign in, sign up, or play as a guest
-                auth = AuthScreen.new()
+                auth = AuthScreenScene.instantiate() as CanvasLayer
                 add_child(auth)
                 auth.completed.connect(_on_auth_completed)
                 auth.guest_requested.connect(_on_guest_requested)
@@ -172,25 +164,6 @@ func _bind_key(action: String, key: Key) -> void:
         var event := InputEventKey.new()
         event.physical_keycode = key
         InputMap.action_add_event(action, event)
-
-func _make_camera() -> void:
-        camera_pivot = Node3D.new()
-        camera_pivot.position = Vector3(0, 2.5, 7)
-        add_child(camera_pivot)
-        spring_arm = SpringArm3D.new()
-        spring_arm.collision_mask = 1
-        spring_arm.margin = 0.2
-        var camera_shape := SphereShape3D.new()
-        camera_shape.radius = 0.22
-        spring_arm.shape = camera_shape
-        spring_arm.spring_length = camera_distance
-        camera_pivot.add_child(spring_arm)
-        camera = Camera3D.new()
-        camera.fov = 70.0
-        camera.near = 0.05
-        camera.far = 220.0
-        camera.current = true
-        spring_arm.add_child(camera)
 
 # ---------------------------------------------------------------- auth flow
 
@@ -640,10 +613,11 @@ func _roster(rows: Array, title: String) -> void:
 func _spawn_player(id: int, safe_name: String, pos: Vector3, live: bool, epoch: int, user_id: String) -> void:
         if players.has(id):
                 return
-        var p = Player.new()
+        var p = PlayerScene.instantiate() as Player
+        # add to the tree first so the scene's nodes exist, then initialize
+        player_root.add_child(p)
         p.initialize(id, safe_name)
         p.platform_user_id = user_id
-        player_root.add_child(p)
         p.respawn_at(pos, epoch)
         p.alive = live
         p.avatar.visible = live

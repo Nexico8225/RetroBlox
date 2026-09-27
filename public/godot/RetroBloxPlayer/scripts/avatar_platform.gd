@@ -111,7 +111,7 @@ static func apply(api: RetrobloxApi, avatar_node, avatar_data: Dictionary) -> vo
                 var model_url := String(surface_asset.get("modelUrl", ""))
                 if model_url == "":
                         continue  # legacy image-only item — nothing 3D to wear
-                var bytes := api.get_bytes(model_url)
+                var bytes: PackedByteArray = await api.get_bytes(model_url)
                 if bytes.is_empty():
                         push_warning("[RetroBlox] Could not download model for %s" % acc_id)
                         continue
@@ -254,7 +254,7 @@ static func _combined_aabb(root: Node3D) -> AABB:
         var first := true
         for mi in _all_mesh_instances(root):
                 var aabb: AABB = mi.mesh.get_aabb() if mi.mesh else AABB()
-                var xform := mi.global_transform if mi.is_inside_tree() else _relative_xform(root, mi)
+                var xform: Transform3D = mi.global_transform if mi.is_inside_tree() else _relative_xform(root, mi)
                 aabb = xform * aabb
                 if first:
                         total = aabb
@@ -306,8 +306,8 @@ static func _surface_texture(root: Node, tex: Texture2D, tint := Color.TRANSPARE
         for mi in _all_mesh_instances(root):
                 if mi.mesh == null:
                         continue
-                for surface in mi.mesh.get_surface_count():
-                        var mat := mi.get_active_material(surface)
+                for surface: int in range(mi.mesh.get_surface_count()):
+                        var mat: Material = mi.get_active_material(surface)
                         var m: BaseMaterial3D = null
                         if mat is BaseMaterial3D:
                                 m = (mat as BaseMaterial3D).duplicate()
