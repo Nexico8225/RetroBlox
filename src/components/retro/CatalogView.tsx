@@ -918,7 +918,8 @@ function EditItemModal({
                 />
               </div>
               <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
-                A texture wraps the whole model — it replaces the tint color. The tint paints every surface one flat color.
+                A texture wraps every surface that has no texture of its own. The tint only paints the parts that arrived plain white —
+                the model&rsquo;s own Blender colors always show.
               </div>
               <input
                 ref={textureRef}
@@ -1873,8 +1874,8 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               </div>
               <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
                 {texture
-                  ? 'A texture replaces the flat color — the model is painted with your image.'
-                  : 'No texture? Tick Flat color or tap a classic color and paint the whole model. You can also just drop an image anywhere on this form.'}
+                  ? 'A texture wraps every surface that has no texture of its own — your model\'s own colors and textures always show.'
+                  : 'No texture? A flat color only paints the parts that arrived plain white — your model\'s own Blender colors always show. You can also just drop an image anywhere on this form.'}
               </div>
               <input
                 ref={textureRef}
