@@ -8,6 +8,17 @@ const WALK_SPEED: float = 8.0
 const JUMP_SPEED: float = 11.0
 const GRAVITY: float = 30.0
 
+# classic health — big falls hurt, 1%/s regen after five quiet seconds
+# (the Roblox default), zero health routes into the normal respawn flow
+signal health_changed(health: float, max_health: float)
+signal health_depleted
+
+const MAX_HEALTH: float = 100.0
+const REGEN_DELAY: float = 5.0
+const REGEN_RATE: float = 1.0        # per second (1% of max, the classic default)
+const FALL_SAFE_HEIGHT: float = 9.0  # studs of clean drop before it starts to hurt
+const FALL_DMG_PER_STUD: float = 6.0
+
 # Referenced by FILE PATH, not by global class name — parses correctly on the
 # very first open, even before Godot registers global class_names.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
@@ -39,6 +50,10 @@ var has_snapshot: bool = false
 var bubble: Label3D
 var bubble_remaining: float = 0.0
 var correction: Vector3 = Vector3.ZERO
+var health: float = MAX_HEALTH
+var regen_wait: float = 0.0
+var falling: bool = false
+var fall_peak_y: float = 0.0
 
 func initialize(id: int, player_name: String) -> void:
         peer_id = id
@@ -86,7 +101,28 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                 heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
         move_and_slide()
         grounded = is_on_floor()
+        _update_fall_damage()
+        # passive regen — the classic 1%/s after five quiet seconds
+        if regen_wait > 0.0:
+                regen_wait -= delta
+        elif health < MAX_HEALTH:
+                health = minf(health + REGEN_RATE, MAX_HEALTH)
+                health_changed.emit(health, MAX_HEALTH)
         avatar.rotation.y = heading
+
+## Fall damage — track the apex while airborne, hurt on landing.
+func _update_fall_damage() -> void:
+        if not alive:
+                return
+        if grounded:
+                if falling:
+                        falling = false
+                        var drop: float = fall_peak_y - global_position.y
+                        if drop > FALL_SAFE_HEIGHT:
+                                hurt((drop - FALL_SAFE_HEIGHT) * FALL_DMG_PER_STUD)
+        else:
+                fall_peak_y = maxf(fall_peak_y, global_position.y) if falling else global_position.y
+                falling = true
 
 func render_remote(delta: float) -> void:
         if not alive or not has_snapshot:
@@ -148,11 +184,30 @@ func show_message(message: String) -> void:
         bubble_remaining = 5.5
         bubble.visible = alive
 
+## Damage API — amount <= 0 is a no-op; hitting 0 emits health_depleted
+## (main.gd routes that into the normal reset/respawn flow).
+func hurt(amount: float) -> void:
+        if not alive or amount <= 0.0:
+                return
+        health = maxf(health - amount, 0.0)
+        regen_wait = REGEN_DELAY
+        health_changed.emit(health, MAX_HEALTH)
+        if health <= 0.0:
+                health_depleted.emit()
+
+func heal(amount: float) -> void:
+        if not alive or amount <= 0.0:
+                return
+        health = minf(health + amount, MAX_HEALTH)
+        health_changed.emit(health, MAX_HEALTH)
+
 func die(world: Node3D, epoch: int, seed_value: int) -> void:
         if epoch < life_epoch:
                 return
         life_epoch = epoch
         alive = false
+        health = 0.0
+        health_changed.emit(health, MAX_HEALTH)
         velocity = Vector3.ZERO
         correction = Vector3.ZERO
         input_direction = Vector2.ZERO
@@ -162,6 +217,10 @@ func die(world: Node3D, epoch: int, seed_value: int) -> void:
 func respawn_at(pos: Vector3, epoch: int) -> void:
         life_epoch = epoch
         alive = true
+        health = MAX_HEALTH
+        regen_wait = 0.0
+        falling = false
+        health_changed.emit(health, MAX_HEALTH)
         global_position = pos
         target_position = pos
         velocity = Vector3.ZERO
