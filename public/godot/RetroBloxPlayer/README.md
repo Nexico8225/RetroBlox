@@ -70,27 +70,32 @@ Create a new scene, instance `scenes/auth_screen.tscn` and
 extends Node3D
 
 func _ready() -> void:
-	var auth := $AuthScreen
-	auth.completed.connect(_on_signed_in)
-	auth.guest_requested.connect(_on_guest)
-	auth.set_api_url("https://your-retroblox-site.example")  # or leave default
+        var auth := $AuthScreen
+        auth.completed.connect(_on_signed_in)
+        auth.guest_requested.connect(_on_guest)
+        auth.set_api_url("https://your-retroblox-site.example")  # or leave default
 
 func _on_signed_in(_api, username: String, _user_id: String, _avatar: Dictionary) -> void:
-	_spawn_player(username)
+        _spawn_player(username)
 
 func _on_guest() -> void:
-	_spawn_player("Guest-%04d" % (randi() % 10000))
+        _spawn_player("Guest-%04d" % (randi() % 10000))
 
 func _spawn_player(player_name: String) -> void:
-	$AuthScreen.visible = false
-	var player := preload("res://scenes/player.tscn").instantiate()
-	add_child(player)                      # add to the tree FIRST
-	player.initialize(1, player_name)      # then configure
-	player.global_position = Vector3(0, 0.1, 0)
+        $AuthScreen.visible = false
+        var player := preload("res://scenes/player.tscn").instantiate()
+        add_child(player)                      # add to the tree FIRST
+        player.initialize(1, player_name)      # then configure
+        player.global_position = Vector3(0, 0.1, 0)
 ```
 
 The demo's `scripts/main.gd` does the same thing plus multiplayer — read it
 as the full example.
+
+Prefer learning from something runnable? Open
+`examples/mini_game/mini_game.tscn` and press **F6** — a login card, your
+account avatar on a platform, and 8 coins to collect, in one small scene.
+See `examples/mini_game/README.md` for the walkthrough.
 
 ### Painting the avatar (the same rules the website uses)
 
@@ -132,6 +137,13 @@ godot --headless -s tests/smoke.gd
 ```
 
 It ends with `SMOKE_OK` when all ~48 checks pass.
+
+A second tiny guard fails if an input action ever goes missing from
+`project.godot` (movement reads `move_left/right/forward/back` + `jump`):
+
+```
+godot --headless --path . --script res://tests/validate_actions.gd
+```
 
 ---
 
