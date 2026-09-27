@@ -72,6 +72,7 @@ export function OnlineDot({ online }: { online: boolean }) {
 const NAV = [
   { label: 'Home', href: '/' },
   { label: 'Games', href: '/games' },
+  { label: 'Playground', href: '/playground' },
   { label: 'Catalog', href: '/catalog' },
   { label: 'Avatar', href: '/avatar' },
   { label: 'Groups', href: '/groups' },
