@@ -30,7 +30,7 @@ import {
   placementJson,
   type Placement,
 } from '@/lib/avatarAssets'
-import { MODEL_ACCEPT, fileToGlb, modelTooBig } from '@/lib/three/convert'
+import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig } from '@/lib/three/convert'
 import { captureRiggedThumb } from '@/lib/three/animCapture'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
@@ -1059,6 +1059,9 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [thumbUrl, setThumbUrl] = useState<string | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  // set when the uploaded model arrived with no material colors — the classic
+  // "my UGC is plain white in game" Blender export trap, caught at upload
+  const [modelNotice, setModelNotice] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   // creator surface: a texture image wrapped around the model, or a flat tint
   const [texture, setTexture] = useState<File | null>(null)
@@ -1319,6 +1322,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       setClipMap({})
       setPreviewClip('')
       setDetectedParts([])
+      setModelNotice('')
       removeTexture()
       setColorOn(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -1344,14 +1348,17 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       return
     }
     if (is3DType(type)) {
-      // 3D: convert to GLB in the browser, then open the placement editor
+      // 3D: convert to GLB in the browser, then open the placement editor.
+      // The conversion also checks the materials — a model that landed with
+      // no colors at all would be plain white in game, so we say so NOW.
       if (!f) return
       const tooBig = modelTooBig(f)
       if (tooBig) { setError(tooBig); return }
       setConverting(true)
-      fileToGlb(f)
-        .then((glb) => {
+      fileToGlbWithCheck(f)
+        .then(({ glb, colorWarning }) => {
           setModelBlob(glb)
+          setModelNotice(colorWarning || '')
           setEditorOpen(true)
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Could not read that model.'))
@@ -1595,6 +1602,24 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                 >
                   {thumbUrl ? '✎ Edit thumbnail' : '≡ Place it in 3D'}
                 </button>
+              )}
+              {is3D && modelNotice && (
+                <div
+                  style={{
+                    border: '1px solid #e0c98a', background: '#fff8e8', padding: '6px 8px',
+                    marginTop: 6, fontSize: 9.5, color: '#7a5c0e', lineHeight: 1.5,
+                  }}
+                  role="alert"
+                >
+                  <strong style={{ fontSize: 10 }}>⚠ No material colors found in this model.</strong>
+                  <br />
+                  {modelNotice}
+                  <br />
+                  <span style={{ color: '#5d4a0a' }}>
+                    Blender recipe: Shading workspace → New Material → Base Color → pick grey / brown / anything →
+                    File Export → glTF 2.0 (.glb). That export always keeps your colors.
+                  </span>
+                </div>
               )}
               {thumbUrl && (
                 <div style={{ fontSize: 9, color: '#3e8e41', marginTop: 4, lineHeight: 1.4 }}>
