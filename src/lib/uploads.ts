@@ -1,9 +1,11 @@
 import { randomBytes } from 'crypto'
 import { writeFile, mkdir } from 'fs/promises'
+import { tmpdir } from 'os'
 import path from 'path'
 import { db } from '@/lib/db'
 
 const UPLOAD_DIR = '/home/z/my-project/uploads/games'
+const TMP_UPLOAD_DIR = 'retroblox-uploads'
 
 /**
  * Save an uploaded file to DISK (fast local cache / large-file streaming)
@@ -15,18 +17,27 @@ const UPLOAD_DIR = '/home/z/my-project/uploads/games'
  * always resolve on every host.
  */
 export async function saveUpload(file: File, userId: string) {
-  await mkdir(UPLOAD_DIR, { recursive: true })
   const id = randomBytes(12).toString('hex')
   const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(-80) || 'game.bin'
   const diskName = `${id}_${safeName}`
-  const diskPath = path.join(UPLOAD_DIR, diskName)
   const buf = Buffer.from(await file.arrayBuffer())
 
-  // best-effort disk copy (streaming fallback + easy debugging); DB is the truth
-  try {
-    await writeFile(diskPath, buf)
-  } catch {
-    // disk write is optional now — DB blob is what the file API serves
+  // Best-effort disk copy (streaming fallback + easy debugging) — the DB row
+  // below is the source of truth. Serverless hosts (Vercel) have a READ-ONLY
+  // filesystem outside /tmp: the unguarded `mkdir(UPLOAD_DIR)` used to THROW
+  // there and kill every publish with a bare "Something went wrong". Now we
+  // try the project dir first (self-hosted), then /tmp (serverless), and give
+  // up silently if even that fails — publishing still works from the DB blob.
+  let diskPath = path.join(UPLOAD_DIR, diskName)
+  for (const dir of [UPLOAD_DIR, path.join(tmpdir(), TMP_UPLOAD_DIR)]) {
+    try {
+      await mkdir(dir, { recursive: true })
+      diskPath = path.join(dir, diskName)
+      await writeFile(diskPath, buf)
+      break
+    } catch {
+      continue // read-only host — DB blob is what the file API serves
+    }
   }
 
   return db.uploadedFile.create({
