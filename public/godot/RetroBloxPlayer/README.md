@@ -140,6 +140,33 @@ player.avatar.set_part_color(player.avatar.HEAD, Color("f5cd30"))
 Every part also has `set_part_textured()` (custom UV-stamped clothing mesh +
 texture) and `set_face()` (decal quad on the head front).
 
+### Making UGC in Blender — materials that survive
+
+The kit loads catalog UGC from GLB, and GLB materials come through exactly
+(StandardMaterial3D albedo). If YOUR item shows up plain white, the colors
+never made it into the file — Blender only exports colors it can carry.
+The 60-second recipe:
+
+1. Shading workspace → select your object → New Material.
+2. It is a **Principled BSDF** by default — set **Base Color** to grey,
+   brown, whatever. One material per color (grey body + brown trim = two
+   materials). Colors ONLY export from Principled BSDF Base Color — the
+   little "Viewport Display" color swatch does NOT export, and other
+   shader nodes (Diffuse BSDF etc.) export as WHITE.
+3. **Best export: File → Export → glTF 2.0 (.glb)** — Format "glTF Binary".
+   Principled colors and image textures always survive this path, and the
+   uploader takes .glb directly.
+4. FBX also works: File → Export → FBX, defaults are fine for flat colors.
+   The site converts it to GLB in your browser and keeps the paint. If your
+   material uses an IMAGE texture, either use .glb (embeds it) or, in the
+   FBX exporter, set Path Mode to **Copy** and tick **Embed Textures** —
+   otherwise the texture file is left behind on your PC and the item is
+   white again.
+
+The uploader warns you at publish time when a model lands with no material
+colors, and the catalog's Texture / Flat color pickers can always paint a
+model that has none.
+
 ### The platform API (one HTTP door, any engine)
 
 `scripts/retroblox_api.gd` is a plain RefCounted HTTP client. The same
