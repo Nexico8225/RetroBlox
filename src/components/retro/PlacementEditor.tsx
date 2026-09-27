@@ -94,12 +94,21 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
   const [snapScale, setSnapScale] = useState(0.05)
   const [status, setStatus] = useState('Loading the space...')
   const [showPlayer, setShowPlayer] = useState(true)
+  // gizmo space: LOCAL = axes follow the item (Studio default), GLOBAL = world axes
+  const [space, setSpace] = useState<'local' | 'world'>('local')
+  // pivot mode: the gizmo moves the PIVOT POINT itself instead of the item
+  const [pivotMode, setPivotMode] = useState(false)
   const [form, setForm] = useState<FormState>({ loc: [0, 5.9, 0], rot: [0, 0, 0], scale: [1, 1, 1], pivot: ZERO })
   // latest form state readable inside three.js event listeners (set post-render)
   const formRef = useRef(form)
+  const pivotMarkerRef = useRef<THREE.Mesh | null>(null)
+  const pivotModeRef = useRef(pivotMode)
   useEffect(() => {
     formRef.current = form
   }, [form])
+  useEffect(() => {
+    pivotModeRef.current = pivotMode
+  }, [pivotMode])
 
   // latest show/hide-player toggle readable inside the scene load promise
   const showPlayerRef = useRef(showPlayer)
@@ -157,6 +166,8 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
     ).applyQuaternion(holder.quaternion)
     holder.position.add(v)
     wrap.position.set(-next[0], -next[1], -next[2])
+    // the yellow marker rides AT the pivot (it lives inside the holder)
+    if (pivotMarkerRef.current) pivotMarkerRef.current.position.set(next[0], next[1], next[2])
     if (!initial) clampHolder()
     syncFromHolder([round(next[0]), round(next[1]), round(next[2])])
   }
@@ -241,6 +252,7 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
 
     const tc = new TransformControls(camera, renderer.domElement)
     tc.setSize(0.85)
+    tc.setSpace('local') // Studio-style default — L flips to global anytime
     const tcHelper = tc.getHelper ? tc.getHelper() : (tc as unknown as THREE.Object3D)
     scene.add(tcHelper)
     tcRef.current = tc
@@ -253,6 +265,13 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
     let rigView: THREE.Group | null = null
 
     const sync = () => {
+      // in pivot mode the gizmo drags the PIVOT, not the item — the marker's
+      // local position (it lives inside the holder) IS the model-space pivot
+      if (pivotModeRef.current) {
+        const marker = pivotMarkerRef.current
+        if (marker) setPivot([round(marker.position.x), round(marker.position.y), round(marker.position.z)])
+        return
+      }
       clampHolder()
       syncFromHolder()
     }
@@ -277,13 +296,15 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
     }
     animate()
 
-    // keyboard shortcuts: W/E/R = move/rotate/scale
+    // keyboard shortcuts: W/E/R = move/rotate/scale · L = local/global · P = move the pivot
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return
       const k = e.key.toLowerCase()
-      if (k === 'w') setMode('translate')
-      else if (k === 'e') setMode('rotate')
-      else if (k === 'r') setMode('scale')
+      if (k === 'w') { setPivotMode(false); setMode('translate') }
+      else if (k === 'e') { setPivotMode(false); setMode('rotate') }
+      else if (k === 'r') { setPivotMode(false); setMode('scale') }
+      else if (k === 'l') setSpace((s) => (s === 'local' ? 'world' : 'local'))
+      else if (k === 'p') setPivotMode((v) => !v)
     }
     window.addEventListener('keydown', onKey)
 
@@ -337,6 +358,21 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
         // rotate/scale around the item's own center from the start — the
         // pivot is editable below for anyone who wants the raw origin back
         centerPivotOnItem(true)
+        // the yellow pivot marker: a child of the holder, so its local
+        // position IS the model-space pivot. In pivot mode the gizmo drags
+        // THIS — exactly like Studio's "move the pivot where you want".
+        const marker = new THREE.Mesh(
+          new THREE.SphereGeometry(0.11, 20, 14),
+          new THREE.MeshBasicMaterial({ color: '#ffd23e', depthTest: false, transparent: true, opacity: 0.95 })
+        )
+        marker.name = 'rb-pivot-marker'
+        marker.renderOrder = 999
+        // wrap.position is -pivot and was JUST set by centerPivotOnItem — read
+        // it directly (form state is still one render behind in this tick)
+        marker.position.set(-wrap.position.x, -wrap.position.y, -wrap.position.z)
+        marker.visible = false
+        holder.add(marker)
+        pivotMarkerRef.current = marker
         setStatus('Place your item on the player model — it stays exactly where you leave it.')
       })
       .catch(() => setStatus('Could not load that model — try a different file.'))
@@ -367,6 +403,7 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
         if (Array.isArray(mat)) mat.forEach((x) => x.dispose())
         else mat?.dispose()
       })
+      pivotMarkerRef.current = null
       grid.dispose()
       floor.geometry.dispose()
       ;(floor.material as THREE.Material).dispose()
@@ -382,11 +419,32 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
   useEffect(() => {
     const tc = tcRef.current
     if (!tc) return
-    tc.setMode(mode)
+    tc.setMode(pivotMode ? 'translate' : mode)
     tc.setTranslationSnap(snapMove > 0 ? snapMove : null)
     tc.setRotationSnap(snapTurn > 0 ? THREE.MathUtils.degToRad(snapTurn) : null)
     tc.setScaleSnap(snapScale > 0 ? snapScale : null)
-  }, [mode, snapMove, snapTurn, snapScale])
+  }, [mode, snapMove, snapTurn, snapScale, pivotMode])
+
+  // LOCAL <-> GLOBAL — flips the gizmo axes anytime, Studio-style
+  useEffect(() => {
+    tcRef.current?.setSpace(space)
+  }, [space])
+
+  // pivot mode: the gizmo grabs the yellow pivot marker instead of the item
+  useEffect(() => {
+    const tc = tcRef.current
+    if (!tc) return
+    const marker = pivotMarkerRef.current
+    if (pivotMode && marker) {
+      marker.visible = true
+      tc.attach(marker)
+      setStatus('Pivot mode — drag the yellow ball to move the pivot. Rotations and scales turn around it. Press P or Move to go back.')
+    } else if (holderRef.current) {
+      tc.attach(holderRef.current)
+      if (marker) marker.visible = false
+      if (!pivotMode) setStatus('Place your item on the player model — it stays exactly where you leave it.')
+    }
+  }, [pivotMode])
 
   /* ---------------- camera angle + show/hide the player ---------------- */
 
@@ -516,6 +574,9 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
     const rigWasVisible = rig?.visible ?? false
     const grid = scene.children.find((o) => (o as unknown as { isGridHelper?: boolean }).isGridHelper === true)
     const gridWasVisible = grid?.visible ?? false
+    // the yellow pivot marker must NEVER bake into the shot either
+    const marker = pivotMarkerRef.current
+    const markerWasVisible = marker?.visible ?? false
     // find the gizmo helper by flag (NOT via the ref — keeps the capture fn pure)
     const gizmo = scene.children.find((o) => {
       const f = o as unknown as { isTransformControls?: boolean; isTransformControlsRoot?: boolean }
@@ -525,6 +586,7 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
     scene.background = null
     if (rig) rig.visible = false
     if (grid) grid.visible = false
+    if (marker) marker.visible = false
     if (gizmo) gizmo.visible = false // NO arrows/rings baked into the shot
     stashed.forEach((s) => { s.obj.visible = false })
 
@@ -556,6 +618,7 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
     scene.background = sky
     if (rig) rig.visible = rigWasVisible
     if (grid) grid.visible = gridWasVisible
+    if (marker) marker.visible = markerWasVisible
     if (gizmo) gizmo.visible = gizmoWasVisible
     stashed.forEach((s) => { s.obj.visible = s.visible })
     renderer.render(scene, camera)
@@ -639,7 +702,7 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
           <div style={{ flex: '0 0 250px', padding: 12, borderLeft: '1px solid #dbe4ec', background: '#f7fafc', maxHeight: 'min(58vh, 520px)', overflowY: 'auto' }}>
             {/* tools */}
             <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 6 }}>Tools</div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
               {MODES.map((m) => (
                 <button
                   key={m.id}
@@ -656,6 +719,38 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
                   {m.label} <span style={{ opacity: 0.7 }}>{m.key}</span>
                 </button>
               ))}
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+              {/* LOCAL <-> GLOBAL — the gizmo axes follow the item or the world */}
+              <button
+                type="button"
+                className="rb-btn"
+                aria-pressed={space === 'world'}
+                title="Gizmo space — L flips it anytime. Local follows the item, Global is the world."
+                onClick={() => setSpace((s) => (s === 'local' ? 'world' : 'local'))}
+                style={{
+                  fontSize: 10, flex: 1, padding: '4px 0',
+                  background: space === 'world' ? 'linear-gradient(180deg,#7a5cbf,#5a4296)' : '#fff',
+                  color: space === 'world' ? '#fff' : '#1c4e7c',
+                }}
+              >
+                {space === 'local' ? 'Local · L' : 'Global · L'}
+              </button>
+              {/* pivot mode — drag the yellow ball to move the pivot point */}
+              <button
+                type="button"
+                className="rb-btn"
+                aria-pressed={pivotMode}
+                title="Move the pivot — the point rotations and scales turn around (P)"
+                onClick={() => setPivotMode((v) => !v)}
+                style={{
+                  fontSize: 10, flex: 1, padding: '4px 0',
+                  background: pivotMode ? 'linear-gradient(180deg,#e8b23a,#c78f1d)' : '#fff',
+                  color: pivotMode ? '#fff' : '#1c4e7c',
+                }}
+              >
+                {pivotMode ? '● Pivot · P' : '⊕ Pivot · P'}
+              </button>
             </div>
 
             {/* snapping */}
@@ -755,7 +850,8 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
               ↺ Reset position
             </button>
             <div style={{ fontSize: 9, color: '#5a6b7b', lineHeight: 1.5, marginBottom: 8 }}>
-              Drag the gizmo or type exact numbers. Left-drag spins the camera, right-drag pans, wheel zooms.
+              Drag the gizmo or type exact numbers. W / E / R — move / rotate / scale · L — Local ↔ Global ·
+              P — move the pivot with the gizmo. Left-drag spins the camera, right-drag pans, wheel zooms.
               The green wire box is the limit — items can&apos;t leave it, and they can&apos;t be scaled huge.
             </div>
             <div style={{ fontSize: 10, color: '#41586c', marginBottom: 10, minHeight: 30 }}>{status}</div>
