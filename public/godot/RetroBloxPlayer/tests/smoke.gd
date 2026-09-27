@@ -46,7 +46,7 @@ func _run_all() -> void:
         check(avatar._part_sizes.size() == 6, "avatar collected 6 part sizes")
         if avatar.is_r6ik():
                 var head_size: Vector3 = avatar._part_sizes[0]
-                check(head_size.x > 0.6 and head_size.x < 0.75, "R6IK head normalized to capsule scale")
+                check(head_size.x > 0.9 and head_size.x < 1.4, "R6IK head normalized to classic scale (~1.2 studs wide)")
                 check(avatar.get_node_or_null("R6IKModel") != null, "R6IK model mounted")
                 check(avatar.get_node("HeadPivot").visible == false, "box fallback hidden in R6IK mode")
         else:
@@ -98,10 +98,10 @@ func _run_all() -> void:
         check(hud.roster_panel.visible == false, "roster panel starts hidden")
         hud.add_chat("Ann", "hello")
         check(hud.chat_log.text.contains("Ann: hello"), "hud add_chat renders")
-        check(hud.chat_button.text.contains("(1)"), "unread badge counts hidden chat")
+        check(hud.chat_button.text == "1", "unread badge counts hidden chat")
         hud.toggle_chat(true)
         check(hud.chat_panel.visible and hud.chat_open, "chat button opens the panel")
-        check(hud.chat_button.text == "CHAT", "opening chat clears the badge")
+        check(hud.chat_button.text == "", "opening chat clears the badge (icon-only button)")
         hud.toggle_chat(false)
         check(not hud.chat_panel.visible and not hud.chat_open, "chat button closes the panel")
         hud.toggle_people(true)
@@ -127,7 +127,8 @@ func _run_all() -> void:
         root.add_child(main)
         check(main.arena != null, "main @onready wired arena")
         check(main.spring_arm != null, "main @onready wired spring arm")
-        check(main.spring_arm.spring_length == 8.5, "spring arm length from scene")
+        # scene starts at the classic zoom; runtime eases toward camera_distance (14.5)
+        check(main.spring_arm.spring_length > 13.0 and main.spring_arm.spring_length < 15.5, "spring arm length from scene (classic zoom ~14)")
         main.queue_free()
 
         # --- api class: pure logic paths ---
