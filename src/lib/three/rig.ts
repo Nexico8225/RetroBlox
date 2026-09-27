@@ -445,13 +445,26 @@ export interface ModelSurface {
   color?: string
 }
 
+/** linear-space threshold for "this surface arrived with no real paint"
+ *  (same ~sRGB 0.97+ rule the publish converter uses) */
+const PAINT_EPSILON = 0.93
+
+function isUnpainted(std: THREE.MeshStandardMaterial): boolean {
+  if (std.map) return false
+  const c = std.color
+  return c.r >= PAINT_EPSILON && c.g >= PAINT_EPSILON && c.b >= PAINT_EPSILON
+}
+
 /**
  * Apply a creator's texture or color to a (cloned) UGC model.
  * SkeletonUtils.clone SHARES materials between instances, so every mesh
  * material is cloned here first — many views can wear the same item with
  * different surfaces without stomping on each other.
- * Texture beats color: if a texture is set the color resets to white so
- * the texture shows exactly as painted.
+ * THE ROBLOX RULE — DATA WINS: whatever materials the model file carries
+ * (Blender grey, brown, textures) always show. The creator's texture only
+ * wraps surfaces that have no texture of their own, and the tint only
+ * paints surfaces that arrived unpainted (no texture + plain white) —
+ * exactly how Roblox treats SurfaceAppearance vs MeshPart color.
  */
 export async function applyModelSurface(root: THREE.Object3D, surface: ModelSurface | null | undefined): Promise<void> {
   if (!surface || (!surface.textureUrl && !surface.color)) return
@@ -472,6 +485,7 @@ export async function applyModelSurface(root: THREE.Object3D, surface: ModelSurf
       if (!m || !('color' in m)) return
       const std = m as THREE.MeshStandardMaterial
       if (surface.textureUrl) {
+        if (std.map) return // the model's own texture is data — it wins
         // tracked so callers can await the texture before their first render
         jobs.push(
           getTexture(surface.textureUrl!)
@@ -485,7 +499,9 @@ export async function applyModelSurface(root: THREE.Object3D, surface: ModelSurf
             .catch(() => { /* a broken texture url never breaks the item */ })
         )
       } else if (surface.color) {
+        if (!isUnpainted(std)) return // real color/texture data — keep it
         std.color = new THREE.Color(surface.color)
+        std.needsUpdate = true
       }
     })
   })
