@@ -630,6 +630,10 @@ func _spawn_player(id: int, safe_name: String, pos: Vector3, live: bool, epoch: 
         players[id] = p
         if id == local_id:
                 jump_serial = 0
+                if hud != null:
+                        p.health_changed.connect(hud.set_health)
+                        p.health_depleted.connect(_on_local_health_depleted)
+                        hud.set_health(p.health, p.MAX_HEALTH)
         _update_roster()
         # fetch + paint the account avatar (async; guests keep noob colors)
         _dress_player(p)
@@ -704,6 +708,13 @@ func _snapshot(rows: Array) -> void:
                 if int(row[5]) != p.life_epoch or not p.alive:
                         continue
                 p.accept_snapshot(row[1], row[2], float(row[3]), bool(row[4]), id == local_id)
+
+## Local health hit zero (a big fall) — the same reset/respawn flow as the
+## menu's Reset button; the server stays the authority over the respawn.
+func _on_local_health_depleted() -> void:
+        var local = players.get(local_id)
+        if local != null and local.alive:
+                request_reset()
 
 func request_reset() -> void:
         if hud != null:
