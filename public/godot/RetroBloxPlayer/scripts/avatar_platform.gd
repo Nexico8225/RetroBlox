@@ -23,6 +23,10 @@ const SITE_RIG_HEIGHT := 5.0
 const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies
 const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT
 
+# "this surface arrived with no real paint" threshold (raw sRGB ~0.97+),
+# matching the site converter's linear-space 0.93 rule
+const PAINT_EPSILON := 0.97
+
 # official clothing template zones (300x190 shirt / 220x190 pants)
 const SHIRT_W := 300
 const SHIRT_H := 190
@@ -129,6 +133,7 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                 var scene: Node3D = doc.generate_scene(state) as Node3D
                 if scene == null:
                         continue
+                _enable_vertex_colors(scene)
                 _normalize(scene, UGC_IMPORT_SIZE)
                 var inner := Node3D.new()
                 inner.name = "UGC_" + String(acc_id)
@@ -140,7 +145,9 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                 holder.scale = Vector3.ONE * UGC_SCALE
                 holder.add_child(inner)
                 avatar_node.add_child(holder)
-                # creator texture / tint — texture beats color, exactly like the site
+                # creator texture / tint — THE ROBLOX RULE, DATA WINS: the
+                # model's own materials always show; the site's paint only
+                # fills surfaces that arrived with no real color
                 var tex_url := String(surface_asset.get("textureUrl", ""))
                 var tint := String(surface_asset.get("color", ""))
                 if tex_url != "":
@@ -148,7 +155,9 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                         if img != null:
                                 _surface_texture(scene, ImageTexture.create_from_image(img))
                 elif tint != "":
-                        _surface_texture(scene, null, Color.from_string(tint, Color.WHITE))
+                        var paint := Color.from_string(tint, Color.TRANSPARENT)
+                        if paint != Color.TRANSPARENT:
+                                _surface_texture(scene, null, paint)
 
 
 # ---------------------------------------------------------------- helpers
@@ -307,6 +316,29 @@ static func _apply_placement(holder: Node3D, placement: Variant) -> void:
                 holder.scale = Vector3(float(s[0]), float(s[1]), float(s[2]))
 
 
+## FACE-CORNER DATA: when a GLB carries per-vertex colors (Blender vertex
+## paint), make sure every material actually uses them — Roblox shows this
+## data, and a freshly parsed StandardMaterial3D may have the flag off.
+static func _enable_vertex_colors(root: Node) -> void:
+        for mi in _all_mesh_instances(root):
+                if mi.mesh == null:
+                        continue
+                for surface: int in range(mi.mesh.get_surface_count()):
+                        var fmt: int = mi.mesh.surface_get_format(surface)
+                        if (fmt & Mesh.ARRAY_FORMAT_COLOR) == 0:
+                                continue
+                        var mat: Material = mi.get_active_material(surface)
+                        if mat is BaseMaterial3D:
+                                var bm := mat as BaseMaterial3D
+                                if not bm.vertex_color_use_as_albedo:
+                                        bm.vertex_color_use_as_albedo = true
+
+
+## Creator paint with THE ROBLOX RULE — DATA WINS. Whatever materials the
+## model file carries (Blender grey, brown, textures) always show. The
+## site's texture only wraps surfaces that have no texture of their own,
+## and the tint only paints surfaces that arrived unpainted (no texture +
+## near-white albedo) — exactly how Roblox treats SurfaceAppearance.
 static func _surface_texture(root: Node, tex: Texture2D, tint := Color.TRANSPARENT) -> void:
         for mi in _all_mesh_instances(root):
                 if mi.mesh == null:
@@ -319,9 +351,17 @@ static func _surface_texture(root: Node, tex: Texture2D, tint := Color.TRANSPARE
                         else:
                                 m = StandardMaterial3D.new()
                         if tex != null:
+                                if m.albedo_texture != null:
+                                        continue  # the model's own texture is data — it wins
                                 m.albedo_texture = tex
                                 m.albedo_color = Color.WHITE
                         elif tint != Color.TRANSPARENT:
-                                m.albedo_texture = null
+                                if m.albedo_texture != null:
+                                        continue  # a textured surface is already painted
+                                var c := m.albedo_color
+                                if c.r < PAINT_EPSILON or c.g < PAINT_EPSILON or c.b < PAINT_EPSILON:
+                                        continue  # real color data — keep it
                                 m.albedo_color = tint
+                        else:
+                                continue
                         mi.set_surface_override_material(surface, m)
