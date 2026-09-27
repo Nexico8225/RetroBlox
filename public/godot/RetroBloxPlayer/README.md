@@ -37,7 +37,7 @@ The game remembers you — the next launch signs you in automatically.
 | Orbit the camera | Hold right mouse button and drag |
 | Zoom / first person | Mouse wheel |
 | **Shift Lock** | Shift (or toggle it in the Esc menu) |
-| Chat | Enter, type, Enter to send |
+| Chat | **/** (already in typing mode) or Enter, then Enter to send |
 | Menu / close chat focus | Esc |
 
 Internet play: run a build with `-- --server` on a machine with a public IP,
@@ -60,14 +60,32 @@ drop it in `assets/models/`; the alias matcher (same rules as the site's
 `rig.ts`) finds the parts, hides helper meshes, and everything (painting,
 clothing zones, face decals, debris) keeps working.
 
-### HUD: chat on a button, no auto-pause
+### HUD: the classic top-left icon toolbar
 
-The screen stays clear while you play — **CHAT** and **PEOPLE** buttons
-(bottom-left) toggle the chat panel and the player list, and CHAT shows an
-unread badge while hidden. `Enter` still opens chat, `Esc` closes it.
-Switching to another app (alt-tab) does **not** pause the game or open the
-menu — only you pause you. Lighting matches the site's catalog look: bright
-white sun, sky/ground fill light, filmic tonemapping.
+The screen stays clear while you play — a **top-left toolbar** of grey
+beveled icon buttons (the old-Roblox spot) toggles the menu, chat panel
+and player list, and CHAT shows an unread badge while hidden.
+`/` opens chat already in typing mode (the classic behavior), `Enter`
+still works, `Esc` closes it. Switching to another app (alt-tab) does
+**not** pause the game or open the menu — only you pause you. Lighting
+matches the site's catalog look: bright white sun, sky/ground fill light,
+filmic tonemapping.
+
+### Troubleshooting sign-in
+
+- **"Incorrect username or password"** — accounts are shared with the
+  website, so the same name + password work. No account yet? Use the
+  **Sign Up** tab right on the card.
+- **"Could not reach …"** — the Server field on the card should read
+  `https://retro-blox.vercel.app` (that is the default). If you edited it,
+  clear it and press Log In again — the empty field falls back to the
+  official site.
+- **Signing in works but the error comes back** — delete
+  `user://profile.cfg` (Godot's *Project → Open User Data Folder*) to
+  clear a stale saved token, then sign in again.
+- **Still stuck on an older kit?** Re-download this zip — versions before
+  September 27, 2026 defaulted the Server field to `localhost:3000`, which
+  always fails. This build defaults to the official site.
 
 ---
 
