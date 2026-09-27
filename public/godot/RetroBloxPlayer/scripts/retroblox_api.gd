@@ -28,7 +28,7 @@ func _init(p_base_url: String) -> void:
 
 func _request(method: int, path: String, headers: PackedStringArray = PackedStringArray(), body: String = "") -> Dictionary:
         var http := HTTPRequest.new()
-        http.timeout = 20.0
+        http.timeout = 30.0
         http.use_threads = true
         (Engine.get_main_loop() as SceneTree).root.add_child(http)
         var err := http.request(base_url + path, headers, method, body)
@@ -37,6 +37,13 @@ func _request(method: int, path: String, headers: PackedStringArray = PackedStri
                 return { "ok": false, "error": "Could not reach the server (%s)" % error_string(err) }
         var result: Array = await http.request_completed
         http.queue_free()
+        # Network-level failure (DNS, TLS, timeout, reset): result[1] is 0 —
+        # say WHY instead of a cryptic "HTTP 0".
+        if int(result[0]) != OK:
+                var why := error_string(int(result[0]))
+                if int(result[0]) == ERR_TIMEOUT:
+                        why = "the request timed out — check your internet, then try again"
+                return { "ok": false, "error": "Could not reach %s (%s). Check the Server field and your internet." % [base_url, why] }
         var status: int = result[1]
         var raw: PackedByteArray = result[3]
         var text := raw.get_string_from_utf8()
