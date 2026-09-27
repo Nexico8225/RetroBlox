@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { saveUpload } from '@/lib/uploads'
+import { saveUpload, resolveUpload } from '@/lib/uploads'
 import {
   UGC_TYPES, UGC_TYPE_LABELS, is3DType, isRiggedType, parseAssetId, parsePlacement, placementJson,
   sanitizeAnimClips, sanitizeAnimTarget, sanitizeBundleParts, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson,
@@ -156,9 +156,12 @@ export async function POST(req: NextRequest) {
   const type = String(form.get('type') || '').trim()
   const description = String(form.get('description') || '').trim().slice(0, 600)
   const groupIdRaw = String(form.get('groupId') || '').trim()
-  const image = form.get('image')
-  const model = form.get('model')
-  const texture = form.get('texture')
+  // files arrive either directly (< 3MB, under the serverless body cap) or as
+  // an uploadId referencing chunks uploaded via /api/uploads/chunk (models up
+  // to 24MB). resolveUpload returns null when neither is present.
+  const image = await resolveUpload(form.get('image'), form.get('imageUploadId'))
+  const model = await resolveUpload(form.get('model'), form.get('modelUploadId'))
+  const texture = await resolveUpload(form.get('texture'), form.get('textureUploadId'))
   const colorRaw = String(form.get('color') || '').trim()
   const placementRaw = String(form.get('placement') || '').trim()
   // pricing: 0 = free item; limiteds are collectibles — the price is the price
