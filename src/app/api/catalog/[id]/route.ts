@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
 import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson } from '@/lib/avatarAssets'
 import { buyPrice, RbxError } from '@/lib/rbx'
-import { saveUpload } from '@/lib/uploads'
+import { saveUpload, resolveUpload } from '@/lib/uploads'
 
 /**
  * GET    /api/catalog/[id] — one item + whether the viewer owns it
@@ -127,7 +127,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       clearColor: form.get('clearColor') ?? undefined,
       clearTexture: form.get('clearTexture') ?? undefined,
     }
-    const file = form.get('image')
+    const file = await resolveUpload(form.get('image'), form.get('imageUploadId'))
     if (file instanceof File && file.size > 0) {
       if (!file.type.startsWith('image/')) {
         return NextResponse.json({ error: 'The thumbnail must be an image.' }, { status: 400 })
@@ -138,7 +138,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const saved = await saveUpload(file, user.id)
       newImageFileId = saved.id
     }
-    const tex = form.get('texture')
+    const tex = await resolveUpload(form.get('texture'), form.get('textureUploadId'))
     if (tex instanceof File && tex.size > 0) {
       if (!tex.type.startsWith('image/')) {
         return NextResponse.json({ error: 'The texture must be an image (PNG / JPG).' }, { status: 400 })
