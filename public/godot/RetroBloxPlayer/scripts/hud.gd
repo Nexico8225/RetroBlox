@@ -19,6 +19,16 @@ const GREEN_BRIGHT := Color("7ee08f")
 const RED := Color("e2231a")
 const PANEL := Color(0.043, 0.091, 0.115, 0.94)
 
+# --- the classic 2008 palette (old Roblox UI) ---
+const CLASSIC_PANEL := Color("d9dde0")      # light grey beveled panel
+const CLASSIC_BORDER := Color("7a8288")
+const CLASSIC_INK := Color("1b2a34")        # dark text on the grey
+const CLASSIC_FACE := Color("f2f4f5")       # inner white-ish area
+const CLASSIC_BTN := Color("cfd4d8")
+const CLASSIC_BTN_HOVER := Color("dde2e6")
+const CLASSIC_BTN_DOWN := Color("b8bfc5")
+const CLASSIC_BLUE := Color("0d69ac")
+
 # unique names inside scenes/hud.tscn
 @onready var root: Control = $Root
 @onready var status_label: Label = %StatusLabel
@@ -29,6 +39,7 @@ const PANEL := Color(0.043, 0.091, 0.115, 0.94)
 @onready var chat_entry: LineEdit = %ChatEntry
 @onready var chat_button: Button = %ChatButton
 @onready var people_button: Button = %PeopleButton
+@onready var menu_button: Button = %MenuButton
 @onready var roster_panel: PanelContainer = %RosterPanel
 @onready var menu: Control = %Menu
 @onready var reset_button: Button = %ResetButton
@@ -63,7 +74,7 @@ const HEALTH_BAR_H := 12.0
 
 
 func _ready() -> void:
-        %MenuButton.pressed.connect(set_menu.bind(true))
+        menu_button.pressed.connect(set_menu.bind(true))
         %ResumeBtn.pressed.connect(_on_resume_pressed)
         %ResetButton.pressed.connect(_on_reset_pressed)
         %ShiftlockButton.pressed.connect(_on_shiftlock_pressed)
@@ -74,6 +85,146 @@ func _ready() -> void:
         chat_button.pressed.connect(_on_chat_button)
         people_button.pressed.connect(_on_people_button)
         _build_health_bar()
+        _build_toolbar()
+        _apply_classic_style()
+
+
+## The classic TOP-LEFT icon toolbar — menu / chat / people, grey beveled
+## buttons with icons, exactly where the old toolbar sat.
+func _build_toolbar() -> void:
+        var toolbar := PanelContainer.new()
+        toolbar.name = "Toolbar"
+        toolbar.mouse_filter = Control.MOUSE_FILTER_STOP
+        toolbar.add_theme_stylebox_override("panel", _classic_panel_style())
+        toolbar.anchor_left = 0.0
+        toolbar.anchor_right = 0.0
+        toolbar.anchor_top = 0.0
+        toolbar.anchor_bottom = 0.0
+        toolbar.offset_left = 10.0
+        toolbar.offset_top = 10.0
+        toolbar.offset_right = 10.0
+        var row := HBoxContainer.new()
+        row.name = "Buttons"
+        row.add_theme_constant_override("separation", 4)
+        toolbar.add_child(row)
+        root.add_child(toolbar)
+
+        # move the three real buttons into the toolbar (signals stay wired)
+        for button in [menu_button, chat_button, people_button]:
+                var btn := button as Button
+                btn.get_parent().remove_child(btn)
+                row.add_child(btn)
+                # re-parenting drops the scene owner, which silently breaks
+                # every %UniqueName lookup for the moved node — restore it
+                btn.owner = self
+                _style_toolbar_button(btn)
+        menu_button.icon = load("res://assets/icons/menu.png")
+        menu_button.tooltip_text = "Menu (ESC)"
+        chat_button.icon = load("res://assets/icons/chat.png")
+        chat_button.tooltip_text = "Chat (/)"
+        people_button.icon = load("res://assets/icons/people.png")
+        people_button.tooltip_text = "Players"
+        toolbar.reset_size()
+
+
+func _style_toolbar_button(button: Button) -> void:
+        button.text = ""
+        button.custom_minimum_size = Vector2(38.0, 30.0)
+        button.expand_icon = true
+        button.focus_mode = Control.FOCUS_NONE
+        button.add_theme_stylebox_override("normal", _classic_button_style(CLASSIC_BTN))
+        button.add_theme_stylebox_override("hover", _classic_button_style(CLASSIC_BTN_HOVER))
+        button.add_theme_stylebox_override("pressed", _classic_button_style(CLASSIC_BTN_DOWN))
+        button.add_theme_color_override("font_color", CLASSIC_INK)
+
+
+## Old-Roblox look for every HUD surface: light grey beveled panels, dark
+## ink text, white chat log. Applied over the scene's dark theme in code.
+func _apply_classic_style() -> void:
+        var panel := _classic_panel_style()
+        for node: Control in [chat_panel, roster_panel]:
+                node.add_theme_stylebox_override("panel", panel)
+        # header becomes a floating label strip (the toolbar replaces the bar)
+        var header := root.get_node_or_null("Header") as PanelContainer
+        if header != null:
+                header.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+        chat_log.add_theme_color_override("default_color", CLASSIC_INK)
+        chat_log.add_theme_stylebox_override("normal", _classic_inner_style())
+        chat_entry.add_theme_color_override("font_color", CLASSIC_INK)
+        chat_entry.add_theme_color_override("font_placeholder_color", Color(0.45, 0.5, 0.55))
+        chat_entry.add_theme_stylebox_override("normal", _classic_inner_style())
+        chat_entry.placeholder_text = "To chat, click here or press /"
+        for label: Control in [%CountLabel, %NamesLabel]:
+                label.add_theme_color_override("font_color", CLASSIC_INK)
+        var title_label := root.get_node_or_null("ChatPanel/ChatBox/ChatTitle/ChatTitleLabel") as Label
+        if title_label != null:
+                title_label.add_theme_color_override("font_color", CLASSIC_INK)
+        var enter_hint := root.get_node_or_null("ChatPanel/ChatBox/ChatTitle/EnterHint") as Label
+        if enter_hint != null:
+                enter_hint.add_theme_color_override("font_color", CLASSIC_INK)
+                enter_hint.text = "/  ↵"
+        var help_panel := root.get_node_or_null("HelpPanel") as PanelContainer
+        if help_panel != null:
+                help_panel.add_theme_stylebox_override("panel", panel)
+                for line in help_panel.get_child(0).get_children():
+                        (line as Label).add_theme_color_override("font_color", CLASSIC_INK)
+                var hint := help_panel.get_child(0).get_child(1) as Label
+                if hint != null:
+                        hint.text = "SHIFT  shift lock     /  chat     ESC  menu"
+        # the ESC menu card
+        var card := root.get_node_or_null("Menu/Center/Card") as PanelContainer
+        if card != null:
+                card.add_theme_stylebox_override("panel", panel)
+                _style_menu_labels(card)
+
+
+func _style_menu_labels(from: Node) -> void:
+        for child in from.get_children():
+                if child is Label:
+                        var label := child as Label
+                        var is_title: bool = label.text == "RETROBLOX"
+                        label.add_theme_color_override("font_color", CLASSIC_BLUE if is_title else CLASSIC_INK)
+                elif child is Button:
+                        _style_dialog_button(child as Button)
+                elif child is Container or child is Control:
+                        _style_menu_labels(child)
+
+
+func _style_dialog_button(button: Button) -> void:
+        button.add_theme_stylebox_override("normal", _classic_button_style(CLASSIC_BTN))
+        button.add_theme_stylebox_override("hover", _classic_button_style(CLASSIC_BTN_HOVER))
+        button.add_theme_stylebox_override("pressed", _classic_button_style(CLASSIC_BTN_DOWN))
+        button.add_theme_color_override("font_color", CLASSIC_INK)
+
+
+func _classic_panel_style() -> StyleBoxFlat:
+        var style := StyleBoxFlat.new()
+        style.bg_color = CLASSIC_PANEL
+        style.border_color = CLASSIC_BORDER
+        style.set_border_width_all(2)
+        style.set_corner_radius_all(4)
+        style.set_content_margin_all(8)
+        return style
+
+
+func _classic_inner_style() -> StyleBoxFlat:
+        var style := _classic_panel_style()
+        style.bg_color = CLASSIC_FACE
+        style.set_content_margin_all(5)
+        return style
+
+
+func _classic_button_style(bg: Color) -> StyleBoxFlat:
+        var style := StyleBoxFlat.new()
+        style.bg_color = bg
+        style.border_color = Color("5c666e")
+        style.set_border_width_all(1)
+        style.set_corner_radius_all(3)
+        style.content_margin_left = 6
+        style.content_margin_right = 6
+        style.content_margin_top = 4
+        style.content_margin_bottom = 4
+        return style
 
 
 func _on_resume_pressed() -> void:
@@ -127,7 +278,7 @@ func input_busy() -> bool:
         return menu.visible or chat_entry.has_focus()
 
 ## Bottom-left CHAT button — shows/hides the chat panel like the classic
-## chat bubble. ENTER opens the chat too (see begin_chat).
+## chat bubble. ENTER or "/" opens the chat too (see begin_chat).
 func _on_chat_button() -> void:
         toggle_chat(not chat_open)
 
@@ -139,7 +290,7 @@ func toggle_chat(open: bool) -> void:
         chat_panel.visible = open
         if open:
                 _unread = 0
-                chat_button.text = "CHAT"
+                chat_button.text = ""
                 begin_chat()
         else:
                 chat_entry.release_focus()
@@ -151,7 +302,7 @@ func begin_chat() -> void:
         chat_open = true
         chat_panel.visible = true
         _unread = 0
-        chat_button.text = "CHAT"
+        chat_button.text = ""
         if not menu.visible:
                 Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
                 chat_entry.grab_focus()
@@ -171,7 +322,7 @@ func add_chat(sender_name: String, message: String, system: bool = false) -> voi
         # hidden chat counts unread messages on the CHAT button
         if not chat_open:
                 _unread += 1
-                chat_button.text = "CHAT (%d)" % _unread
+                chat_button.text = str(_unread)
 
 func update_roster(entries: Array, local_id: int) -> void:
         roster_names = entries
