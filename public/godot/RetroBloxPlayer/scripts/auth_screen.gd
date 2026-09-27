@@ -110,7 +110,7 @@ func _submit() -> void:
         var user := _user_edit.text.strip_edges()
         var passw := _pass_edit.text
         if server == "":
-                server = "http://localhost:3000"
+                server = "https://retro-blox.vercel.app"
         if not server.begins_with("http"):
                 server = "http://" + server
         if user.is_empty() or passw.is_empty():
@@ -140,7 +140,12 @@ func _submit() -> void:
         else:
                 res = await api.login(user, passw)
         if not res.get("ok", false):
-                _error(String(res.get("error", "Could not reach the server")))
+                var msg := String(res.get("error", "Could not reach the server"))
+                # help with the two most common stalls — a 401 usually means
+                # "no account yet" or "typo in the password"
+                if msg.contains("Incorrect username or password"):
+                        msg += "\nNo account yet? Use the Sign Up tab — accounts made on the website work here too."
+                _error(msg)
                 return
 
         _status.text = "Welcome, %s — loading your avatar…" % String(res.get("username", user))
