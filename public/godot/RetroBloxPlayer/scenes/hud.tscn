@@ -217,9 +217,9 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 24.0
-offset_top = 22.0
+offset_top = 16.0
 offset_right = -24.0
-offset_bottom = 96.0
+offset_bottom = 64.0
 grow_horizontal = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
@@ -230,7 +230,7 @@ theme_override_constants/separation = 16
 [node name="Mark" type="Label" parent="Root/Header/Row"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.886275, 0.137255, 0.101961, 1)
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 26
 text = "R"
 
 [node name="TitleBox" type="VBoxContainer" parent="Root/Header/Row"]
@@ -239,14 +239,14 @@ theme_override_constants/separation = 0
 
 [node name="Title" type="Label" parent="Root/Header/Row/TitleBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 23
+theme_override_font_sizes/font_size = 19
 text = "RETROBLOX"
 
 [node name="RoomLabel" type="Label" parent="Root/Header/Row/TitleBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.650980, 0.729412, 0.760784, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 text = "Classic worlds, your way."
 
 [node name="Spacer1" type="Control" parent="Root/Header/Row"]
@@ -263,7 +263,7 @@ horizontal_alignment = 2
 
 [node name="MenuButton" type="Button" parent="Root/Header/Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 40)
+custom_minimum_size = Vector2(112, 34)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.917647, 0.952941, 0.952941, 1)
 theme_override_colors/font_hover_color = Color(0.917647, 0.952941, 0.952941, 1)
@@ -277,6 +277,8 @@ theme_override_styles/disabled = SubResource("StyleBoxFlat_btn_disabled")
 text = "ESC  /  MENU"
 
 [node name="RosterPanel" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -313,14 +315,16 @@ text = "Waiting for connection…"
 autowrap_mode = 3
 
 [node name="ChatPanel" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 24.0
-offset_top = -270.0
+offset_top = -322.0
 offset_right = 388.0
-offset_bottom = -24.0
+offset_bottom = -76.0
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
@@ -368,6 +372,7 @@ max_length = 180
 placeholder_text = "Say hello…"
 
 [node name="HelpPanel" type="PanelContainer" parent="Root"]
+visible = false
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
@@ -396,6 +401,50 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.650980, 0.729412, 0.760784, 1)
 theme_override_font_sizes/font_size = 12
 text = "SHIFT  shift lock     ENTER  chat     ESC  menu"
+
+[node name="Dock" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -64.0
+offset_right = 500.0
+offset_bottom = -24.0
+grow_vertical = 0
+theme_override_constants/separation = 10
+
+[node name="ChatButton" type="Button" parent="Root/Dock"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(122, 40)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_focus_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_primary")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_primary_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_primary_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_btn_disabled")
+text = "CHAT"
+
+[node name="PeopleButton" type="Button" parent="Root/Dock"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(122, 40)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.952941, 0.952941, 1)
+theme_override_colors/font_hover_color = Color(0.917647, 0.952941, 0.952941, 1)
+theme_override_colors/font_pressed_color = Color(0.917647, 0.952941, 0.952941, 1)
+theme_override_colors/font_focus_color = Color(0.917647, 0.952941, 0.952941, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_btn_disabled")
+text = "PEOPLE"
 
 [node name="Toast" type="Label" parent="Root"]
 unique_name_in_owner = true
@@ -544,6 +593,13 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_override_font_sizes/font_size = 14
 text = ""
+autowrap_mode = 3
+
+[node name="ControlsHint" type="Label" parent="Root/Menu/Center/Card/Column/Body/PlayersCard/PlayersBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.650980, 0.729412, 0.760784, 1)
+theme_override_font_sizes/font_size = 12
+text = "WASD move · SPACE jump · RMB orbit · WHEEL zoom · SHIFT shift lock · ENTER chat · ESC menu"
 autowrap_mode = 3
 
 [node name="Controls" type="VBoxContainer" parent="Root/Menu/Center/Card/Column/Body"]

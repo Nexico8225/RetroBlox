@@ -45,6 +45,30 @@ open **UDP 42420** (+42421 for LAN discovery), and set
 `server="YOUR_SERVER_IP"` in the `network.cfg` beside the players' builds.
 Point the login card at any RetroBlox site with `-- --api=https://your-site`.
 
+### The avatar uses the real catalog model (R6IK)
+
+In-game players wear **`assets/models/R6IK.fbx`** — the exact rig the
+website's catalog and avatar editor render — normalized to the game's
+capsule, with limbs swinging from shoulder/hip pivots and arms-up jumps,
+like the site's playground. If the FBX has not been imported yet (a
+brand-new project), the kit falls back to its built-in box rig
+automatically and upgrades the moment Godot imports the model.
+
+Making your own rig? Export an FBX with the same part names —
+`Head`, `Torso`, `Left Arm`, `Right Arm`, `Left Leg`, `Right Leg` — and
+drop it in `assets/models/`; the alias matcher (same rules as the site's
+`rig.ts`) finds the parts, hides helper meshes, and everything (painting,
+clothing zones, face decals, debris) keeps working.
+
+### HUD: chat on a button, no auto-pause
+
+The screen stays clear while you play — **CHAT** and **PEOPLE** buttons
+(bottom-left) toggle the chat panel and the player list, and CHAT shows an
+unread badge while hidden. `Enter` still opens chat, `Esc` closes it.
+Switching to another app (alt-tab) does **not** pause the game or open the
+menu — only you pause you. Lighting matches the site's catalog look: bright
+white sun, sky/ground fill light, filmic tonemapping.
+
 ---
 
 ## 2. Build YOUR game with the kit (the scenes)

@@ -24,8 +24,12 @@ const PANEL := Color(0.043, 0.091, 0.115, 0.94)
 @onready var status_label: Label = %StatusLabel
 @onready var count_label: Label = %CountLabel
 @onready var names_label: Label = %NamesLabel
+@onready var chat_panel: PanelContainer = %ChatPanel
 @onready var chat_log: RichTextLabel = %ChatLog
 @onready var chat_entry: LineEdit = %ChatEntry
+@onready var chat_button: Button = %ChatButton
+@onready var people_button: Button = %PeopleButton
+@onready var roster_panel: PanelContainer = %RosterPanel
 @onready var menu: Control = %Menu
 @onready var reset_button: Button = %ResetButton
 @onready var toast: Label = %Toast
@@ -43,114 +47,147 @@ const PANEL := Color(0.043, 0.091, 0.115, 0.94)
 var history: Array[String] = []
 var roster_names: Array = []
 var _shiftlock_on := false
+var chat_open := false
+var _unread := 0
 
 
 func _ready() -> void:
-	%MenuButton.pressed.connect(set_menu.bind(true))
-	%ResumeBtn.pressed.connect(_on_resume_pressed)
-	%ResetButton.pressed.connect(_on_reset_pressed)
-	%ShiftlockButton.pressed.connect(_on_shiftlock_pressed)
-	%LeaveBtn.pressed.connect(_on_leave_pressed)
-	%SensitivitySlider.value_changed.connect(_on_sensitivity_moved)
-	%VolumeSlider.value_changed.connect(_on_volume_moved)
-	chat_entry.text_submitted.connect(_submit_chat)
+        %MenuButton.pressed.connect(set_menu.bind(true))
+        %ResumeBtn.pressed.connect(_on_resume_pressed)
+        %ResetButton.pressed.connect(_on_reset_pressed)
+        %ShiftlockButton.pressed.connect(_on_shiftlock_pressed)
+        %LeaveBtn.pressed.connect(_on_leave_pressed)
+        %SensitivitySlider.value_changed.connect(_on_sensitivity_moved)
+        %VolumeSlider.value_changed.connect(_on_volume_moved)
+        chat_entry.text_submitted.connect(_submit_chat)
+        chat_button.pressed.connect(_on_chat_button)
+        people_button.pressed.connect(_on_people_button)
 
 
 func _on_resume_pressed() -> void:
-	resume_requested.emit()
+        resume_requested.emit()
 
 func _on_reset_pressed() -> void:
-	reset_requested.emit()
+        reset_requested.emit()
 
 func _on_shiftlock_pressed() -> void:
-	shiftlock_toggled.emit(not _shiftlock_on)
+        shiftlock_toggled.emit(not _shiftlock_on)
 
 func _on_leave_pressed() -> void:
-	quit_requested.emit()
+        quit_requested.emit()
 
 func _on_sensitivity_moved(value: float) -> void:
-	sensitivity_value.text = "%.2fx" % value
-	sensitivity_changed.emit(value)
+        sensitivity_value.text = "%.2fx" % value
+        sensitivity_changed.emit(value)
 
 func _on_volume_moved(value: float) -> void:
-	volume_value.text = "%d%%" % int(roundf(value * 100.0))
-	volume_changed.emit(value)
+        volume_value.text = "%d%%" % int(roundf(value * 100.0))
+        volume_changed.emit(value)
 
 
 func set_shiftlock(enabled: bool) -> void:
-	_shiftlock_on = enabled
-	if shiftlock_button != null:
-		shiftlock_button.text = "Shift Lock:  ON" if enabled else "Shift Lock:  OFF"
+        _shiftlock_on = enabled
+        if shiftlock_button != null:
+                shiftlock_button.text = "Shift Lock:  ON" if enabled else "Shift Lock:  OFF"
 
 func set_sliders(sensitivity: float, volume: float) -> void:
-	sensitivity_slider.set_value_no_signal(sensitivity)
-	sensitivity_value.text = "%.2fx" % sensitivity
-	volume_slider.set_value_no_signal(volume)
-	volume_value.text = "%d%%" % int(roundf(volume * 100.0))
+        sensitivity_slider.set_value_no_signal(sensitivity)
+        sensitivity_value.text = "%.2fx" % sensitivity
+        volume_slider.set_value_no_signal(volume)
+        volume_value.text = "%d%%" % int(roundf(volume * 100.0))
 
 func set_room_title(title: String) -> void:
-	if menu_room_label != null:
-		menu_room_label.text = title
+        if menu_room_label != null:
+                menu_room_label.text = title
 
 func set_menu(open: bool) -> void:
-	menu.visible = open
-	if open:
-		_refresh_menu_roster()
-		chat_entry.release_focus()
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	else:
-		var focused := root.get_viewport().gui_get_focus_owner()
-		if focused != null:
-			focused.release_focus()
+        menu.visible = open
+        if open:
+                _refresh_menu_roster()
+                chat_entry.release_focus()
+                Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+        else:
+                var focused := root.get_viewport().gui_get_focus_owner()
+                if focused != null:
+                        focused.release_focus()
 
 func input_busy() -> bool:
-	return menu.visible or chat_entry.has_focus()
+        return menu.visible or chat_entry.has_focus()
+
+## Bottom-left CHAT button — shows/hides the chat panel like the classic
+## chat bubble. ENTER opens the chat too (see begin_chat).
+func _on_chat_button() -> void:
+        toggle_chat(not chat_open)
+
+func _on_people_button() -> void:
+        toggle_people(not roster_panel.visible)
+
+func toggle_chat(open: bool) -> void:
+        chat_open = open
+        chat_panel.visible = open
+        if open:
+                _unread = 0
+                chat_button.text = "CHAT"
+                begin_chat()
+        else:
+                chat_entry.release_focus()
+
+func toggle_people(open: bool) -> void:
+        roster_panel.visible = open
 
 func begin_chat() -> void:
-	if not menu.visible:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		chat_entry.grab_focus()
+        chat_open = true
+        chat_panel.visible = true
+        _unread = 0
+        chat_button.text = "CHAT"
+        if not menu.visible:
+                Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+                chat_entry.grab_focus()
 
 func _submit_chat(text: String) -> void:
-	if not text.strip_edges().is_empty():
-		chat_submitted.emit(text)
-	chat_entry.clear()
-	chat_entry.release_focus()
+        if not text.strip_edges().is_empty():
+                chat_submitted.emit(text)
+        chat_entry.clear()
+        chat_entry.release_focus()
 
 func add_chat(sender_name: String, message: String, system: bool = false) -> void:
-	var prefix := "• " if system else sender_name + ": "
-	history.append(prefix + message)
-	if history.size() > 60:
-		history.pop_front()
-	chat_log.text = "\n\n".join(history)
+        var prefix := "• " if system else sender_name + ": "
+        history.append(prefix + message)
+        if history.size() > 60:
+                history.pop_front()
+        chat_log.text = "\n\n".join(history)
+        # hidden chat counts unread messages on the CHAT button
+        if not chat_open:
+                _unread += 1
+                chat_button.text = "CHAT (%d)" % _unread
 
 func update_roster(entries: Array, local_id: int) -> void:
-	roster_names = entries
-	count_label.text = "%d %s" % [entries.size(), "player" if entries.size() == 1 else "players"]
-	var lines: Array[String] = []
-	for i in range(mini(entries.size(), 10)):
-		var entry: Dictionary = entries[i]
-		lines.append("• " + str(entry["name"]) + ("  (you)" if int(entry["id"]) == local_id else ""))
-	if entries.size() > 10:
-		lines.append("+ %d more" % (entries.size() - 10))
-	if entries.size() == 1:
-		lines.append("\nNo one else yet. Invite a friend!")
-	elif entries.is_empty():
-		lines.append("Waiting for connection…")
-	names_label.text = "\n".join(lines)
-	_refresh_menu_roster()
+        roster_names = entries
+        count_label.text = "%d %s" % [entries.size(), "player" if entries.size() == 1 else "players"]
+        var lines: Array[String] = []
+        for i in range(mini(entries.size(), 10)):
+                var entry: Dictionary = entries[i]
+                lines.append("• " + str(entry["name"]) + ("  (you)" if int(entry["id"]) == local_id else ""))
+        if entries.size() > 10:
+                lines.append("+ %d more" % (entries.size() - 10))
+        if entries.size() == 1:
+                lines.append("\nNo one else yet. Invite a friend!")
+        elif entries.is_empty():
+                lines.append("Waiting for connection…")
+        names_label.text = "\n".join(lines)
+        _refresh_menu_roster()
 
 func _refresh_menu_roster() -> void:
-	if menu_names_label == null:
-		return
-	menu_count_label.text = "%d %s in the game" % [roster_names.size(), "player" if roster_names.size() == 1 else "players"]
-	var lines: Array[String] = []
-	for entry in roster_names:
-		lines.append("• " + str(entry["name"]))
-	if roster_names.is_empty():
-		lines.append("Waiting for connection…")
-	menu_names_label.text = "\n".join(lines)
+        if menu_names_label == null:
+                return
+        menu_count_label.text = "%d %s in the game" % [roster_names.size(), "player" if roster_names.size() == 1 else "players"]
+        var lines: Array[String] = []
+        for entry in roster_names:
+                lines.append("• " + str(entry["name"]))
+        if roster_names.is_empty():
+                lines.append("Waiting for connection…")
+        menu_names_label.text = "\n".join(lines)
 
 func set_status(text: String, connected: bool) -> void:
-	status_label.text = text
-	status_label.add_theme_color_override("font_color", GREEN_BRIGHT if connected else Color("ffd39d"))
+        status_label.text = text
+        status_label.add_theme_color_override("font_color", GREEN_BRIGHT if connected else Color("ffd39d"))

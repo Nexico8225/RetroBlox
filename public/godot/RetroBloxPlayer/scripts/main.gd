@@ -239,6 +239,8 @@ func _input(event: InputEvent) -> void:
                 if event.keycode == KEY_ESCAPE:
                         if hud.chat_entry.has_focus():
                                 hud.chat_entry.release_focus()
+                        elif hud.chat_open:
+                                hud.toggle_chat(false)
                         else:
                                 hud.set_menu(not hud.menu.visible)
                         get_viewport().set_input_as_handled()
@@ -825,7 +827,8 @@ func _notification(what: int) -> void:
         if what == NOTIFICATION_WM_CLOSE_REQUEST:
                 quit_game()
         elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+                # alt-tabbing must NOT pause or open the menu — the game keeps
+                # running, multiplayer included. Only release held movement keys
+                # so the character does not keep walking while you are away.
                 for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
                         Input.action_release(action)
-                if hud != null and not quitting:
-                        hud.set_menu(true)
