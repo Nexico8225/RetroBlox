@@ -7,7 +7,9 @@ extends Node3D
 ## textures, face, UGC). Main gameplay code can configure it before or after
 ## adding it to the tree.
 
-const OOF_AUDIO: AudioStream = preload("res://assets/oof.wav")
+# lazy-loaded at runtime — a preload() here would fail to parse on a project's
+# very first open, before Godot has imported the .wav asset
+var _oof_audio: AudioStream
 const HEAD_INDEX: int = 0
 
 # classic noob defaults — guests and brand-new accounts wear these
@@ -174,7 +176,7 @@ func burst(world: Node3D, impulse_seed: int) -> void:
 
         var audio: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
         audio.name = "OriginalOof"
-        audio.stream = OOF_AUDIO
+        audio.stream = _get_oof_audio()
         audio.max_distance = 40.0
         audio.unit_size = 10.0
         audio.volume_db = 0.0
@@ -185,6 +187,12 @@ func burst(world: Node3D, impulse_seed: int) -> void:
         # gameplay code frees the avatar during respawn.
         var cleanup_timer: SceneTreeTimer = world.get_tree().create_timer(5.0)
         cleanup_timer.timeout.connect(debris_group.queue_free)
+
+## Lazy-load the classic oof sound on first use (never at parse time).
+func _get_oof_audio() -> AudioStream:
+        if _oof_audio == null:
+                _oof_audio = load("res://assets/oof.wav")
+        return _oof_audio
 
 func set_local_hidden(hidden: bool) -> void:
         visible = not hidden

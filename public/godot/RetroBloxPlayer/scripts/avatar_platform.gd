@@ -13,6 +13,11 @@
 class_name AvatarPlatform
 extends RefCounted
 
+# Referenced by FILE PATH, not by global class name — the kit parses correctly
+# on the very first open (before Godot's class scan registers class_names),
+# and when other devs copy these scripts into their own project.
+const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
+
 const RIG_HEIGHT := 2.9          # this avatar's height (site rig = 5.0 studs)
 const SITE_RIG_HEIGHT := 5.0
 const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies
@@ -38,7 +43,7 @@ const PANTS_FALLBACK := Color("39516b")
 ## Dress an avatar (avatar.gd) with the payload the platform returns:
 ## avatar = { body, head, shirt, pants, accessories: [], colors: {...}|null, faceScale }
 ## Kept untyped on purpose — the avatar script is duck-typed (parts, set_part_color...).
-static func apply(api: RetrobloxApi, avatar_node, avatar_data: Dictionary) -> void:
+static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary) -> void:
         var parts: Array = avatar_node.get("parts")
         if parts == null or parts.is_empty():
                 return

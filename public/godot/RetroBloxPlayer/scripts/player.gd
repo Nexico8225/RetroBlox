@@ -8,6 +8,11 @@ const WALK_SPEED: float = 8.0
 const JUMP_SPEED: float = 11.0
 const GRAVITY: float = 30.0
 
+# Referenced by FILE PATH, not by global class name — parses correctly on the
+# very first open, even before Godot registers global class_names.
+const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
+const AvatarPlatformScript := preload("res://scripts/avatar_platform.gd")
+
 var peer_id: int = 0
 var display_name: String = "Guest"
 var platform_user_id: String = ""   # RetroBlox account id, "" for guests
@@ -51,10 +56,10 @@ func initialize(id: int, player_name: String) -> void:
 
 ## Dress this player from a platform avatar payload
 ## (GET /api/platform/me for yourself, GET /api/users/{id}/avatar for others).
-func dress_from_payload(api: RetrobloxApi, payload: Dictionary) -> void:
+func dress_from_payload(api: RetrobloxApiScript, payload: Dictionary) -> void:
         if api == null or payload.is_empty():
                 return
-        await AvatarPlatform.apply(api, avatar, payload)
+        await AvatarPlatformScript.apply(api, avatar, payload)
 
 func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int, use_shiftlock: bool = false) -> void:
         if not alive:

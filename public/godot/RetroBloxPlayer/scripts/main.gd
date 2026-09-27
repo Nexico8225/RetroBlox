@@ -7,6 +7,9 @@ const Player = preload("res://scripts/player.gd")
 const PlayerScene = preload("res://scenes/player.tscn")
 const HudScene = preload("res://scenes/hud.tscn")
 const AuthScreenScene = preload("res://scenes/auth_screen.tscn")
+# Referenced by FILE PATH, not by global class name — parses correctly on the
+# very first open, even before Godot registers global class_names.
+const RetrobloxApiScript = preload("res://scripts/retroblox_api.gd")
 const VERSION: String = "RETROBLOX_1"
 const DISCOVER: String = "RETROBLOX_1_DISCOVER"
 const RESPAWN_SECONDS: float = 2.8
@@ -53,7 +56,7 @@ var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deat
 
 # --- platform account ---
 var api_url: String = "http://localhost:3000"
-var api_ref: RetrobloxApi
+var api_ref: RetrobloxApiScript
 var platform_user_id: String = ""
 var my_avatar: Dictionary = {}
 var _avatar_cache: Dictionary = {}
@@ -172,7 +175,7 @@ func _try_saved_token() -> void:
         if saved_token.is_empty() or auth == null:
                 return
         auth.set_status_text("Signing you in…")
-        var probe := RetrobloxApi.new(api_url)
+        var probe := RetrobloxApiScript.new(api_url)
         probe.token = saved_token
         var me: Dictionary = await probe.get_me()
         if quitting or auth == null:
@@ -185,14 +188,14 @@ func _try_saved_token() -> void:
                 # token expired or the site moved on — back to the form
                 auth.set_status_text("")
 
-func _on_auth_completed(api: RetrobloxApi, username: String, user_id: String, avatar: Dictionary) -> void:
+func _on_auth_completed(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
         _finish_auth(api, username, user_id, avatar)
 
 func _on_guest_requested() -> void:
         if _auth_done:
                 return
         _auth_done = true
-        api_ref = RetrobloxApi.new(api_url)  # token-less: still fetches PUBLIC avatars
+        api_ref = RetrobloxApiScript.new(api_url)  # token-less: still fetches PUBLIC avatars
         platform_user_id = ""
         my_avatar = {}
         player_name = "Guest-%04d" % randi_range(1000, 9999)
@@ -200,7 +203,7 @@ func _on_guest_requested() -> void:
                 auth.visible = false
         _begin_online()
 
-func _finish_auth(api: RetrobloxApi, username: String, user_id: String, avatar: Dictionary) -> void:
+func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
         if _auth_done:
                 return
         _auth_done = true
