@@ -91,6 +91,55 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return data as T
 }
 
+/* ------------------------------------------------------------------
+   Big-file uploads — Vercel serverless rejects request bodies over
+   4.5MB, but creators can publish models up to 24MB. Files over
+   DIRECT_UPLOAD_MAX go up first as ~2.5MB base64 chunks (see
+   /api/uploads/chunk); the API route then assembles them.
+   attachUpload() appends EITHER the file itself (small) OR an
+   uploadId reference (`<field>UploadId`) to any FormData.
+------------------------------------------------------------------ */
+
+export const DIRECT_UPLOAD_MAX = 3 * 1024 * 1024
+const CHUNK_BYTES = 2.5 * 1024 * 1024
+
+export async function attachUpload(
+  fd: FormData,
+  field: string,
+  blob: Blob,
+  name: string,
+  mime: string,
+  onNote?: (note: string) => void
+): Promise<void> {
+  if (blob.size <= DIRECT_UPLOAD_MAX) {
+    fd.append(field, blob, name)
+    return
+  }
+  let uploadId: string
+  try {
+    uploadId = crypto.randomUUID().replace(/-/g, '')
+  } catch {
+    uploadId = `u${Date.now().toString(16)}${Math.random().toString(16).slice(2).padEnd(12, '0')}`.slice(0, 40)
+  }
+  const total = Math.ceil(blob.size / CHUNK_BYTES)
+  if (total > 99) throw new Error(`"${name}" is too large (max 24MB).`)
+  for (let idx = 0; idx < total; idx++) {
+    const b64 = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => resolve(String(r.result || '').split(',')[1] || '')
+      r.onerror = () => reject(new Error(`Could not read "${name}".`))
+      r.readAsDataURL(blob.slice(idx * CHUNK_BYTES, (idx + 1) * CHUNK_BYTES))
+    })
+    if (!b64) throw new Error(`Could not read "${name}".`)
+    onNote?.(`Uploading ${name} — part ${idx + 1} of ${total}…`)
+    await api(`/api/uploads/chunk`, {
+      method: 'POST',
+      body: JSON.stringify({ uploadId, idx, name, mime, b64 }),
+    })
+  }
+  fd.append(`${field}UploadId`, uploadId)
+}
+
 export function timeAgo(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date
   const s = Math.floor((Date.now() - d.getTime()) / 1000)
