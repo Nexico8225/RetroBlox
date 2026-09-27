@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { useRetro, api, flash, refreshBalance } from '@/lib/store'
+import { useRetro, api, flash, refreshBalance, attachUpload } from '@/lib/store'
 import { Avatar } from './Shell'
 import {
   UGC_TYPES,
@@ -763,10 +763,10 @@ function EditItemModal({
       fd.append('limited', limited ? '1' : '0')
       if (limited) fd.append('stock', stock.trim())
       if (isAdmin) fd.append('ownersBoost', ownersBoost.trim() === '' ? '0' : ownersBoost.trim())
-      if (newImage) fd.append('image', newImage)
+      if (newImage) await attachUpload(fd, 'image', newImage, newImage.name || 'image.png', newImage.type || 'image/png')
       if (item.modelFileId) {
         // texture / tint — only sent for 3D items; the API ignores them otherwise
-        if (newTexture) fd.append('texture', newTexture)
+        if (newTexture) await attachUpload(fd, 'texture', newTexture, newTexture.name || 'texture.png', newTexture.type || 'image/png')
         if (clearTexture) fd.append('clearTexture', '1')
         if (tintOn) fd.append('color', tint)
         else if (item.baseColor) fd.append('clearColor', '1')
@@ -1048,6 +1048,8 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [converting, setConverting] = useState(false)
+  // progress line for big (chunked) uploads — shown on the publish button
+  const [uploadNote, setUploadNote] = useState('')
   // pricing: free or paid in Tix; ★ Limited is a collectible badge — the price is the price
   const [priceMode, setPriceMode] = useState<'free' | 'paid'>('free')
   const [price, setPrice] = useState('')
@@ -1443,6 +1445,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       setError('Pick an image for your item.'); return
     }
     setBusy(true)
+    setUploadNote('')
     try {
       const fd = new FormData()
       fd.append('name', name.trim())
@@ -1454,11 +1457,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       if (groupId) fd.append('groupId', groupId)
       if (rigged && modelBlob) {
         // the rigged GLB IS the item; the catalog shot is captured automatically
-        fd.append('model', modelBlob, 'model.glb')
+        await attachUpload(fd, 'model', modelBlob, 'model.glb', 'model/gltf-binary', setUploadNote)
         const capUrl = previewModelUrl || URL.createObjectURL(modelBlob)
         try {
           const thumbBlob = await captureRiggedThumb(capUrl, type === 'anim' ? (clipMap.idle || clipNames[0]) : (previewClip || clipNames[0] || undefined))
-          fd.append('image', new File([thumbBlob], 'thumbnail.png', { type: 'image/png' }))
+          await attachUpload(fd, 'image', thumbBlob, 'thumbnail.png', 'image/png', setUploadNote)
         } catch {
           throw new Error('Could not capture the preview image — re-pick the model and try again.')
         }
@@ -1469,21 +1472,22 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           fd.append('animTarget', JSON.stringify({ kind: targetKind, ...(targetKind !== 'avatar' && targetAssetId ? { assetId: targetAssetId } : {}) }))
         }
       } else if (is3D && modelBlob && placement && thumbUrl) {
-        fd.append('model', modelBlob, 'model.glb')
+        await attachUpload(fd, 'model', modelBlob, 'model.glb', 'model/gltf-binary', setUploadNote)
         const thumbBlob = await (await fetch(thumbUrl)).blob()
-        fd.append('image', new File([thumbBlob], 'thumbnail.png', { type: 'image/png' }))
+        await attachUpload(fd, 'image', thumbBlob, 'thumbnail.png', 'image/png', setUploadNote)
         fd.append('placement', placementJson(placement))
         // the creator's surface: texture first, flat color when there is none
-        if (texture) fd.append('texture', texture)
+        if (texture) await attachUpload(fd, 'texture', texture, texture.name || 'texture.png', texture.type || 'image/png', setUploadNote)
         else if (colorOn) fd.append('color', itemColor)
       } else if (image) {
-        fd.append('image', image)
+        await attachUpload(fd, 'image', image, image.name || 'image.png', image.type || 'image/png', setUploadNote)
       }
       const res = await api<{ item: { assetId: string; name: string } }>('/api/catalog', { method: 'POST', body: fd })
       flash(setToast, `Published! Asset id: ${res.item.assetId}`)
       onDone()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Publish failed')
+      setUploadNote('')
       setBusy(false)
     }
   }
@@ -1594,6 +1598,12 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               <div style={{ fontSize: 9, color: '#7b8896', marginTop: 4 }}>
                 {rigged ? 'Click or drop — a rigged GLB (rig + clips), max 24MB' : 'Click or drop — FBX / GLB / OBJ, max 24MB'}
               </div>
+              {is3D && (
+                <div style={{ fontSize: 9, color: '#1c4e7c', marginTop: 3, lineHeight: 1.4 }}>
+                  Using Blender materials (colors / textures)? Export <strong>glTF Binary (.glb)</strong> — File &gt; Export &gt; glTF 2.0.
+                  It always keeps your materials; FBX needs Copy + Embed and still drops things.
+                </div>
+              )}
               {is3D && modelBlob && (
                 <button
                   type="button"
@@ -1963,7 +1973,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           )}
           {error && <div style={{ fontSize: 11, color: '#a81a13', marginBottom: 6 }}>{error}</div>}
           <button className="rb-btn rb-btn-green" type="submit" disabled={busy} style={{ fontSize: 11 }}>
-            {busy ? 'Publishing...' : 'Publish to Catalog'}
+            {busy ? (uploadNote || 'Publishing...') : 'Publish to Catalog'}
           </button>
           <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 6 }}>
             Publishing is free. You get the first copy automatically and can delete your own items any time.
