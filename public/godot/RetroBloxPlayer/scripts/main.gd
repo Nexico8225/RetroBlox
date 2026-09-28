@@ -597,7 +597,7 @@ func _register_player(requested_name: String, version: String, user_id: String) 
                 var p = players[other_id]
                 roster.append([int(other_id), p.display_name, p.global_position, p.alive, p.life_epoch, p.platform_user_id])
         _roster.rpc_id(id, roster, room_name)
-        _spawn_player.rpc(id, safe_name, position, true, 0, user_id)
+        _spawn_player.rpc(id, safe_name, spawn_pos, true, 0, user_id)
         _system_notice(safe_name + " joined the game.")
         _system_notice.rpc(safe_name + " joined the game.")
         print("PLAYER_JOINED id=%d name=%s user=%s players=%d" % [id, safe_name, user_id, players.size()])
