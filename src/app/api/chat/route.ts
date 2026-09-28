@@ -16,10 +16,14 @@ export async function GET(req: NextRequest) {
   })
   const partnerIds = new Set<string>()
   const pendingIds = new Set<string>()
+  const pendingFriendshipIds = new Map<string, string>() // partnerId -> friendship row (for the Nudge button)
   for (const r of rels) {
     const other = r.requesterId === me.id ? r.addresseeId : r.requesterId
     if (r.status === 'accepted') partnerIds.add(other)
-    else pendingIds.add(other)
+    else {
+      pendingIds.add(other)
+      pendingFriendshipIds.set(other, r.id)
+    }
   }
 
   // anyone with message history, even non-friends
@@ -48,6 +52,7 @@ export async function GET(req: NextRequest) {
       return {
         friend: publicUser(f),
         pending: pendingIds.has(f.id),
+        friendshipId: pendingFriendshipIds.get(f.id) || null,
         lastMessage: last
           ? {
               text: last.text,
