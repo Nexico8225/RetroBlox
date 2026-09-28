@@ -38,8 +38,23 @@ func _ready() -> void:
         %GuestBtn.pressed.connect(_guest_pressed)
         for edit: LineEdit in [_user_edit, _pass_edit]:
                 edit.text_submitted.connect(_on_field_submitted)
+        # UI sounds — the players are nodes under UISounds in the scene
+        _submit_btn.pressed.connect(_sfx.bind("ClickSound", 1.0))
+        %GuestBtn.pressed.connect(_sfx.bind("ClickSound", 1.0))
+        _submit_btn.mouse_entered.connect(_sfx.bind("HoverSound", 1.0))
+        %GuestBtn.mouse_entered.connect(_sfx.bind("HoverSound", 1.0))
         # straight into the username field, classic client style
         _user_edit.grab_focus.call_deferred()
+
+
+## Fire one of the AudioStreamPlayer nodes under UISounds. Missing node or
+## stream = silent no-op, so trimming the scene never breaks the login.
+func _sfx(sfx_name: String, pitch: float = 1.0) -> void:
+        var player := get_node_or_null("UISounds/" + sfx_name) as AudioStreamPlayer
+        if player == null or player.stream == null:
+                return
+        player.pitch_scale = pitch
+        player.play()
 
 
 func _guest_pressed() -> void:
@@ -72,6 +87,7 @@ func set_status_text(text: String) -> void:
 func _error(text: String) -> void:
         _status.add_theme_color_override("font_color", Color(0.7, 0.12, 0.1))
         _status.text = text
+        _sfx("DenySound", randf_range(0.96, 1.04))
         _busy = false
         _submit_btn.disabled = false
 
@@ -108,6 +124,7 @@ func _submit() -> void:
                 return
 
         _status.text = "Ready!"
+        _sfx("SuccessSound")
         var av = me.get("avatar", {})
         # main.gd takes the baton here: it saves the token, dismisses THIS card
         # and spawns you wearing the account avatar. The card also hides itself
