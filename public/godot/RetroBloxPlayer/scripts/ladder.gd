@@ -37,11 +37,14 @@ func _make_climb_area() -> void:
         _climb_area.monitoring = false
         _climb_area.add_to_group("ladder")
         # the rungs decorate the +Z face — publish that as the climbable
-        # direction so the player can leap AWAY from the ladder on jump
+        # direction so the player can leap AWAY from the ladder on jump.
+        # The zone is ±1 stud taller than the part: stacked rung zones must
+        # OVERLAP vertically, or a climb hopping between two rungs flickers
+        # off between them and the ride stutters instead of chaining.
         _climb_area.set_meta("outward", Vector3.BACK)
         var shape_node := CollisionShape3D.new()
         var shape := BoxShape3D.new()
-        shape.size = size + Vector3(1.2, 0.4, 1.6)
+        shape.size = size + Vector3(1.2, 2.0, 1.6)
         shape_node.shape = shape
         _climb_area.add_child(shape_node)
         add_child(_climb_area)
@@ -55,7 +58,7 @@ func _rebuild_rungs() -> void:
         if _climb_area != null:
                 var shape_node := _climb_area.get_child(0) as CollisionShape3D
                 if shape_node != null:
-                        (shape_node.shape as BoxShape3D).size = size + Vector3(1.2, 0.4, 1.6)
+                        (shape_node.shape as BoxShape3D).size = size + Vector3(1.2, 2.0, 1.6)
         if not rungs:
                 return
         # darker grey so trusses read as climbable at a glance
