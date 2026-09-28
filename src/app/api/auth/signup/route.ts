@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, makeToken, publicUser, setSessionCookie } from '@/lib/auth'
-import { ensureTables, diagnoseDb } from '@/lib/dbdiag'
+import { notifyEveryone } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
-  // paramedic first: if the cloud database is reachable but EMPTY, this
-  // creates all tables on the spot (idempotent, only touches empty DBs)
-  await ensureTables()
   try {
     const form = await req.formData()
     const username = String(form.get('username') || '').trim()
@@ -96,20 +93,24 @@ export async function POST(req: NextRequest) {
     const token = makeToken(user.id)
     await db.session.create({ data: { token, userId: user.id } }).catch(() => {})
 
+    // tell the whole town a new blockhead walked in (bell feed for every
+    // member; never blocks the signup itself)
+    await notifyEveryone(
+      {
+        type: 'new_player',
+        title: 'New player joined RetroBlox!',
+        body: `${user.username} just joined — say hi and send them a friend request!`,
+        linkUrl: `/users/${user.id}`,
+        actorId: user.id,
+      },
+      user.id
+    )
+
     const res = NextResponse.json({ user: publicUser(user), token })
     setSessionCookie(res, req, token)
     return res
   } catch (e) {
     console.error('signup error', e)
-    // 99% of the time this is the database being unreachable (bad DATABASE_URL,
-    // missing token, tables never created). Name the exact cause in the banner.
-    const reason = await diagnoseDb()
-    return NextResponse.json(
-      {
-        error: `The server could not create the account. ${reason} (Full check: open /api/health.)`,
-        code: 'server',
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Sign up failed. Try again.' }, { status: 500 })
   }
 }
