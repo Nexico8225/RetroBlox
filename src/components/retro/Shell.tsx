@@ -573,7 +573,7 @@ export function Sidebar() {
         {item('My Games', '/my')}
         {item('Create a Game', '/create')}
         {item('RetroLabs', '/labs')}
-        {item('RetroBlox SDK', '/sdk')}
+        {item('Player System', '/sdk')}
 
         {sec('Avatar & Shop')}
         {item('Avatar Editor', '/avatar')}
@@ -794,7 +794,7 @@ function MobileDrawer() {
         {link('Tix Store', '/store')}
         {user.role === 'admin' && link('Tix Admin', '/admin')}
         {link('Analytics', '/analytics')}
-        {link('RetroBlox SDK', '/sdk')}
+        {link('Player System', '/sdk')}
         {link('Settings', '/settings')}
 
         <div className="rb-drawer-logout">
@@ -950,7 +950,7 @@ export function Page({ children }: { children: React.ReactNode }) {
           <Link href="/labs" className="rb-link">RetroLabs</Link> · <Link href="/community" className="rb-link">Communities</Link> ·{' '}
           <Link href="/catalog" className="rb-link">Catalog</Link> ·{' '}
           <Link href="/store" className="rb-link">Tix Store</Link> ·{' '}
-          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> ·{' '}
+          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">Player System</Link> ·{' '}
           <Link href="/create" className="rb-link">Create</Link> ·{' '}
           {new Date().getFullYear()} RetroBlox Corporation
         </div>
