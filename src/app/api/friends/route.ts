@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq, publicUser } from '@/lib/auth'
+import { notifyUser } from '@/lib/notifications'
 
 // GET: friends list, incoming requests, outgoing requests
 export async function GET(req: NextRequest) {
@@ -16,12 +17,10 @@ export async function GET(req: NextRequest) {
     include: { requester: true },
   })
 
-  const friends = [...sent, ...received]
-    .filter((f) => f.status === 'accepted')
-    .map((f) => ({
-      ...publicUser(f.requesterId === me.id ? f.addressee : f.requester),
-      friendshipId: f.id,
-    }))
+  const friends = [
+    ...sent.filter((f) => f.status === 'accepted').map((f) => ({ ...publicUser(f.addressee), friendshipId: f.id })),
+    ...received.filter((f) => f.status === 'accepted').map((f) => ({ ...publicUser(f.requester), friendshipId: f.id })),
+  ]
 
   const incoming = received
     .filter((f) => f.status === 'pending')
@@ -65,11 +64,25 @@ export async function POST(req: NextRequest) {
     }
     // they already asked us -> auto accept
     await db.friendship.update({ where: { id: reverse.id }, data: { status: 'accepted' } })
+    await notifyUser(target.id, {
+      type: 'friend_accepted',
+      title: `${me.username} is now your friend!`,
+      body: 'You can chat with each other now.',
+      linkUrl: `/chat/${me.id}`,
+      actorId: me.id,
+    })
     return NextResponse.json({ ok: true, autoAccepted: true, user: publicUser(target) })
   }
 
   await db.friendship.create({
     data: { requesterId: me.id, addresseeId: target.id, status: 'pending' },
+  })
+  await notifyUser(target.id, {
+    type: 'friend_request',
+    title: `${me.username} sent you a friend request!`,
+    body: 'Open Friends to accept or decline it.',
+    linkUrl: '/friends',
+    actorId: me.id,
   })
   return NextResponse.json({ ok: true, user: publicUser(target) })
 }
