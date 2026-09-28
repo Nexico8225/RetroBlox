@@ -21,11 +21,13 @@ interface RetroState {
   user: RetroUser | null
   pendingRequests: number
   unreadChats: number
+  unreadNotifications: number
   toast: string | null
   setToast: (t: string | null) => void
   setUser: (u: RetroUser | null) => void
   setPendingRequests: (n: number) => void
   setUnreadChats: (n: number) => void
+  setUnreadNotifications: (n: number) => void
   setBooted: (b: boolean) => void
 }
 
@@ -34,11 +36,13 @@ export const useRetro = create<RetroState>((set) => ({
   user: null,
   pendingRequests: 0,
   unreadChats: 0,
+  unreadNotifications: 0,
   toast: null,
   setToast: (t) => set({ toast: t }),
   setUser: (u) => set({ user: u }),
   setPendingRequests: (n) => set({ pendingRequests: n }),
   setUnreadChats: (n) => set({ unreadChats: n }),
+  setUnreadNotifications: (n) => set({ unreadNotifications: n }),
   setBooted: (b) => set({ booted: b }),
 }))
 
