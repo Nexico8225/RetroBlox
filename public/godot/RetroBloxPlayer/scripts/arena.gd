@@ -85,7 +85,9 @@ func _grant_climb_area(part: RetroPart, local_outward: Vector3) -> void:
         var reach := local_outward.abs() * 1.2                # open-face margin
         var width_axis := Vector3(1.0, 0.0, 0.0) if absf(local_outward.z) > 0.5 else Vector3(0.0, 0.0, 1.0)
         var shape := BoxShape3D.new()
-        shape.size = part.size + reach + width_axis * 0.6 + Vector3(0.0, 0.4, 0.0)
+        # ±1 stud of extra height: stacked rungs' zones must OVERLAP vertically
+        # so a climb chains from one rung onto the next without flickering off
+        shape.size = part.size + reach + width_axis * 0.6 + Vector3(0.0, 2.0, 0.0)
         var shape_node := CollisionShape3D.new()
         shape_node.shape = shape
         shape_node.position = local_outward * 0.6             # margin sticks out, not in
@@ -110,46 +112,47 @@ func _make_environment() -> void:
         world_environment.name = "FriendlySky"
         var environment: Environment = Environment.new()
         environment.background_mode = Environment.BG_SKY
-        # CLASSIC ROBLOX LIGHT — flat, bright and even. No filmic tonemap
-        # (it muddies and darkens every color), strong neutral ambient so
-        # shadowed sides stay colorful, and a modest sun with soft, faint
-        # shadows: faces differ gently by angle, like the old renderer.
+        # CLASSIC ROBLOX LIGHT — the old renderer's recipe: one strong white
+        # sun, flat mid-grey ambient, LINEAR tonemap (filmic muddies every
+        # color). Tops catch the sun and glow, sides fall back to a clean
+        # half-light, undersides go properly dark. Bright, punchy, readable.
         environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-        environment.ambient_light_color = Color("eaf4fa")
-        environment.ambient_light_energy = 1.05
-        environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+        environment.ambient_light_color = Color(0.5, 0.5, 0.52)  # the classic 128-grey ambient
+        environment.ambient_light_energy = 1.0
+        environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
         environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
         var sky: Sky = Sky.new()
         var sky_material: ProceduralSkyMaterial = ProceduralSkyMaterial.new()
-        sky_material.sky_top_color = Color("#3f9fe0")
-        sky_material.sky_horizon_color = Color("#cfe9f5")
-        sky_material.ground_bottom_color = Color("#5f9e7d")
-        sky_material.ground_horizon_color = Color("#d2eac4")
-        sky_material.sun_angle_max = 20.0
+        sky_material.sky_top_color = Color("#2f74c9")       # classic deep blue overhead
+        sky_material.sky_horizon_color = Color("#d3ecf9")   # pale, bright horizon band
+        sky_material.ground_bottom_color = Color("#47795f")
+        sky_material.ground_horizon_color = Color("#d9edd2")
+        sky_material.sun_angle_max = 28.0
         sky.sky_material = sky_material
         environment.sky = sky
         world_environment.environment = environment
         add_child(world_environment)
 
-        # the main sun — clean white, gentle, faint soft shadows
+        # the main sun — bright white and steep enough that TOPS are the
+        # brightest face (the classic look), crisp soft shadows
         var sun: DirectionalLight3D = DirectionalLight3D.new()
         sun.name = "WarmSun"
-        sun.rotation_degrees = Vector3(-55.0, -35.0, 0.0)
-        sun.light_color = Color("#fffdf6")
-        sun.light_energy = 0.55
+        sun.rotation_degrees = Vector3(-52.0, -32.0, 0.0)
+        sun.light_color = Color("#fffef7")
+        sun.light_energy = 1.1
         sun.shadow_enabled = true
-        sun.shadow_opacity = 0.5
-        sun.shadow_blur = 1.6
-        sun.directional_shadow_max_distance = 150.0
+        sun.shadow_opacity = 0.72
+        sun.shadow_blur = 1.1
+        sun.directional_shadow_max_distance = 160.0
         add_child(sun)
 
-        # sky/ground fill — the "hemisphere" stand-in from the site playground:
-        # soft green-tinted light from the opposite side, no shadows
+        # a whisper of cool fill from the opposite side so the shaded face
+        # keeps its color — the old renderer's sky bounce, kept subtle
         var fill: DirectionalLight3D = DirectionalLight3D.new()
         fill.name = "SkyFill"
-        fill.rotation_degrees = Vector3(-28.0, 142.0, 0.0)
-        fill.light_color = Color("#bfe0d0")
-        fill.light_energy = 0.4
+        fill.rotation_degrees = Vector3(-24.0, 148.0, 0.0)
+        fill.light_color = Color("#d9ecff")
+        fill.light_energy = 0.18
         fill.shadow_enabled = false
         add_child(fill)
 
@@ -188,6 +191,12 @@ func _auto_ladder_pass() -> void:
                                 from, from + world_dir * (AUTO_LADDER_GAP_MAX + 0.25), 1, [part.get_rid()])
                         var hit := space.intersect_ray(query)
                         if hit.is_empty():
+                                continue
+                        # the hit must be a wall face LOOKING back at us: a flush
+                        # part (no air gap) starts the ray inside the wall and only
+                        # finds a backface — flush builds stay plain and unclimbable
+                        var hit_normal: Vector3 = hit["normal"]
+                        if hit_normal.dot(world_dir) > -0.7:
                                 continue
                         var gap: float = from.distance_to(hit["position"]) - 0.05
                         if gap < AUTO_LADDER_GAP_MIN or gap > AUTO_LADDER_GAP_MAX:
