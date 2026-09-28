@@ -81,7 +81,6 @@ var _face_decal: MeshInstance3D
 var _applied_colors: Dictionary = {}     # part index -> Color, reapplied if the rig upgrades
 var _anim_player: AnimationPlayer        # the R6IK rig's own AnimationPlayer (old Roblox clips)
 var _current_anim: StringName = &""
-var _anim_air: float = 0.0               # seconds of CONTINUOUS airborne — guards the anim state machine
 
 
 func _ready() -> void:
@@ -101,6 +100,13 @@ func set_display_name(value: String) -> void:
         _display_name = value
         if _nameplate != null:
                 _nameplate.text = value
+
+## Your own name stays off your head — you see everyone ELSE's name, the
+## classic Roblox way. Call with false for the local player.
+func set_nameplate_visible(value: bool) -> void:
+        _ensure_built()
+        if _nameplate != null:
+                _nameplate.visible = value
 
 ## Paint one body part a solid color (texture-free).
 func set_part_color(index: int, color: Color) -> void:
@@ -177,44 +183,39 @@ func clear_face() -> void:
 func animate(delta: float, speed: float, grounded: bool, climbing: bool = false) -> void:
         _ensure_built()
         _time += delta
-        # grounded can flicker for a frame or two on stair lips and slope seams;
-        # without a hold the state machine flaps Walk<->Jump and the clips look
-        # like they are not playing at all. Only 70ms of real air counts as air.
-        _anim_air = 0.0 if grounded else _anim_air + delta
         if _using_r6ik and _anim_player != null:
                 _animate_r6ik(speed, grounded, climbing)
                 return
         _animate_boxes(delta, speed, grounded, climbing)
 
 ## The real R6IK clips — Old_Idle / Old_Walk / Old_Jump / Climb, exactly the
-## animations that ship inside the rig. The walk clip is speed-scaled to the
-## actual movement so feet do not slide; holding still on a ladder freezes
-## the climb pose mid-frame (classic); the jump clip plays once and holds
-## its last frame until you land (classic old-Roblox jump).
+## animations that ship inside the rig. The walk/climb clips are speed-scaled
+## to the actual movement so feet do not slide; the jump clip plays once and
+## holds its last frame until you land (classic old-Roblox jump).
+##
+## IMPORTANT: speed_scale is set EVERY frame for every state. It used to be
+## only updated for walk/climb, so the last walk speed leaked into the idle
+## (idle played at 2x after walking) and into Climb (arms flailed off).
 func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
         var next: StringName = ANIM_IDLE
-        var rate := 1.0
+        var rate := 0.85
         if climbing:
                 next = ANIM_CLIMB
-                # vertical speed drives the cycle; ~0 = hanging on a rung,
-                # which holds the pose instead of cycling the limbs
-                rate = 0.0 if speed < 0.4 else clampf(speed / 6.0, 0.5, 1.5)
-        elif not grounded and _anim_air > 0.07:
+                rate = clampf(speed / 9.0, 0.6, 1.4)
+        elif not grounded:
                 next = ANIM_JUMP
+                rate = 1.0
         elif speed > 1.2:
                 next = ANIM_WALK
-                rate = clampf(speed / 8.0, 0.8, 2.2)
+                rate = clampf(speed / 16.0, 0.75, 1.25)
         if _current_anim != next:
                 _current_anim = next
                 # snappy jump, gentle blends everywhere else
-                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, maxf(rate, 0.6) if next != ANIM_JUMP else 1.35)
-        elif next != ANIM_IDLE:
-                # live speed control — 0.0 freezes the climb pose, walk tracks
-                # the feet to the ground speed
-                _anim_player.speed_scale = rate
+                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08)
+        _anim_player.speed_scale = rate
 
 ## Box-fallback rig: procedural limb swings, same classic feel.
-func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var movement: float = clampf(abs(speed) / 5.0, 0.0, 1.0)
         var walk_rate: float = 4.8 + movement * 2.0
         var swing: float = sin(_time * walk_rate) * movement
@@ -240,7 +241,7 @@ func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool)
                 if _pivots[0] != null:
                         _pivots[0].rotation.x = sin(_time * 1.8) * 0.025
                         _pivots[1].rotation.x = sin(_time * 1.8 + 0.5) * 0.012
-        elif _anim_air > 0.07:
+        else:
                 if _pivots[2] != null:
                         _pivots[2].rotation.x = -2.6
                         _pivots[3].rotation.x = -2.6
@@ -296,10 +297,15 @@ func burst(world: Node3D, impulse_seed: int) -> void:
         var cleanup_timer: SceneTreeTimer = world.get_tree().create_timer(5.0)
         cleanup_timer.timeout.connect(debris_group.queue_free)
 
-## Lazy-load the classic oof sound on first use (never at parse time).
+## Lazy-load the death sound on first use (never at parse time). The user's
+## own OOF slot (assets/sounds/OOF.mp3) wins when present; the bundled classic
+## oof.wav is the fallback.
 func _get_oof_audio() -> AudioStream:
         if _oof_audio == null:
-                _oof_audio = load("res://assets/oof.wav")
+                if ResourceLoader.exists("res://assets/sounds/OOF.mp3"):
+                        _oof_audio = load("res://assets/sounds/OOF.mp3")
+                else:
+                        _oof_audio = load("res://assets/oof.wav")
         return _oof_audio
 
 func set_local_hidden(hidden: bool) -> void:
@@ -352,15 +358,9 @@ func _try_r6ik() -> bool:
                 var anim_player := node as AnimationPlayer
                 anim_player.autoplay = ""
                 anim_player.stop()
-                # movement clips must LOOP — imported FBX clips default to
-                # LOOP_NONE, so the climb clip froze on its last frame and
-                # never replayed ("the animation sometimes does not play").
-                # IDLE/WALK/CLIMB loop; the jump clip plays once and holds
-                # its last frame mid-air (classic old-Roblox jump).
-                for loop_name: StringName in [ANIM_IDLE, ANIM_WALK, ANIM_CLIMB]:
-                        var loop_anim := anim_player.get_animation(loop_name)
-                        if loop_anim != null:
-                                loop_anim.loop_mode = Animation.LOOP_LINEAR
+                # IDLE processing: advances every frame, honoring speed_scale
+                # (used to speed the walk clip up and down with the player)
+                # the jump clip must hold its last frame mid-air, not loop
                 var jump_anim := anim_player.get_animation(ANIM_JUMP)
                 if jump_anim != null:
                         jump_anim.loop_mode = Animation.LOOP_NONE
@@ -379,12 +379,12 @@ func _try_r6ik() -> bool:
                 part_boxes[index] = box
                 raw_bounds = box if not have_bounds else raw_bounds.merge(box)
                 have_bounds = true
-        var rig_scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
+        var scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
         var raw_center := raw_bounds.get_center()
         var model := Node3D.new()
         model.name = "R6IKModel"
-        model.scale = Vector3.ONE * rig_scale
-        model.position = Vector3(-raw_center.x * rig_scale, -raw_bounds.position.y * rig_scale, -raw_center.z * rig_scale)
+        model.scale = Vector3.ONE * scale
+        model.position = Vector3(-raw_center.x * scale, -raw_bounds.position.y * scale, -raw_center.z * scale)
         model.add_child(inst)
         add_child(model)
 
@@ -423,11 +423,6 @@ func _try_r6ik() -> bool:
                 var color: Color = _applied_colors[index]
                 if index >= 0 and index < parts.size():
                         parts[index].material_override = _make_material(color)
-        # a rebuilt rig has a fresh AnimationPlayer — forget the previous
-        # clip name so the state machine starts playing again immediately
-        # (a stale _current_anim made avatars stand frozen after loading
-        # their account avatar)
-        _current_anim = &""
         return true
 
 ## Box fallback — the classic rig that lives in scenes/avatar.tscn.
