@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useRetro, api, letterAvatar, clearAuthToken, type RetroUser } from '@/lib/store'
+import { useRetro, api, letterAvatar, clearAuthToken, timeAgo, type RetroUser } from '@/lib/store'
 import { tixCompact } from '@/lib/tix'
 import { eggLogoClick } from '@/lib/eggs'
 import { RetroFontText } from '@/components/retro/RetroFontText'
@@ -67,6 +67,190 @@ export function OnlineDot({ online }: { online: boolean }) {
   return <span className={online ? 'rb-online-dot' : 'rb-offline-dot'} title={online ? 'Online now' : 'Offline'} />
 }
 
+/* ---------------- Notifications bell ---------------- */
+
+interface NotifRow {
+  id: string
+  type: string
+  title: string
+  body: string
+  linkUrl: string | null
+  createdAt: string
+  read: boolean
+  actor: { id: string; username: string; avatarUrl: string | null } | null
+}
+
+function NotifIcon({ type }: { type: string }) {
+  const common = { width: 20, height: 20, viewBox: '0 0 20 20', 'aria-hidden': true } as const
+  if (type === 'new_player') {
+    // shiny new blockhead walked in
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="6" r="3" fill="#2c6e31" />
+        <path d="M2 17c0-3.4 2.7-5.4 6-5.4s6 2 6 5.4z" fill="#2c6e31" />
+        <path d="M14.5 5.5v5M12 8h5" stroke="#ffd34e" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  if (type === 'friend_accepted') {
+    return (
+      <svg {...common}>
+        <circle cx="10" cy="10" r="8" fill="#4c9e34" />
+        <path d="M6 10.2 9 13l5-5.6" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  }
+  // friend_request
+  return (
+    <svg {...common}>
+      <circle cx="7.5" cy="6.5" r="2.8" fill="#b8860b" />
+      <path d="M2 16.5c0-3 2.4-4.8 5.5-4.8s5.5 1.8 5.5 4.8z" fill="#b8860b" />
+      <path d="M14.5 6.5v5M12 9h5" stroke="#0d69ac" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function NotificationsBell() {
+  const { unreadNotifications, setUnreadNotifications } = useRetro()
+  const router = useRouter()
+  const pathname = usePathname()
+  // derived: only open for the pathname it was opened on — navigating
+  // anywhere closes it automatically (same pattern as MobileDrawer)
+  const [openPath, setOpenPath] = useState<string | null>(null)
+  const open = openPath !== null && openPath === pathname
+  const close = () => setOpenPath(null)
+  const [rows, setRows] = useState<NotifRow[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenPath(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  async function toggle() {
+    const next = !open
+    setOpenPath(next ? pathname : null)
+    if (!next) return
+    try {
+      const res = await api<{ notifications: NotifRow[] }>('/api/notifications')
+      setRows(res.notifications)
+      setLoaded(true)
+      if ((res.notifications || []).some((n) => !n.read)) {
+        // clear the badge, keep the fetched flags for the highlight
+        await api('/api/notifications', { method: 'POST', body: JSON.stringify({ action: 'read-all' }) })
+      }
+      setUnreadNotifications(0)
+    } catch {
+      setLoaded(true)
+    }
+  }
+
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        type="button"
+        onClick={toggle}
+        title="Notifications"
+        aria-label={`Notifications${unreadNotifications ? ` (${unreadNotifications} unread)` : ''}`}
+        aria-expanded={open}
+        style={{ position: 'relative', display: 'inline-flex', padding: 6, background: 'none', border: 'none', cursor: 'pointer' }}
+      >
+        <BellIcon />
+        {unreadNotifications > 0 && (
+          <span className="rb-badge" style={{ position: 'absolute', top: -4, right: -7 }}>{unreadNotifications}</span>
+        )}
+      </button>
+
+      {open && <div style={{ position: 'fixed', inset: 0, zIndex: 58 }} onClick={close} aria-hidden="true" />}
+
+      {open && (
+        <div
+          className="rb-box"
+          role="dialog"
+          aria-label="Notifications"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: 0,
+            width: 320,
+            maxWidth: 'calc(100vw - 24px)',
+            maxHeight: 400,
+            overflowY: 'auto',
+            zIndex: 59,
+            boxShadow: '0 6px 18px rgba(9,32,52,.35)',
+          }}
+        >
+          <div className="rb-panel-head" style={{ position: 'sticky', top: 0 }}>
+            <span>Notifications</span>
+            <Link
+              className="rb-link"
+              style={{ fontSize: 10 }}
+              href="/people"
+              onClick={close}
+            >
+              Find People &rarr;
+            </Link>
+          </div>
+          {!loaded && <div style={{ padding: 18, textAlign: 'center', fontSize: 11, color: '#5a6b7b' }}>Loading...</div>}
+          {loaded && rows.length === 0 && (
+            <div style={{ padding: 18, textAlign: 'center', fontSize: 11, color: '#5a6b7b', lineHeight: 1.6 }}>
+              Nothing yet! When someone joins RetroBlox or<br />sends you a friend request, it shows up here.
+            </div>
+          )}
+          {loaded &&
+            rows.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => {
+                  close()
+                  if (n.linkUrl) router.push(n.linkUrl)
+                }}
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  width: '100%',
+                  textAlign: 'left',
+                  alignItems: 'flex-start',
+                  padding: '8px 10px',
+                  background: n.read ? 'transparent' : '#e1f2fb',
+                  border: 'none',
+                  borderBottom: '1px solid #eef2f6',
+                  cursor: 'pointer',
+                }}
+              >
+                <NotifIcon type={n.type} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 11, color: '#24425f', fontWeight: n.read ? 400 : 700 }}>{n.title}</span>
+                  {n.body && <span style={{ display: 'block', fontSize: 10, color: '#5a6b7b', marginTop: 1 }}>{n.body}</span>}
+                  <span style={{ display: 'block', fontSize: 9, color: '#8ba0b3', marginTop: 2 }}>{timeAgo(n.createdAt)}</span>
+                </span>
+              </button>
+            ))}
+        </div>
+      )}
+    </span>
+  )
+}
+
+function BellIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true">
+      <path
+        d="M11 2.2a1.6 1.6 0 0 1 1.6 1.6v.5c2.9.7 4.9 3 4.9 6.2v3.2l1.6 2.4c.3.5 0 1.2-.7 1.2H3.6c-.7 0-1-.7-.7-1.2l1.6-2.4v-3.2c0-3.2 2-5.5 4.9-6.2v-.5A1.6 1.6 0 0 1 11 2.2z"
+        fill="#e8eef4"
+        stroke="#0d3054"
+        strokeWidth="1.3"
+      />
+      <path d="M8.8 18.6a2.3 2.3 0 0 0 4.4 0z" fill="#e8eef4" stroke="#0d3054" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
 /* ---------------- Header ---------------- */
 
 const NAV = [
@@ -83,7 +267,7 @@ const NAV = [
 ]
 
 export function Header() {
-  const { user, pendingRequests, unreadChats, setPendingRequests, setUnreadChats, setToast } = useRetro()
+  const { user, pendingRequests, unreadChats, unreadNotifications, setPendingRequests, setUnreadChats, setUnreadNotifications, setToast } = useRetro()
   const router = useRouter()
   const pathname = usePathname()
   const [q, setQ] = useState('')
@@ -92,9 +276,10 @@ export function Header() {
     // refresh pending friend-request + chat badges + the Tix wallet chip occasionally
     const tick = async () => {
       try {
-        const res = await api<{ pendingFriendRequests: number; unreadChats: number; user: { rbxBalance?: number } | null }>('/api/me')
+        const res = await api<{ pendingFriendRequests: number; unreadChats: number; unreadNotifications?: number; user: { rbxBalance?: number } | null }>('/api/me')
         setPendingRequests(res.pendingFriendRequests || 0)
         setUnreadChats(res.unreadChats || 0)
+        setUnreadNotifications(res.unreadNotifications || 0)
         const u = useRetro.getState().user
         if (u && res.user) useRetro.getState().setUser({ ...u, rbxBalance: res.user.rbxBalance ?? 0 })
       } catch { /* ignore */ }
@@ -102,7 +287,7 @@ export function Header() {
     tick()
     const t = setInterval(tick, 30000)
     return () => clearInterval(t)
-  }, [setPendingRequests, setUnreadChats])
+  }, [setPendingRequests, setUnreadChats, setUnreadNotifications])
 
   function search(e: React.FormEvent) {
     e.preventDefault()
@@ -194,6 +379,8 @@ export function Header() {
                 <span style={{ fontFamily: 'monospace' }}>{tixCompact(user.rbxBalance ?? 0)}</span>
                 <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#cfe8f8' }}>+ Buy</span>
               </Link>
+
+              <NotificationsBell />
 
               <Link
                 href="/chat"
@@ -386,7 +573,7 @@ export function Sidebar() {
         {item('My Games', '/my')}
         {item('Create a Game', '/create')}
         {item('RetroLabs', '/labs')}
-        {item('RetroBlox Game Kit', '/sdk')}
+        {item('RetroBlox SDK', '/sdk')}
 
         {sec('Avatar & Shop')}
         {item('Avatar Editor', '/avatar')}
@@ -395,6 +582,7 @@ export function Sidebar() {
 
         {sec('Social')}
         {item('My Profile', `/users/${user.id}`)}
+        {item('People', '/people')}
         {item('Friends', '/friends', pendingRequests || undefined)}
         {item('Chat', '/chat', unreadChats || undefined)}
         {item('Groups', '/groups')}
@@ -592,6 +780,7 @@ function MobileDrawer() {
 
         <div className="rb-drawer-sec">Browse</div>
         {link('Games', '/games')}
+        {link('People', '/people')}
         {link('Catalog', '/catalog')}
         {link('Groups', '/groups')}
         {link('RetroLabs', '/labs')}
@@ -605,7 +794,7 @@ function MobileDrawer() {
         {link('Tix Store', '/store')}
         {user.role === 'admin' && link('Tix Admin', '/admin')}
         {link('Analytics', '/analytics')}
-        {link('RetroBlox Game Kit', '/sdk')}
+        {link('RetroBlox SDK', '/sdk')}
         {link('Settings', '/settings')}
 
         <div className="rb-drawer-logout">
@@ -702,7 +891,7 @@ export function BootScreen() {
  * could wander games and the catalog before signing up. Everything else
  * (create, chat, wallet, settings...) bounces to /login.
  */
-const PUBLIC_ROOTS = ['/', '/games', '/catalog', '/labs', '/community', '/groups', '/music', '/videos', '/users', '/sdk']
+const PUBLIC_ROOTS = ['/', '/games', '/catalog', '/labs', '/community', '/groups', '/music', '/videos', '/users', '/sdk', '/people']
 function isPublicPath(p: string) {
   return PUBLIC_ROOTS.some((r) => (r === '/' ? p === '/' : p === r || p.startsWith(r + '/')))
 }
@@ -756,11 +945,12 @@ export function Page({ children }: { children: React.ReactNode }) {
         </div>
         <div>
           <Link href="/" className="rb-link">Home</Link> · <Link href="/games" className="rb-link">Games</Link> ·{' '}
+          <Link href="/people" className="rb-link">People</Link> ·{' '}
           <Link href="/videos" className="rb-link">Videos</Link> · <Link href="/groups" className="rb-link">Groups</Link> ·{' '}
           <Link href="/labs" className="rb-link">RetroLabs</Link> · <Link href="/community" className="rb-link">Communities</Link> ·{' '}
           <Link href="/catalog" className="rb-link">Catalog</Link> ·{' '}
           <Link href="/store" className="rb-link">Tix Store</Link> ·{' '}
-          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox Game Kit</Link> ·{' '}
+          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> ·{' '}
           <Link href="/create" className="rb-link">Create</Link> ·{' '}
           {new Date().getFullYear()} RetroBlox Corporation
         </div>
