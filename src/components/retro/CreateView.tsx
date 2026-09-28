@@ -215,7 +215,7 @@ export function CreateView() {
             </select>
             {engine === 'Unity' && (
               <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 4 }}>
-                Made in Unity? Grab the <a href="/sdk" className="rb-link">RetroBlox SDK</a> — players sign in once and spawn wearing their own avatar.
+                Building your own game? Grab the <a href="/sdk" className="rb-link">RetroBlox Game Kit</a> — players log in once and spawn wearing their own avatar.
               </div>
             )}
           </div>
