@@ -103,6 +103,16 @@ code:
 | `scenes/hud.tscn` | Chat, roster, status line, Esc menu with settings. |
 | `main.tscn` | The demo game: arena + player spawns + camera rig + HUD + auth. Use it as a reference or a starting world. |
 
+### Ladders climb themselves
+
+You never need a script to make something climbable. Build a ladder out of
+plain `scenes/part.tscn` rungs the classic way — each rung sticking 1 to 3
+studs out from the wall, held ~1 stud off it — and the game recognizes the
+silhouette and makes it climbable on its own: face it, press `W` to climb,
+`S` to climb down, `SPACE` to leap off. `scenes/ladder.tscn` (the grey
+truss with decorative rungs) works the same way and needs no setup either.
+Climbing feeds your jump, so ladder towers chain straight into obbies.
+
 ### Minimal example — your own game with accounts + avatars
 
 Create a new scene, instance `scenes/auth_screen.tscn` and
