@@ -1,9 +1,8 @@
 extends Node3D
 
 ## RetroBlox Player — classic multiplayer world on a platform account.
-## Log in INSIDE the game (accounts are made on the website), your account
-## avatar loads from the RetroBlox website, and everyone in the room sees
-## it. Shift Lock included.
+## Sign in (or sign up) INSIDE the game, your account avatar loads from the
+## RetroBlox website, and everyone in the room sees it. Shift Lock included.
 const Player = preload("res://scripts/player.gd")
 const PlayerScene = preload("res://scenes/player.tscn")
 const HudScene = preload("res://scenes/hud.tscn")
@@ -40,6 +39,7 @@ var jump_serial: int = 0
 var sequence: int = 0
 var hud: CanvasLayer
 var auth: CanvasLayer
+var chat_walk: Vector2 = Vector2.ZERO   # the direction locked in when chat opened
 
 # the world lives in main.tscn — Arena, Players, Debris and the CameraRig
 @onready var arena: Node3D = $Arena
@@ -51,15 +51,13 @@ var auth: CanvasLayer
 var camera_yaw: float = 0.0
 var camera_pitch: float = -0.26
 var camera_distance: float = 14.5   # studs — classic default zoom for a 5-stud character
-var camera_max_distance: float = 20.0   # zoom-out hard stop — you can't zoom off the map
 var camera_initialized: bool = false
 var quitting: bool = false
 var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
 
 # --- platform account ---
-# The production RetroBlox site — login, avatars, catalog. The login card
-# has NO server box (players can't mistype it); override the baked-in URL
-# with RETROBLOX_API or --api= only for self-hosts.
+# The production RetroBlox site — sign-in, avatars, catalog. Override with
+# the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
 var api_url: String = "https://retro-blox.vercel.app"
 var api_ref: RetrobloxApiScript
 var platform_user_id: String = ""
@@ -89,7 +87,6 @@ func _ready() -> void:
                 hud.resume_requested.connect(func(): hud.set_menu(false))
                 hud.reset_requested.connect(request_reset)
                 hud.quit_requested.connect(quit_game)
-                hud.logout_requested.connect(_on_logout_requested)
                 hud.shiftlock_toggled.connect(_set_shiftlock)
                 hud.sensitivity_changed.connect(_on_sensitivity_changed)
                 hud.volume_changed.connect(_on_volume_changed)
@@ -98,8 +95,8 @@ func _ready() -> void:
                 hud.set_sliders(mouse_sensitivity, volume_setting)
                 hud.set_shiftlock(shiftlock)
                 hud.add_chat("", "Welcome! Only connected players appear here.", true)
-                hud.set_account(player_name)
-                # the door: log in with your site account, or play as a guest
+                _setup_cursors()
+                # the door: sign in, sign up, or play as a guest
                 auth = AuthScreenScene.instantiate() as CanvasLayer
                 add_child(auth)
                 auth.completed.connect(_on_auth_completed)
@@ -175,6 +172,19 @@ func _bind_key(action: String, key: Key) -> void:
         event.physical_keycode = key
         InputMap.action_add_event(action, event)
 
+## The website's own cursor — the classic white arrow with the black
+## outline, used everywhere on retro-blox.vercel.app. Text fields get the
+## arrow as the I-beam so it never vanishes inside the chat.
+func _setup_cursors() -> void:
+        var arrow: Texture2D = load("res://assets/cursors/cursor.png")
+        if arrow != null:
+                Input.set_custom_mouse_cursor(arrow, Input.CURSOR_ARROW, Vector2(3.0, 2.0))
+                Input.set_custom_mouse_cursor(arrow, Input.CURSOR_IBEAM, Vector2(14.0, 12.0))
+                Input.set_custom_mouse_cursor(arrow, Input.CURSOR_CROSS, Vector2(14.0, 12.0))
+        var hand: Texture2D = load("res://assets/cursors/pointer.png")
+        if hand != null:
+                Input.set_custom_mouse_cursor(hand, Input.CURSOR_POINTING_HAND, Vector2(10.0, 4.0))
+
 # ---------------------------------------------------------------- auth flow
 
 func _try_saved_token() -> void:
@@ -189,6 +199,7 @@ func _try_saved_token() -> void:
                 return
         if me.get("ok", false) and not str(me.get("username", "")).is_empty():
                 var av = me.get("avatar", {})
+                auth.visible = false
                 _finish_auth(probe, String(me.get("username", "")), String(me.get("userId", "")), av if av is Dictionary else {})
         else:
                 # token expired or the site moved on — back to the form
@@ -205,9 +216,8 @@ func _on_guest_requested() -> void:
         platform_user_id = ""
         my_avatar = {}
         player_name = "Guest-%04d" % randi_range(1000, 9999)
-        _dismiss_auth()
-        if hud != null:
-                hud.set_account(player_name)
+        if auth != null:
+                auth.visible = false
         _begin_online()
 
 func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
@@ -223,37 +233,7 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         profile.save("user://profile.cfg")
         if hud != null:
                 hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
-                hud.set_account(player_name)
-        # THE CARD MUST GO when login succeeds. This was the reported bug:
-        # the card said "Ready!" but stayed on screen, and because input,
-        # _process and _physics_process all stand down while it is visible,
-        # the whole game froze behind it with nothing left to click.
-        _dismiss_auth()
         _begin_online()
-
-## Take the login card down for real — invisible, freed, and forgotten.
-func _dismiss_auth() -> void:
-        if auth == null:
-                return
-        auth.visible = false
-        auth.queue_free()
-        auth = null
-
-
-## LOG OUT — wipe the saved session, tear the room down, and land back on
-## the login card. A full scene reload keeps this bulletproof: nothing of
-## the old session (players, peers, avatar caches) survives it.
-func _on_logout_requested() -> void:
-        if quitting:
-                return
-        profile.set_value("platform", "token", "")
-        profile.set_value("platform", "username", "")
-        profile.save("user://profile.cfg")
-        if hud != null:
-                hud.set_menu(false)
-        _close_network()
-        _clear_players()
-        get_tree().reload_current_scene()
 
 func _begin_online() -> void:
         if quitting:
@@ -298,14 +278,16 @@ func _input(event: InputEvent) -> void:
                         get_viewport().set_input_as_handled()
         if hud.input_busy():
                 return
-        if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+        # E-look: holding E orbits the camera while the cursor stays VISIBLE
+        # (right-mouse keeps the classic captured mode). Motion counts the same.
+        if event is InputEventMouseMotion and (Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or Input.is_key_pressed(KEY_E)):
                 camera_yaw -= event.relative.x * 0.003 * mouse_sensitivity
                 camera_pitch = clampf(camera_pitch - event.relative.y * 0.003 * mouse_sensitivity, -1.2, 0.8)
         if event is InputEventMouseButton and event.pressed:
                 if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-                        camera_distance = clampf(camera_distance - 1.4, 0.5, camera_max_distance)
+                        camera_distance = clampf(camera_distance - 1.4, 2.0, 24.0)
                 elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-                        camera_distance = clampf(camera_distance + 1.4, 0.5, camera_max_distance)
+                        camera_distance = clampf(camera_distance + 1.4, 2.0, 24.0)
 
 func _set_shiftlock(enabled: bool) -> void:
         shiftlock = enabled
@@ -359,7 +341,7 @@ func _process(delta: float) -> void:
         var local = players.get(local_id)
         var busy: bool = hud.input_busy()
         var capture: bool = not busy and (shiftlock or camera_distance < 1.0 or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
-        var wanted_mode: Input.MouseMode = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
+        var wanted_mode: int = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
         if Input.mouse_mode != wanted_mode:
                 Input.mouse_mode = wanted_mode
         hud.crosshair.visible = not busy and (shiftlock or camera_distance < 1.0)
@@ -394,8 +376,35 @@ func _physics_process(delta: float) -> void:
                 var direction := Vector2.ZERO
                 if not hud.input_busy():
                         direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-                        if Input.is_action_just_pressed("jump"):
+                        if direction != Vector2.ZERO:
+                                chat_walk = direction
+                        # hold SPACE = keep hopping the moment you land
+                        if Input.is_action_just_pressed("jump") \
+                                        or (Input.is_action_pressed("jump") and local.grounded):
                                 jump_serial += 1
+                elif hud.chat_entry.has_focus():
+                        # the classic chat walk: while you type, the character
+                        # keeps going the way you were headed — no key spam
+                        # needed. S / A / D / jump (or releasing the key) stop it.
+                        if Input.is_action_just_pressed("move_back") \
+                                        or Input.is_action_just_pressed("move_left") \
+                                        or Input.is_action_just_pressed("move_right") \
+                                        or Input.is_action_just_pressed("jump"):
+                                chat_walk = Vector2.ZERO
+                        if chat_walk != Vector2.ZERO:
+                                if chat_walk.y < -0.4 and not Input.is_action_pressed("move_forward"):
+                                        chat_walk.y = 0.0
+                                if chat_walk.y > 0.4 and not Input.is_action_pressed("move_back"):
+                                        chat_walk.y = 0.0
+                                if chat_walk.x > 0.4 and not Input.is_action_pressed("move_right"):
+                                        chat_walk.x = 0.0
+                                if chat_walk.x < -0.4 and not Input.is_action_pressed("move_left"):
+                                        chat_walk.x = 0.0
+                                if chat_walk.length_squared() < 0.05:
+                                        chat_walk = Vector2.ZERO
+                        direction = chat_walk
+                else:
+                        chat_walk = Vector2.ZERO
                 sequence += 1
                 if server_mode:
                         _store_input(local_id, direction, camera_yaw, jump_serial, sequence, local.life_epoch, shiftlock)
@@ -433,7 +442,7 @@ func _physics_process(delta: float) -> void:
                         var rows: Array = []
                         for id in players:
                                 var p = players[id]
-                                rows.append([int(id), p.global_position, p.velocity, p.heading, p.grounded, p.life_epoch])
+                                rows.append([int(id), p.global_position, p.velocity, p.heading, p.grounded, p.life_epoch, p.health])
                         if not multiplayer.get_peers().is_empty():
                                 _snapshot.rpc(rows)
 
@@ -625,14 +634,14 @@ func _register_player(requested_name: String, version: String, user_id: String) 
                 if p.display_name == safe_name:
                         safe_name = safe_name.left(12) + "-%04d" % (id % 10000)
                         break
-        var spawn_pos: Vector3 = arena.spawn_point(players.size())
-        _spawn_player(id, safe_name, spawn_pos, true, 0, user_id)
+        var position: Vector3 = arena.spawn_point(players.size())
+        _spawn_player(id, safe_name, position, true, 0, user_id)
         var roster: Array = []
         for other_id in players:
                 var p = players[other_id]
                 roster.append([int(other_id), p.display_name, p.global_position, p.alive, p.life_epoch, p.platform_user_id])
         _roster.rpc_id(id, roster, room_name)
-        _spawn_player.rpc(id, safe_name, spawn_pos, true, 0, user_id)
+        _spawn_player.rpc(id, safe_name, position, true, 0, user_id)
         _system_notice(safe_name + " joined the game.")
         _system_notice.rpc(safe_name + " joined the game.")
         print("PLAYER_JOINED id=%d name=%s user=%s players=%d" % [id, safe_name, user_id, players.size()])
@@ -674,6 +683,7 @@ func _spawn_player(id: int, safe_name: String, pos: Vector3, live: bool, epoch: 
         players[id] = p
         if id == local_id:
                 jump_serial = 0
+                p.avatar.call("set_nameplate_visible", false)  # everyone ELSE's name shows, not yours
                 if hud != null:
                         p.health_changed.connect(hud.set_health)
                         p.health_depleted.connect(_on_local_health_depleted)
@@ -752,6 +762,9 @@ func _snapshot(rows: Array) -> void:
                 if int(row[5]) != p.life_epoch or not p.alive:
                         continue
                 p.accept_snapshot(row[1], row[2], float(row[3]), bool(row[4]), id == local_id)
+                # remote players' health rides along so their head bar updates
+                if id != local_id and row.size() > 6:
+                        p.set_remote_health(float(row[6]))
 
 ## Local health hit zero (a big fall) — the same reset/respawn flow as the
 ## menu's Reset button; the server stays the authority over the respawn.
