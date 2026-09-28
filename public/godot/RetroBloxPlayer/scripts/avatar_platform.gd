@@ -18,13 +18,9 @@ extends RefCounted
 # and when other devs copy these scripts into their own project.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
-const RIG_HEIGHT := 5.0          # this avatar's height — the SAME 5-stud rig the site uses
+const RIG_HEIGHT := 2.9          # this avatar's height (site rig = 5.0 studs)
 const SITE_RIG_HEIGHT := 5.0
 const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies
-# Rig and site rig are the same 5 studs, so the scale is 1.0 and the site's
-# placements apply VERBATIM. (This used to be 2.9/5.0 back when the avatar
-# was smaller — every hat arrived at 58% size and floated off the head:
-# the "UGC is broken" bug. Sizes are stud-accurate now: 1 stud = 0.28 m.)
 const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT
 
 # "this surface arrived with no real paint" threshold (raw sRGB ~0.97+),
@@ -148,7 +144,16 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                 holder.name = "UGCScaled_" + String(acc_id)
                 holder.scale = Vector3.ONE * UGC_SCALE
                 holder.add_child(inner)
-                avatar_node.add_child(holder)
+                # THE MIRROR FIX: the website rig faces +Z (three.js), this
+                # avatar faces -Z (Godot). UGC is authored in site space, so a
+                # 180° turn maps site (x, y, z) -> Godot (-x, y, -z): a horn
+                # pointing forward on the site points forward here too instead
+                # of backwards.
+                var flip := Node3D.new()
+                flip.name = "UGCOriented_" + String(acc_id)
+                flip.rotation.y = PI
+                flip.add_child(holder)
+                avatar_node.add_child(flip)
                 # creator texture / tint — THE ROBLOX RULE, DATA WINS: the
                 # model's own materials always show; the site's paint only
                 # fills surfaces that arrived with no real color
@@ -209,11 +214,11 @@ static func zone_box(size: Vector3, zone: Rect2, tw: int, th: int) -> ArrayMesh:
                 var hu := absf(u_axis.x) * half.x + absf(u_axis.y) * half.y + absf(u_axis.z) * half.z
                 var hv := absf(v_axis.x) * half.x + absf(v_axis.y) * half.y + absf(v_axis.z) * half.z
                 var tl := center - u_axis * hu - v_axis * hv
-                var top_right := center + u_axis * hu - v_axis * hv
+                var tr := center + u_axis * hu - v_axis * hv
                 var br := center + u_axis * hu + v_axis * hv
                 var bl := center - u_axis * hu + v_axis * hv
                 var base := verts.size()
-                for corner in [tl, top_right, br, bl]:
+                for corner in [tl, tr, br, bl]:
                         verts.push_back(corner)
                 for _i in range(4):
                         norms.push_back(normal)
