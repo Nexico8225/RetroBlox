@@ -81,6 +81,7 @@ var _face_decal: MeshInstance3D
 var _applied_colors: Dictionary = {}     # part index -> Color, reapplied if the rig upgrades
 var _anim_player: AnimationPlayer        # the R6IK rig's own AnimationPlayer (old Roblox clips)
 var _current_anim: StringName = &""
+var _anim_air: float = 0.0               # seconds of CONTINUOUS airborne — guards the anim state machine
 
 
 func _ready() -> void:
@@ -176,6 +177,10 @@ func clear_face() -> void:
 func animate(delta: float, speed: float, grounded: bool, climbing: bool = false) -> void:
         _ensure_built()
         _time += delta
+        # grounded can flicker for a frame or two on stair lips and slope seams;
+        # without a hold the state machine flaps Walk<->Jump and the clips look
+        # like they are not playing at all. Only 70ms of real air counts as air.
+        _anim_air = 0.0 if grounded else _anim_air + delta
         if _using_r6ik and _anim_player != null:
                 _animate_r6ik(speed, grounded, climbing)
                 return
@@ -194,7 +199,7 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
                 # vertical speed drives the cycle; ~0 = hanging on a rung,
                 # which holds the pose instead of cycling the limbs
                 rate = 0.0 if speed < 0.4 else clampf(speed / 6.0, 0.5, 1.5)
-        elif not grounded:
+        elif not grounded and _anim_air > 0.07:
                 next = ANIM_JUMP
         elif speed > 1.2:
                 next = ANIM_WALK
@@ -235,7 +240,7 @@ func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool)
                 if _pivots[0] != null:
                         _pivots[0].rotation.x = sin(_time * 1.8) * 0.025
                         _pivots[1].rotation.x = sin(_time * 1.8 + 0.5) * 0.012
-        else:
+        elif _anim_air > 0.07:
                 if _pivots[2] != null:
                         _pivots[2].rotation.x = -2.6
                         _pivots[3].rotation.x = -2.6
