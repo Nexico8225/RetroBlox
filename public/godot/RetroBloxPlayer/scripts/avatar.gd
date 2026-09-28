@@ -182,15 +182,18 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false)
         _animate_boxes(delta, speed, grounded, climbing)
 
 ## The real R6IK clips — Old_Idle / Old_Walk / Old_Jump / Climb, exactly the
-## animations that ship inside the rig. The walk/climb clips are speed-scaled
-## to the actual movement so feet do not slide; the jump clip plays once and
-## holds its last frame until you land (classic old-Roblox jump).
+## animations that ship inside the rig. The walk clip is speed-scaled to the
+## actual movement so feet do not slide; holding still on a ladder freezes
+## the climb pose mid-frame (classic); the jump clip plays once and holds
+## its last frame until you land (classic old-Roblox jump).
 func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
         var next: StringName = ANIM_IDLE
         var rate := 1.0
         if climbing:
                 next = ANIM_CLIMB
-                rate = clampf(speed / 6.0, 0.5, 1.5)
+                # vertical speed drives the cycle; ~0 = hanging on a rung,
+                # which holds the pose instead of cycling the limbs
+                rate = 0.0 if speed < 0.4 else clampf(speed / 6.0, 0.5, 1.5)
         elif not grounded:
                 next = ANIM_JUMP
         elif speed > 1.2:
@@ -199,8 +202,10 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
         if _current_anim != next:
                 _current_anim = next
                 # snappy jump, gentle blends everywhere else
-                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
-        elif next == ANIM_WALK or next == ANIM_CLIMB:
+                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, maxf(rate, 0.6) if next != ANIM_JUMP else 1.35)
+        elif next != ANIM_IDLE:
+                # live speed control — 0.0 freezes the climb pose, walk tracks
+                # the feet to the ground speed
                 _anim_player.speed_scale = rate
 
 ## Box-fallback rig: procedural limb swings, same classic feel.
@@ -342,9 +347,15 @@ func _try_r6ik() -> bool:
                 var anim_player := node as AnimationPlayer
                 anim_player.autoplay = ""
                 anim_player.stop()
-                # IDLE processing: advances every frame, honoring speed_scale
-                # (used to speed the walk clip up and down with the player)
-                # the jump clip must hold its last frame mid-air, not loop
+                # movement clips must LOOP — imported FBX clips default to
+                # LOOP_NONE, so the climb clip froze on its last frame and
+                # never replayed ("the animation sometimes does not play").
+                # IDLE/WALK/CLIMB loop; the jump clip plays once and holds
+                # its last frame mid-air (classic old-Roblox jump).
+                for loop_name: StringName in [ANIM_IDLE, ANIM_WALK, ANIM_CLIMB]:
+                        var loop_anim := anim_player.get_animation(loop_name)
+                        if loop_anim != null:
+                                loop_anim.loop_mode = Animation.LOOP_LINEAR
                 var jump_anim := anim_player.get_animation(ANIM_JUMP)
                 if jump_anim != null:
                         jump_anim.loop_mode = Animation.LOOP_NONE
@@ -407,6 +418,11 @@ func _try_r6ik() -> bool:
                 var color: Color = _applied_colors[index]
                 if index >= 0 and index < parts.size():
                         parts[index].material_override = _make_material(color)
+        # a rebuilt rig has a fresh AnimationPlayer — forget the previous
+        # clip name so the state machine starts playing again immediately
+        # (a stale _current_anim made avatars stand frozen after loading
+        # their account avatar)
+        _current_anim = &""
         return true
 
 ## Box fallback — the classic rig that lives in scenes/avatar.tscn.
