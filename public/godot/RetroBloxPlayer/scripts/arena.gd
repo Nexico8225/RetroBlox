@@ -22,11 +22,22 @@ const FALLBACK_SPAWNS: Array[Vector3] = [
 ]
 
 var _spawn_pads: Array[Vector3] = []
+var _map_root: Node3D = null
+
+# auto-ladder rule — a plain part "looks like a ladder" (and climbs like
+# one) when it hangs off a wall exactly like the classic rung/truss builds:
+# 1-3 studs of part between you and the wall, with a ~1 stud air gap behind
+# it (mounted on spacers). Everything else stays a normal, unclimbable part.
+const AUTO_LADDER_MIN_DEPTH: float = 1.0
+const AUTO_LADDER_MAX_DEPTH: float = 3.0
+const AUTO_LADDER_GAP_MIN: float = 0.45
+const AUTO_LADDER_GAP_MAX: float = 1.6
 
 
 func _ready() -> void:
         _make_environment()
         _load_map()
+        _auto_ladder_pass.call_deferred()
 
 
 func spawn_point(index: int) -> Vector3:
@@ -49,6 +60,7 @@ func _load_map() -> void:
         if map == null:
                 map = _make_fallback_plate()
         add_child(map)
+        _map_root = map
         for node in get_tree().get_nodes_in_group("spawn"):
                 var pad := node as RetroPart
                 if pad == null:
@@ -57,6 +69,28 @@ func _load_map() -> void:
                 _spawn_pads.append(Vector3(pad.global_position.x, top + 0.15, pad.global_position.z))
         if _spawn_pads.is_empty():
                 print("[RetroBlox] map has no SpawnLocation pads — using default spawns")
+
+
+## Give a qualifying part its climb zone: an Area3D on layer 16 in the
+## "ladder" group, covering the part plus a reach margin on the open face,
+## publishing the climbable direction for the jump-off.
+func _grant_climb_area(part: RetroPart, local_outward: Vector3) -> void:
+        var area := Area3D.new()
+        area.name = "AutoClimbArea"
+        area.collision_layer = 16
+        area.collision_mask = 0
+        area.monitoring = false
+        area.add_to_group("ladder")
+        area.set_meta("outward", local_outward)
+        var reach := local_outward.abs() * 1.2                # open-face margin
+        var width_axis := Vector3(1.0, 0.0, 0.0) if absf(local_outward.z) > 0.5 else Vector3(0.0, 0.0, 1.0)
+        var shape := BoxShape3D.new()
+        shape.size = part.size + reach + width_axis * 0.6 + Vector3(0.0, 0.4, 0.0)
+        var shape_node := CollisionShape3D.new()
+        shape_node.shape = shape
+        shape_node.position = local_outward * 0.6             # margin sticks out, not in
+        area.add_child(shape_node)
+        part.add_child(area)
 
 
 func _make_fallback_plate() -> Node3D:
@@ -76,33 +110,37 @@ func _make_environment() -> void:
         world_environment.name = "FriendlySky"
         var environment: Environment = Environment.new()
         environment.background_mode = Environment.BG_SKY
-        # bright, even ambient like the site's hemisphere light — shadowed
-        # sides stay colorful instead of going muddy
+        # CLASSIC ROBLOX LIGHT — flat, bright and even. No filmic tonemap
+        # (it muddies and darkens every color), strong neutral ambient so
+        # shadowed sides stay colorful, and a modest sun with soft, faint
+        # shadows: faces differ gently by angle, like the old renderer.
         environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-        environment.ambient_light_color = Color("e6f2f7")
-        environment.ambient_light_energy = 0.9
+        environment.ambient_light_color = Color("eaf4fa")
+        environment.ambient_light_energy = 1.05
         environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-        environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+        environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
         var sky: Sky = Sky.new()
         var sky_material: ProceduralSkyMaterial = ProceduralSkyMaterial.new()
-        sky_material.sky_top_color = Color("#4fa8e8")
-        sky_material.sky_horizon_color = Color("#c8e8f2")
+        sky_material.sky_top_color = Color("#3f9fe0")
+        sky_material.sky_horizon_color = Color("#cfe9f5")
         sky_material.ground_bottom_color = Color("#5f9e7d")
-        sky_material.ground_horizon_color = Color("#cfe8c0")
+        sky_material.ground_horizon_color = Color("#d2eac4")
         sky_material.sun_angle_max = 20.0
         sky.sky_material = sky_material
         environment.sky = sky
         world_environment.environment = environment
         add_child(world_environment)
 
-        # the main sun — clean white and strong, matching the catalog lighting
+        # the main sun — clean white, gentle, faint soft shadows
         var sun: DirectionalLight3D = DirectionalLight3D.new()
         sun.name = "WarmSun"
-        sun.rotation_degrees = Vector3(-50.0, -35.0, 0.0)
-        sun.light_color = Color("#ffffff")
-        sun.light_energy = 1.15
+        sun.rotation_degrees = Vector3(-55.0, -35.0, 0.0)
+        sun.light_color = Color("#fffdf6")
+        sun.light_energy = 0.55
         sun.shadow_enabled = true
-        sun.directional_shadow_max_distance = 200.0
+        sun.shadow_opacity = 0.5
+        sun.shadow_blur = 1.6
+        sun.directional_shadow_max_distance = 150.0
         add_child(sun)
 
         # sky/ground fill — the "hemisphere" stand-in from the site playground:
@@ -111,6 +149,48 @@ func _make_environment() -> void:
         fill.name = "SkyFill"
         fill.rotation_degrees = Vector3(-28.0, 142.0, 0.0)
         fill.light_color = Color("#bfe0d0")
-        fill.light_energy = 0.30
+        fill.light_energy = 0.4
         fill.shadow_enabled = false
         add_child(fill)
+
+
+## AUTO-LADDERS — run once after the map settles. Every plain RetroPart
+## that matches the classic ladder silhouette gets a climb zone on its
+## open face, so maps built from rungs and truss-shaped parts (1-3 studs
+## deep, 1 stud off the wall) climb with NO script or special node.
+func _auto_ladder_pass() -> void:
+        if _map_root == null or not is_inside_tree():
+                return
+        await get_tree().process_frame   # let the map's collision shapes settle
+        if _map_root == null or not is_inside_tree():
+                return
+        var space := get_world_3d().direct_space_state
+        if space == null:
+                return
+        for node in _map_root.find_children("*", "RetroPart", true, false):
+                var part := node as RetroPart
+                if part == null or part is RetroLadder or not part.can_collide:
+                        continue
+                if part.find_child("AutoClimbArea", false, false) != null:
+                        continue   # already granted — the pass stays idempotent
+                for axis in [[Vector3.RIGHT, 0], [Vector3.LEFT, 0], [Vector3.BACK, 2], [Vector3.FORWARD, 2]]:
+                        var local_dir: Vector3 = axis[0]
+                        # depth = the part's size along this axis (1-3 studs)
+                        var depth: float = part.size.x if int(axis[1]) == 0 else part.size.z
+                        if depth < AUTO_LADDER_MIN_DEPTH or depth > AUTO_LADDER_MAX_DEPTH:
+                                continue
+                        var world_dir: Vector3 = (part.global_transform.basis * local_dir).normalized()
+                        if world_dir.length_squared() < 0.5:
+                                continue
+                        # is there a wall ~1 stud behind this face?
+                        var from: Vector3 = part.global_position + world_dir * (depth * 0.5 + 0.05)
+                        var query := PhysicsRayQueryParameters3D.create(
+                                from, from + world_dir * (AUTO_LADDER_GAP_MAX + 0.25), 1, [part.get_rid()])
+                        var hit := space.intersect_ray(query)
+                        if hit.is_empty():
+                                continue
+                        var gap: float = from.distance_to(hit["position"]) - 0.05
+                        if gap < AUTO_LADDER_GAP_MIN or gap > AUTO_LADDER_GAP_MAX:
+                                continue
+                        _grant_climb_area(part, -local_dir)
+                        break   # one climb zone per part is enough
