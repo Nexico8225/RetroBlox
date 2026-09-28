@@ -42,6 +42,8 @@ model User {
   followsRecv   Follow[]     @relation("following")
   chatsSent     ChatMessage[] @relation("chatSender")
   chatsRecv     ChatMessage[] @relation("chatRecipient")
+  notifications      Notification[] @relation("notificationOwner")
+  triggeredNotifs    Notification[] @relation("notificationActor")
   videos        Video[]
   videoComments VideoComment[]
   createdSubs   Sub[]
@@ -186,6 +188,27 @@ model ChatMessage {
   fileName    String?
   readAt      DateTime?
   createdAt   DateTime  @default(now())
+}
+
+// ---------------- Notifications (bell icon) ----------------
+// Player events land here: a new member joined RetroBlox, someone sent you
+// a friend request, someone accepted yours. "actor" = who caused it.
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String // recipient
+  user      User      @relation("notificationOwner", fields: [userId], references: [id], onDelete: Cascade)
+  actorId   String? // who triggered it (null = system)
+  actor     User?     @relation("notificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  type      String // new_player | friend_request | friend_accepted
+  title     String
+  body      String    @default("")
+  linkUrl   String? // where clicking goes (/users/x, /friends...)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([actorId])
 }
 
 // ---------------- Groups (classic Roblox-style communities) ----------------
