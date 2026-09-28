@@ -15,6 +15,7 @@ import { Avatar, OnlineDot } from './Shell'
 
 interface Person extends RetroUser {
   gamesCount: number
+  topGames?: { id: string; name: string; iconUrl: string | null }[]
 }
 
 const SORTS = [
@@ -176,6 +177,37 @@ export function PeopleView() {
                   <span className="rb-admin-badge" style={{ alignSelf: 'center' }}>ADMIN</span>
                 )}
               </div>
+
+              {/* their newest games — click straight through to play */}
+              {p.topGames && p.topGames.length > 0 && (
+                <div style={{ display: 'grid', gap: 3 }}>
+                  {p.topGames.map((g) => (
+                    <Link
+                      key={g.id}
+                      href={`/games/${g.id}`}
+                      className="rb-link"
+                      title={`Play ${g.name}`}
+                      style={{
+                        fontSize: 10, display: 'flex', alignItems: 'center', gap: 5,
+                        overflow: 'hidden', minWidth: 0,
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: 14, height: 14, borderRadius: 2, flexShrink: 0,
+                          background: '#dce8f2', border: '1px solid #c9dbe9',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 7, color: '#1c4e7c',
+                        }}
+                      >
+                        &#9654;
+                      </span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
 
               {/* actions */}
               {user && user.id !== p.id ? (
