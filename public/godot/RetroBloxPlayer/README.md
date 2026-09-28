@@ -24,11 +24,14 @@ press **F5**. No plugins, no external assets.
 The game opens on the login card:
 
 - **Log In** — your existing RetroBlox account. Your account avatar (body
-  colors, shirt, pants, face, 3D UGC) loads from the website.
-- **Sign Up** — create a brand-new account WITHOUT leaving the game.
+  colors, shirt, pants, face, 3D UGC) loads from the website. There is no
+  server box — the card always points at `retro-blox.vercel.app`.
 - **Play as Guest** — no account; classic noob colors, "Guest-1234" name.
+  Accounts are created on the website, not in the game.
 
-The game remembers you — the next launch signs you in automatically.
+The game remembers you — the next launch signs you in automatically, and
+as soon as a login succeeds the card comes down by itself and drops you
+into the world wearing your account avatar.
 
 | Action | Control |
 |---|---|
@@ -74,18 +77,16 @@ filmic tonemapping.
 ### Troubleshooting sign-in
 
 - **"Incorrect username or password"** — accounts are shared with the
-  website, so the same name + password work. No account yet? Use the
-  **Sign Up** tab right on the card.
-- **"Could not reach …"** — the Server field on the card should read
-  `https://retro-blox.vercel.app` (that is the default). If you edited it,
-  clear it and press Log In again — the empty field falls back to the
-  official site.
+  website, so the same name + password work. No account yet? Create one
+  free at `retro-blox.vercel.app` — the game logs in, it does not sign up.
+- **"Could not reach …"** — check your internet; the game talks to
+  `https://retro-blox.vercel.app` (baked in — nothing to configure).
 - **Signing in works but the error comes back** — delete
   `user://profile.cfg` (Godot's *Project → Open User Data Folder*) to
   clear a stale saved token, then sign in again.
 - **Still stuck on an older kit?** Re-download this zip — versions before
   September 27, 2026 defaulted the Server field to `localhost:3000`, which
-  always fails. This build defaults to the official site.
+  always fails. This build has no server field at all.
 
 ---
 
@@ -99,7 +100,7 @@ code:
 |---|---|
 | `scenes/avatar.tscn` | The six-part block avatar (head/torso/arms/legs + nameplate + face). Paintable, textureable, animatable. |
 | `scenes/player.tscn` | CharacterBody3D with capsule, avatar and chat bubble — drop it in your world and call `initialize()`. |
-| `scenes/auth_screen.tscn` | The account gate: log in / sign up / guest, saved-token auto sign-in. |
+| `scenes/auth_screen.tscn` | The account gate: log in / guest (no server box, login-only), saved-token auto sign-in. |
 | `scenes/hud.tscn` | Chat, roster, status line, Esc menu with settings. |
 | `main.tscn` | The demo game: arena + player spawns + camera rig + HUD + auth. Use it as a reference or a starting world. |
 
@@ -125,7 +126,7 @@ func _ready() -> void:
         var auth := $AuthScreen
         auth.completed.connect(_on_signed_in)
         auth.guest_requested.connect(_on_guest)
-        auth.set_api_url("https://your-retroblox-site.example")  # or leave default
+        auth.set_api_url("https://your-retroblox-site.example")  # optional; default is the official site
 
 func _on_signed_in(_api, username: String, _user_id: String, _avatar: Dictionary) -> void:
         _spawn_player(username)
@@ -240,7 +241,7 @@ godot --headless --path . --script res://tests/validate_actions.gd
 | `scripts/avatar.gd` | Drives the avatar scene nodes (paint/animate/burst) |
 | `scripts/avatar_platform.gd` | Account avatar dressing (site-identical rules) |
 | `scripts/retroblox_api.gd` | HTTP client for the platform |
-| `scripts/auth_screen.gd` | Login/signup/guest behavior |
+| `scripts/auth_screen.gd` | Login/guest behavior (site URL baked in) |
 | `scripts/hud.gd` | Chat, roster, menu behavior |
 | `scripts/arena.gd` | The procedural demo baseplate world |
 | `network.cfg` | Room name, ports, server address, platform api_url |
