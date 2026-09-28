@@ -53,13 +53,19 @@ func _initialize() -> void:
         check(absf(spawn.y - 1.15) < 0.05, "spawn sits on a pad (y=%.2f, want 1.15)" % spawn.y)
         check(absf(spawn.x) <= 8.0 and absf(spawn.z) <= 8.0, "spawn is near the pads")
 
-        # classic constants, stud-accurate
-        check(int(PlayerScript.WALK_SPEED) == 16, "WalkSpeed 16 studs/s (classic)")
-        check(int(PlayerScript.JUMP_SPEED) == 50, "JumpPower 50 studs/s (classic)")
-        check(absf(PlayerScript.GRAVITY - 196.2) < 0.01, "gravity 196.2 studs/s2 (classic)")
+        # classic tuning defaults (now inspector-editable exports on the player)
+        check(int(PlayerScript.DEFAULT_WALK_SPEED) == 16, "WalkSpeed 16 studs/s (classic)")
+        check(absf(PlayerScript.DEFAULT_GRAVITY - 196.2) < 0.01, "gravity 196.2 studs/s2 (classic)")
+        check(absf(PlayerScript.DEFAULT_JUMP_HEIGHT - 6.0) < 0.01, "jump height 6 studs")
+        check(PlayerScript.DEFAULT_JUMP_UP_GRAVITY_SCALE < 1.0, "jump rise is eased (floatier than the old snap)")
         check(absf(PlayerScript.MAX_STEP - 3.0) < 0.01, "step height 3 studs")
-        var jump_apex: float = PlayerScript.JUMP_SPEED * PlayerScript.JUMP_SPEED / (2.0 * PlayerScript.GRAVITY)
-        check(jump_apex > 5.9 and jump_apex < 6.9, "jump apex ~6.4 studs (got %.2f)" % jump_apex)
+        # eased rise: apex = jump_height exactly, by construction of _jump_speed
+        var up_g: float = PlayerScript.DEFAULT_GRAVITY * PlayerScript.DEFAULT_JUMP_UP_GRAVITY_SCALE
+        var launch: float = sqrt(2.0 * up_g * PlayerScript.DEFAULT_JUMP_HEIGHT)
+        var rise_time: float = launch / up_g
+        check(rise_time > 0.28, "jump rise is gentle (%.2fs up, classic snap was 0.25s)" % rise_time)
+        check(PlayerScript.DEFAULT_CLIMB_SPEED == 9.0, "climb speed 9 studs/s")
+        check(PlayerScript.DEFAULT_LADDER_JUMP == 46.0, "ladder leap 46 studs/s")
 
         # the avatar is 5 studs
         var avatar_script := load("res://scripts/avatar.gd")
