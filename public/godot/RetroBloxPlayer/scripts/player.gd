@@ -5,21 +5,59 @@ extends CharacterBody3D
 ## tree, then call initialize(id, name). Remote players use render_remote().
 ##
 ## STUDS — 1 Godot unit = 1 Roblox stud. The avatar is EXACTLY 5 studs tall,
-## the capsule matches, and every constant below is in studs/studs-per-second,
-## using the classic numbers: WalkSpeed 16, JumpPower 50, gravity 196.2.
+## the capsule matches, and every setting below is in studs/studs-per-second.
 ## Levels built from RetroPart scenes are automatically stud-accurate.
 ## 1 stud = 0.28 meters (the classic Roblox stud) — the 5-stud character
 ## is exactly 1.4 m tall.
 
 const STUD_METERS: float = 0.28         # 1 stud = 0.28 m — every size here is stud-native
 
-# classic movement — the exact defaults players remember
-const WALK_SPEED: float = 16.0          # studs / second (classic WalkSpeed)
-const JUMP_SPEED: float = 50.0          # studs / second (classic JumpPower)
-const GRAVITY: float = 196.2            # studs / s² (classic workspace gravity)
-const ACCEL_GROUND: float = 145.0       # reach full speed in ~0.11s: crisp, not slippery
-const ACCEL_AIR: float = 110.0          # classic air control — full steering mid-jump, obby-ready
-const BRAKE_GROUND: float = 170.0       # stop on release, classic style
+## ------------------------------------------------------------------
+## TUNABLE CHARACTER SETTINGS — select the player in the editor's Scene
+## dock and edit them in the Inspector. These are the knobs devs change
+## to make THEIR game feel right; the defaults are the classic numbers.
+## (Everything is also editable from code: player.walk_speed = 24, etc.)
+## ------------------------------------------------------------------
+
+# Movement — classic WalkSpeed 16 with crisp, grippy response
+const DEFAULT_WALK_SPEED: float = 16.0
+const DEFAULT_WALK_ACCEL: float = 145.0     # reach full speed in ~0.11s: crisp, not slippery
+const DEFAULT_AIR_ACCEL: float = 110.0      # classic air control — full steering mid-jump
+const DEFAULT_GROUND_BRAKING: float = 170.0 # stop on release, classic style
+@export_group("Movement")
+@export var walk_speed: float = DEFAULT_WALK_SPEED          ## studs / second
+@export var walk_acceleration: float = DEFAULT_WALK_ACCEL   ## studs / s²
+@export var air_acceleration: float = DEFAULT_AIR_ACCEL     ## studs / s², mid-air steering
+@export var ground_braking: float = DEFAULT_GROUND_BRAKING  ## studs / s², stopping power
+
+# Jump — height in STUDS (easier to reason about than raw velocity),
+# gravity in studs/s². The rise is gently eased (jump_up_gravity_scale < 1
+# gives the jump a soft, readable arc instead of the old snap); the fall
+# stays full-gravity so landings still feel classic and tight.
+const DEFAULT_JUMP_HEIGHT: float = 6.0
+const DEFAULT_GRAVITY: float = 196.2
+const DEFAULT_JUMP_UP_GRAVITY_SCALE: float = 0.6
+@export_group("Jump")
+@export var jump_height: float = DEFAULT_JUMP_HEIGHT            ## how high the jump peaks, in studs
+@export var gravity: float = DEFAULT_GRAVITY                    ## studs / s² (classic 196.2)
+@export_range(0.3, 1.0, 0.05) var jump_up_gravity_scale: float = DEFAULT_JUMP_UP_GRAVITY_SCALE
+                                                                ## < 1 = floatier, gentler rise
+
+# Climbing — turn can_climb OFF to make a pure obby with no ladders/ledges
+const DEFAULT_CLIMB_SPEED: float = 9.0
+const DEFAULT_LADDER_JUMP: float = 46.0     # the leap off the ladder, slightly tamer than a ground jump
+const DEFAULT_LADDER_PUSH: float = 13.0     # horizontal shove away from the face on jump-off
+@export_group("Climbing")
+@export var can_climb: bool = true                          ## allow ladders / ledges / rungs at all
+@export var climb_speed: float = DEFAULT_CLIMB_SPEED        ## studs / second up and down
+@export var ladder_jump: float = DEFAULT_LADDER_JUMP        ## jump-off impulse upward
+@export var ladder_push: float = DEFAULT_LADDER_PUSH        ## jump-off shove away from the face
+
+# Sounds — toggle the player's built-in effects (jump / land / footsteps)
+@export_group("Sounds")
+@export var play_footsteps: bool = true
+@export var play_jump_sound: bool = true
+@export var play_land_sound: bool = true
 
 # obby forgiveness — the jump itself is untouched, just the timing edges
 const COYOTE_TIME: float = 0.12         # you may still jump this long after walking off a ledge
@@ -38,9 +76,7 @@ const STEP_VISUAL_SPEED: float = 46.0   # how fast the body's visual catches up 
 # onto the ledge (or seamlessly onto the next rung above), sliding past
 # the bottom lets go, and SPACE leaps you OFF — a short cooldown then
 # keeps you off the face while you fall back down, so jumping off works.
-const CLIMB_SPEED: float = 9.0
-const LADDER_JUMP: float = 46.0         # the leap off the ladder, slightly tamer than a ground jump
-const LADDER_PUSH: float = 13.0         # horizontal shove away from the face on jump-off
+# Speed, leap impulse and the on/off switch are the exported settings above.
 const LADDER_HUG: float = 2.6           # creep into the face while riding so you stay glued
 const CLIMB_COOLDOWN: float = 0.35      # after a jump-off: falling, NOT re-sticking
 const CLIMB_FACE_DOT: float = 0.5       # facing gate — you must press INTO the face
@@ -100,6 +136,25 @@ var _ladder_outward: Vector3 = Vector3.ZERO  # horizontal direction the riding f
 var _coyote: float = 0.0             # seconds of jump grace left after leaving the ground
 var _jump_buffer: float = 0.0        # seconds remaining on a buffered jump press
 var _step_visual: float = 0.0        # avatar's downward offset that eases out after a step
+var _air_fall_speed: float = 0.0     # fastest downward speed this airtime (drives the land thump)
+var _step_timer: float = 0.0         # countdown between footstep sounds while walking
+
+## Jump velocity that peaks exactly at `jump_height` under the eased rise
+## gravity — height in studs is far easier to tune than raw launch speed.
+func _jump_speed() -> float:
+        var up_g: float = maxf(gravity * jump_up_gravity_scale, 0.1)
+        return sqrt(2.0 * up_g * maxf(jump_height, 0.5))
+
+
+## Fire one of the AudioStreamPlayer3D nodes placed in scenes/player.tscn
+## (JumpSound / LandSound / StepSound). Missing node or stream = silent no-op,
+## so stripping the sound nodes from the scene never breaks movement.
+func _sfx(sfx_name: String, pitch: float = 1.0) -> void:
+        var sfx := get_node_or_null(NodePath(sfx_name)) as AudioStreamPlayer3D
+        if sfx == null or sfx.stream == null:
+                return
+        sfx.pitch_scale = pitch
+        sfx.play()
 
 func initialize(id: int, player_name: String) -> void:
         peer_id = id
@@ -152,8 +207,8 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                         _climb_cooldown = CLIMB_COOLDOWN
                         # THE LEAP OFF — up and away from the face; the cooldown
                         # means you fall back down instead of re-sticking to it
-                        velocity.y = LADDER_JUMP
-                        var push := _ladder_outward * LADDER_PUSH
+                        velocity.y = ladder_jump
+                        var push := _ladder_outward * ladder_push
                         if wish.length_squared() > 0.005:
                                 push += wish.normalized() * 7.0
                         velocity.x = push.x
@@ -162,13 +217,13 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                         _climbing = false          # standing somewhere solid — walk, don't ride
                 elif direction.y < -0.2:
                         if global_position.y < up_bounds.y - 0.45:
-                                velocity.y = CLIMB_SPEED
+                                velocity.y = climb_speed
                                 _hug_face(delta)
                         elif _climb_zone_above(up_bounds.y) != null:
                                 # the next rung of a stacked build starts right
                                 # above — ride on and chain onto it seamlessly
                                 # (climb off the first stud, climb onto the second)
-                                velocity.y = CLIMB_SPEED
+                                velocity.y = climb_speed
                                 _hug_face(delta)
                         else:
                                 _vault_ledge(up_bounds.y)   # top of the climb: mount
@@ -177,16 +232,16 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                         if global_position.y <= down_bounds.x + 0.15:
                                 _climbing = false   # slid off the bottom — fall
                         else:
-                                velocity.y = -CLIMB_SPEED
+                                velocity.y = -climb_speed
                                 _hug_face(delta)
                 else:
                         velocity.y = 0.0           # hang on the spot
                         _hug_face(delta)
-        elif touching and _climb_cooldown <= 0.0 and direction.y < -0.2:
+        elif touching and _climb_cooldown <= 0.0 and can_climb and direction.y < -0.2:
                 # ENTER CLIMB — W into a face you are actually facing, up close,
                 # with the face's top still at or above your chest (no grabbing
-                # a rung from on top of it)
-                var zone := _resolve_climb_zone(true)
+                # a rung from on top of it). can_climb = the dev's kill switch.
+                var zone := _resolve_climb_zone(true, wish)
                 if zone != null:
                         var outward := _ladder_outward_of(zone)
                         var face_dot := wish.normalized().dot(-outward) if wish.length_squared() > 0.005 else 0.0
@@ -196,25 +251,30 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                         if grabable:
                                 _climbing = true
                                 _ladder_outward = outward
-                                velocity.y = CLIMB_SPEED
+                                velocity.y = climb_speed
                                 _hug_face(delta)
         if not _climbing:
                 # ---- ground / air movement, classic response ----
-                var accel: float = ACCEL_GROUND if is_on_floor() else ACCEL_AIR
-                var target := wish * WALK_SPEED
+                var accel: float = walk_acceleration if is_on_floor() else air_acceleration
+                var target := wish * walk_speed
                 if wish.length_squared() < 0.005 and is_on_floor():
                         # no input on the ground: brake toward a clean stop
-                        velocity.x = move_toward(velocity.x, 0.0, BRAKE_GROUND * delta)
-                        velocity.z = move_toward(velocity.z, 0.0, BRAKE_GROUND * delta)
+                        velocity.x = move_toward(velocity.x, 0.0, ground_braking * delta)
+                        velocity.z = move_toward(velocity.z, 0.0, ground_braking * delta)
                 else:
                         velocity.x = move_toward(velocity.x, target.x, accel * delta)
                         velocity.z = move_toward(velocity.z, target.z, accel * delta)
                 if not is_on_floor():
-                        velocity.y -= GRAVITY * delta
+                        # eased rise, classic fall: gravity relaxes while you
+                        # go UP (a soft, readable arc instead of the old snap)
+                        # and bites at full strength on the way down
+                        var g_scale: float = jump_up_gravity_scale if velocity.y > 0.0 else 1.0
+                        velocity.y -= gravity * g_scale * delta
+                        _air_fall_speed = minf(_air_fall_speed, velocity.y)
                 elif velocity.y < 0.0:
                         velocity.y = 0.0
-                # coyote time + jump buffering — the jump arc stays classic,
-                # only the timing edges get forgiving for obby jumps
+                # coyote time + jump buffering — the timing edges stay forgiving
+                # for obby jumps; the arc itself comes from the settings above
                 if is_on_floor():
                         _coyote = COYOTE_TIME
                 else:
@@ -227,13 +287,33 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                 if _jump_buffer > 0.0 and _coyote > 0.0:
                         _jump_buffer = 0.0
                         _coyote = 0.0
-                        velocity.y = JUMP_SPEED
+                        velocity.y = _jump_speed()
+                        if play_jump_sound:
+                                _sfx("JumpSound", randf_range(0.94, 1.06))
 
         climbing = _climbing
         move_and_slide()
+        var was_grounded := grounded
         grounded = is_on_floor()
         if grounded and is_on_wall():
                 _attempt_step_up()
+        # ---- built-in sound effects (nodes live in scenes/player.tscn) ----
+        if grounded and not was_grounded:
+                # landing: only a real drop gets the thump, stair lips stay quiet
+                if play_land_sound and _air_fall_speed < -14.0:
+                        _sfx("LandSound", randf_range(0.92, 1.08))
+                _air_fall_speed = 0.0
+                _step_timer = 0.18   # first footstep lands right after touchdown
+        elif not grounded:
+                _air_fall_speed = minf(_air_fall_speed, velocity.y)
+        var ground_speed := Vector2(velocity.x, velocity.z).length()
+        if play_footsteps and grounded and ground_speed > 2.0:
+                _step_timer -= delta * maxf(ground_speed / walk_speed, 0.4)
+                if _step_timer <= 0.0:
+                        _step_timer = 0.34
+                        _sfx("StepSound", randf_range(0.88, 1.18))
+        else:
+                _step_timer = minf(_step_timer, 0.12)
         # facing — shift lock squares up to the camera, otherwise face the run
         if use_shiftlock:
                 heading = lerp_angle(heading, camera_yaw, 1.0 - exp(-14.0 * delta))
@@ -352,8 +432,10 @@ func _ladder_outward_of(ladder_area: Area3D) -> Vector3:
 ## is POSITIONAL: the segment whose vertical band contains the chest wins;
 ## in a gap between two bands the next one in the travel direction wins —
 ## that is what makes climbing up run off the first stud and onto the second
-## stud above it (and the reverse on the way down).
-func _resolve_climb_zone(up: bool) -> Area3D:
+## stud above it (and the reverse on the way down). A thin platform also
+## carries one zone per open face — `face_hint` (the direction you push)
+## breaks those ties toward the face you are actually standing in front of.
+func _resolve_climb_zone(up: bool, face_hint: Vector3 = Vector3.ZERO) -> Area3D:
         var chest := global_position.y + 2.6
         var best: Area3D = null
         var best_score: float = -1000.0
@@ -377,6 +459,11 @@ func _resolve_climb_zone(up: bool) -> Area3D:
                         score = 50.0 - dist
                         if (up and top > chest) or (not up and bottom < chest):
                                 score += 5.0   # prefer the next band in travel direction
+                # multi-face parts: the face you push INTO outranks the others
+                if face_hint.length_squared() > 0.005:
+                        var outward := _ladder_outward_of(zone)
+                        if outward != Vector3.ZERO and face_hint.normalized().dot(-outward) >= CLIMB_FACE_DOT:
+                                score += 20.0
                 if score > best_score:
                         best_score = score
                         best = zone
@@ -470,8 +557,8 @@ func _face_gap(zone: Area3D) -> float:
 
 ## Creep toward the face while riding so the body stays glued to it.
 func _hug_face(delta: float) -> void:
-        velocity.x = move_toward(velocity.x, -_ladder_outward.x * LADDER_HUG, ACCEL_GROUND * delta)
-        velocity.z = move_toward(velocity.z, -_ladder_outward.z * LADDER_HUG, ACCEL_GROUND * delta)
+        velocity.x = move_toward(velocity.x, -_ladder_outward.x * LADDER_HUG, walk_acceleration * delta)
+        velocity.z = move_toward(velocity.z, -_ladder_outward.z * LADDER_HUG, walk_acceleration * delta)
 
 ## Fall damage — track the apex while airborne, hurt on landing.
 func _update_fall_damage() -> void:
@@ -606,6 +693,8 @@ func respawn_at(pos: Vector3, epoch: int) -> void:
         target_heading = 0.0
         grounded = false
         has_snapshot = false
+        _air_fall_speed = 0.0
+        _step_timer = 0.0
         avatar.rotation.y = 0.0
         avatar.visible = true
         bubble.visible = false
