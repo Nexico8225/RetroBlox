@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq, publicUser } from '@/lib/auth'
-import { notifyUser } from '@/lib/notifications'
+import { notifyUser, ensureNotificationSchema } from '@/lib/notifications'
 
 // GET: friends list, incoming requests, outgoing requests
 export async function GET(req: NextRequest) {
@@ -26,9 +26,29 @@ export async function GET(req: NextRequest) {
     .filter((f) => f.status === 'pending')
     .map((f) => ({ id: f.id, user: publicUser(f.requester), createdAt: f.createdAt }))
 
-  const outgoing = sent
-    .filter((f) => f.status === 'pending')
-    .map((f) => ({ id: f.id, user: publicUser(f.addressee), createdAt: f.createdAt }))
+  const outgoingRows = sent.filter((f) => f.status === 'pending')
+
+  // when did I last nudge each pending request? (UI uses it to show
+  // "Nudged ✓" / cooldown state instead of a button that might 429)
+  const nudgeMap: Record<string, string> = {}
+  if (outgoingRows.length > 0) {
+    await ensureNotificationSchema()
+    const nudges = await db.notification.findMany({
+      where: { type: 'nudge', actorId: me.id, userId: { in: outgoingRows.map((f) => f.addresseeId) } },
+      orderBy: { createdAt: 'desc' },
+      select: { userId: true, createdAt: true },
+    })
+    for (const n of nudges) {
+      if (!nudgeMap[n.userId]) nudgeMap[n.userId] = n.createdAt.toISOString()
+    }
+  }
+
+  const outgoing = outgoingRows.map((f) => ({
+    id: f.id,
+    user: publicUser(f.addressee),
+    createdAt: f.createdAt,
+    lastNudgeAt: nudgeMap[f.addresseeId] || null,
+  }))
 
   return NextResponse.json({ friends, incoming, outgoing })
 }
@@ -42,7 +62,11 @@ export async function POST(req: NextRequest) {
   const username = String(body.username || '').trim()
   if (!username) return NextResponse.json({ error: 'Type a username!' }, { status: 400 })
 
-  const target = await db.user.findUnique({ where: { username } })
+  // Case-insensitive lookup: "retroblox" finds "RetroBlox" (and the
+  // usernameLower index catches legacy users with a null usernameLower).
+  const target =
+    (await db.user.findUnique({ where: { username } })) ??
+    (await db.user.findUnique({ where: { usernameLower: username.toLowerCase() } }))
   if (!target) return NextResponse.json({ error: `No user named "${username}" found.` }, { status: 404 })
   if (target.id === me.id) return NextResponse.json({ error: "You can't friend yourself!" }, { status: 400 })
 
