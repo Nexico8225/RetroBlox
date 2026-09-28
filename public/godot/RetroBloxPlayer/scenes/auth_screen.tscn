@@ -77,43 +77,15 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
 theme_override_font_sizes/font_size = 12
-text = "Sign in to wear your account avatar"
+text = "Log in to wear your account avatar"
 horizontal_alignment = 1
 
 [node name="SpacerTop" type="Control" parent="Root/Center/Card/Box"]
 custom_minimum_size = Vector2(0, 6)
 layout_mode = 2
 
-[node name="Tabs" type="HBoxContainer" parent="Root/Center/Card/Box"]
-layout_mode = 2
-theme_override_constants/separation = 8
-alignment = 1
-
-[node name="LoginTabBtn" type="Button" parent="Root/Center/Card/Box/Tabs"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 34)
-layout_mode = 2
-text = "Log In"
-
-[node name="SignupTabBtn" type="Button" parent="Root/Center/Card/Box/Tabs"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 34)
-layout_mode = 2
-text = "Sign Up"
-
 [node name="SpacerMid" type="Control" parent="Root/Center/Card/Box"]
 custom_minimum_size = Vector2(0, 4)
-layout_mode = 2
-
-[node name="ServerLabel" type="Label" parent="Root/Center/Card/Box"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
-theme_override_font_sizes/font_size = 11
-text = "RetroBlox website"
-
-[node name="ServerEdit" type="LineEdit" parent="Root/Center/Card/Box"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 
 [node name="UserLabel" type="Label" parent="Root/Center/Card/Box"]
@@ -134,19 +106,6 @@ theme_override_font_sizes/font_size = 11
 text = "Password"
 
 [node name="PassEdit" type="LineEdit" parent="Root/Center/Card/Box"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 30)
-layout_mode = 2
-secret = true
-
-[node name="ConfirmLabel" type="Label" parent="Root/Center/Card/Box"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
-theme_override_font_sizes/font_size = 11
-text = "Confirm password"
-
-[node name="ConfirmEdit" type="LineEdit" parent="Root/Center/Card/Box"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
@@ -179,5 +138,6 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
 theme_override_font_sizes/font_size = 10
 text = "Your avatar is saved to your RetroBlox account —
-it follows you into every game."
+it follows you into every game.
+No account? Create one free at retro-blox.vercel.app."
 horizontal_alignment = 1
