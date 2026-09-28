@@ -89,6 +89,7 @@ func _ready() -> void:
                 hud.resume_requested.connect(func(): hud.set_menu(false))
                 hud.reset_requested.connect(request_reset)
                 hud.quit_requested.connect(quit_game)
+                hud.logout_requested.connect(_on_logout_requested)
                 hud.shiftlock_toggled.connect(_set_shiftlock)
                 hud.sensitivity_changed.connect(_on_sensitivity_changed)
                 hud.volume_changed.connect(_on_volume_changed)
@@ -97,6 +98,7 @@ func _ready() -> void:
                 hud.set_sliders(mouse_sensitivity, volume_setting)
                 hud.set_shiftlock(shiftlock)
                 hud.add_chat("", "Welcome! Only connected players appear here.", true)
+                hud.set_account(player_name)
                 # the door: log in with your site account, or play as a guest
                 auth = AuthScreenScene.instantiate() as CanvasLayer
                 add_child(auth)
@@ -204,6 +206,8 @@ func _on_guest_requested() -> void:
         my_avatar = {}
         player_name = "Guest-%04d" % randi_range(1000, 9999)
         _dismiss_auth()
+        if hud != null:
+                hud.set_account(player_name)
         _begin_online()
 
 func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
@@ -219,6 +223,7 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         profile.save("user://profile.cfg")
         if hud != null:
                 hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
+                hud.set_account(player_name)
         # THE CARD MUST GO when login succeeds. This was the reported bug:
         # the card said "Ready!" but stayed on screen, and because input,
         # _process and _physics_process all stand down while it is visible,
@@ -233,6 +238,22 @@ func _dismiss_auth() -> void:
         auth.visible = false
         auth.queue_free()
         auth = null
+
+
+## LOG OUT — wipe the saved session, tear the room down, and land back on
+## the login card. A full scene reload keeps this bulletproof: nothing of
+## the old session (players, peers, avatar caches) survives it.
+func _on_logout_requested() -> void:
+        if quitting:
+                return
+        profile.set_value("platform", "token", "")
+        profile.set_value("platform", "username", "")
+        profile.save("user://profile.cfg")
+        if hud != null:
+                hud.set_menu(false)
+        _close_network()
+        _clear_players()
+        get_tree().reload_current_scene()
 
 func _begin_online() -> void:
         if quitting:
