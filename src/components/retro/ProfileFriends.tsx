@@ -907,16 +907,60 @@ export function FollowListView({ id, type }: { id: string; type: 'followers' | '
 
 /* ================= Friends (/friends) ================= */
 
+const NUDGE_COOLDOWN_MS = 10 * 60 * 1000
+
+/** NUDGE — remind someone about YOUR pending request to them. Mirrors
+ *  the ChatView chip; starts in the done state when the request was
+ *  already nudged inside the 10-minute server cooldown. */
+function NudgeButton({ friendshipId, nudgedAt }: { friendshipId: string; nudgedAt?: string | null }) {
+  const { setToast } = useRetro()
+  const [state, setState] = useState<'idle' | 'busy' | 'done'>(() =>
+    nudgedAt && Date.now() - new Date(nudgedAt).getTime() < NUDGE_COOLDOWN_MS ? 'done' : 'idle'
+  )
+
+  async function nudge() {
+    if (state !== 'idle') return
+    setState('busy')
+    try {
+      await api(`/api/friends/${friendshipId}`, { method: 'POST', body: JSON.stringify({ action: 'nudge' }) })
+      setState('done')
+      flash(setToast, 'Nudge sent — it will pop up in their bell!', 2400)
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Failed to nudge', 2600)
+      setState('idle')
+    }
+  }
+
+  if (state === 'done') {
+    return <span style={{ fontSize: 10, color: '#2c6e31', fontStyle: 'italic' }}>Nudged ✓</span>
+  }
+  return (
+    <button
+      className="rb-btn"
+      style={{ fontSize: 10 }}
+      disabled={state === 'busy'}
+      onClick={nudge}
+      title="Remind them about your pending friend request"
+    >
+      {state === 'busy' ? '...' : 'Nudge'}
+    </button>
+  )
+}
+
 export function FriendsView() {
   const { user, setToast, setPendingRequests } = useRetro()
   const router = useRouter()
   const [friends, setFriends] = useState<(RetroUser & { friendshipId: string })[]>([])
   const [incoming, setIncoming] = useState<{ id: string; user: RetroUser }[]>([])
-  const [outgoing, setOutgoing] = useState<{ id: string; user: RetroUser }[]>([])
+  const [outgoing, setOutgoing] = useState<{ id: string; user: RetroUser; lastNudgeAt?: string | null }[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])
   const [similar, setSimilar] = useState<SuggestedUser[]>([])
   const [similarFor, setSimilarFor] = useState('')
   const [addName, setAddName] = useState('')
+  const [suggests, setSuggests] = useState<SuggestedUser[]>([])
+  const [showSuggests, setShowSuggests] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(-1)
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
   const [sessionError, setSessionError] = useState(false)
@@ -925,7 +969,7 @@ export function FriendsView() {
     setLoading(true)
     try {
       const [res, s] = await Promise.all([
-        api<{ friends: (RetroUser & { friendshipId: string })[]; incoming: { id: string; user: RetroUser }[]; outgoing: { id: string; user: RetroUser }[] }>('/api/friends'),
+        api<{ friends: (RetroUser & { friendshipId: string })[]; incoming: { id: string; user: RetroUser }[]; outgoing: { id: string; user: RetroUser; lastNudgeAt?: string | null }[] }>('/api/friends'),
         api<{ suggested: SuggestedUser[] }>('/api/friends/suggested'),
       ])
       setFriends(res.friends)
@@ -960,10 +1004,10 @@ export function FriendsView() {
     }
   }
 
-  async function addFriend() {
+  async function addFriend(nameOverride?: string) {
     setMsg('')
-    if (!addName.trim()) return
-    const name = addName.trim()
+    const name = (nameOverride ?? addName).trim()
+    if (!name) return
     try {
       const res = await api<{ autoAccepted?: boolean; user?: RetroUser }>('/api/friends', {
         method: 'POST',
@@ -971,6 +1015,8 @@ export function FriendsView() {
       })
       flash(setToast, res.autoAccepted ? `You and ${name} are now friends!` : `Friend request sent to ${name}!`, 2400)
       setAddName('')
+      setSuggests([])
+      setShowSuggests(false)
       await load()
       // the request went through — surface players with similar names
       void loadSimilar(name, res.user?.id)
@@ -984,6 +1030,39 @@ export function FriendsView() {
         setMsg(m)
       }
     }
+  }
+
+  // AS-YOU-TYPE AUTOCOMPLETE — "type retroblox, see RetroBloxian"
+  // while still typing (debounced), closest names ranked on top by the
+  // API. Picking one sends the request immediately.
+  function onAddNameChange(v: string) {
+    setAddName(v)
+    setMsg('')
+    if (suggestTimer.current) clearTimeout(suggestTimer.current)
+    const term = v.trim()
+    if (term.length < 2) {
+      setSuggests([])
+      setShowSuggests(false)
+      return
+    }
+    suggestTimer.current = setTimeout(async () => {
+      try {
+        const s = await api<{ similar: SuggestedUser[] }>(
+          `/api/users/similar?name=${encodeURIComponent(term)}`
+        )
+        setSuggests(s.similar || [])
+        setShowSuggests((s.similar || []).length > 0)
+        setActiveIdx(-1)
+      } catch {
+        setSuggests([])
+        setShowSuggests(false)
+      }
+    }, 220)
+  }
+
+  function pickSuggest(u: SuggestedUser) {
+    setShowSuggests(false)
+    void addFriend(u.username)
   }
 
   async function act(friendshipId: string, action: 'accept' | 'decline' | 'remove' | 'cancel') {
@@ -1015,16 +1094,84 @@ export function FriendsView() {
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>Add Friends</span></div>
         <div style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input
-            className="rb-input"
-            placeholder="Type a username to add..."
-            value={addName}
-            onChange={(e) => setAddName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addFriend()}
-            style={{ flex: 1, minWidth: 180 }}
-            aria-label="Username to add"
-          />
-          <button className="rb-btn rb-btn-green" onClick={addFriend}>Send Friend Request</button>
+          <div style={{ flex: 1, minWidth: 180, position: 'relative' }}>
+            <input
+              className="rb-input"
+              placeholder="Type a username to add..."
+              value={addName}
+              onChange={(e) => onAddNameChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (showSuggests && suggests.length > 0) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    setActiveIdx((i) => (i + 1) % suggests.length)
+                    return
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    setActiveIdx((i) => (i <= 0 ? suggests.length - 1 : i - 1))
+                    return
+                  }
+                  if (e.key === 'Escape') {
+                    setShowSuggests(false)
+                    return
+                  }
+                  if (e.key === 'Enter' && activeIdx >= 0) {
+                    e.preventDefault()
+                    pickSuggest(suggests[activeIdx])
+                    return
+                  }
+                }
+                if (e.key === 'Enter') addFriend()
+              }}
+              onBlur={() => setTimeout(() => setShowSuggests(false), 140)}
+              style={{ width: '100%' }}
+              aria-label="Username to add"
+              aria-autocomplete="list"
+              autoComplete="off"
+            />
+            {showSuggests && suggests.length > 0 && (
+              <div
+                className="rb-box"
+                role="listbox"
+                aria-label="Player name suggestions"
+                style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                  zIndex: 30, maxHeight: 244, overflowY: 'auto',
+                  boxShadow: '0 6px 18px rgba(9,32,52,.25)', padding: 0,
+                }}
+              >
+                {suggests.map((u, i) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    role="option"
+                    aria-selected={i === activeIdx}
+                    onMouseDown={(e) => {
+                      e.preventDefault() // keep input focus; click still registers
+                      pickSuggest(u)
+                    }}
+                    onMouseEnter={() => setActiveIdx(i)}
+                    style={{
+                      display: 'flex', width: '100%', alignItems: 'center', gap: 8,
+                      padding: '6px 9px', textAlign: 'left', cursor: 'pointer',
+                      background: i === activeIdx ? '#eef4fa' : '#fff',
+                      border: 'none', borderBottom: '1px solid #eef2f6',
+                    }}
+                  >
+                    <Avatar user={u} size={26} rounded="50%" />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 11, color: '#1c4e7c', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {u.username}
+                      </span>
+                      <span style={{ fontSize: 9, color: '#7b8896' }}>{u.reason}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button className="rb-btn rb-btn-green" onClick={() => addFriend()}>Send Friend Request</button>
         </div>
         {msg && <div style={{ padding: '0 12px 10px', color: '#a81a13', fontSize: 11 }}>{msg}</div>}
       </div>
@@ -1066,6 +1213,7 @@ export function FriendsView() {
                 <Avatar user={r.user} size={32} />
                 <div style={{ flex: 1, fontSize: 11, color: '#24425f' }}>{r.user.username}</div>
                 <span style={{ fontSize: 10, color: '#7b8896', fontStyle: 'italic' }}>pending...</span>
+                <NudgeButton friendshipId={r.id} nudgedAt={r.lastNudgeAt} />
                 <button className="rb-btn" onClick={() => act(r.id, 'cancel')}>Cancel</button>
               </div>
             ))}
