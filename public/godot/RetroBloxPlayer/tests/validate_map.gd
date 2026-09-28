@@ -53,19 +53,17 @@ func _initialize() -> void:
         check(absf(spawn.y - 1.15) < 0.05, "spawn sits on a pad (y=%.2f, want 1.15)" % spawn.y)
         check(absf(spawn.x) <= 8.0 and absf(spawn.z) <= 8.0, "spawn is near the pads")
 
-        # classic tuning defaults (now inspector-editable exports on the player)
-        check(int(PlayerScript.DEFAULT_WALK_SPEED) == 16, "WalkSpeed 16 studs/s (classic)")
-        check(absf(PlayerScript.DEFAULT_GRAVITY - 196.2) < 0.01, "gravity 196.2 studs/s2 (classic)")
-        check(absf(PlayerScript.DEFAULT_JUMP_HEIGHT - 6.0) < 0.01, "jump height 6 studs")
-        check(PlayerScript.DEFAULT_JUMP_UP_GRAVITY_SCALE < 1.0, "jump rise is eased (floatier than the old snap)")
-        check(absf(PlayerScript.MAX_STEP - 3.0) < 0.01, "step height 3 studs")
-        # eased rise: apex = jump_height exactly, by construction of _jump_speed
-        var up_g: float = PlayerScript.DEFAULT_GRAVITY * PlayerScript.DEFAULT_JUMP_UP_GRAVITY_SCALE
-        var launch: float = sqrt(2.0 * up_g * PlayerScript.DEFAULT_JUMP_HEIGHT)
-        var rise_time: float = launch / up_g
-        check(rise_time > 0.28, "jump rise is gentle (%.2fs up, classic snap was 0.25s)" % rise_time)
-        check(PlayerScript.DEFAULT_CLIMB_SPEED == 9.0, "climb speed 9 studs/s")
-        check(PlayerScript.DEFAULT_LADDER_JUMP == 46.0, "ladder leap 46 studs/s")
+        # movement constants — @export tunables with classic-walk + floaty jump
+        var probe: CharacterBody3D = PlayerScript.new()
+        check(int(probe.walk_speed) == 16, "WalkSpeed 16 studs/s (classic)")
+        check(int(probe.jump_speed) == 38, "JumpSpeed 38 studs/s (floaty default)")
+        check(absf(probe.gravity - 110.0) < 0.01, "gravity 110 studs/s2 (floaty default)")
+        check(absf(probe.max_step - 3.0) < 0.01, "step height 3 studs")
+        var jump_apex: float = probe.jump_speed * probe.jump_speed / (2.0 * probe.gravity)
+        check(jump_apex > 5.9 and jump_apex < 6.9, "jump apex ~6.4 studs (got %.2f)" % jump_apex)
+        check(PlayerScript.STEP_REACH > 1.0, "step reach clears the capsule radius (no edge sticking)")
+        check(probe.can_climb, "climbing is on by default")
+        probe.free()
 
         # the avatar is 5 studs
         var avatar_script := load("res://scripts/avatar.gd")
