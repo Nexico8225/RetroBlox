@@ -4,83 +4,43 @@ extends CharacterBody3D
 ## Built from scenes/player.tscn — instantiate that scene, add it to the
 ## tree, then call initialize(id, name). Remote players use render_remote().
 ##
-## STUDS — 1 Godot unit = 1 Roblox stud. The avatar is EXACTLY 5 studs tall,
-## the capsule matches, and every setting below is in studs/studs-per-second.
+## STUDS — 1 Godot unit = 1 Roblox stud. The avatar is 5 studs tall, the
+## capsule matches, and every constant below is in studs/studs-per-second,
+## using the classic numbers: WalkSpeed 16, JumpPower 50, gravity 196.2.
 ## Levels built from RetroPart scenes are automatically stud-accurate.
-## 1 stud = 0.28 meters (the classic Roblox stud) — the 5-stud character
-## is exactly 1.4 m tall.
 
-const STUD_METERS: float = 0.28         # 1 stud = 0.28 m — every size here is stud-native
-
-## ------------------------------------------------------------------
-## TUNABLE CHARACTER SETTINGS — select the player in the editor's Scene
-## dock and edit them in the Inspector. These are the knobs devs change
-## to make THEIR game feel right; the defaults are the classic numbers.
-## (Everything is also editable from code: player.walk_speed = 24, etc.)
-## ------------------------------------------------------------------
-
-# Movement — classic WalkSpeed 16 with crisp, grippy response
-const DEFAULT_WALK_SPEED: float = 16.0
-const DEFAULT_WALK_ACCEL: float = 145.0     # reach full speed in ~0.11s: crisp, not slippery
-const DEFAULT_AIR_ACCEL: float = 110.0      # classic air control — full steering mid-jump
-const DEFAULT_GROUND_BRAKING: float = 170.0 # stop on release, classic style
+# classic movement — every number is @export so developers (and the map
+# editor) can tune the feel per player scene without touching code.
 @export_group("Movement")
-@export var walk_speed: float = DEFAULT_WALK_SPEED          ## studs / second
-@export var walk_acceleration: float = DEFAULT_WALK_ACCEL   ## studs / s²
-@export var air_acceleration: float = DEFAULT_AIR_ACCEL     ## studs / s², mid-air steering
-@export var ground_braking: float = DEFAULT_GROUND_BRAKING  ## studs / s², stopping power
-
-# Jump — height in STUDS (easier to reason about than raw velocity),
-# gravity in studs/s². The rise is gently eased (jump_up_gravity_scale < 1
-# gives the jump a soft, readable arc instead of the old snap); the fall
-# stays full-gravity so landings still feel classic and tight.
-const DEFAULT_JUMP_HEIGHT: float = 6.0
-const DEFAULT_GRAVITY: float = 196.2
-const DEFAULT_JUMP_UP_GRAVITY_SCALE: float = 0.6
-@export_group("Jump")
-@export var jump_height: float = DEFAULT_JUMP_HEIGHT            ## how high the jump peaks, in studs
-@export var gravity: float = DEFAULT_GRAVITY                    ## studs / s² (classic 196.2)
-@export_range(0.3, 1.0, 0.05) var jump_up_gravity_scale: float = DEFAULT_JUMP_UP_GRAVITY_SCALE
-                                                                ## < 1 = floatier, gentler rise
-
-# Climbing — turn can_climb OFF to make a pure obby with no ladders/ledges
-const DEFAULT_CLIMB_SPEED: float = 9.0
-const DEFAULT_LADDER_JUMP: float = 46.0     # the leap off the ladder, slightly tamer than a ground jump
-const DEFAULT_LADDER_PUSH: float = 13.0     # horizontal shove away from the face on jump-off
-@export_group("Climbing")
-@export var can_climb: bool = true                          ## allow ladders / ledges / rungs at all
-@export var climb_speed: float = DEFAULT_CLIMB_SPEED        ## studs / second up and down
-@export var ladder_jump: float = DEFAULT_LADDER_JUMP        ## jump-off impulse upward
-@export var ladder_push: float = DEFAULT_LADDER_PUSH        ## jump-off shove away from the face
-
-# Sounds — toggle the player's built-in effects (jump / land / footsteps)
-@export_group("Sounds")
-@export var play_footsteps: bool = true
-@export var play_jump_sound: bool = true
-@export var play_land_sound: bool = true
-
-# obby forgiveness — the jump itself is untouched, just the timing edges
-const COYOTE_TIME: float = 0.12         # you may still jump this long after walking off a ledge
-const JUMP_BUFFER: float = 0.14         # a jump pressed just before landing still fires on touch-down
+@export var walk_speed: float = 16.0    # studs / second (classic WalkSpeed)
+@export var jump_speed: float = 38.0    # floatier than the classic 50 — the old
+                                        # 50/196.2 mix snapped to the apex instantly
+@export var gravity: float = 110.0      # studs / s² — calmer arc, same jump height
+@export var accel_ground: float = 145.0 # reach full speed in ~0.11s: crisp, not slippery
+@export var accel_air: float = 62.0     # real air control — you can steer mid-jump
+@export var brake_ground: float = 170.0 # stop on release, classic style
 
 # steps — walk over anything between a paper-thin lip and 3 studs (stairs!)
-const MAX_STEP: float = 3.0
-const MIN_STEP: float = 0.05
-const STEP_FORWARD: float = 0.6         # how far we reach over the lip
+@export_group("Steps")
+@export var max_step: float = 3.0
+@export var min_step: float = 0.05
+const STEP_REACH: float = 1.35          # must clear the capsule radius (1.0) or the
+                                        # body never crosses the lip and gets stuck
 const STEP_VISUAL_SPEED: float = 46.0   # how fast the body's visual catches up after a step
 
-# climbables (TrussPart-style ladders and auto-detected rungs) — you climb
-# ONLY while facing the climbable face and pushing into it (W): facing
-# backwards/left/right never sticks you on. W = up, S = down, nothing =
-# hang on the spot; riding past a segment's top glides you up-and-forward
-# onto the ledge (or seamlessly onto the next rung above), sliding past
-# the bottom lets go, and SPACE leaps you OFF — a short cooldown then
-# keeps you off the face while you fall back down, so jumping off works.
-# Speed, leap impulse and the on/off switch are the exported settings above.
-const LADDER_HUG: float = 2.6           # creep into the face while riding so you stay glued
-const CLIMB_COOLDOWN: float = 0.35      # after a jump-off: falling, NOT re-sticking
-const CLIMB_FACE_DOT: float = 0.5       # facing gate — you must press INTO the face
-const CLIMB_GRAB_DISTANCE: float = 1.7  # how close to the face climb starts
+# ladders (TrussPart-style) — climb up while pushing forward, climb down
+# while pressing back, jump to let go; plays the rig's Climb animation.
+# Climbing is strictly vertical: forward/back only, never sideways.
+@export_group("Climbing")
+@export var can_climb: bool = true
+@export var climb_speed: float = 9.0
+@export var ladder_jump: float = 34.0
+
+# sounds — slot names inside assets/sounds/ (mp3 beats wav when both exist)
+@export_group("Sounds")
+@export var jump_sound: String = "RetroBloxJump"
+@export var walk_sound: String = "Walking"
+@export var sounds_enabled: bool = true
 
 # classic health — big falls hurt, 1%/s regen after five quiet seconds
 # (the Roblox default), zero health routes into the normal respawn flow
@@ -97,6 +57,7 @@ const FALL_DMG_PER_STUD: float = 4.0
 # very first open, even before Godot registers global class_names.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 const AvatarPlatformScript := preload("res://scripts/avatar_platform.gd")
+const RetroSounds := preload("res://scripts/sounds.gd")
 
 var peer_id: int = 0
 var display_name: String = "Guest"
@@ -128,33 +89,22 @@ var health: float = MAX_HEALTH
 var regen_wait: float = 0.0
 var falling: bool = false
 var fall_peak_y: float = 0.0
-var climbing: bool = false           # on a climbable right now (drives the Climb anim)
-var _climbing: bool = false          # the persistent climb state machine
-var _climb_cooldown: float = 0.0     # > 0 after a jump-off: falling, NOT re-sticking
-var _ladder_zones: Dictionary = {}   # every climb zone currently overlapping the sensor
-var _ladder_outward: Vector3 = Vector3.ZERO  # horizontal direction the riding face points in
-var _coyote: float = 0.0             # seconds of jump grace left after leaving the ground
-var _jump_buffer: float = 0.0        # seconds remaining on a buffered jump press
+var climbing: bool = false           # on a ladder right now (drives the Climb anim)
+var _ladder_count: int = 0
 var _step_visual: float = 0.0        # avatar's downward offset that eases out after a step
-var _air_fall_speed: float = 0.0     # fastest downward speed this airtime (drives the land thump)
-var _step_timer: float = 0.0         # countdown between footstep sounds while walking
 
-## Jump velocity that peaks exactly at `jump_height` under the eased rise
-## gravity — height in studs is far easier to tune than raw launch speed.
-func _jump_speed() -> float:
-        var up_g: float = maxf(gravity * jump_up_gravity_scale, 0.1)
-        return sqrt(2.0 * up_g * maxf(jump_height, 0.5))
+# head-top health bar — appears when a player is hurt, fades away a moment
+# after they are back to full (the classic Roblox above-head health bar)
+var _hb_root: Node3D
+var _hb_fill: MeshInstance3D
+var _hb_fill_mesh: QuadMesh
+var _hb_wait: float = 0.0
+var _footstep_audio: AudioStreamPlayer3D
+var _jump_audio: AudioStreamPlayer3D
 
-
-## Fire one of the AudioStreamPlayer3D nodes placed in scenes/player.tscn
-## (JumpSound / LandSound / StepSound). Missing node or stream = silent no-op,
-## so stripping the sound nodes from the scene never breaks movement.
-func _sfx(sfx_name: String, pitch: float = 1.0) -> void:
-        var sfx := get_node_or_null(NodePath(sfx_name)) as AudioStreamPlayer3D
-        if sfx == null or sfx.stream == null:
-                return
-        sfx.pitch_scale = pitch
-        sfx.play()
+const HB_WIDTH: float = 2.2          # studs
+const HB_HEIGHT: float = 0.3
+const HB_LINGER: float = 2.5         # seconds the bar stays after reaching full
 
 func initialize(id: int, player_name: String) -> void:
         peer_id = id
@@ -170,6 +120,8 @@ func initialize(id: int, player_name: String) -> void:
         bubble = get_node("ChatBubble")
         bubble.visible = false
         _setup_ladder_sensor()
+        _setup_head_bar()
+        _setup_sounds()
 
 ## Dress this player from a platform avatar payload
 ## (GET /api/platform/me for yourself, GET /api/users/{id}/avatar for others).
@@ -187,133 +139,55 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
         if wish.length() > 1.0:
                 wish = wish.normalized()
 
-        # ---- climbables — ladders and rungs. Entry needs ALL of: touching a
-        # climb zone, pressing W, FACING the face, and being close to it.
-        # Facing backwards/left/right never sticks you on. While riding:
-        # W = up, S = down, nothing = hang; riding past a segment's top glides
-        # you up-and-forward onto the ledge (or seamlessly onto the next rung
-        # above), sliding past the bottom lets go, SPACE leaps you OFF and a
-        # short cooldown keeps you off the face while you fall back down.
-        _climb_cooldown = maxf(_climb_cooldown - delta, 0.0)
-        var on_floor := is_on_floor()
-        var touching: bool = not _ladder_zones.is_empty()
-        if _climbing and not touching:
-                _climbing = false          # the climbable ended above/below us
-        if _climbing:
-                var up_bounds := _climb_bounds(true)
+        # ---- ladders: touching a TrussPart-style ladder while pushing toward it
+        # climbs it — forward = up, back = down, jump = let go. No gravity here.
+        climbing = false
+        if _ladder_count > 0 and can_climb:
                 if jump_serial > consumed_jump:
                         consumed_jump = jump_serial
-                        _climbing = false
-                        _climb_cooldown = CLIMB_COOLDOWN
-                        # THE LEAP OFF — up and away from the face; the cooldown
-                        # means you fall back down instead of re-sticking to it
                         velocity.y = ladder_jump
-                        var push := _ladder_outward * ladder_push
-                        if wish.length_squared() > 0.005:
-                                push += wish.normalized() * 7.0
-                        velocity.x = push.x
-                        velocity.z = push.z
-                elif on_floor:
-                        _climbing = false          # standing somewhere solid — walk, don't ride
+                        velocity.x = -wish.x * 6.0
+                        velocity.z = -wish.z * 6.0
                 elif direction.y < -0.2:
-                        if global_position.y < up_bounds.y - 0.45:
-                                velocity.y = climb_speed
-                                _hug_face(delta)
-                        elif _climb_zone_above(up_bounds.y) != null:
-                                # the next rung of a stacked build starts right
-                                # above — ride on and chain onto it seamlessly
-                                # (climb off the first stud, climb onto the second)
-                                velocity.y = climb_speed
-                                _hug_face(delta)
-                        else:
-                                _vault_ledge(up_bounds.y)   # top of the climb: mount
+                        velocity.y = climb_speed
+                        climbing = true
                 elif direction.y > 0.2:
-                        var down_bounds := _climb_bounds(false)
-                        if global_position.y <= down_bounds.x + 0.15:
-                                _climbing = false   # slid off the bottom — fall
-                        else:
-                                velocity.y = -climb_speed
-                                _hug_face(delta)
+                        velocity.y = -climb_speed
+                        climbing = true
                 else:
-                        velocity.y = 0.0           # hang on the spot
-                        _hug_face(delta)
-        elif touching and _climb_cooldown <= 0.0 and can_climb and direction.y < -0.2:
-                # ENTER CLIMB — W into a face you are actually facing, up close,
-                # with the face's top still at or above your chest (no grabbing
-                # a rung from on top of it). can_climb = the dev's kill switch.
-                var zone := _resolve_climb_zone(true, wish)
-                if zone != null:
-                        var outward := _ladder_outward_of(zone)
-                        var face_dot := wish.normalized().dot(-outward) if wish.length_squared() > 0.005 else 0.0
-                        var grabable: bool = face_dot >= CLIMB_FACE_DOT \
-                                and _face_gap(zone) <= CLIMB_GRAB_DISTANCE \
-                                and global_position.y + 2.6 <= _zone_top(zone) + 0.3
-                        if grabable:
-                                _climbing = true
-                                _ladder_outward = outward
-                                velocity.y = climb_speed
-                                _hug_face(delta)
-        if not _climbing:
+                        velocity.y = 0.0
+                        climbing = true
+                # climbing is strictly vertical: W/S only. Sideways wish is
+                # ignored (velocity damped toward zero) — no strafing on ladders.
+                velocity.x = move_toward(velocity.x, 0.0, accel_ground * delta)
+                velocity.z = move_toward(velocity.z, 0.0, accel_ground * delta)
+        else:
                 # ---- ground / air movement, classic response ----
-                var accel: float = walk_acceleration if is_on_floor() else air_acceleration
+                var accel: float = accel_ground if is_on_floor() else accel_air
                 var target := wish * walk_speed
                 if wish.length_squared() < 0.005 and is_on_floor():
                         # no input on the ground: brake toward a clean stop
-                        velocity.x = move_toward(velocity.x, 0.0, ground_braking * delta)
-                        velocity.z = move_toward(velocity.z, 0.0, ground_braking * delta)
+                        velocity.x = move_toward(velocity.x, 0.0, brake_ground * delta)
+                        velocity.z = move_toward(velocity.z, 0.0, brake_ground * delta)
                 else:
                         velocity.x = move_toward(velocity.x, target.x, accel * delta)
                         velocity.z = move_toward(velocity.z, target.z, accel * delta)
                 if not is_on_floor():
-                        # eased rise, classic fall: gravity relaxes while you
-                        # go UP (a soft, readable arc instead of the old snap)
-                        # and bites at full strength on the way down
-                        var g_scale: float = jump_up_gravity_scale if velocity.y > 0.0 else 1.0
-                        velocity.y -= gravity * g_scale * delta
-                        _air_fall_speed = minf(_air_fall_speed, velocity.y)
+                        velocity.y -= gravity * delta
                 elif velocity.y < 0.0:
                         velocity.y = 0.0
-                # coyote time + jump buffering — the timing edges stay forgiving
-                # for obby jumps; the arc itself comes from the settings above
-                if is_on_floor():
-                        _coyote = COYOTE_TIME
-                else:
-                        _coyote = maxf(_coyote - delta, 0.0)
                 if jump_serial > consumed_jump:
                         consumed_jump = jump_serial
-                        _jump_buffer = JUMP_BUFFER
-                else:
-                        _jump_buffer = maxf(_jump_buffer - delta, 0.0)
-                if _jump_buffer > 0.0 and _coyote > 0.0:
-                        _jump_buffer = 0.0
-                        _coyote = 0.0
-                        velocity.y = _jump_speed()
-                        if play_jump_sound:
-                                _sfx("JumpSound", randf_range(0.94, 1.06))
+                        if is_on_floor():
+                                velocity.y = jump_speed
+                                _play_jump()
 
-        climbing = _climbing
         move_and_slide()
-        var was_grounded := grounded
         grounded = is_on_floor()
-        if grounded and is_on_wall():
+        # step-up runs when the wall test says so OR when the wish is strong but
+        # we are barely moving — tiny lips can block without a wall slide event
+        if grounded and (is_on_wall() or _is_blocked()):
                 _attempt_step_up()
-        # ---- built-in sound effects (nodes live in scenes/player.tscn) ----
-        if grounded and not was_grounded:
-                # landing: only a real drop gets the thump, stair lips stay quiet
-                if play_land_sound and _air_fall_speed < -14.0:
-                        _sfx("LandSound", randf_range(0.92, 1.08))
-                _air_fall_speed = 0.0
-                _step_timer = 0.18   # first footstep lands right after touchdown
-        elif not grounded:
-                _air_fall_speed = minf(_air_fall_speed, velocity.y)
-        var ground_speed := Vector2(velocity.x, velocity.z).length()
-        if play_footsteps and grounded and ground_speed > 2.0:
-                _step_timer -= delta * maxf(ground_speed / walk_speed, 0.4)
-                if _step_timer <= 0.0:
-                        _step_timer = 0.34
-                        _sfx("StepSound", randf_range(0.88, 1.18))
-        else:
-                _step_timer = minf(_step_timer, 0.12)
         # facing — shift lock squares up to the camera, otherwise face the run
         if use_shiftlock:
                 heading = lerp_angle(heading, camera_yaw, 1.0 - exp(-14.0 * delta))
@@ -333,10 +207,20 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                 health_changed.emit(health, MAX_HEALTH)
         avatar.rotation.y = heading
 
-## STAIRS — walk over any ledge between MIN_STEP and MAX_STEP studs.
-## Runs after move_and_slide when we ended up against a wall: measure the
-## ledge with a downward ray from a raised position, and if the lip is in
-## range and there is headroom, rise + reach over + settle onto the step.
+## True when the player is pushing hard but the body barely moves — the
+## classic "stuck on the part edge" case the plain is_on_wall() test missed.
+func _is_blocked() -> bool:
+        var wish_len := Vector3(input_direction.x, 0.0, input_direction.y).length()
+        if wish_len < 0.5:
+                return false
+        var hvel := Vector3(velocity.x, 0.0, velocity.z).length()
+        return hvel < walk_speed * 0.35
+
+## STAIRS — walk over any ledge between min_step and max_step studs.
+## Runs after move_and_slide when we ended up against a wall (or wedged on
+## a part edge): measure the ledge with a downward ray from a raised
+## position, and if the lip is in range and there is headroom, rise + reach
+## over + settle onto the step.
 func _attempt_step_up() -> void:
         var hvel := Vector3(velocity.x, 0.0, velocity.z)
         if hvel.length_squared() < 1.0:
@@ -348,38 +232,124 @@ func _attempt_step_up() -> void:
         var feet := global_position.y
         # 1) something low actually blocking straight ahead?
         var probe := PhysicsRayQueryParameters3D.create(
-                global_position + Vector3(0.0, MIN_STEP + 0.15, 0.0),
-                global_position + Vector3(0.0, MIN_STEP + 0.15, 0.0) + dir * 1.4,
+                global_position + Vector3(0.0, min_step + 0.15, 0.0),
+                global_position + Vector3(0.0, min_step + 0.15, 0.0) + dir * 1.4,
                 collision_mask
         )
         if space.intersect_ray(probe).is_empty():
                 return
         # 2) headroom to rise the full step? (blocked above = ceiling, abort)
-        if test_move(global_transform, Vector3.UP * MAX_STEP):
+        if test_move(global_transform, Vector3.UP * max_step):
                 return
-        # 3) reach over the lip and measure the landing height with a ray
-        var over := global_position + Vector3.UP * MAX_STEP + dir * STEP_FORWARD
-        var down_ray := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (MAX_STEP + 0.4), collision_mask)
+        # 3) reach PAST the capsule radius over the lip and measure the landing
+        #    height with a ray — a short reach here is what used to wedge the
+        #    capsule on the very edge of the part
+        var over := global_position + Vector3.UP * max_step + dir * STEP_REACH
+        var down_ray := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (max_step + 0.4), collision_mask)
         var hit := space.intersect_ray(down_ray)
         if hit.is_empty():
                 return  # nothing to land on at that height — it is a tall wall
         var lip: float = float(hit["position"].y) - feet
-        if lip < MIN_STEP or lip > MAX_STEP + 0.01:
+        if lip < min_step or lip > max_step + 0.01:
                 return  # too tall (or we are already level) — jump like classic
-        # 4) execute: rise, reach, settle. The body snaps; the avatar eases.
+        # 4) execute: rise, reach over, settle. The body snaps; the avatar eases.
         move_and_collide(Vector3.UP * (lip + 0.06))
-        move_and_collide(dir * STEP_FORWARD)
-        var settle := move_and_collide(Vector3.DOWN * (lip + 0.2))
+        move_and_collide(dir * STEP_REACH)
+        var settle := move_and_collide(Vector3.DOWN * (lip + 0.25))
         if settle != null and velocity.y < 0.0:
                 velocity.y = 0.0
         grounded = true
         _step_visual = minf(_step_visual - lip, -lip)
-        if _step_visual < -MAX_STEP:
-                _step_visual = -MAX_STEP
+        if _step_visual < -max_step:
+                _step_visual = -max_step
+
+## Head-top health bar — two billboarded quads. Shows whenever the player is
+## below full health, then lingers a moment and disappears once healed.
+func _setup_head_bar() -> void:
+        _hb_root = Node3D.new()
+        _hb_root.name = "HealthBillboard"
+        _hb_root.position = Vector3(0.0, 5.75, 0.0)
+        _hb_root.visible = false
+        add_child(_hb_root)
+        var bg := MeshInstance3D.new()
+        bg.name = "Track"
+        var bg_mesh := QuadMesh.new()
+        bg_mesh.size = Vector2(HB_WIDTH, HB_HEIGHT)
+        bg.mesh = bg_mesh
+        bg.material_override = _hb_material(Color(0.055, 0.09, 0.11, 0.82))
+        _hb_root.add_child(bg)
+        _hb_fill = MeshInstance3D.new()
+        _hb_fill.name = "Fill"
+        _hb_fill_mesh = QuadMesh.new()
+        _hb_fill_mesh.size = Vector2(HB_WIDTH, HB_HEIGHT)
+        _hb_fill.mesh = _hb_fill_mesh
+        _hb_fill.material_override = _hb_material(Color("02b757"))
+        _hb_fill.position = Vector3(0.0, 0.0, -0.02)  # a hair in front: no z-fighting
+        _hb_root.add_child(_hb_fill)
+
+func _hb_material(color: Color) -> StandardMaterial3D:
+        var mat := StandardMaterial3D.new()
+        mat.albedo_color = color
+        mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+        mat.no_depth_test = false
+        mat.render_priority = 10
+        return mat
+
+func _update_head_bar(delta: float) -> void:
+        if _hb_root == null:
+                return
+        var ratio := clampf(health / MAX_HEALTH, 0.0, 1.0)
+        if alive and ratio < 0.995:
+                _hb_wait = 0.0
+                _hb_root.visible = true
+        elif _hb_wait < HB_LINGER:
+                _hb_wait += delta
+                _hb_root.visible = true
+                if _hb_wait >= HB_LINGER:
+                        _hb_root.visible = false
+        var w: float = maxf(HB_WIDTH * ratio - 0.08, 0.001)
+        _hb_fill_mesh.size = Vector2(w, HB_HEIGHT - 0.08)
+        # keep the fill glued to the left edge as it shrinks
+        _hb_fill.position = Vector3(-(HB_WIDTH - 0.08) * 0.5 + w * 0.5, 0.0, -0.02)
+        (_hb_fill.material_override as StandardMaterial3D).albedo_color = \
+                Color("e2231a").lerp(Color("02b757"), ratio)
+
+## Jump + footstep sounds — 3D, so nearby players hear them too.
+func _setup_sounds() -> void:
+        if not sounds_enabled:
+                return
+        _jump_audio = RetroSounds.world_player(jump_sound, -6.0)
+        if _jump_audio.stream == null:
+                _jump_audio = null
+        else:
+                _jump_audio.position = Vector3(0.0, 3.0, 0.0)
+                add_child(_jump_audio)
+        _footstep_audio = RetroSounds.world_player(walk_sound, -14.0, true)
+        if _footstep_audio.stream == null:
+                _footstep_audio = null
+        else:
+                _footstep_audio.position = Vector3(0.0, 0.2, 0.0)
+                add_child(_footstep_audio)
+
+func _play_jump() -> void:
+        if _jump_audio != null:
+                _jump_audio.play()
+
+func _update_footsteps() -> void:
+        if _footstep_audio == null:
+                return
+        var moving: bool = alive and grounded \
+                and Vector3(velocity.x, 0.0, velocity.z).length() > 2.0 \
+                and not climbing
+        if moving and not _footstep_audio.playing:
+                _footstep_audio.play()
+        elif not moving and _footstep_audio.playing:
+                _footstep_audio.stop()
 
 ## Ladder sensor — one Area3D hugging the body; TrussPart-style ladders are
-## Area3D nodes on layer 16 in the "ladder" group. The touched ladder's
-## outward direction is remembered so jumping off shoves you away from it.
+## Area3D nodes on layer 16 in the "ladder" group.
 func _setup_ladder_sensor() -> void:
         var area := Area3D.new()
         area.name = "LadderSensor"
@@ -395,170 +365,12 @@ func _setup_ladder_sensor() -> void:
         shape_node.disabled = false
         area.add_child(shape_node)
         add_child(area)
-        area.area_entered.connect(_on_ladder_area_entered)
-        area.area_exited.connect(_on_ladder_area_exited)
-
-
-func _on_ladder_area_entered(other: Area3D) -> void:
-        if not other.is_in_group("ladder"):
-                return
-        _ladder_zones[other.get_instance_id()] = other
-        if _ladder_outward == Vector3.ZERO:
-                _ladder_outward = _ladder_outward_of(other)
-
-
-func _on_ladder_area_exited(other: Area3D) -> void:
-        if not other.is_in_group("ladder"):
-                return
-        _ladder_zones.erase(other.get_instance_id())
-        if _ladder_zones.is_empty():
-                _ladder_outward = Vector3.ZERO
-
-
-## Ladder areas publish the direction their climbable face points in as the
-## "outward" meta (in the ladder part's local space); trusses face +Z.
-func _ladder_outward_of(ladder_area: Area3D) -> Vector3:
-        var local: Vector3 = ladder_area.get_meta("outward", Vector3.BACK)
-        var owner_part := ladder_area.get_parent() as Node3D
-        if owner_part == null:
-                return Vector3.ZERO
-        var world := (owner_part.global_transform.basis * local)
-        world.y = 0.0
-        return world.normalized() if world.length_squared() > 0.0001 else Vector3.ZERO
-
-
-## Pick the climbable segment we are riding from every zone overlapping the
-## sensor. Stacked rungs all overlap the tall sensor at once, so the choice
-## is POSITIONAL: the segment whose vertical band contains the chest wins;
-## in a gap between two bands the next one in the travel direction wins —
-## that is what makes climbing up run off the first stud and onto the second
-## stud above it (and the reverse on the way down). A thin platform also
-## carries one zone per open face — `face_hint` (the direction you push)
-## breaks those ties toward the face you are actually standing in front of.
-func _resolve_climb_zone(up: bool, face_hint: Vector3 = Vector3.ZERO) -> Area3D:
-        var chest := global_position.y + 2.6
-        var best: Area3D = null
-        var best_score: float = -1000.0
-        for value in _ladder_zones.values():
-                var zone := value as Area3D
-                if zone == null or not is_instance_valid(zone):
-                        continue
-                var part := zone.get_parent() as Node3D
-                if part == null:
-                        continue
-                var half: float = _zone_half_height(zone)
-                if half < 0.0:
-                        continue
-                var bottom: float = part.global_position.y - half
-                var top: float = part.global_position.y + half
-                var score: float
-                if chest >= bottom - 0.35 and chest <= top + 0.35:
-                        score = 100.0     # chest inside this segment's band
-                else:
-                        var dist: float = minf(absf(chest - bottom), absf(chest - top))
-                        score = 50.0 - dist
-                        if (up and top > chest) or (not up and bottom < chest):
-                                score += 5.0   # prefer the next band in travel direction
-                # multi-face parts: the face you push INTO outranks the others
-                if face_hint.length_squared() > 0.005:
-                        var outward := _ladder_outward_of(zone)
-                        if outward != Vector3.ZERO and face_hint.normalized().dot(-outward) >= CLIMB_FACE_DOT:
-                                score += 20.0
-                if score > best_score:
-                        best_score = score
-                        best = zone
-        return best
-
-
-## Bottom (x) and top (y) of the segment we are riding, in world Y.
-func _climb_bounds(up: bool) -> Vector2:
-        var fallback := Vector2(global_position.y - 3.0, global_position.y + 3.0)
-        var zone := _resolve_climb_zone(up)
-        if zone == null or not is_instance_valid(zone):
-                return fallback
-        var half: float = _zone_half_height(zone)
-        if half < 0.0:
-                return fallback
-        var part := zone.get_parent() as Node3D
-        return Vector2(part.global_position.y - half, part.global_position.y + half)
-
-
-## Half height of a zone's owner part along world Y (-1 when unmeasurable).
-func _zone_half_height(zone: Area3D) -> float:
-        var part := zone.get_parent() as Node3D
-        if part == null:
-                return -1.0
-        var half: float = absf((part.global_transform.basis * Vector3(0.0, part.size.y * 0.5, 0.0)).y)
-        return half if half >= 0.05 else 0.5
-
-
-func _zone_top(zone: Area3D) -> float:
-        var half: float = _zone_half_height(zone)
-        var part := zone.get_parent() as Node3D
-        if part == null or half < 0.0:
-                return global_position.y + 3.0
-        return part.global_position.y + half
-
-
-## Another climb zone whose segment starts at/above `top_y` — the next rung
-## in a stacked build. Cresting chains onto it instead of mounting.
-func _climb_zone_above(top_y: float) -> Area3D:
-        for value in _ladder_zones.values():
-                var zone := value as Area3D
-                if zone == null or not is_instance_valid(zone):
-                        continue
-                var half: float = _zone_half_height(zone)
-                if half < 0.0:
-                        continue
-                var part := zone.get_parent() as Node3D
-                if part.global_position.y - half >= top_y - 0.3:
-                        return zone
-        return null
-
-
-## Crest vault — the top of the climb: rise above the lip, reach over and
-## settle onto the standing surface behind the face. Same pattern as the
-## stair step-up, so mounting feels like stepping up, not a leap of faith.
-func _vault_ledge(top_y: float) -> void:
-        _climbing = false
-        _climb_cooldown = 0.3
-        var lip: float = maxf(top_y - global_position.y + 0.25, 0.2)
-        move_and_collide(Vector3.UP * lip)
-        move_and_collide(-_ladder_outward * 1.2)
-        var settle := move_and_collide(Vector3.DOWN * (lip + 0.6))
-        if settle != null:
-                velocity = Vector3.ZERO
-                grounded = true
-        else:
-                # nothing to stand on up there — peel off and fall
-                velocity = Vector3(-_ladder_outward.x * 2.0, -2.0, -_ladder_outward.z * 2.0)
-
-
-## Horizontal distance from the body to a zone's climbable face plane
-## (positive = in front of the face). Keeps the fat touch-sensor from
-## magnet-sticking you onto a face you are not standing next to.
-func _face_gap(zone: Area3D) -> float:
-        if zone == null or not is_instance_valid(zone):
-                return 999.0
-        var part := zone.get_parent() as Node3D
-        if part == null:
-                return 999.0
-        var local: Vector3 = zone.get_meta("outward", Vector3.BACK)
-        var axis := local.abs()
-        var depth: float = part.size.x * axis.x + part.size.y * axis.y + part.size.z * axis.z
-        var outward: Vector3 = part.global_transform.basis * local
-        outward.y = 0.0
-        if outward.length_squared() < 0.0001:
-                return 999.0
-        outward = outward.normalized()
-        var face: Vector3 = part.global_position + part.global_transform.basis * (local * (depth * 0.5))
-        return (global_position - face).dot(outward)
-
-
-## Creep toward the face while riding so the body stays glued to it.
-func _hug_face(delta: float) -> void:
-        velocity.x = move_toward(velocity.x, -_ladder_outward.x * LADDER_HUG, walk_acceleration * delta)
-        velocity.z = move_toward(velocity.z, -_ladder_outward.z * LADDER_HUG, walk_acceleration * delta)
+        area.area_entered.connect(func(other: Area3D) -> void:
+                if other.is_in_group("ladder"):
+                        _ladder_count += 1)
+        area.area_exited.connect(func(other: Area3D) -> void:
+                if other.is_in_group("ladder"):
+                        _ladder_count = maxi(_ladder_count - 1, 0))
 
 ## Fall damage — track the apex while airborne, hurt on landing.
 func _update_fall_damage() -> void:
@@ -611,13 +423,16 @@ func accept_snapshot(pos: Vector3, vel: Vector3, yaw: float, floor_state: bool, 
 
 func update_visuals(delta: float) -> void:
         if alive:
-                # climbing animates from the VERTICAL speed (the climb cycle
-                # tracks your up/down motion); everything else from ground speed
-                var anim_speed: float = absf(velocity.y) if climbing else Vector2(velocity.x, velocity.z).length()
-                avatar.animate(delta, anim_speed, grounded, climbing)
+                avatar.animate(delta, Vector2(velocity.x, velocity.z).length(), grounded, climbing)
+                _update_footsteps()
+        _update_head_bar(delta)
         if bubble_remaining > 0.0:
                 bubble_remaining -= delta
                 bubble.visible = alive and bubble_remaining > 0.0
+
+## Remote players get their health from the host's snapshot rows.
+func set_remote_health(value: float) -> void:
+        health = clampf(value, 0.0, MAX_HEALTH)
 
 func show_message(message: String) -> void:
         # Plain text only: markup cannot be injected.
@@ -661,6 +476,11 @@ func die(world: Node3D, epoch: int, seed_value: int) -> void:
         alive = false
         health = 0.0
         health_changed.emit(health, MAX_HEALTH)
+        if _footstep_audio != null and _footstep_audio.playing:
+                _footstep_audio.stop()
+        if _hb_root != null:
+                _hb_root.visible = false
+                _hb_wait = HB_LINGER
         velocity = Vector3.ZERO
         correction = Vector3.ZERO
         input_direction = Vector2.ZERO
@@ -674,9 +494,8 @@ func respawn_at(pos: Vector3, epoch: int) -> void:
         regen_wait = 0.0
         falling = false
         climbing = false
-        _climbing = false
-        _climb_cooldown = 0.0
         _step_visual = 0.0
+        _hb_wait = HB_LINGER  # the bar starts hidden on a fresh life
         if avatar != null:
                 avatar.position.y = 0.0
         health_changed.emit(health, MAX_HEALTH)
@@ -693,8 +512,6 @@ func respawn_at(pos: Vector3, epoch: int) -> void:
         target_heading = 0.0
         grounded = false
         has_snapshot = false
-        _air_fall_speed = 0.0
-        _step_timer = 0.0
         avatar.rotation.y = 0.0
         avatar.visible = true
         bubble.visible = false
