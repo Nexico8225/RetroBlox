@@ -360,7 +360,7 @@ export function AvatarView() {
         <div className="rb-panel-head"><span>Avatar Editor</span></div>
         <div style={{ padding: 12, fontSize: 11, color: '#41586c' }}>
           Your look belongs to your RetroBlox account, not to one game. Dress up here and every
-          RetroBlox game spawns you like this — the SDK fetches it from the platform the moment you press play.
+          RetroBlox game spawns you like this — the player fetches it from the platform the moment you press play.
         </div>
       </div>
 
@@ -525,7 +525,7 @@ export function AvatarView() {
               )}
             </div>
             <div style={{ fontSize: 9, color: '#8ba0b3', marginBottom: 14 }}>
-              Custom colors save with your avatar and show up in every game through the SDK.
+              Custom colors save with your avatar and show up in every game through the player system.
             </div>
 
             {/* the classic body presets live here too — they ARE body colors */}
