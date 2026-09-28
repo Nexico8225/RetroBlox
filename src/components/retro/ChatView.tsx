@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation'
 import { useRetro, api, timeAgo, flash, type RetroUser } from '@/lib/store'
 import { Avatar, OnlineDot } from './Shell'
 
-/* Chat — private Discord-flavored DMs between accepted friends.
-   Supports text, images, videos and audio (images replaced GIFs). Polls lightly. */
+/* Chat — private Discord-flavored DMs. Open to ALL members: friends,
+   people you've messaged before, and pending friend-request partners
+   (that's how you nudge someone to accept!). Text, images, videos and
+   audio supported. Polls lightly. */
 
 interface ChatMsg {
   id: string
@@ -17,6 +19,13 @@ interface ChatMsg {
   fileName: string | null
   fromMe: boolean
   createdAt: string
+}
+
+interface Conversation {
+  friend: RetroUser
+  pending?: boolean
+  lastMessage: { text: string; fileId: string | null; fileType: string | null; fromMe: boolean; createdAt: string } | null
+  unread: number
 }
 
 export function mediaRender(fileId: string | null, fileType: string | null, name?: string | null) {
@@ -44,14 +53,12 @@ const EMOJIS = [':)', ':D', ':P', ';)', '<3', '^_^', ':o', 'XD', ':(', 'o7']
 
 export function ChatListView() {
   const { user, setUnreadChats } = useRetro()
-  const [conversations, setConversations] = useState<
-    { friend: RetroUser; lastMessage: { text: string; fileId: string | null; fileType: string | null; fromMe: boolean; createdAt: string } | null; unread: number }[]
-  >([])
+  const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res = await api<{ conversations: typeof conversations }>('/api/chat')
+      const res = await api<{ conversations: Conversation[] }>('/api/chat')
       setConversations(res.conversations)
       const total = res.conversations.reduce((s, c) => s + c.unread, 0)
       setUnreadChats(total)
@@ -84,14 +91,19 @@ export function ChatListView() {
         {loading && <div style={{ padding: 24, textAlign: 'center', color: '#5a6b7b', fontSize: 11 }}>Loading chats...</div>}
         {!loading && conversations.length === 0 && (
           <div style={{ padding: '30px 16px', textAlign: 'center', color: '#5a6b7b' }}>
-            <div style={{ fontSize: 14, marginBottom: 6 }}>No friends to chat with yet</div>
+            <div style={{ fontSize: 14, marginBottom: 6 }}>No conversations yet</div>
             <div style={{ fontSize: 11, marginBottom: 12, lineHeight: 1.6 }}>
-              Add friends first — once they accept, you can DM them here<br />
-              with text, pictures, videos and even audio.
+              You can message ANY player on RetroBlox —<br />
+              even before they accept your friend request.
             </div>
-            <Link className="rb-btn rb-btn-green" href="/friends" style={{ textDecoration: 'none', display: 'inline-block' }}>
-              Go to Friends
-            </Link>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link className="rb-btn rb-btn-green" href="/people" style={{ textDecoration: 'none', display: 'inline-block' }}>
+                Browse People
+              </Link>
+              <Link className="rb-btn" href="/friends" style={{ textDecoration: 'none', display: 'inline-block' }}>
+                Go to Friends
+              </Link>
+            </div>
           </div>
         )}
         {conversations.map((c) => (
@@ -108,7 +120,14 @@ export function ChatListView() {
               </span>
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: 12, color: '#1c4e7c' }}>{c.friend.username}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 12, color: '#1c4e7c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.friend.username}</span>
+                {c.pending && (
+                  <span style={{ fontSize: 8, color: '#6b5413', background: '#fdf6e4', border: '1px solid #e0d3a6', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>
+                    request pending
+                  </span>
+                )}
+              </span>
               <span
                 style={{
                   display: 'block',
@@ -147,7 +166,7 @@ export function ChatThreadView({ userId }: { userId: string }) {
   const { user, setUnreadChats, setToast } = useRetro()
   const router = useRouter()
   const [friend, setFriend] = useState<RetroUser | null>(null)
-  const [friends, setFriends] = useState<(RetroUser & { friendshipId: string })[]>([])
+  const [contacts, setContacts] = useState<Conversation[]>([])
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -168,13 +187,13 @@ export function ChatThreadView({ userId }: { userId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [thread, fl] = await Promise.all([
+      const [thread, convs] = await Promise.all([
         api<{ friend: RetroUser; messages: ChatMsg[] }>(`/api/chat/${userId}`),
-        api<{ friends: (RetroUser & { friendshipId: string })[] }>('/api/friends'),
+        api<{ conversations: Conversation[] }>('/api/chat'),
       ])
       setFriend(thread.friend)
       setMessages(thread.messages)
-      setFriends(fl.friends)
+      setContacts(convs.conversations)
       setUnreadChats(0)
       if (thread.messages.length !== lastCountRef.current) {
         lastCountRef.current = thread.messages.length
@@ -238,31 +257,33 @@ export function ChatThreadView({ userId }: { userId: string }) {
 
   return (
     <div className="rb-chat-wrap">
-      {/* friends sidebar — switch conversations like Discord */}
+      {/* conversations sidebar — switch chats like Discord */}
       <div className="rb-box rb-chat-side">
-        <div className="rb-panel-head"><span>Friends</span></div>
+        <div className="rb-panel-head"><span>Conversations</span></div>
         <div style={{ maxHeight: 460, overflowY: 'auto' }}>
-          {friends.length === 0 && (
+          {contacts.length === 0 && (
             <div style={{ padding: 12, fontSize: 10, color: '#7b8896' }}>
-              Add friends to chat with them!
+              Message anyone from the People page!
             </div>
           )}
-          {friends.map((f) => (
+          {contacts.map((c) => (
             <Link
-              key={f.id}
-              href={`/chat/${f.id}`}
-              className={`rb-chat-friend${f.id === userId ? ' rb-active' : ''}`}
+              key={c.friend.id}
+              href={`/chat/${c.friend.id}`}
+              className={`rb-chat-friend${c.friend.id === userId ? ' rb-active' : ''}`}
               style={{ textDecoration: 'none' }}
             >
               <span style={{ position: 'relative', display: 'inline-block' }}>
-                <Avatar user={f} size={30} rounded="50%" />
+                <Avatar user={c.friend} size={30} rounded="50%" />
                 <span style={{ position: 'absolute', right: -1, bottom: 0 }}>
-                  <OnlineDot online={f.online} />
+                  <OnlineDot online={c.friend.online} />
                 </span>
               </span>
               <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: '#1c4e7c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {f.username}
+                {c.friend.username}
+                {c.pending ? ' ·' : ''}
               </span>
+              {c.unread > 0 && c.friend.id !== userId && <span className="rb-badge">{c.unread}</span>}
             </Link>
           ))}
         </div>
@@ -291,7 +312,7 @@ export function ChatThreadView({ userId }: { userId: string }) {
         <div className="rb-chat-msgs" ref={msgsRef}>
           {messages.length === 0 && (
             <div style={{ textAlign: 'center', color: '#7b8896', fontSize: 11, margin: 'auto' }}>
-              This is the beginning of your friendship with{' '}
+              This is the beginning of your conversation with{' '}
               <span style={{ color: '#24425f' }}>{friend?.username || 'them'}</span>. Say hi!
             </div>
           )}
