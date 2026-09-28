@@ -24,6 +24,7 @@ interface ChatMsg {
 interface Conversation {
   friend: RetroUser
   pending?: boolean
+  friendshipId?: string | null
   lastMessage: { text: string; fileId: string | null; fileType: string | null; fromMe: boolean; createdAt: string } | null
   unread: number
 }
@@ -50,6 +51,62 @@ export function mediaRender(fileId: string | null, fileType: string | null, name
 const EMOJIS = [':)', ':D', ':P', ';)', '<3', '^_^', ':o', 'XD', ':(', 'o7']
 
 /* ================= Chat conversation list (/chat) ================= */
+
+/* NUDGE — a tiny shoulder-tap on a pending friend request. Sits right
+   inside the conversation row; the row is a Link, so the click must
+   preventDefault to stay put. Rate-limited server-side (1 / 10 min). */
+function NudgeChip({ friendshipId }: { friendshipId?: string | null }) {
+  const { setToast } = useRetro()
+  const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle')
+
+  // invisible when there is no pending row to nudge
+  if (!friendshipId) {
+    return (
+      <span style={{ fontSize: 8, color: '#6b5413', background: '#fdf6e4', border: '1px solid #e0d3a6', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>
+        request pending
+      </span>
+    )
+  }
+
+  if (state === 'done') {
+    return (
+      <span style={{ fontSize: 8, color: '#2c6e31', background: '#eaf6ea', border: '1px solid #bcdcbc', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>
+        nudged ✓
+      </span>
+    )
+  }
+
+  async function nudge(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (state !== 'idle') return
+    setState('busy')
+    try {
+      await api(`/api/friends/${friendshipId}`, { method: 'POST', body: JSON.stringify({ action: 'nudge' }) })
+      setState('done')
+      flash(setToast, 'Nudge sent — it will pop up in their bell!', 2400)
+    } catch (err) {
+      flash(setToast, err instanceof Error ? err.message : 'Failed to nudge', 2600)
+      setState('idle')
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={nudge}
+      disabled={state === 'busy'}
+      title="Remind them about your pending friend request"
+      style={{
+        fontSize: 8, color: '#fff', background: '#0d69ac', border: '1px solid #084a7c',
+        borderRadius: 3, padding: '1px 6px', flexShrink: 0, cursor: 'pointer',
+        fontFamily: 'inherit', fontWeight: 700,
+      }}
+    >
+      {state === 'busy' ? '...' : 'Nudge'}
+    </button>
+  )
+}
 
 export function ChatListView() {
   const { user, setUnreadChats } = useRetro()
@@ -122,11 +179,7 @@ export function ChatListView() {
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 12, color: '#1c4e7c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.friend.username}</span>
-                {c.pending && (
-                  <span style={{ fontSize: 8, color: '#6b5413', background: '#fdf6e4', border: '1px solid #e0d3a6', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>
-                    request pending
-                  </span>
-                )}
+                {c.pending && <NudgeChip friendshipId={c.friendshipId} />}
               </span>
               <span
                 style={{
