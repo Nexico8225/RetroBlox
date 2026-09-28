@@ -18,9 +18,13 @@ extends RefCounted
 # and when other devs copy these scripts into their own project.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
-const RIG_HEIGHT := 2.9          # this avatar's height (site rig = 5.0 studs)
+const RIG_HEIGHT := 5.0          # this avatar's height — the SAME 5-stud rig the site uses
 const SITE_RIG_HEIGHT := 5.0
 const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies
+# Rig and site rig are the same 5 studs, so the scale is 1.0 and the site's
+# placements apply VERBATIM. (This used to be 2.9/5.0 back when the avatar
+# was smaller — every hat arrived at 58% size and floated off the head:
+# the "UGC is broken" bug. Sizes are stud-accurate now: 1 stud = 0.28 m.)
 const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT
 
 # "this surface arrived with no real paint" threshold (raw sRGB ~0.97+),
