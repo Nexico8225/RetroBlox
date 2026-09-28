@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, makeToken } from '@/lib/auth'
 import { PLATFORM_CORS } from '@/lib/platform'
+import { notifyEveryone } from '@/lib/notifications'
 
 /**
  * PLATFORM SIGNUP — POST /api/platform/signup
@@ -67,6 +68,18 @@ export async function POST(req: NextRequest) {
     // serverless filesystems skip the row — the token still works)
     const token = makeToken(user.id)
     await db.session.create({ data: { token, userId: user.id } }).catch(() => {})
+
+    // in-game signup also rings every member's bell (never blocks signup)
+    await notifyEveryone(
+      {
+        type: 'new_player',
+        title: 'New player joined RetroBlox!',
+        body: `${user.username} just joined — say hi and send them a friend request!`,
+        linkUrl: `/users/${user.id}`,
+        actorId: user.id,
+      },
+      user.id
+    )
 
     return NextResponse.json(
       {
