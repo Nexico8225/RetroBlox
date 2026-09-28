@@ -71,12 +71,13 @@ func _load_map() -> void:
                 print("[RetroBlox] map has no SpawnLocation pads — using default spawns")
 
 
-## Give a qualifying part its climb zone: an Area3D on layer 16 in the
+## Give a qualifying part a climb zone: an Area3D on layer 16 in the
 ## "ladder" group, covering the part plus a reach margin on the open face,
-## publishing the climbable direction for the jump-off.
-func _grant_climb_area(part: RetroPart, local_outward: Vector3) -> void:
+## publishing the climbable direction for the jump-off. A thin platform can
+## carry SEVERAL zones (one per open face) so it climbs from any side.
+func _grant_climb_area(part: RetroPart, local_outward: Vector3, suffix: String = "") -> void:
         var area := Area3D.new()
-        area.name = "AutoClimbArea"
+        area.name = "AutoClimbArea" + suffix
         area.collision_layer = 16
         area.collision_mask = 0
         area.monitoring = false
@@ -117,16 +118,21 @@ func _make_environment() -> void:
         # color). Tops catch the sun and glow, sides fall back to a clean
         # half-light, undersides go properly dark. Bright, punchy, readable.
         environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-        environment.ambient_light_color = Color(0.5, 0.5, 0.52)  # the classic 128-grey ambient
+        environment.ambient_light_color = Color(0.52, 0.52, 0.53)  # the classic 128-grey, hint warmer
         environment.ambient_light_energy = 1.0
         environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
         environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+        # the user call: the old sky was TOO SATURATED. A gentle global
+        # saturation pull-back (like the classic renderer's muted palette)
+        # keeps every color readable but takes the electric edge off.
+        environment.adjustment_enabled = true
+        environment.adjustment_saturation = 0.8
         var sky: Sky = Sky.new()
         var sky_material: ProceduralSkyMaterial = ProceduralSkyMaterial.new()
-        sky_material.sky_top_color = Color("#2f74c9")       # classic deep blue overhead
-        sky_material.sky_horizon_color = Color("#d3ecf9")   # pale, bright horizon band
-        sky_material.ground_bottom_color = Color("#47795f")
-        sky_material.ground_horizon_color = Color("#d9edd2")
+        sky_material.sky_top_color = Color("#5f8fc9")       # classic blue, eased down (was #2f74c9)
+        sky_material.sky_horizon_color = Color("#ddeef8")   # pale, bright horizon band
+        sky_material.ground_bottom_color = Color("#6f9479")
+        sky_material.ground_horizon_color = Color("#e2eeda")
         sky_material.sun_angle_max = 28.0
         sky.sky_material = sky_material
         environment.sky = sky
@@ -138,8 +144,8 @@ func _make_environment() -> void:
         var sun: DirectionalLight3D = DirectionalLight3D.new()
         sun.name = "WarmSun"
         sun.rotation_degrees = Vector3(-52.0, -32.0, 0.0)
-        sun.light_color = Color("#fffef7")
-        sun.light_energy = 1.1
+        sun.light_color = Color("#fffdf2")   # warm white, a touch softer
+        sun.light_energy = 1.0
         sun.shadow_enabled = true
         sun.shadow_opacity = 0.72
         sun.shadow_blur = 1.1
@@ -151,16 +157,21 @@ func _make_environment() -> void:
         var fill: DirectionalLight3D = DirectionalLight3D.new()
         fill.name = "SkyFill"
         fill.rotation_degrees = Vector3(-24.0, 148.0, 0.0)
-        fill.light_color = Color("#d9ecff")
-        fill.light_energy = 0.18
+        fill.light_color = Color("#e4eef7")   # desaturated sky bounce
+        fill.light_energy = 0.16
         fill.shadow_enabled = false
         add_child(fill)
 
 
 ## AUTO-LADDERS — run once after the map settles. Every plain RetroPart
-## that matches the classic ladder silhouette gets a climb zone on its
-## open face, so maps built from rungs and truss-shaped parts (1-3 studs
-## deep, 1 stud off the wall) climb with NO script or special node.
+## that matches a climbable silhouette gets climb zones on its open faces:
+##   1. THE CLASSIC LADDER — 1-3 studs deep with a ~1 stud air gap to the
+##      wall behind (rungs and truss builds on spacers). Climb face = the
+##      side away from the wall.
+##   2. THE OPEN LEDGE — a 1-3 stud deep platform whose face sits in open
+##      space (stacked floating platforms!). Walk to the edge, face it, W.
+## Flush builds (a part touching the wall = just a thick wall) and chunky
+## parts stay plain and unclimbable. No script or special node needed.
 func _auto_ladder_pass() -> void:
         if _map_root == null or not is_inside_tree():
                 return
@@ -174,32 +185,50 @@ func _auto_ladder_pass() -> void:
                 var part := node as RetroPart
                 if part == null or part is RetroLadder or not part.can_collide:
                         continue
-                if part.find_child("AutoClimbArea", false, false) != null:
+                if part.has_meta("auto_climb_done"):
                         continue   # already granted — the pass stays idempotent
+                part.set_meta("auto_climb_done", true)
+                var granted := 0
+                var face_index := 0
                 for axis in [[Vector3.RIGHT, 0], [Vector3.LEFT, 0], [Vector3.BACK, 2], [Vector3.FORWARD, 2]]:
+                        if granted >= 4:
+                                break
+                        face_index += 1
                         var local_dir: Vector3 = axis[0]
-                        # depth = the part's size along this axis (1-3 studs)
+                        # depth = the part's size along this axis (1-3 studs = thin)
                         var depth: float = part.size.x if int(axis[1]) == 0 else part.size.z
                         if depth < AUTO_LADDER_MIN_DEPTH or depth > AUTO_LADDER_MAX_DEPTH:
                                 continue
                         var world_dir: Vector3 = (part.global_transform.basis * local_dir).normalized()
                         if world_dir.length_squared() < 0.5:
                                 continue
-                        # is there a wall ~1 stud behind this face?
+                        # ---- rule 1: the classic ladder — a wall ~1 stud behind this face
                         var from: Vector3 = part.global_position + world_dir * (depth * 0.5 + 0.05)
                         var query := PhysicsRayQueryParameters3D.create(
-                                from, from + world_dir * (AUTO_LADDER_GAP_MAX + 0.25), 1, [part.get_rid()])
+                                        from, from + world_dir * (AUTO_LADDER_GAP_MAX + 0.25), 1, [part.get_rid()])
                         var hit := space.intersect_ray(query)
-                        if hit.is_empty():
+                        if not hit.is_empty():
+                                # the hit must be a wall face LOOKING back at us: a flush
+                                # part (no air gap) starts the ray inside the wall and only
+                                # finds a backface — flush builds stay plain and unclimbable
+                                var hit_normal: Vector3 = hit["normal"]
+                                if hit_normal.dot(world_dir) <= -0.7:
+                                        var gap: float = from.distance_to(hit["position"]) - 0.05
+                                        if gap >= AUTO_LADDER_GAP_MIN and gap <= AUTO_LADDER_GAP_MAX:
+                                                _grant_climb_area(part, -local_dir, "_Classic%d" % face_index)
+                                                granted += 1
                                 continue
-                        # the hit must be a wall face LOOKING back at us: a flush
-                        # part (no air gap) starts the ray inside the wall and only
-                        # finds a backface — flush builds stay plain and unclimbable
-                        var hit_normal: Vector3 = hit["normal"]
-                        if hit_normal.dot(world_dir) > -0.7:
-                                continue
-                        var gap: float = from.distance_to(hit["position"]) - 0.05
-                        if gap < AUTO_LADDER_GAP_MIN or gap > AUTO_LADDER_GAP_MAX:
-                                continue
-                        _grant_climb_area(part, -local_dir)
-                        break   # one climb zone per part is enough
+                        # ---- rule 2: the open ledge — nothing at all on this side,
+                        # so the face pointing the OPPOSITE way sits in open space.
+                        # A reverse ray from 2.5 studs out guards it: if anything (a
+                        # wall the part is mounted on, a neighbour part) blocks the
+                        # corridor in front of that face, the face stays plain. This
+                        # is what makes STACKED thin platforms climb like a ladder
+                        # of ledges — walk to the edge, face it, press W.
+                        var face_dir: Vector3 = -world_dir
+                        var back: Vector3 = part.global_position + face_dir * (depth * 0.5 + 2.5)
+                        var reverse := PhysicsRayQueryParameters3D.create(
+                                        back, back + world_dir * 2.6, 1, [part.get_rid()])
+                        if space.intersect_ray(reverse).is_empty():
+                                _grant_climb_area(part, local_dir, "_Open%d" % face_index)
+                                granted += 1
