@@ -914,6 +914,8 @@ export function FriendsView() {
   const [incoming, setIncoming] = useState<{ id: string; user: RetroUser }[]>([])
   const [outgoing, setOutgoing] = useState<{ id: string; user: RetroUser }[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])
+  const [similar, setSimilar] = useState<SuggestedUser[]>([])
+  const [similarFor, setSimilarFor] = useState('')
   const [addName, setAddName] = useState('')
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
@@ -944,19 +946,43 @@ export function FriendsView() {
     if (user) load()
   }, [user, load])
 
+  // "send a request to RetroBlox and RetroBloxian shows up" — the
+  // closest name matches, closest first (the API sorts by similarity)
+  async function loadSimilar(name: string, excludeId?: string) {
+    try {
+      const s = await api<{ similar: SuggestedUser[] }>(
+        `/api/users/similar?name=${encodeURIComponent(name)}${excludeId ? `&exclude=${excludeId}` : ''}`
+      )
+      setSimilar(s.similar || [])
+      setSimilarFor(name)
+    } catch {
+      setSimilar([])
+    }
+  }
+
   async function addFriend() {
     setMsg('')
     if (!addName.trim()) return
+    const name = addName.trim()
     try {
-      const res = await api<{ autoAccepted?: boolean }>('/api/friends', {
+      const res = await api<{ autoAccepted?: boolean; user?: RetroUser }>('/api/friends', {
         method: 'POST',
-        body: JSON.stringify({ username: addName.trim() }),
+        body: JSON.stringify({ username: name }),
       })
-      flash(setToast, res.autoAccepted ? `You and ${addName} are now friends!` : `Friend request sent to ${addName}!`, 2400)
+      flash(setToast, res.autoAccepted ? `You and ${name} are now friends!` : `Friend request sent to ${name}!`, 2400)
       setAddName('')
       await load()
+      // the request went through — surface players with similar names
+      void loadSimilar(name, res.user?.id)
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Failed')
+      const m = e instanceof Error ? e.message : 'Failed'
+      if (/no user named/i.test(m)) {
+        // no exact match — show the closest real usernames instead
+        setMsg(`No player named "${name}" — did you mean one of these?`)
+        void loadSimilar(name)
+      } else {
+        setMsg(m)
+      }
     }
   }
 
@@ -1002,6 +1028,11 @@ export function FriendsView() {
         </div>
         {msg && <div style={{ padding: '0 12px 10px', color: '#a81a13', fontSize: 11 }}>{msg}</div>}
       </div>
+
+      {/* similar-name players — closest match on top */}
+      {similar.length > 0 && (
+        <SuggestedStrip users={similar} title={`Players like "${similarFor}"`} />
+      )}
 
       {/* incoming requests */}
       {incoming.length > 0 && (
