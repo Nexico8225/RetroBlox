@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { getUserFromReq, publicUser } from '@/lib/auth'
 import { saveUpload } from '@/lib/uploads'
 
-// GET /api/chat/[userId] — full thread with a friend (marks incoming as read)
+// GET /api/chat/[userId] — full thread with ANY member (marks incoming as read)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const me = await getUserFromReq(req)
   if (!me) return NextResponse.json({ error: 'Login required' }, { status: 401 })
@@ -12,19 +12,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
   const friend = await db.user.findUnique({ where: { id: userId } })
   if (!friend) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-  // only accepted friends can DM (like Discord)
-  const friendship = await db.friendship.findFirst({
-    where: {
-      status: 'accepted',
-      OR: [
-        { requesterId: me.id, addresseeId: userId },
-        { requesterId: userId, addresseeId: me.id },
-      ],
-    },
-  })
-  if (!friendship) {
-    return NextResponse.json({ error: 'You can only chat with your friends.' }, { status: 403 })
-  }
+  // open DMs — you can message anyone on RetroBlox (that's how you nudge
+  // someone to accept your friend request). Report/block lives at the
+  // platform level, not here.
 
   // mark their messages as read
   await db.chatMessage.updateMany({
@@ -59,18 +49,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
   const { userId } = await params
   if (userId === me.id) return NextResponse.json({ error: 'Cannot chat with yourself!' }, { status: 400 })
 
-  const friendship = await db.friendship.findFirst({
-    where: {
-      status: 'accepted',
-      OR: [
-        { requesterId: me.id, addresseeId: userId },
-        { requesterId: userId, addresseeId: me.id },
-      ],
-    },
-  })
-  if (!friendship) {
-    return NextResponse.json({ error: 'You can only chat with your friends.' }, { status: 403 })
-  }
+  // open DMs — message any member (friends, pending requests, strangers)
+  const target = await db.user.findUnique({ where: { id: userId } })
+  if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   // accept JSON (text-only) or multipart (text + file attachment)
   const contentType = req.headers.get('content-type') || ''
