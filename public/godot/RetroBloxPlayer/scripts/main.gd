@@ -50,6 +50,7 @@ var auth: CanvasLayer
 var camera_yaw: float = 0.0
 var camera_pitch: float = -0.26
 var camera_distance: float = 14.5   # studs — classic default zoom for a 5-stud character
+var camera_max_distance: float = 20.0   # zoom-out hard stop — you can't zoom off the map
 var camera_initialized: bool = false
 var quitting: bool = false
 var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
@@ -268,9 +269,9 @@ func _input(event: InputEvent) -> void:
                 camera_pitch = clampf(camera_pitch - event.relative.y * 0.003 * mouse_sensitivity, -1.2, 0.8)
         if event is InputEventMouseButton and event.pressed:
                 if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-                        camera_distance = clampf(camera_distance - 1.4, 0.5, 30.0)
+                        camera_distance = clampf(camera_distance - 1.4, 0.5, camera_max_distance)
                 elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-                        camera_distance = clampf(camera_distance + 1.4, 0.5, 30.0)
+                        camera_distance = clampf(camera_distance + 1.4, 0.5, camera_max_distance)
 
 func _set_shiftlock(enabled: bool) -> void:
         shiftlock = enabled
