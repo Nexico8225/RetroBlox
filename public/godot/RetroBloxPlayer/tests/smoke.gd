@@ -46,7 +46,8 @@ func _run_all() -> void:
         check(avatar._part_sizes.size() == 6, "avatar collected 6 part sizes")
         if avatar.is_r6ik():
                 var head_size: Vector3 = avatar._part_sizes[0]
-                check(head_size.x > 0.9 and head_size.x < 1.4, "R6IK head normalized to classic scale (~1.2 studs wide)")
+                # 5-stud classic rig: the head is the classic ~1.2-stud cube
+                check(head_size.x > 1.0 and head_size.x < 1.35, "R6IK head normalized to classic 1.2-stud scale")
                 check(avatar.get_node_or_null("R6IKModel") != null, "R6IK model mounted")
                 check(avatar.get_node("HeadPivot").visible == false, "box fallback hidden in R6IK mode")
         else:
@@ -80,11 +81,15 @@ func _run_all() -> void:
         var auth = auth_scene.instantiate()
         root.add_child(auth)
         check(auth.get_node_or_null("%SubmitBtn") != null, "auth scene has SubmitBtn")
-        check(auth.get_node_or_null("%ServerEdit") != null, "auth scene has ServerEdit")
+        check(auth.get_node_or_null("%UserEdit") != null, "auth scene has UserEdit")
+        check(auth.get_node_or_null("%PassEdit") != null, "auth scene has PassEdit")
+        check(auth.get_node_or_null("%GuestBtn") != null, "auth scene has GuestBtn")
+        # login-only, no server box: the URL is baked in, accounts come from the site
+        check(auth.get_node_or_null("%ServerEdit") == null, "auth scene has NO server textbox")
+        check(auth.get_node_or_null("%SignupTabBtn") == null, "auth scene has NO signup tab")
+        check(auth._api_url == "https://retro-blox.vercel.app", "auth api url baked in")
         auth.set_api_url("http://localhost:3000")
-        check(auth._server_edit.text == "http://localhost:3000", "auth set_api_url works")
-        auth._set_mode(true)
-        check(auth._submit_btn.text == "Create Account", "auth signup mode toggles")
+        check(auth._api_url == "http://localhost:3000", "auth set_api_url override works")
         auth.queue_free()
 
         var hud_scene: PackedScene = load("res://scenes/hud.tscn")
@@ -92,8 +97,8 @@ func _run_all() -> void:
         root.add_child(hud)
         check(hud.get_node_or_null("%ChatLog") != null, "hud scene has ChatLog")
         check(hud.get_node_or_null("%Menu") != null, "hud scene has Menu")
-        check(hud.get_node_or_null("%ChatButton") != null, "hud scene has ChatButton")
-        check(hud.get_node_or_null("%PeopleButton") != null, "hud scene has PeopleButton")
+        check(hud.chat_button != null, "hud scene has ChatButton (toolbar ref)")
+        check(hud.people_button != null, "hud scene has PeopleButton (toolbar ref)")
         check(hud.chat_panel.visible == false, "chat panel starts hidden")
         check(hud.roster_panel.visible == false, "roster panel starts hidden")
         hud.add_chat("Ann", "hello")
@@ -101,7 +106,7 @@ func _run_all() -> void:
         check(hud.chat_button.text == "1", "unread badge counts hidden chat")
         hud.toggle_chat(true)
         check(hud.chat_panel.visible and hud.chat_open, "chat button opens the panel")
-        check(hud.chat_button.text == "", "opening chat clears the badge (icon-only button)")
+        check(hud.chat_button.text.is_empty(), "opening chat clears the badge")
         hud.toggle_chat(false)
         check(not hud.chat_panel.visible and not hud.chat_open, "chat button closes the panel")
         hud.toggle_people(true)
@@ -127,8 +132,7 @@ func _run_all() -> void:
         root.add_child(main)
         check(main.arena != null, "main @onready wired arena")
         check(main.spring_arm != null, "main @onready wired spring arm")
-        # scene starts at the classic zoom; runtime eases toward camera_distance (14.5)
-        check(main.spring_arm.spring_length > 13.0 and main.spring_arm.spring_length < 15.5, "spring arm length from scene (classic zoom ~14)")
+        check(main.spring_arm.spring_length == 14.0, "spring arm length from scene")
         main.queue_free()
 
         # --- api class: pure logic paths ---
