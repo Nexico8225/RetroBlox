@@ -4,9 +4,10 @@ import { db } from '@/lib/db'
    NOTIFICATIONS — the bell icon feed.
 
    Events: a new player joins RetroBlox, someone sends you a friend
-   request, someone accepts yours. Each one is a Notification row for
-   the recipient, surfaced by GET /api/notifications and the header
-   bell (polls /api/me for the unread badge).
+   request, someone accepts yours, or a player NUDGES you about their
+   still-pending request. Each one is a Notification row for the
+   recipient, surfaced by GET /api/notifications and the header bell
+   (polls /api/me for the unread badge).
 
    SELF-MIGRATING TABLE: the production database is Turso (created by
    sync-schema.mjs at build time), but an OLD deploy or a fresh lambda
@@ -57,7 +58,7 @@ export function ensureNotificationSchema(): Promise<boolean> {
 }
 
 export interface NotificationInput {
-  type: 'new_player' | 'friend_request' | 'friend_accepted'
+  type: 'new_player' | 'friend_request' | 'friend_accepted' | 'nudge'
   title: string
   body?: string
   linkUrl?: string
