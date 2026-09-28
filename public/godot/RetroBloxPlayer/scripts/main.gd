@@ -1,8 +1,9 @@
 extends Node3D
 
 ## RetroBlox Player — classic multiplayer world on a platform account.
-## Sign in (or sign up) INSIDE the game, your account avatar loads from the
-## RetroBlox website, and everyone in the room sees it. Shift Lock included.
+## Log in INSIDE the game (accounts are made on the website), your account
+## avatar loads from the RetroBlox website, and everyone in the room sees
+## it. Shift Lock included.
 const Player = preload("res://scripts/player.gd")
 const PlayerScene = preload("res://scenes/player.tscn")
 const HudScene = preload("res://scenes/hud.tscn")
@@ -56,8 +57,9 @@ var quitting: bool = false
 var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
 
 # --- platform account ---
-# The production RetroBlox site — sign-in, avatars, catalog. Override with
-# the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
+# The production RetroBlox site — login, avatars, catalog. The login card
+# has NO server box (players can't mistype it); override the baked-in URL
+# with RETROBLOX_API or --api= only for self-hosts.
 var api_url: String = "https://retro-blox.vercel.app"
 var api_ref: RetrobloxApiScript
 var platform_user_id: String = ""
@@ -95,7 +97,7 @@ func _ready() -> void:
                 hud.set_sliders(mouse_sensitivity, volume_setting)
                 hud.set_shiftlock(shiftlock)
                 hud.add_chat("", "Welcome! Only connected players appear here.", true)
-                # the door: sign in, sign up, or play as a guest
+                # the door: log in with your site account, or play as a guest
                 auth = AuthScreenScene.instantiate() as CanvasLayer
                 add_child(auth)
                 auth.completed.connect(_on_auth_completed)
@@ -185,7 +187,6 @@ func _try_saved_token() -> void:
                 return
         if me.get("ok", false) and not str(me.get("username", "")).is_empty():
                 var av = me.get("avatar", {})
-                auth.visible = false
                 _finish_auth(probe, String(me.get("username", "")), String(me.get("userId", "")), av if av is Dictionary else {})
         else:
                 # token expired or the site moved on — back to the form
@@ -202,8 +203,7 @@ func _on_guest_requested() -> void:
         platform_user_id = ""
         my_avatar = {}
         player_name = "Guest-%04d" % randi_range(1000, 9999)
-        if auth != null:
-                auth.visible = false
+        _dismiss_auth()
         _begin_online()
 
 func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
@@ -219,7 +219,20 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         profile.save("user://profile.cfg")
         if hud != null:
                 hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
+        # THE CARD MUST GO when login succeeds. This was the reported bug:
+        # the card said "Ready!" but stayed on screen, and because input,
+        # _process and _physics_process all stand down while it is visible,
+        # the whole game froze behind it with nothing left to click.
+        _dismiss_auth()
         _begin_online()
+
+## Take the login card down for real — invisible, freed, and forgotten.
+func _dismiss_auth() -> void:
+        if auth == null:
+                return
+        auth.visible = false
+        auth.queue_free()
+        auth = null
 
 func _begin_online() -> void:
         if quitting:
