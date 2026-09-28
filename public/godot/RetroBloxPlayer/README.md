@@ -225,6 +225,15 @@ A second tiny guard fails if an input action ever goes missing from
 godot --headless --path . --script res://tests/validate_actions.gd
 ```
 
+The login flow gets its own end-to-end probe (real site, real card, real
+avatar dressing — it signs up a fresh account, equips free catalog hats,
+logs in through the card and checks the card leaves the screen and the
+UGC actually lands on the player):
+
+```
+godot --headless --path . --script res://tests/probe_login_flow.gd
+```
+
 ---
 
 ## 3. Source map
