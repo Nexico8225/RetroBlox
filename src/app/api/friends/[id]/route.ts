@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
+import { notifyUser } from '@/lib/notifications'
 
 // POST { action: "accept" | "decline" | "remove" | "cancel" }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -22,6 +23,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Only the recipient can accept' }, { status: 403 })
     }
     await db.friendship.update({ where: { id }, data: { status: 'accepted' } })
+    await notifyUser(friendship.requesterId, {
+      type: 'friend_accepted',
+      title: `${me.username} accepted your friend request!`,
+      body: 'You can chat with each other now.',
+      linkUrl: `/chat/${me.id}`,
+      actorId: me.id,
+    })
     return NextResponse.json({ ok: true })
   }
 
