@@ -66,7 +66,7 @@ func _initialize() -> void:
         await world._auto_ladder_pass()
 
         # 1. the good rung became climbable, pointing away from the wall
-        var good_zone := good.find_child("AutoClimbArea", false, false)
+        var good_zone: Area3D = good.find_children("AutoClimbArea*", "Area3D", false, false).front() as Area3D
         if good_zone == null or not (good_zone as Area3D).is_in_group("ladder"):
                 failures.append("good rung (1 stud gap, 2 studs deep) did not become climbable")
         elif (good_zone as Area3D).get_meta("outward", Vector3.ZERO) != Vector3.FORWARD:
@@ -75,13 +75,13 @@ func _initialize() -> void:
                 print("ok: good rung auto-climbable, outward ", (good_zone as Area3D).get_meta("outward"))
 
         # 2. the flush rung stays a normal part
-        if flush.find_child("AutoClimbArea", false, false) != null:
+        if not flush.find_children("AutoClimbArea*", "Area3D", false, false).is_empty():
                 failures.append("flush rung (no gap) must NOT be climbable")
         else:
                 print("ok: flush rung not climbable")
 
         # 3. the 4-stud-deep rung stays a normal part
-        if deep.find_child("AutoClimbArea", false, false) != null:
+        if not deep.find_children("AutoClimbArea*", "Area3D", false, false).is_empty():
                 failures.append("4-stud-deep rung must NOT be climbable")
         else:
                 print("ok: deep rung not climbable")
