@@ -100,6 +100,19 @@ function NotifIcon({ type }: { type: string }) {
       </svg>
     )
   }
+  if (type === 'nudge') {
+    // a friendly shoulder-tap: bell with motion lines
+    return (
+      <svg {...common}>
+        <path
+          d="M10 3a5 5 0 0 1 5 5v3l1.6 2.6a.8.8 0 0 1-.7 1.2H4.1a.8.8 0 0 1-.7-1.2L5 11V8a5 5 0 0 1 5-5z"
+          fill="#0d69ac"
+        />
+        <path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0z" fill="#0d69ac" />
+        <path d="M2.2 6.2 4 7.8M17.8 6.2 16 7.8M10 1v1.6" stroke="#ffd34e" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    )
+  }
   // friend_request
   return (
     <svg {...common}>
