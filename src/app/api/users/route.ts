@@ -34,13 +34,18 @@ export async function GET(req: NextRequest) {
     where,
     orderBy,
     take: limit,
-    include: { _count: { select: { games: true } } },
+    include: {
+      _count: { select: { games: true } },
+      // their 3 newest games so the directory can show what they built
+      games: { orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, name: true, iconUrl: true } },
+    },
   })
 
   return NextResponse.json({
     people: users.map((u) => ({
       ...publicUser(u),
       gamesCount: u._count.games,
+      topGames: u.games.map((g) => ({ id: g.id, name: g.name, iconUrl: g.iconUrl })),
     })),
     total: users.length,
   })
