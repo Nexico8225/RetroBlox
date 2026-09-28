@@ -38,8 +38,8 @@ const CLASSIC_BLUE := Color("0d69ac")
 @onready var chat_log: RichTextLabel = %ChatLog
 @onready var chat_entry: LineEdit = %ChatEntry
 @onready var chat_button: Button = %ChatButton
-@onready var people_button: Button = %PeopleButton
 @onready var menu_button: Button = %MenuButton
+@onready var people_button: Button = %PeopleButton
 @onready var roster_panel: PanelContainer = %RosterPanel
 @onready var menu: Control = %Menu
 @onready var reset_button: Button = %ResetButton
@@ -109,14 +109,13 @@ func _build_toolbar() -> void:
         toolbar.add_child(row)
         root.add_child(toolbar)
 
-        # move the three real buttons into the toolbar (signals stay wired)
+        # move the three real buttons into the toolbar (signals stay wired).
+        # NOTE: use the captured references, never %Name — reparenting a node
+        # into a code-created container breaks Godot's unique-name lookup.
         for button in [menu_button, chat_button, people_button]:
                 var btn := button as Button
                 btn.get_parent().remove_child(btn)
                 row.add_child(btn)
-                # re-parenting drops the scene owner, which silently breaks
-                # every %UniqueName lookup for the moved node — restore it
-                btn.owner = self
                 _style_toolbar_button(btn)
         menu_button.icon = load("res://assets/icons/menu.png")
         menu_button.tooltip_text = "Menu (ESC)"
