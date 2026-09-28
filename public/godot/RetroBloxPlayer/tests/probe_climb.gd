@@ -30,6 +30,11 @@ func _ok(condition: bool, label: String) -> void:
                 print("FAIL: ", label)
 
 
+func _first_zone(part: Node) -> Area3D:
+        var zones: Array = part.find_children("AutoClimbArea*", "Area3D", false, false)
+        return zones[0] as Area3D if not zones.is_empty() else null
+
+
 func _make_part(parent: Node, part_name: String, pos: Vector3, part_size: Vector3) -> RetroPart:
         var part := RetroPart.new()
         part.name = part_name
@@ -79,6 +84,12 @@ func _initialize() -> void:
         var rung2 := _make_part(map_root, "Rung2", Vector3(0.0, 5.6, 2.5), Vector3(4.0, 0.6, 2.0))
         # flush rung: touches the wall — a wall, not a ladder
         var flush_rung := _make_part(map_root, "FlushRung", Vector3(6.0, 4.0, 3.5), Vector3(4.0, 0.6, 2.0))
+        # FLOATING STACK — two 1-stud-deep platforms stacked with a 1 stud
+        # vertical gap and NO wall anywhere. The user's exact build: walk to
+        # the edge, face it, W climbs, the climb chains across the gap.
+        # (Placed in an empty corner — the map's own LadderTower lives at x=-14.)
+        var slab1 := _make_part(map_root, "Slab1", Vector3(-40.0, 3.5, 20.0), Vector3(1.0, 3.0, 4.0))
+        var slab2 := _make_part(map_root, "Slab2", Vector3(-40.0, 7.5, 20.0), Vector3(1.0, 3.0, 4.0))
         # a real truss: 12 studs tall, spans y in [-2, 10]
         var truss := LadderScene.instantiate() as Node3D
         truss.name = "Truss"
@@ -88,15 +99,25 @@ func _initialize() -> void:
         await world._auto_ladder_pass()
 
         # ---- auto-ladder grants ----
-        var z1 := rung1.find_child("AutoClimbArea", false, false) as Area3D
-        var z2 := rung2.find_child("AutoClimbArea", false, false) as Area3D
+        var z1 := _first_zone(rung1)
+        var z2 := _first_zone(rung2)
         _ok(z1 != null and z1.is_in_group("ladder"), "rung 1 (1 stud gap, 2 deep) is climbable")
         _ok(z2 != null, "rung 2 (stacked, 1 stud gap) is climbable")
-        _ok(flush_rung.find_child("AutoClimbArea", false, false) == null,
+        _ok(_first_zone(flush_rung) == null,
                 "flush rung (no gap) stays unclimbable — backface guard")
         if z1 != null:
                 _ok(z1.get_meta("outward", Vector3.ZERO) == Vector3.FORWARD,
                         "rung 1 climb face points away from the wall")
+        # ---- the floating stack: thin platforms climb from ANY open side ----
+        var slab1_zones: Array = slab1.find_children("AutoClimbArea*", "Area3D", false, false)
+        var slab2_zones: Array = slab2.find_children("AutoClimbArea*", "Area3D", false, false)
+        _ok(slab1_zones.size() >= 2, "floating slab 1 gets a zone per open side (%d)" % slab1_zones.size())
+        _ok(slab2_zones.size() >= 2, "floating slab 2 gets a zone per open side (%d)" % slab2_zones.size())
+        var slab1_outs: Array = []
+        for zone in slab1_zones:
+                slab1_outs.append(zone.get_meta("outward", Vector3.ZERO))
+        _ok(slab1_outs.has(Vector3.RIGHT) and slab1_outs.has(Vector3.LEFT),
+                "slab 1 climb faces are the thin (open) sides")
 
         # ---- the player ----
         var player := PlayerScene.instantiate() as CharacterBody3D
@@ -237,6 +258,54 @@ func _initialize() -> void:
         var sun := world.get_node_or_null("WarmSun") as DirectionalLight3D
         _ok(sun != null and sun.light_energy >= 1.0 and sun.shadow_enabled,
                 "strong sun with shadows")
+
+        # ===== 11. the user's exact build: stacked 0.28 m (1 stud) platforms =====
+        _reset(player, Vector3(-38.6, 0.05, 20.0))
+        await _drive(player, 30, Vector2.ZERO, PI / 2.0)       # settle, cool down
+        await _drive(player, 10, Vector2(0, -1), PI / 2.0)     # face -X, W into slab 1
+        _ok(player.climbing, "walking to a 1-stud platform's edge + facing it + W climbs")
+        var slab_chained := false
+        var slab_mounted := false
+        for i in range(300):
+                player.drive(DELTA, Vector2(0, -1), PI / 2.0, 0, false)
+                await physics_frame
+                var y: float = player.global_position.y
+                if player.climbing and y > 5.0 and y < 6.0:
+                        slab_chained = true   # crossing the 1 stud gap BETWEEN the slabs
+                if not player.climbing and player.is_on_floor() and y > 9.0:
+                        slab_mounted = true
+                        break
+        _ok(slab_chained, "the stack chains across the 1 stud gap (climb off one, onto the next)")
+        _ok(slab_mounted, "the floating stack mounts the top slab (y=%.2f)" % player.global_position.y)
+
+        # ===== 12. can_climb = the dev kill switch =====
+        _reset(player, Vector3(0.0, 0.05, 0.6))
+        player.can_climb = false
+        await _drive(player, 12, Vector2(0, -1), PI)
+        _ok(not player.climbing, "can_climb = false blocks climbing entirely")
+        player.can_climb = true
+
+        # ===== 13. inspector-editable exports =====
+        for exported in ["walk_speed", "jump_height", "gravity", "can_climb", "climb_speed",
+                        "jump_up_gravity_scale", "walk_acceleration", "air_acceleration",
+                        "ladder_jump", "ladder_push", "play_footsteps", "play_jump_sound",
+                        "play_land_sound"]:
+                _ok(player.get(exported) != null, "player export exists: %s" % exported)
+        _ok(absf(float(player.jump_height) - 6.0) < 0.01, "jump height default 6 studs")
+        _ok(float(player.jump_up_gravity_scale) < 1.0, "jump rise is eased (no more snap)")
+
+        # ===== 14. UGC scale: site rig and game rig are BOTH 5 studs =====
+        var platform_script := load("res://scripts/avatar_platform.gd")
+        _ok(int(platform_script.RIG_HEIGHT) == 5, "avatar_platform rig height 5 studs (UGC fix)")
+        _ok(absf(float(platform_script.UGC_SCALE) - 1.0) < 0.001,
+                "UGC scale is 1.0 — site placements apply verbatim (no more shrunken hats)")
+
+        # ===== 15. lighting: bright classic, but NOT oversaturated =====
+        var env2 := world.get_node_or_null("FriendlySky") as WorldEnvironment
+        if env2 != null and env2.environment != null:
+                _ok(env2.environment.adjustment_enabled, "saturation adjustment enabled")
+                _ok(env2.environment.adjustment_saturation < 0.9,
+                        "saturation pulled back (%.2f — the 'too saturated' fix)" % env2.environment.adjustment_saturation)
 
         player.queue_free()
         if failures.is_empty():
