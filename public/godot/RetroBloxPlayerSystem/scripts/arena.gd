@@ -32,6 +32,10 @@ const AUTO_LADDER_MIN_DEPTH: float = 1.0
 const AUTO_LADDER_MAX_DEPTH: float = 3.0
 const AUTO_LADDER_GAP_MIN: float = 0.45
 const AUTO_LADDER_GAP_MAX: float = 1.6
+# the OPEN-LEDGE rule only arms on TALL parts. Short ones (stair steps,
+# 0.5-1 stud risers) must stay plain: walking up stairs is the step-up's
+# job, and a climb zone on a step would hijack movement near the stairs.
+const AUTO_LEDGE_MIN_HEIGHT: float = 2.5
 
 
 func _ready() -> void:
@@ -148,8 +152,9 @@ func _make_environment() -> void:
         sun.light_energy = 1.0
         sun.shadow_enabled = true
         sun.shadow_opacity = 0.72
-        sun.shadow_blur = 1.1
-        sun.directional_shadow_max_distance = 160.0
+        # optimization: crisp shadows where they matter, no far-field cost
+        sun.shadow_blur = 0.9
+        sun.directional_shadow_max_distance = 72.0
         add_child(sun)
 
         # a whisper of cool fill from the opposite side so the shaded face
@@ -225,6 +230,10 @@ func _auto_ladder_pass() -> void:
                         # corridor in front of that face, the face stays plain. This
                         # is what makes STACKED thin platforms climb like a ladder
                         # of ledges — walk to the edge, face it, press W.
+                        # Tall parts only: stair steps and low risers are the
+                        # step-up's job, never a climb zone.
+                        if part.size.y < AUTO_LEDGE_MIN_HEIGHT:
+                                continue
                         var face_dir: Vector3 = -world_dir
                         var back: Vector3 = part.global_position + face_dir * (depth * 0.5 + 2.5)
                         var reverse := PhysicsRayQueryParameters3D.create(
