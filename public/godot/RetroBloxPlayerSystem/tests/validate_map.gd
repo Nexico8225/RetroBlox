@@ -56,10 +56,10 @@ func _initialize() -> void:
         # movement constants — @export tunables with classic-walk + floaty jump
         var probe: CharacterBody3D = PlayerScript.new()
         check(int(probe.walk_speed) == 16, "WalkSpeed 16 studs/s (classic)")
-        check(int(probe.jump_speed) == 38, "JumpSpeed 38 studs/s (floaty default)")
+        check(absf(probe.jump_height - 6.0) < 0.01, "jump height 6 studs (classic apex)")
         check(absf(probe.gravity - 110.0) < 0.01, "gravity 110 studs/s2 (floaty default)")
         check(absf(probe.max_step - 3.0) < 0.01, "step height 3 studs")
-        var jump_apex: float = probe.jump_speed * probe.jump_speed / (2.0 * probe.gravity)
+        var jump_apex: float = probe.jump_height
         check(jump_apex > 5.9 and jump_apex < 6.9, "jump apex ~6.4 studs (got %.2f)" % jump_apex)
         check(PlayerScript.STEP_REACH > 1.0, "step reach clears the capsule radius (no edge sticking)")
         check(probe.can_climb, "climbing is on by default")
