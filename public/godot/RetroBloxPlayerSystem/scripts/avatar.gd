@@ -180,13 +180,13 @@ func clear_face() -> void:
                 _face_decal.queue_free()
         _face_decal = null
 
-func animate(delta: float, speed: float, grounded: bool, climbing: bool = false) -> void:
+func animate(delta: float, speed: float, grounded: bool, climbing: bool = false, climb_moving: bool = true) -> void:
         _ensure_built()
         _time += delta
         if _using_r6ik and _anim_player != null:
-                _animate_r6ik(speed, grounded, climbing)
+                _animate_r6ik(speed, grounded, climbing, climb_moving)
                 return
-        _animate_boxes(delta, speed, grounded, climbing)
+        _animate_boxes(delta, speed, grounded, climbing, climb_moving)
 
 ## The real R6IK clips — Old_Idle / Old_Walk / Old_Jump / Climb, exactly the
 ## animations that ship inside the rig. The walk/climb clips are speed-scaled
@@ -196,26 +196,32 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false)
 ## IMPORTANT: speed_scale is set EVERY frame for every state. It used to be
 ## only updated for walk/climb, so the last walk speed leaked into the idle
 ## (idle played at 2x after walking) and into Climb (arms flailed off).
-func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
+## A watchdog also re-plays the expected clip whenever the AnimationPlayer's
+## real state drifts from the intended one — the end of "sometimes the anims
+## just stop".
+func _animate_r6ik(speed: float, grounded: bool, climbing: bool, climb_moving: bool = true) -> void:
         var next: StringName = ANIM_IDLE
         var rate := 0.85
         if climbing:
                 next = ANIM_CLIMB
-                rate = clampf(speed / 9.0, 0.6, 1.4)
+                # hanging on the spot FREEZES the pose; riding W/S scales with speed
+                rate = clampf(speed / 9.0, 0.6, 1.4) if climb_moving else 0.0
         elif not grounded:
                 next = ANIM_JUMP
                 rate = 1.0
         elif speed > 1.2:
                 next = ANIM_WALK
                 rate = clampf(speed / 16.0, 0.75, 1.25)
-        if _current_anim != next:
+        if _current_anim != next or _anim_player.current_animation != String(next):
                 _current_anim = next
                 # snappy jump, gentle blends everywhere else
                 _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08)
         _anim_player.speed_scale = rate
 
 ## Box-fallback rig: procedural limb swings, same classic feel.
-func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool, climb_moving: bool = true) -> void:
+        if climbing and not climb_moving:
+                return  # hanging pose stays frozen
         var movement: float = clampf(abs(speed) / 5.0, 0.0, 1.0)
         var walk_rate: float = 4.8 + movement * 2.0
         var swing: float = sin(_time * walk_rate) * movement
@@ -256,10 +262,10 @@ func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) 
                 _pivots[4].rotation.z = 0.0
                 _pivots[5].rotation.z = 0.0
 
-func burst(world: Node3D, impulse_seed: int) -> void:
+func burst(world: Node3D, impulse_seed: int) -> Node3D:
         _ensure_built()
         if world == null:
-                return
+                return null
         visible = false
         var debris_group: Node3D = Node3D.new()
         debris_group.name = "AvatarBreakup"
@@ -268,8 +274,11 @@ func burst(world: Node3D, impulse_seed: int) -> void:
 
         var rng: RandomNumberGenerator = RandomNumberGenerator.new()
         rng.seed = abs(impulse_seed) * 104729 + 13
+        var head_piece: RigidBody3D = null
         for i in range(parts.size()):
                 var piece: RigidBody3D = _make_debris_piece(debris_group, i)
+                if i == HEAD_INDEX:
+                        head_piece = piece
                 var outward: Vector3 = Vector3(
                         rng.randf_range(-4.8, 4.8),
                         rng.randf_range(4.0, 7.5),
@@ -296,6 +305,7 @@ func burst(world: Node3D, impulse_seed: int) -> void:
         # gameplay code frees the avatar during respawn.
         var cleanup_timer: SceneTreeTimer = world.get_tree().create_timer(5.0)
         cleanup_timer.timeout.connect(debris_group.queue_free)
+        return head_piece
 
 ## Lazy-load the death sound on first use (never at parse time). The user's
 ## own OOF slot (assets/sounds/OOF.mp3) wins when present; the bundled classic
@@ -360,10 +370,16 @@ func _try_r6ik() -> bool:
                 anim_player.stop()
                 # IDLE processing: advances every frame, honoring speed_scale
                 # (used to speed the walk clip up and down with the player)
-                # the jump clip must hold its last frame mid-air, not loop
+                # loop modes are ENFORCED here, not trusted from the import:
+                # a fresh FBX re-import drops the loop flags and the walk/
+                # climb clips would freeze after one cycle
                 var jump_anim := anim_player.get_animation(ANIM_JUMP)
                 if jump_anim != null:
                         jump_anim.loop_mode = Animation.LOOP_NONE
+                for looped_name in [ANIM_IDLE, ANIM_WALK, ANIM_CLIMB]:
+                        var looped := anim_player.get_animation(looped_name)
+                        if looped != null:
+                                looped.loop_mode = Animation.LOOP_LINEAR
                 _anim_player = anim_player
 
         # ---- normalize: RIG_HEIGHT tall, feet on y=0, centered on x/z ----
@@ -496,10 +512,16 @@ func _make_debris_piece(debris_group: Node3D, index: int) -> RigidBody3D:
                         piece.add_child(clone)
         return piece
 
+static var _material_cache: Dictionary = {}
 func _make_material(color: Color) -> StandardMaterial3D:
+        # cached per color — players sharing a color share one material
+        var key := color.to_html()
+        if _material_cache.has(key):
+                return _material_cache[key]
         var material: StandardMaterial3D = StandardMaterial3D.new()
         material.albedo_color = color
         material.roughness = 0.78
+        _material_cache[key] = material
         return material
 
 ## Transform chain from `node` up to (but excluding) `top`, child-first.
