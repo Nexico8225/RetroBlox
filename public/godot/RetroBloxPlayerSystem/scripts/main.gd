@@ -13,7 +13,13 @@ const AuthScreenScene = preload("res://scenes/auth_screen.tscn")
 const RetrobloxApiScript = preload("res://scripts/retroblox_api.gd")
 const VERSION: String = "RETROBLOX_2"
 const DISCOVER: String = "RETROBLOX_2_DISCOVER"
-const RESPAWN_SECONDS: float = 2.8
+# classic pace: the OOF plays, the parts tumble, and you are rebuilt fast
+const RESPAWN_SECONDS: float = 1.2
+
+# camera zoom — scroll all the way in to FIRST PERSON and all the way out
+# to a bird's-eye view of the whole baseplate
+const ZOOM_MIN: float = 0.4
+const ZOOM_MAX: float = 64.0
 
 var players: Dictionary = {}
 var pending_peers: Dictionary = {}
@@ -105,6 +111,10 @@ func _ready() -> void:
                 auth.set_api_url(api_url)
                 auth.set_saved_username(str(profile.get_value("platform", "username", "")))
                 _try_saved_token()
+                # SAFETY NET: no path may ever leave the login card on screen
+                # after a successful sign-in (the "stuck on Ready!" bug).
+                # If the game has not started 3 s after auth finished, force it.
+                auth.watchdog_expired.connect(_force_auth_start)
         multiplayer.peer_connected.connect(_peer_connected)
         multiplayer.peer_disconnected.connect(_peer_disconnected)
         multiplayer.connected_to_server.connect(_connected_to_server)
@@ -200,7 +210,7 @@ func _try_saved_token() -> void:
                 return
         if me.get("ok", false) and not str(me.get("username", "")).is_empty():
                 var av = me.get("avatar", {})
-                auth.visible = false
+                auth.set_status_text("Ready!")
                 _finish_auth(probe, String(me.get("username", "")), String(me.get("userId", "")), av if av is Dictionary else {})
         else:
                 # token expired or the site moved on — back to the form
@@ -217,8 +227,7 @@ func _on_guest_requested() -> void:
         platform_user_id = ""
         my_avatar = {}
         player_name = "Guest-%04d" % randi_range(1000, 9999)
-        if auth != null:
-                auth.visible = false
+        _dismiss_auth()
         _begin_online()
 
 func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
@@ -232,8 +241,32 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         profile.set_value("platform", "token", api.token)
         profile.set_value("platform", "username", username)
         profile.save("user://profile.cfg")
+        # THE DOOR CLOSES — every path through the auth screen (manual login,
+        # saved token, guest) funnels through the dismissal below, so the card
+        # ALWAYS leaves the screen the same frame. The old bug: a manual login
+        # set "Ready!" and the card never went away, freezing the whole game
+        # behind it (_process/_physics bailed while the card was visible).
+        _dismiss_auth()
         if hud != null:
                 hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
+        _begin_online()
+
+## Hide + free the login card. After this `auth` is null and the game owns
+## the whole screen.
+func _dismiss_auth() -> void:
+        if auth != null:
+                auth.visible = false
+                auth.queue_free()
+                auth = null
+
+## The watchdog's last resort: auth finished but the game never started.
+func _force_auth_start() -> void:
+        if _auth_done or quitting:
+                return
+        _auth_done = true
+        if api_ref == null:
+                api_ref = RetrobloxApiScript.new(api_url)
+        _dismiss_auth()
         _begin_online()
 
 func _begin_online() -> void:
@@ -285,10 +318,13 @@ func _input(event: InputEvent) -> void:
                 camera_yaw -= event.relative.x * 0.003 * mouse_sensitivity
                 camera_pitch = clampf(camera_pitch - event.relative.y * 0.003 * mouse_sensitivity, -1.2, 0.8)
         if event is InputEventMouseButton and event.pressed:
+                # wheel steps scale with distance: fine control up close, big
+                # jumps when you are zoomed far out
+                var step: float = clampf(camera_distance * 0.16, 1.2, 7.0)
                 if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-                        camera_distance = clampf(camera_distance - 1.4, 2.0, 24.0)
+                        camera_distance = clampf(camera_distance - step, ZOOM_MIN, ZOOM_MAX)
                 elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-                        camera_distance = clampf(camera_distance + 1.4, 2.0, 24.0)
+                        camera_distance = clampf(camera_distance + step, ZOOM_MIN, ZOOM_MAX)
 
 func _set_shiftlock(enabled: bool) -> void:
         shiftlock = enabled
@@ -351,7 +387,12 @@ func _process(delta: float) -> void:
                 shoulder_blend = lerpf(shoulder_blend, shoulder_target, 1.0 - exp(-10.0 * delta))
                 # shift lock rests the camera on your right shoulder, classic style
                 var right := Vector3(cos(camera_yaw), 0.0, -sin(camera_yaw))
-                var target: Vector3 = local.global_position + Vector3(0, 4.3, 0) + right * shoulder_blend
+                # death cam: ride with your head as it tumbles away
+                var follow: Node3D = local
+                if not local.alive and local.head_debris != null and is_instance_valid(local.head_debris):
+                        follow = local.head_debris
+                var eye_height: float = 4.55 if camera_distance < 1.5 else 4.3
+                var target: Vector3 = follow.global_position + Vector3(0, eye_height, 0) + right * shoulder_blend
                 if not camera_initialized:
                         camera_pivot.global_position = target
                         camera_initialized = true
@@ -684,7 +725,9 @@ func _spawn_player(id: int, safe_name: String, pos: Vector3, live: bool, epoch: 
         players[id] = p
         if id == local_id:
                 jump_serial = 0
-                p.avatar.call("set_nameplate_visible", false)  # everyone ELSE's name shows, not yours
+                # YOUR name rides above your head too — the classic floating
+                # username, readable from any zoom
+                p.avatar.call("set_nameplate_visible", true)
                 if hud != null:
                         p.health_changed.connect(hud.set_health)
                         p.health_depleted.connect(_on_local_health_depleted)
