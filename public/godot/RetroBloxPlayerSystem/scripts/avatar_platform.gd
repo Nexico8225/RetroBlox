@@ -18,10 +18,10 @@ extends RefCounted
 # and when other devs copy these scripts into their own project.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
-const RIG_HEIGHT := 2.9          # this avatar's height (site rig = 5.0 studs)
+const RIG_HEIGHT := 5.0          # this avatar is the FULL 5-stud site rig
 const SITE_RIG_HEIGHT := 5.0
 const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies
-const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT
+const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT  # 1.0 — placements verbatim
 
 # "this surface arrived with no real paint" threshold (raw sRGB ~0.97+),
 # matching the site converter's linear-space 0.93 rule
