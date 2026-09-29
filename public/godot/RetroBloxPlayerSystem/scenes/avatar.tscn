@@ -1,0 +1,109 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/avatar.gd" id="1_avatar"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_head"]
+size = Vector3(0.95, 0.9, 0.85)
+
+[sub_resource type="BoxMesh" id="BoxMesh_torso"]
+size = Vector3(1.4, 1.12, 0.78)
+
+[sub_resource type="BoxMesh" id="BoxMesh_arm"]
+size = Vector3(0.46, 1.06, 0.56)
+
+[sub_resource type="BoxMesh" id="BoxMesh_leg"]
+size = Vector3(0.52, 0.98, 0.62)
+
+[sub_resource type="BoxMesh" id="BoxMesh_eye"]
+size = Vector3(0.13, 0.17, 0.035)
+
+[sub_resource type="BoxMesh" id="BoxMesh_mouth"]
+size = Vector3(0.28, 0.065, 0.035)
+
+[sub_resource type="StandardMaterial3D" id="Material_face"]
+albedo_color = Color(0.0980392, 0.172549, 0.227451, 1)
+roughness = 0.78
+
+[node name="Avatar" type="Node3D"]
+script = ExtResource("1_avatar")
+
+[node name="HeadPivot" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 2.45, 0)
+
+[node name="Head" type="MeshInstance3D" parent="HeadPivot"]
+unique_name_in_owner = true
+mesh = SubResource("BoxMesh_head")
+
+[node name="EyeLeft" type="MeshInstance3D" parent="HeadPivot"]
+unique_name_in_owner = true
+position = Vector3(-0.2, 0.12, -0.445)
+mesh = SubResource("BoxMesh_eye")
+material_override = SubResource("Material_face")
+
+[node name="EyeRight" type="MeshInstance3D" parent="HeadPivot"]
+unique_name_in_owner = true
+position = Vector3(0.2, 0.12, -0.445)
+mesh = SubResource("BoxMesh_eye")
+material_override = SubResource("Material_face")
+
+[node name="Mouth" type="MeshInstance3D" parent="HeadPivot"]
+unique_name_in_owner = true
+position = Vector3(0, -0.16, -0.448)
+mesh = SubResource("BoxMesh_mouth")
+material_override = SubResource("Material_face")
+
+[node name="TorsoPivot" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 1.54, 0)
+
+[node name="Torso" type="MeshInstance3D" parent="TorsoPivot"]
+unique_name_in_owner = true
+mesh = SubResource("BoxMesh_torso")
+
+[node name="LeftArmPivot" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(-1, 2.07, 0)
+
+[node name="LeftArm" type="MeshInstance3D" parent="LeftArmPivot"]
+unique_name_in_owner = true
+position = Vector3(0, -0.53, 0)
+mesh = SubResource("BoxMesh_arm")
+
+[node name="RightArmPivot" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(1, 2.07, 0)
+
+[node name="RightArm" type="MeshInstance3D" parent="RightArmPivot"]
+unique_name_in_owner = true
+position = Vector3(0, -0.53, 0)
+mesh = SubResource("BoxMesh_arm")
+
+[node name="LeftLegPivot" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(-0.38, 0.98, 0)
+
+[node name="LeftLeg" type="MeshInstance3D" parent="LeftLegPivot"]
+unique_name_in_owner = true
+position = Vector3(0, -0.49, 0)
+mesh = SubResource("BoxMesh_leg")
+
+[node name="RightLegPivot" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0.38, 0.98, 0)
+
+[node name="RightLeg" type="MeshInstance3D" parent="RightLegPivot"]
+unique_name_in_owner = true
+position = Vector3(0, -0.49, 0)
+mesh = SubResource("BoxMesh_leg")
+
+[node name="Nameplate" type="Label3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 5.45, 0)
+text = "Player"
+billboard = 1
+no_depth_test = true
+outline_size = 6
+outline_modulate = Color(0.05, 0.12, 0.17, 0.85)
+pixel_size = 0.0032
+font_size = 22
