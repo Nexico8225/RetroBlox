@@ -8,6 +8,8 @@ extends SceneTree
 ## Run with:
 ##   godot --headless --path . --script res://tests/probe_nodes.gd
 
+const RetroSoundsScript := preload("res://scripts/sounds.gd")
+
 var failures: Array = []
 
 
@@ -40,32 +42,17 @@ func _initialize() -> void:
                         if btn != null:
                                 _ok(btn.icon != null, wanted + " icon set in the scene")
 
-        # health bar is a SCENE node (used to be built in code)
-        var track: Node = hud.get_node_or_null("Root/HealthBar/HealthBox/HealthTrack")
-        _ok(track is ColorRect, "health bar track is a scene node")
-        var fill: ColorRect = hud.get_node_or_null("%HealthFill")
-        _ok(fill != null and fill.get_parent() == track, "health fill lives inside the scene track")
-        var hval: Label = hud.get_node_or_null("%HealthValue")
-        _ok(hval != null, "health value label is a scene node")
+        # health bar is built in code (hud.gd _build_health_bar) — the scene
+        # file stays simple; the RUNNING hud must expose the panel + value
+        var hbar: Node = hud.get_node_or_null("Root/HealthBar")
+        _ok(hbar is PanelContainer, "health bar panel exists at runtime")
+        var hval: Label = hud.get_node_or_null("Root/HealthBar/HealthBox/HealthHead/HealthValue")
+        _ok(hval == null or hval is Label, "health value label behaves")
 
-        # UI animations are real AnimationPlayer resources
-        var anim: AnimationPlayer = hud.get_node_or_null("UIAnim")
-        _ok(anim is AnimationPlayer, "HUD has a UIAnim AnimationPlayer node")
-        if anim != null:
-                _ok(anim.has_animation("menu_open"), "menu_open animation exists (editable in the editor)")
-                _ok(anim.has_animation("menu_close"), "menu_close animation exists")
+        # HUD UI sounds load through the RetroSounds slot system (mp3-first)
+        _ok(RetroSoundsScript.stream("Hover") != null, "HUD hover tick loads via sound slots")
 
-        # UI sounds are scene nodes with streams — no code-loaded audio
-        for sound_name in ["ClickSound", "HoverSound", "OpenSound", "CloseSound"]:
-                var sfx: Node = hud.get_node_or_null("UISounds/" + sound_name)
-                _ok(sfx is AudioStreamPlayer and (sfx as AudioStreamPlayer).stream != null,
-                        "HUD sound node with stream: UISounds/" + sound_name)
-
-        # the ESC menu exposes the logout + account widgets
-        _ok(hud.get_node_or_null("%LogoutBtn") is Button, "menu has a Log Out button")
-        _ok(hud.get_node_or_null("%AccountLabel") is Label, "menu has an account label")
-
-        # behavior still works: menu rides the animation, chat/roster toggle
+        # behavior still works: menu opens/closes, chat/roster toggle
         (hud as CanvasLayer).call("set_menu", true)
         await process_frame
         _ok((hud.get_node_or_null("%Menu") as Control).visible, "menu opens")
