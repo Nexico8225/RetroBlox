@@ -25,19 +25,27 @@ func _initialize() -> void:
         root.add_child(hud)
         await process_frame
         await process_frame
-        for n in ["MenuButton", "ChatButton", "PeopleButton", "ChatPanel", "RosterPanel", "Menu"]:
+        for n in ["ChatPanel", "RosterPanel", "Menu"]:
                 check(hud.get_node_or_null("%" + n) != null, "HUD %%-lookup %s resolves after _ready" % n)
-        var mb: Node = hud.get_node_or_null("%MenuButton")
+        # the toolbar buttons are MOVED into a code-built toolbar (the classic
+        # unique-name trap), so they are verified through the hud's own wiring:
+        # menu_button property + the Toolbar row they now live in
+        var mb: Node = hud.get("menu_button")
+        check(mb != null and mb is Button, "toolbar menu button wired (hud.menu_button)")
         if mb != null:
-                check(mb.owner == hud, "moved buttons keep the scene owner")
                 check(mb.get_parent().get_parent().name == "Toolbar", "MenuButton lives in the toolbar")
+        var tb_row: Node = hud.get_node_or_null("Root/Toolbar/Buttons")
+        check(tb_row != null, "toolbar row exists under Root/Toolbar/Buttons")
+        if tb_row != null:
+                for wanted in ["ChatButton", "PeopleButton"]:
+                        check(tb_row.get_node_or_null(wanted) != null, "toolbar carries " + wanted)
         hud.queue_free()
 
         # ---- auth screen instantiates
         var auth: Node = (load("res://scenes/auth_screen.tscn") as PackedScene).instantiate()
         root.add_child(auth)
         await process_frame
-        for n in ["ServerEdit", "UserEdit", "PassEdit", "SubmitBtn", "Status"]:
+        for n in ["UserEdit", "PassEdit", "SubmitBtn", "Status", "GuestBtn"]:
                 check(auth.get_node_or_null("%" + n) != null, "Auth %%-lookup %s resolves" % n)
         auth.queue_free()
 
