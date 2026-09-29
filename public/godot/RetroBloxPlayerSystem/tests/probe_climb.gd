@@ -234,8 +234,9 @@ func _initialize() -> void:
         _ok(reached_floor, "riding S to the bottom lets go on the floor")
 
         # ===== 9. sizes: everything is 5 studs =====
-        var capsule := (player.get_node("Collision") as CollisionShape3D).shape as CapsuleShape3D
-        _ok(capsule.height == 5.0, "capsule is exactly 5 studs tall")
+        var hull := (player.get_node("Collision") as CollisionShape3D).shape as BoxShape3D
+        _ok(hull != null and hull.size == Vector3(2, 5, 1),
+                "hitbox is the Roblox 2x5x1 R6 hull")
         var parts_aabb: Array = player.get_node("Avatar").get("_part_aabb")
         var box := AABB()
         var have := false
