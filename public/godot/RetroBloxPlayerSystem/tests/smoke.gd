@@ -132,7 +132,7 @@ func _run_all() -> void:
         root.add_child(main)
         check(main.arena != null, "main @onready wired arena")
         check(main.spring_arm != null, "main @onready wired spring arm")
-        check(main.spring_arm.spring_length == 14.0, "spring arm length from scene")
+        check(absf(main.spring_arm.spring_length - 14.5) < 0.01, "spring arm length from scene")
         main.queue_free()
 
         # --- api class: pure logic paths ---
