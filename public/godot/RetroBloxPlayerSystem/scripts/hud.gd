@@ -73,8 +73,8 @@ var _health_target := 1.0
 var _health_flash := 0.0
 var _last_health := 100.0
 
-const HEALTH_BAR_W := 170.0
-const HEALTH_BAR_H := 12.0
+const HEALTH_BAR_W := 210.0
+const HEALTH_BAR_H := 14.0
 
 
 func _ready() -> void:
@@ -190,6 +190,7 @@ func _apply_classic_style() -> void:
                 header.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
         chat_log.add_theme_color_override("default_color", CLASSIC_INK)
         chat_log.add_theme_stylebox_override("normal", _classic_inner_style())
+        chat_log.add_theme_font_size_override("normal_font_size", 16)
         # THE FIX for "I can't see what I'm typing": the focused entry kept the
         # scene's DARK stylebox while the font went dark ink — dark on dark.
         # Both states now use the light inner card with a dark caret.
@@ -198,13 +199,14 @@ func _apply_classic_style() -> void:
         chat_entry.add_theme_color_override("caret_color", CLASSIC_INK)
         chat_entry.add_theme_color_override("font_selected_color", Color.WHITE)
         chat_entry.add_theme_color_override("selection_color", Color(0.05, 0.41, 0.67, 0.85))
-        chat_entry.add_theme_font_size_override("font_size", 15)
+        chat_entry.add_theme_font_size_override("font_size", 16)
         chat_entry.add_theme_stylebox_override("normal", _classic_inner_style())
         chat_entry.add_theme_stylebox_override("focus", _classic_inner_style())
         chat_entry.add_theme_stylebox_override("read_only", _classic_inner_style())
         chat_entry.placeholder_text = "To chat, click here or press /"
         for label: Control in [%CountLabel, %NamesLabel]:
                 label.add_theme_color_override("font_color", CLASSIC_INK)
+                label.add_theme_font_size_override("font_size", 16)
         var title_label := root.get_node_or_null("ChatPanel/ChatBox/ChatTitle/ChatTitleLabel") as Label
         if title_label != null:
                 title_label.add_theme_color_override("font_color", CLASSIC_INK)
@@ -220,11 +222,18 @@ func _apply_classic_style() -> void:
                 var hint := help_panel.get_child(0).get_child(1) as Label
                 if hint != null:
                         hint.text = "SHIFT  shift lock     /  chat     ESC  menu"
-        # the ESC menu card
+        # the ESC menu card — the whole card goes classic light, INCLUDING the
+        # inner players card: the old dark inner panel with dark ink names was
+        # grey-on-black and unreadable
         var card := root.get_node_or_null("Menu/Center/Card") as PanelContainer
         if card != null:
                 card.add_theme_stylebox_override("panel", panel)
                 _style_menu_labels(card)
+        # the status line and the respawn toast read at a glance
+        status_label.add_theme_font_size_override("font_size", 15)
+        toast.add_theme_font_size_override("font_size", 18)
+        toast.add_theme_constant_override("outline_size", 8)
+        toast.add_theme_color_override("font_outline_color", Color(0.02, 0.05, 0.07, 0.9))
 
 
 func _style_menu_labels(from: Node) -> void:
@@ -233,8 +242,17 @@ func _style_menu_labels(from: Node) -> void:
                         var label := child as Label
                         var is_title: bool = label.text == "RETROBLOX"
                         label.add_theme_color_override("font_color", CLASSIC_BLUE if is_title else CLASSIC_INK)
+                        # readability: player names and counts read big
+                        if label.name in ["MenuNamesLabel", "MenuCountLabel"]:
+                                label.add_theme_font_size_override("font_size", 17)
+                        elif label.name in ["PlayersTitle", "EscHint", "MenuRoomLabel", "ControlsHint"]:
+                                label.add_theme_font_size_override("font_size", 14)
                 elif child is Button:
                         _style_dialog_button(child as Button)
+                elif child is PanelContainer:
+                        # inner cards (the players list!) get the light inner look
+                        (child as PanelContainer).add_theme_stylebox_override("panel", _classic_inner_style())
+                        _style_menu_labels(child)
                 elif child is Container or child is Control:
                         _style_menu_labels(child)
 
@@ -414,12 +432,8 @@ func _build_health_bar() -> void:
         var panel := PanelContainer.new()
         panel.name = "HealthBar"
         panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        var style := StyleBoxFlat.new()
-        style.bg_color = PANEL
-        style.border_color = Color("223038")
-        style.set_border_width_all(2)
-        style.set_content_margin_all(6)
-        panel.add_theme_stylebox_override("panel", style)
+        # the classic light panel — dark-on-dark read badly
+        panel.add_theme_stylebox_override("panel", _classic_panel_style())
         # anchored top-right, out of every other panel's way
         panel.anchor_left = 1.0
         panel.anchor_right = 1.0
@@ -434,12 +448,12 @@ func _build_health_bar() -> void:
         head.mouse_filter = Control.MOUSE_FILTER_IGNORE
         var title := Label.new()
         title.text = "Health"
-        title.add_theme_font_size_override("font_size", 10)
-        title.add_theme_color_override("font_color", MUTED)
+        title.add_theme_font_size_override("font_size", 12)
+        title.add_theme_color_override("font_color", CLASSIC_INK)
         _health_value = Label.new()
         _health_value.text = "100 / 100"
-        _health_value.add_theme_font_size_override("font_size", 10)
-        _health_value.add_theme_color_override("font_color", INK)
+        _health_value.add_theme_font_size_override("font_size", 12)
+        _health_value.add_theme_color_override("font_color", CLASSIC_INK)
         _health_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         _health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         head.add_child(title)
