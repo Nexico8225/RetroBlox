@@ -1,14 +1,17 @@
 # RetrobloxAuthScreen — the door into RetroBlox, drawn inside the game.
 #
-# The card itself lives in scenes/auth_screen.tscn — open it in the editor to
-# restyle the login UI visually. This script keeps the behavior: what happens
-# when you log in, sign up, or play as a guest.
+# The card lives in scenes/auth_screen.tscn — open it in the editor to
+# restyle the login UI visually. This script keeps the behavior:
 #
-#   LOG IN   — existing accounts (username + password)
-#   SIGN UP  — create a brand-new account without ever opening the website;
-#              the fresh account's avatar loads immediately via /api/platform/me
-#   GUEST    — play without an account (classic noob colors, "Guest-1234")
+#   LOG IN   — existing accounts (username + password). Accounts are made
+#              on retro-blox.vercel.app; the platform URL is BAKED IN.
+#   GUEST    — play without an account (classic noob colors, "Guest-1234").
+#
 # Remembers the last username; a saved token auto-signs-in instantly.
+# IMPORTANT: this script must match the scene EXACTLY — the unique nodes
+# are %UserEdit, %PassEdit, %SubmitBtn, %Status, %GuestBtn (login-only card,
+# no server box, no sign-up tab). Referencing nodes the scene does not have
+# crashes _ready and leaves the player frozen on this card forever.
 class_name RetrobloxAuthScreen
 extends CanvasLayer
 
@@ -18,83 +21,70 @@ const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
 signal completed(api, username: String, user_id: String, avatar: Dictionary)
 signal guest_requested
+signal watchdog_expired
 
-const RED := Color("e2231a")
-const GREEN := Color("02b757")
-const INK := Color("1b2a34")
-const MUTED := Color("6b7c86")
-const LINK := Color("0d69ac")
+const RED := Color(0.7, 0.12, 0.1)
+const BUSY := Color(0.2, 0.3, 0.45)
+
+# the ONE platform, baked in. Override for self-hosts via RETROBLOX_API
+# or --api= (main.gd forwards it here through set_api_url).
+var _api_url := "https://retro-blox.vercel.app"
+var _busy := false
 
 # unique names inside scenes/auth_screen.tscn
-@onready var _server_edit: LineEdit = %ServerEdit
 @onready var _user_edit: LineEdit = %UserEdit
 @onready var _pass_edit: LineEdit = %PassEdit
-@onready var _confirm_edit: LineEdit = %ConfirmEdit
-@onready var _confirm_label: Label = %ConfirmLabel
 @onready var _submit_btn: Button = %SubmitBtn
 @onready var _status: Label = %Status
-@onready var _login_tab_btn: Button = %LoginTabBtn
-@onready var _signup_tab_btn: Button = %SignupTabBtn
-
-var _signup_mode := false
-var _busy := false
+@onready var _guest_btn: Button = %GuestBtn
 
 
 func _ready() -> void:
-        _login_tab_btn.pressed.connect(_set_mode.bind(false))
-        _signup_tab_btn.pressed.connect(_set_mode.bind(true))
         _submit_btn.pressed.connect(_submit)
-        %GuestBtn.pressed.connect(_guest_pressed)
-        for edit: LineEdit in [_server_edit, _user_edit, _pass_edit, _confirm_edit]:
+        _guest_btn.pressed.connect(_guest_pressed)
+        for edit: LineEdit in [_user_edit, _pass_edit]:
                 edit.text_submitted.connect(_on_field_submitted)
-        # ONE platform, ONE door: the production site. The Server field and
-        # the Sign Up tab are gone — accounts are made on retro-blox.vercel.app
-        # (or through the platform signup API), and this card is log-in only.
-        _server_edit.visible = false
-        var server_label := _server_edit.get_parent().get_node_or_null("ServerLabel") as Label
-        if server_label != null:
-                server_label.visible = false
-        _signup_tab_btn.visible = false
-        _set_mode(false)
+        for button: Button in [_submit_btn, _guest_btn]:
+                button.mouse_entered.connect(_on_hover)
+                button.pressed.connect(_on_click)
+        # the classic entrance: the card fades/pops in
+        var anim := get_node_or_null("UIAnim") as AnimationPlayer
+        if anim != null and anim.has_animation("card_in"):
+                anim.play("card_in")
 
 
-func _guest_pressed() -> void:
-        if not _busy:
-                guest_requested.emit()
+# ---------------------------------------------------------------- ui feedback
+
+func _on_hover() -> void:
+        _play("HoverSound")
 
 
-func _on_field_submitted(_text: String) -> void:
-        _submit()
+func _on_click() -> void:
+        _play("ClickSound")
 
 
-func _set_mode(signup: bool) -> void:
-        _signup_mode = signup
-        _submit_btn.text = "Create Account" if signup else "Log In"
-        _confirm_label.visible = signup
-        _confirm_edit.visible = signup
-        _style_tab(_login_tab_btn, not signup)
-        _style_tab(_signup_tab_btn, signup)
+func _play(sound_name: String) -> void:
+        var node := get_node_or_null("UISounds/" + sound_name) as AudioStreamPlayer
+        if node != null and node.stream != null:
+                node.play()
 
 
-func _style_tab(button: Button, active: bool) -> void:
-        var style := StyleBoxFlat.new()
-        style.bg_color = GREEN if active else Color("e4eaee")
-        style.set_corner_radius_all(6)
-        style.content_margin_top = 6
-        style.content_margin_bottom = 6
-        button.add_theme_stylebox_override("normal", style)
-        var hover := style.duplicate() as StyleBoxFlat
-        hover.bg_color = GREEN.lightened(0.12) if active else Color("d5dee4")
-        button.add_theme_stylebox_override("hover", hover)
-        button.add_theme_stylebox_override("pressed", style)
-        button.add_theme_color_override("font_color", Color.WHITE if active else INK)
+func _error(text: String) -> void:
+        _status.add_theme_color_override("font_color", RED)
+        _status.text = text
+        _busy = false
+        _submit_btn.disabled = false
+        _play("DenySound")
 
 
-## Pre-fill from config / a previous session.
+# ---------------------------------------------------------------- public api
+
+## The platform the card signs in to (main.gd forwards the baked URL).
 func set_api_url(url: String) -> void:
-        if _server_edit != null:
-                _server_edit.text = url
+        if not url.is_empty():
+                _api_url = url
 
+## Pre-fill from a previous session.
 func set_saved_username(username: String) -> void:
         if _user_edit != null:
                 _user_edit.text = username
@@ -104,52 +94,40 @@ func set_status_text(text: String) -> void:
         _status.text = text
 
 
-func _error(text: String) -> void:
-        _status.add_theme_color_override("font_color", Color(0.7, 0.12, 0.1))
-        _status.text = text
-        _busy = false
-        _submit_btn.disabled = false
+# ---------------------------------------------------------------- flow
+
+func _guest_pressed() -> void:
+        if not _busy:
+                _play("ClickSound")
+                guest_requested.emit()
+
+
+func _on_field_submitted(_text: String) -> void:
+        _submit()
 
 
 func _submit() -> void:
         if _busy:
                 return
-        # the platform is baked in — self-hosts use RETROBLOX_API / --api=
-        var server := "https://retro-blox.vercel.app"
         var user := _user_edit.text.strip_edges()
         var passw := _pass_edit.text
         if user.is_empty() or passw.is_empty():
                 _error("Fill in your username and password.")
                 return
-        if _signup_mode:
-                if _confirm_edit.text != passw:
-                        _error("The passwords do not match.")
-                        return
-                if user.length() < 3 or user.length() > 20:
-                        _error("Usernames are 3-20 characters.")
-                        return
-                if passw.length() < 3:
-                        _error("Passwords are at least 3 characters.")
-                        return
 
         _busy = true
         _submit_btn.disabled = true
-        _status.add_theme_color_override("font_color", Color(0.2, 0.3, 0.45))
-        _status.text = "Creating your account…" if _signup_mode else "Signing in…"
+        _status.add_theme_color_override("font_color", BUSY)
+        _status.text = "Signing in…"
 
-        var api := RetrobloxApiScript.new(server)
-
-        var res: Dictionary
-        if _signup_mode:
-                res = await api.signup(user, passw)
-        else:
-                res = await api.login(user, passw)
+        var api := RetrobloxApiScript.new(_api_url)
+        var res: Dictionary = await api.login(user, passw)
         if not res.get("ok", false):
                 var msg := String(res.get("error", "Could not reach the server"))
                 # help with the two most common stalls — a 401 usually means
                 # "no account yet" or "typo in the password"
                 if msg.contains("Incorrect username or password"):
-                        msg += "\nNo account yet? Use the Sign Up tab — accounts made on the website work here too."
+                        msg += "\nNo account yet? Create one free on retro-blox.vercel.app, then log in here."
                 _error(msg)
                 return
 
@@ -160,5 +138,21 @@ func _submit() -> void:
                 return
 
         _status.text = "Ready!"
+        _play("SuccessSound")
         var av = me.get("avatar", {})
         completed.emit(api, String(me.get("username", api.username)), String(me.get("userId", api.user_id)), av if av is Dictionary else {})
+        _arm_watchdog()
+
+
+## Last-resort handoff guard: the moment "Ready!" shows, the game has one
+## second to take over and close this card. If the card is somehow still on
+## screen (a lost signal, a handler that bailed), we shout watchdog_expired
+## and main.gd forces the game to start. Nobody waits on a frozen login.
+func _arm_watchdog() -> void:
+        var timer := get_tree().create_timer(1.0)
+        timer.timeout.connect(_fire_watchdog)
+
+
+func _fire_watchdog() -> void:
+        if is_inside_tree() and visible:
+                watchdog_expired.emit()
