@@ -100,7 +100,7 @@ func _initialize() -> void:
         check(not plate.visible, "nameplate hides for the local player")
         av2.set_nameplate_visible(true)
         check(plate.visible, "nameplate shows again for others")
-        check(plate.pixel_size < 0.004, "nameplate is Roblox-small (pixel_size %.4f)" % plate.pixel_size)
+        check(plate.pixel_size >= 0.008 and plate.pixel_size < 0.02, "nameplate is READABLE (pixel_size %.4f)" % plate.pixel_size)
         av2.queue_free()
 
         await process_frame
