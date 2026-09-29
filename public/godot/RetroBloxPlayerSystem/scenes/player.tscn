@@ -6,9 +6,8 @@
 [ext_resource type="AudioStream" path="res://assets/sounds/land.wav" id="4_land"]
 [ext_resource type="AudioStream" path="res://assets/sounds/step.wav" id="5_step"]
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
-radius = 1.0
-height = 5.0
+[sub_resource type="BoxShape3D" id="BoxShape3D_player"]
+size = Vector3(2, 5, 1)
 
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 4
@@ -18,7 +17,7 @@ script = ExtResource("1_player")
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 position = Vector3(0, 2.5, 0)
-shape = SubResource("CapsuleShape3D_player")
+shape = SubResource("BoxShape3D_player")
 
 [node name="Avatar" parent="." instance=ExtResource("2_avatar")]
 
