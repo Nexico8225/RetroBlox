@@ -49,7 +49,7 @@ func _initialize() -> void:
         check(dress_src.contains("rotation.y = PI"), "UGC mirror is a 180-degree Y turn")
         var player_src := FileAccess.get_file_as_string("res://scripts/player.gd")
         check(player_src.contains("@export var walk_speed: float = 16.0"), "classic WalkSpeed 16 (@export)")
-        check(player_src.contains("@export var jump_speed: float = 38.0"), "tuned JumpPower 38 (@export)")
+        check(player_src.contains("@export var jump_height: float = 6.0"), "classic 6-stud jump (@export)")
         check(player_src.contains("@export var gravity: float = 110.0"), "tuned gravity 110 (@export)")
         check(player_src.contains("@export var max_step: float = 3.0"), "auto-step up to 3 studs (@export)")
         check(player_src.contains("@export var can_climb: bool = true"), "climbing is exportable")
