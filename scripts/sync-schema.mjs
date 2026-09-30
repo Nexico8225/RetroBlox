@@ -36,6 +36,10 @@ import { execSync } from 'node:child_process'
 // ---------------------------------------------------------------------------
 const COLUMN_PATCHES = [
   { table: 'InventoryEntry', column: 'serial', ddl: 'ALTER TABLE InventoryEntry ADD COLUMN serial INTEGER' },
+  // market pitches + UGC-on-offers (web-market-2)
+  { table: 'UgcListing', column: 'title', ddl: "ALTER TABLE UgcListing ADD COLUMN title TEXT NOT NULL DEFAULT ''" },
+  { table: 'UgcListing', column: 'description', ddl: "ALTER TABLE UgcListing ADD COLUMN description TEXT NOT NULL DEFAULT ''" },
+  { table: 'UgcOffer', column: 'offerItemIdsJson', ddl: "ALTER TABLE UgcOffer ADD COLUMN offerItemIdsJson TEXT NOT NULL DEFAULT '[]'" },
 ]
 
 const envUrl = process.env.DATABASE_URL || ''
