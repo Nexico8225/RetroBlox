@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { api, flash, timeAgo, useRetro } from '@/lib/store'
 import { Avatar } from './Shell'
+import { FxText, FxToolbar } from '@/lib/textfx'
 
 export interface MarketListing {
   id: string
@@ -54,6 +55,7 @@ export interface OfferItemPreview {
 interface OfferRow {
   id: string
   amount: number
+  robux?: number
   offerItemIdsJson?: string
   status: string
   createdAt: string
@@ -189,6 +191,7 @@ export function TradeOfferModal({
   const [inv, setInv] = useState<{ id: string; name: string; imageFileId: string; type: string }[]>([])
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [tix, setTix] = useState('')
+  const [robux, setRobux] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -220,6 +223,7 @@ export function TradeOfferModal({
           giveItemIds: [...picked],
           takeItemIds: [itemId],
           tix: Math.max(0, Math.floor(Number(tix) || 0)),
+          robux: Math.max(0, Math.floor(Number(robux) || 0)),
           message: msg,
         }),
       })
@@ -245,7 +249,7 @@ export function TradeOfferModal({
           <button type="button" className="rb-btn" style={{ padding: '2px 9px' }} onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div style={{ fontSize: 11.5, color: '#5a6b7b', marginBottom: 10 }}>
-          They get <b>{itemName}</b> from you{tix && Number(tix) > 0 ? ` + ${fmt(Number(tix))}` : ''} — if they accept. They can chat and counter first.
+          They get <b>{itemName}</b> from you{tix && Number(tix) > 0 ? ` + ${fmt(Number(tix))}` : ''}{robux && Number(robux) > 0 ? ` + R$ ${Number(robux).toLocaleString('en-US')}` : ''} — if they accept. They can chat and counter first.
         </div>
 
         <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c', margin: '8px 0 5px' }}>YOU GIVE — pick from your inventory ({picked.size}/8):</div>
@@ -280,7 +284,11 @@ export function TradeOfferModal({
 
         <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, alignItems: 'center', margin: '8px 0' }}>
           <label style={{ fontSize: 11, color: '#5a6b7b' }}>Tix you add:</label>
-          <input className="rb-input" type="number" min={0} max={1000000} value={tix} onChange={(e) => setTix(e.target.value)} placeholder="0" style={{ fontSize: 12, height: 28 }} />
+          <input className="rb-input" type="number" min={0} max={1000000} value={tix} onChange={(e) => setTix(e.target.value)} placeholder="0 — any amount, e.g. 6000" style={{ fontSize: 12, height: 28 }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, alignItems: 'center', margin: '8px 0' }}>
+          <label style={{ fontSize: 11, color: '#5a6b7b' }}>Robux you add:</label>
+          <input className="rb-input" type="number" min={0} max={1000000} value={robux} onChange={(e) => setRobux(e.target.value)} placeholder="0 — the premium money (R$)" style={{ fontSize: 12, height: 28 }} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, alignItems: 'start', marginBottom: 12 }}>
           <label style={{ fontSize: 11, color: '#5a6b7b', paddingTop: 4 }}>Say something:</label>
@@ -295,7 +303,7 @@ export function TradeOfferModal({
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button type="button" className="rb-btn" onClick={onClose}>Cancel</button>
-          <button type="button" className="rb-btn rb-btn-green" disabled={busy || (picked.size === 0 && !(Number(tix) > 0))} onClick={send} style={{ fontWeight: 'bold' }}>
+          <button type="button" className="rb-btn rb-btn-green" disabled={busy || (picked.size === 0 && !(Number(tix) > 0) && !(Number(robux) > 0))} onClick={send} style={{ fontWeight: 'bold' }}>
             {busy ? 'Sending...' : 'Send trade offer'}
           </button>
         </div>
@@ -329,6 +337,7 @@ export function ProfileTradeModal({
   const [wantPicked, setWantPicked] = useState<Set<string>>(new Set())
   const [givePicked, setGivePicked] = useState<Set<string>>(new Set())
   const [tix, setTix] = useState('')
+  const [robux, setRobux] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -366,6 +375,7 @@ export function ProfileTradeModal({
           giveItemIds: [...givePicked],
           takeItemIds: [...wantPicked],
           tix: Math.max(0, Math.floor(Number(tix) || 0)),
+          robux: Math.max(0, Math.floor(Number(robux) || 0)),
           message: msg,
         }),
       })
@@ -425,7 +435,7 @@ export function ProfileTradeModal({
           <button type="button" className="rb-btn" style={{ padding: '2px 9px' }} onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div style={{ fontSize: 11.5, color: '#5a6b7b', marginBottom: 10 }}>
-          Pick what you want from their shelf, add what you give (+ Tix if the deal needs it) — they can chat, counter, accept or decline.
+          Pick what you want from their shelf, add what you give (+ Tix or Robux if the deal needs it) — they can chat, counter, accept or decline.
         </div>
 
         <div style={{ fontSize: 11, fontWeight: 'bold', color: '#8a6d1a', margin: '8px 0 5px' }}>
@@ -439,6 +449,10 @@ export function ProfileTradeModal({
         <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, alignItems: 'center', margin: '8px 0' }}>
           <label style={{ fontSize: 11, color: '#5a6b7b' }}>Tix you add:</label>
           <input className="rb-input" type="number" min={0} max={1000000} value={tix} onChange={(e) => setTix(e.target.value)} placeholder="0 — any amount, e.g. 6000" style={{ fontSize: 12, height: 28 }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, alignItems: 'center', margin: '8px 0' }}>
+          <label style={{ fontSize: 11, color: '#5a6b7b' }}>Robux you add:</label>
+          <input className="rb-input" type="number" min={0} max={1000000} value={robux} onChange={(e) => setRobux(e.target.value)} placeholder="0 — the premium money (R$)" style={{ fontSize: 12, height: 28 }} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, alignItems: 'start', marginBottom: 12 }}>
           <label style={{ fontSize: 11, color: '#5a6b7b', paddingTop: 4 }}>Say something:</label>
@@ -489,6 +503,7 @@ export function MarketPanel({
   const [sellDesc, setSellDesc] = useState('')
   const [lowerPrice, setLowerPrice] = useState('')
   const [offerAmount, setOfferAmount] = useState('')
+  const [offerRobux, setOfferRobux] = useState('')
   const [offerItemsOpen, setOfferItemsOpen] = useState(false)
   const [offerPicked, setOfferPicked] = useState<Set<string>>(new Set())
   const [myInv, setMyInv] = useState<OfferItemPreview[]>([])
@@ -548,7 +563,7 @@ export function MarketPanel({
     })
   }
 
-  const offerHasSomething = Number(offerAmount) > 0 || offerPicked.size > 0
+  const offerHasSomething = Number(offerAmount) > 0 || Number(offerRobux) > 0 || offerPicked.size > 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -698,22 +713,33 @@ export function MarketPanel({
                       placeholder="Your Tix"
                       value={offerAmount}
                       onChange={(e) => setOfferAmount(e.target.value)}
-                      style={{ width: 96, fontSize: 11.5, height: 26 }}
+                      style={{ width: 88, fontSize: 11.5, height: 26 }}
                       aria-label="Your Tix offer"
+                    />
+                    <input
+                      className="rb-input"
+                      type="number"
+                      min={0}
+                      placeholder="R$ Robux"
+                      value={offerRobux}
+                      onChange={(e) => setOfferRobux(e.target.value)}
+                      style={{ width: 84, fontSize: 11.5, height: 26 }}
+                      aria-label="Your Robux offer"
                     />
                     <button
                       type="button"
                       className="rb-btn"
                       disabled={busy || !offerHasSomething}
                       onClick={async () => {
-                        if (await act({ action: 'offer', listingId: l.id, amount: Math.max(0, Math.floor(Number(offerAmount) || 0)), offerItemIds: [...offerPicked] }, 'Offer sent!')) {
+                        if (await act({ action: 'offer', listingId: l.id, amount: Math.max(0, Math.floor(Number(offerAmount) || 0)), robux: Math.max(0, Math.floor(Number(offerRobux) || 0)), offerItemIds: [...offerPicked] }, 'Offer sent!')) {
                           setOfferAmount('')
+                          setOfferRobux('')
                           setOfferPicked(new Set())
                           setOfferItemsOpen(false)
                         }
                       }}
                       style={{ fontSize: 11.5, padding: '4px 10px', fontWeight: offerPicked.size ? 'bold' : 'normal' }}
-                      title="Send Tix and/or your own UGC — the seller decides whether to hand the item over"
+                      title="Send Tix, Robux and/or your own UGC — the seller decides whether to hand the item over"
                     >
                       Send offer{offerPicked.size ? ` +${offerPicked.size} item${offerPicked.size > 1 ? 's' : ''}` : ''}
                     </button>
@@ -802,7 +828,8 @@ function ListingChat({ listingId, isSeller, onChanged }: { listingId: string; is
   const [offerItemMap, setOfferItemMap] = useState<Record<string, OfferItemPreview>>({})
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const bottom = useRef<HTMLDivElement | null>(null)
+  const chatInputRef = useRef<HTMLInputElement | null>(null)
+  const bottomRef = useRef<HTMLDivElement | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -818,7 +845,7 @@ function ListingChat({ listingId, isSeller, onChanged }: { listingId: string; is
   }, [load])
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: 'nearest' })
+    bottomRef.current?.scrollIntoView({ block: 'nearest' })
   }, [msgs.length])
 
   async function send() {
@@ -863,8 +890,9 @@ function ListingChat({ listingId, isSeller, onChanged }: { listingId: string; is
                   <Avatar user={o.buyer} size={20} rounded={3} />
                   <span style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.buyer.username}</span>
                   {o.amount > 0 && <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#1c4e7c', fontWeight: 'bold' }}>{fmt(o.amount)}</span>}
+                  {(o.robux ?? 0) > 0 && <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#1c4e7c', fontWeight: 'bold' }}>R$ {(o.robux ?? 0).toLocaleString('en-US')}</span>}
                   <OfferItemChips ids={oItems} itemMap={offerItemMap} />
-                  {o.amount === 0 && oItems.length === 0 && <span style={{ fontSize: 10.5, color: '#8ba0b3' }}>(empty)</span>}
+                  {o.amount === 0 && (o.robux ?? 0) === 0 && oItems.length === 0 && <span style={{ fontSize: 10.5, color: '#8ba0b3' }}>(empty)</span>}
                   <span style={{ fontSize: 9.5, color: '#8ba0b3' }}>{timeAgo(o.createdAt)}</span>
                   <span style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
                     <button type="button" className="rb-btn rb-btn-green" disabled={busy} onClick={() => answer(o.id, true)} style={{ fontSize: 10.5, padding: '2px 10px' }}>
@@ -889,27 +917,32 @@ function ListingChat({ listingId, isSeller, onChanged }: { listingId: string; is
               <Avatar user={m.sender} size={18} rounded={3} />
               <div style={{ fontSize: 11.5, lineHeight: 1.45 }}>
                 <Link href={`/users/${m.sender.id}`} className="rb-link" style={{ fontWeight: 'bold', fontSize: 11 }}>{m.sender.username}</Link>{' '}
-                <span style={{ color: '#1c2733' }}>{m.text}</span>{' '}
+                <span style={{ color: '#1c2733' }}><FxText text={m.text} /></span>{' '}
                 <span style={{ fontSize: 9, color: '#8ba0b3' }}>{timeAgo(m.createdAt)}</span>
               </div>
             </div>
           ))
         )}
-        <div ref={bottom} />
+        <div ref={bottomRef} />
       </div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input
-          className="rb-input"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder={isSeller ? 'Reply — or just lower the price above' : 'Haggle: "take 400 and it\u2019s a deal"'}
-          style={{ flex: 1, fontSize: 11.5, height: 28 }}
-          aria-label="Chat message"
-        />
-        <button type="button" className="rb-btn" disabled={busy || !text.trim()} onClick={send} style={{ fontSize: 11, padding: '3px 12px' }}>
-          Send
-        </button>
+      <div style={{ display: 'grid', gap: 5 }}>
+        <FxToolbar taRef={chatInputRef} value={text} onChange={setText} />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            ref={chatInputRef}
+            className="rb-input"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+            placeholder={isSeller ? 'Reply — or just lower the price above' : 'Haggle: "take 400 and it\u2019s a deal"'}
+            style={{ flex: 1, fontSize: 11.5, height: 28 }}
+            aria-label="Chat message"
+            maxLength={300}
+          />
+          <button type="button" className="rb-btn" disabled={busy || !text.trim()} onClick={send} style={{ fontSize: 11, padding: '3px 12px' }}>
+            Send
+          </button>
+        </div>
       </div>
     </div>
   )
