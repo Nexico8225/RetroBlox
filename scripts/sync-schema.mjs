@@ -44,6 +44,34 @@ const COLUMN_PATCHES = [
 ]
 
 // ---------------------------------------------------------------------------
+// DATA PATCHES — one-off data migrations that must run BEFORE the unique
+// indexes build (a fresh unique column needs its rows numbered first).
+// Each patch is guarded and idempotent: it checks, fixes, and never touches
+// rows that already carry real values.
+// ---------------------------------------------------------------------------
+const DATA_PATCHES = [
+  {
+    name: 'User.playerNo backfill (short public ids in join order)',
+    async run(client) {
+      // does the column exist yet? (step 2 should have added it)
+      const info = await client.execute('PRAGMA table_info(User)')
+      if (!info.rows.some((r) => String(r.name) === 'playerNo')) return 'skipped (no column)'
+      const stragglers = await client.execute(
+        'SELECT id FROM User WHERE playerNo = 0 ORDER BY createdAt ASC, id ASC'
+      )
+      if (stragglers.rows.length === 0) return 'already numbered'
+      const maxRow = await client.execute('SELECT COALESCE(MAX(playerNo), 0) AS m FROM User')
+      let n = Number(maxRow.rows[0]?.m ?? 0)
+      for (const row of stragglers.rows) {
+        n += 1
+        await client.execute({ sql: 'UPDATE User SET playerNo = ? WHERE id = ?', args: [n, String(row.id)] })
+      }
+      return `numbered ${stragglers.rows.length} player(s), highest is now #${n}`
+    },
+  },
+]
+
+// ---------------------------------------------------------------------------
 // AUTO-HEALER — turn each CREATE TABLE from the prisma diff into
 //   { table: "Notification", columns: [{ name: "id", def: '"id" TEXT NOT NULL PRIMARY KEY' }, ...] }
 // so any column the live database is missing can be ALTERed in on its own.
@@ -221,6 +249,17 @@ try {
       console.log(`[sync-schema]   + column: ${patch.table}.${patch.column}`)
     } catch (e) {
       console.error(`[sync-schema]   ! column patch ${patch.table}.${patch.column} failed: ${e?.message || e}`)
+    }
+  }
+
+  // 2c. DATA PATCHES — guarded, idempotent, before indexes (a unique index
+  //     on a just-added column needs its data fixed up first)
+  for (const patch of DATA_PATCHES) {
+    try {
+      const result = await patch.run(client)
+      console.log(`[sync-schema]   + data patch: ${patch.name} — ${result}`)
+    } catch (e) {
+      console.error(`[sync-schema]   ! data patch ${patch.name} failed: ${e?.message || e}`)
     }
   }
 
