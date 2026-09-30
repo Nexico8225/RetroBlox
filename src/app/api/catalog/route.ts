@@ -90,9 +90,17 @@ export async function GET(req: NextRequest) {
     ? await db.inventoryEntry.findMany({ where: { userId: viewer.id }, select: { itemId: true } })
     : []
 
-  // sold = REAL BUYERS — the creator's own auto-granted copy is NOT a sale
-  // (stock means sellable copies). One grouped query with a join excludes it.
+  // cheapest ACTIVE resale listing per item — powers the "FOR SALE" chips
   const itemIds = items.map((i) => i.id)
+  const forSale: Record<string, number> = {}
+  if (itemIds.length > 0) {
+    const saleRows = await db.ugcListing.groupBy({
+      by: ['itemId'],
+      where: { itemId: { in: itemIds }, status: 'active' },
+      _min: { price: true },
+    })
+    for (const r of saleRows) forSale[r.itemId] = r._min.price ?? 0
+  }
   const soldMap = new Map<string, number>()
   if (itemIds.length > 0) {
     const soldRows = await db.$queryRaw<{ itemId: string; n: bigint }[]>`
@@ -137,6 +145,7 @@ export async function GET(req: NextRequest) {
       }
     }),
     ownedItemIds: owned.map((o) => o.itemId),
+    forSale,
   })
 }
 
