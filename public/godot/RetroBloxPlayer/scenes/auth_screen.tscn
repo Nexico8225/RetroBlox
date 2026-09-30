@@ -1,10 +1,6 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/auth_screen.gd" id="1_auth"]
-[ext_resource type="AudioStream" path="res://assets/sounds/click.wav" id="2_click"]
-[ext_resource type="AudioStream" path="res://assets/sounds/hover.wav" id="3_hover"]
-[ext_resource type="AudioStream" path="res://assets/sounds/success.wav" id="4_success"]
-[ext_resource type="AudioStream" path="res://assets/sounds/deny.wav" id="5_deny"]
 
 [sub_resource type="Gradient" id="Gradient_sky"]
 offsets = PackedFloat32Array(0, 0.42, 0.62, 1)
@@ -30,29 +26,6 @@ corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
-shadow_color = Color(0, 0.09, 0.16, 0.25)
-shadow_size = 10
-
-[sub_resource type="Animation" id="Anim_card_in"]
-resource_name = "card_in"
-length = 0.32
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath("Root/Center/Card:modulate")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.32),
-"transitions": PackedFloat32Array(1, 1),
-"update": 0,
-"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1)]
-}
-
-[sub_resource type="AnimationLibrary" id="AnimLib_auth"]
-_data = {
-&"card_in": SubResource("Anim_card_in")
-}
 
 [node name="AuthScreen" type="CanvasLayer"]
 layer = 30
@@ -104,15 +77,43 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
 theme_override_font_sizes/font_size = 12
-text = "Log in to wear your account avatar"
+text = "Sign in with your RetroBlox account"
 horizontal_alignment = 1
 
 [node name="SpacerTop" type="Control" parent="Root/Center/Card/Box"]
 custom_minimum_size = Vector2(0, 6)
 layout_mode = 2
 
+[node name="Tabs" type="HBoxContainer" parent="Root/Center/Card/Box"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="LoginTabBtn" type="Button" parent="Root/Center/Card/Box/Tabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 34)
+layout_mode = 2
+text = "Log In"
+
+[node name="SignupTabBtn" type="Button" parent="Root/Center/Card/Box/Tabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 34)
+layout_mode = 2
+text = "Sign Up"
+
 [node name="SpacerMid" type="Control" parent="Root/Center/Card/Box"]
 custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+
+[node name="ServerLabel" type="Label" parent="Root/Center/Card/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
+theme_override_font_sizes/font_size = 11
+text = "RetroBlox website"
+
+[node name="ServerEdit" type="LineEdit" parent="Root/Center/Card/Box"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 
 [node name="UserLabel" type="Label" parent="Root/Center/Card/Box"]
@@ -133,6 +134,19 @@ theme_override_font_sizes/font_size = 11
 text = "Password"
 
 [node name="PassEdit" type="LineEdit" parent="Root/Center/Card/Box"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+secret = true
+
+[node name="ConfirmLabel" type="Label" parent="Root/Center/Card/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
+theme_override_font_sizes/font_size = 11
+text = "Confirm password"
+
+[node name="ConfirmEdit" type="LineEdit" parent="Root/Center/Card/Box"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
@@ -164,31 +178,7 @@ text = "Play as Guest instead"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
 theme_override_font_sizes/font_size = 10
-text = "Your avatar is saved to your RetroBlox account —
-it follows you into every game.
-No account? Create one free at retro-blox.vercel.app."
+text = "No account yet? Create one free on the website —
+retro-blox.vercel.app — then sign in here. Your avatar follows
+you into every game."
 horizontal_alignment = 1
-
-[node name="UIAnim" type="AnimationPlayer" parent="."]
-autoplay = "card_in"
-libraries = {
-&"": SubResource("AnimLib_auth")
-}
-
-[node name="UISounds" type="Node" parent="."]
-
-[node name="ClickSound" type="AudioStreamPlayer" parent="UISounds"]
-stream = ExtResource("2_click")
-volume_db = -8.0
-
-[node name="HoverSound" type="AudioStreamPlayer" parent="UISounds"]
-stream = ExtResource("3_hover")
-volume_db = -16.0
-
-[node name="SuccessSound" type="AudioStreamPlayer" parent="UISounds"]
-stream = ExtResource("4_success")
-volume_db = -6.0
-
-[node name="DenySound" type="AudioStreamPlayer" parent="UISounds"]
-stream = ExtResource("5_deny")
-volume_db = -8.0
