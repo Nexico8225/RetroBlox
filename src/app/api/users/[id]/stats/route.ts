@@ -42,13 +42,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     db.gamePlay.count({ where: { userId: id } }),
   ])
 
-  const weekGameRows = await db.playSession.groupBy({
-    by: ['gameId'],
+  // no groupBy+orderBy(_sum) here either — that combo crashes on the libSQL
+  // adapter in production; aggregate this player's week rows in JS instead
+  const weekRows = await db.playSession.findMany({
     where: { userId: id, lastBeatAt: { gte: twoWeeksAgo } },
-    _sum: { seconds: true },
-    orderBy: { _sum: { seconds: 'desc' } },
-    take: 10,
+    select: { gameId: true, seconds: true },
   })
+  const weekSecondsMap = new Map<string, number>()
+  for (const r of weekRows) weekSecondsMap.set(r.gameId, (weekSecondsMap.get(r.gameId) || 0) + r.seconds)
+  const weekGameRows = [...weekSecondsMap.entries()]
+    .map(([gameId, seconds]) => ({ gameId, _sum: { seconds } }))
+    .sort((a, b) => b._sum.seconds - a._sum.seconds)
+    .slice(0, 10)
 
   const totalSecondsByGame = new Map(gameAgg.map((r) => [r.game.id, r.seconds]))
   const weekIds = weekGameRows.map((r) => r.gameId).filter((gid) => !totalSecondsByGame.has(gid))
