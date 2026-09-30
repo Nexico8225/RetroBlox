@@ -12,7 +12,7 @@ const AuthScreenScene = preload("res://scenes/auth_screen.tscn")
 const RetrobloxApiScript = preload("res://scripts/retroblox_api.gd")
 const VERSION: String = "RETROBLOX_1"
 const DISCOVER: String = "RETROBLOX_1_DISCOVER"
-const RESPAWN_SECONDS: float = 1.2   # fast, Roblox-style rebuild
+const RESPAWN_SECONDS: float = 2.8
 
 var players: Dictionary = {}
 var pending_peers: Dictionary = {}
@@ -31,8 +31,6 @@ var phase: String = "starting"
 var phase_time: float = 0.0
 var discover_delay: float = 1.8
 var probe_time: float = 0.0
-var solo: bool = false             # single-player world (web build / no LAN)
-var net_failures: int = 0          # bounded retries before falling back to solo
 var discovery: PacketPeerUDP
 var discovery_listener: PacketPeerUDP
 var snapshot_time: float = 0.0
@@ -41,6 +39,13 @@ var jump_serial: int = 0
 var sequence: int = 0
 var hud: CanvasLayer
 var auth: CanvasLayer
+
+# --- avatar-viewer load state ---
+# On your first spawn the game shows YOUR avatar: the character stays put,
+# the camera + shift lock are fully live, and a gentle orbit shows the look
+# off. The first walk key / jump hands you control.
+var viewer_mode: bool = false
+var _viewer_seen: bool = false
 
 # the world lives in main.tscn — Arena, Players, Debris and the CameraRig
 @onready var arena: Node3D = $Arena
@@ -57,9 +62,9 @@ var quitting: bool = false
 var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
 
 # --- platform account ---
-# The production RetroBlox site — sign-in, avatars, catalog. This URL is
-# LOCKED for players (see _read_configuration); only the editor may override.
-var api_url: String = "https://retro-blox.vercel.app"   # LOCKED below — see _read_configuration
+# The production RetroBlox site — sign-in, avatars, catalog. Override with
+# the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
+var api_url: String = "https://retro-blox.vercel.app"
 var api_ref: RetrobloxApiScript
 var platform_user_id: String = ""
 var my_avatar: Dictionary = {}
@@ -96,13 +101,16 @@ func _ready() -> void:
                 hud.set_sliders(mouse_sensitivity, volume_setting)
                 hud.set_shiftlock(shiftlock)
                 hud.add_chat("", "Welcome! Only connected players appear here.", true)
-                # the door: sign in or sign up with a RetroBlox account
+                # the door: sign in, sign up, or play as a guest
                 auth = AuthScreenScene.instantiate() as CanvasLayer
                 add_child(auth)
                 auth.completed.connect(_on_auth_completed)
+                auth.guest_requested.connect(_on_guest_requested)
                 auth.set_api_url(api_url)
-                auth.set_saved_username(str(profile.get_value("platform", "username", "")))
-                _try_auto_login()
+                auth.set_saved_credentials(
+                        str(profile.get_value("platform", "username", "")),
+                        str(profile.get_value("platform", "password", ""))
+                )
         multiplayer.peer_connected.connect(_peer_connected)
         multiplayer.peer_disconnected.connect(_peer_disconnected)
         multiplayer.connected_to_server.connect(_connected_to_server)
@@ -124,16 +132,7 @@ func _read_configuration() -> void:
         discovery_port = clampi(int(config.get_value("network", "discovery_port", 42421)), 1024, 65535)
         max_players = clampi(int(config.get_value("network", "max_players", 32)), 2, 64)
         room_name = str(config.get_value("game", "room_name", "RetroBlox Baseplate")).left(32)
-        # THE PLATFORM IS LOCKED: every account/avatar/chat request goes to the
-        # official RetroBlox web and nothing else. Players cannot redirect the
-        # game with a config edit, an environment variable or a launch flag.
-        # (Inside the editor a network.cfg override is still honored so the
-        # developer can test against a local server.)
-        api_url = "https://retro-blox.vercel.app"
-        if OS.has_feature("editor"):
-                api_url = str(config.get_value("platform", "api_url", api_url)).strip_edges().trim_suffix("/")
-                if api_url.is_empty():
-                        api_url = "https://retro-blox.vercel.app"
+        api_url = str(config.get_value("platform", "api_url", "https://retro-blox.vercel.app")).strip_edges().trim_suffix("/")
 
         profile = ConfigFile.new()
         if profile.load("user://profile.cfg") != OK:
@@ -144,6 +143,8 @@ func _read_configuration() -> void:
         mouse_sensitivity = clampf(float(profile.get_value("settings", "sensitivity", 1.0)), 0.4, 2.0)
         volume_setting = clampf(float(profile.get_value("settings", "volume", 1.0)), 0.0, 1.0)
 
+        if not OS.get_environment("RETROBLOX_API").is_empty():
+                api_url = OS.get_environment("RETROBLOX_API").strip_edges().trim_suffix("/")
         if not OS.get_environment("BLOCKYARD_SERVER").is_empty():
                 server_address = OS.get_environment("BLOCKYARD_SERVER")
         for arg in OS.get_cmdline_user_args():
@@ -157,7 +158,8 @@ func _read_configuration() -> void:
                         port = clampi(arg.trim_prefix("--port=").to_int(), 1024, 65535)
                 elif arg.begins_with("--name="):
                         player_name = arg.trim_prefix("--name=")
-        # NOTE: no --api= / RETROBLOX_API override anymore — the platform URL is locked.
+                elif arg.begins_with("--api="):
+                        api_url = arg.trim_prefix("--api=").trim_suffix("/")
 
 func _setup_input() -> void:
         _bind_key("move_forward", KEY_W)
@@ -179,62 +181,22 @@ func _bind_key(action: String, key: Key) -> void:
 
 # ---------------------------------------------------------------- auth flow
 
-func _try_auto_login() -> void:
-        if auth == null:
-                return
-        var saved_token := str(profile.get_value("platform", "token", ""))
-        var saved_user := str(profile.get_value("platform", "username", ""))
-        var saved_pass := str(profile.get_value("platform", "password", ""))
-        if saved_token.is_empty() and (saved_user.is_empty() or saved_pass.is_empty()):
-                return  # nothing saved — show the login form
-        auth.set_status_text("Signing you in…")
-        # 1) a still-valid session token signs in instantly
-        if not saved_token.is_empty():
-                var probe := RetrobloxApiScript.new(api_url)
-                probe.token = saved_token
-                var me: Dictionary = await probe.get_me()
-                if quitting or auth == null:
-                        return
-                if me.get("ok", false) and not str(me.get("username", "")).is_empty():
-                        var av = me.get("avatar", {})
-                        _finish_auth(probe, String(me.get("username", "")), String(me.get("userId", "")), av if av is Dictionary else {})
-                        return
-        # 2) token expired — sign back in with the remembered username + password
-        if saved_user.is_empty() or saved_pass.is_empty():
-                auth.set_status_text("")
-                return
-        var api := RetrobloxApiScript.new(api_url)
-        var res: Dictionary = await api.login(saved_user, saved_pass)
-        if quitting or auth == null:
-                return
-        if not res.get("ok", false):
-                # wrong password or offline — back to the form, prefilled
-                auth.set_saved_username(saved_user)
-                auth.set_status_text("")
-                return
-        var me2: Dictionary = await api.get_me()
-        if quitting or auth == null:
-                return
-        if me2.get("ok", false):
-                var av2 = me2.get("avatar", {})
-                _finish_auth(api, String(me2.get("username", saved_user)), String(me2.get("userId", api.user_id)), av2 if av2 is Dictionary else {})
-        else:
-                auth.set_status_text("")
+func _on_auth_completed(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary, password: String) -> void:
+        _finish_auth(api, username, user_id, avatar, password)
 
-func _on_auth_completed(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
-        _finish_auth(api, username, user_id, avatar)
-
-## Hide and free the login card. THE login handoff: without this the card
-## stays on screen showing "Ready!" and _process/_physics_process keep
-## early-returning (they bail while the auth layer is visible) — the
-## infamous stuck-on-the-login-page deadlock.
-func _dismiss_auth() -> void:
+func _on_guest_requested() -> void:
+        if _auth_done:
+                return
+        _auth_done = true
+        api_ref = RetrobloxApiScript.new(api_url)  # token-less: still fetches PUBLIC avatars
+        platform_user_id = ""
+        my_avatar = {}
+        player_name = "Guest-%04d" % randi_range(1000, 9999)
         if auth != null:
                 auth.visible = false
-                auth.queue_free()
-                auth = null
+        _begin_online()
 
-func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
+func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary, password: String = "") -> void:
         if _auth_done:
                 return
         _auth_done = true
@@ -242,13 +204,12 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         platform_user_id = user_id
         my_avatar = avatar if avatar is Dictionary else {}
         player_name = username if not username.is_empty() else player_name
-        # remember the account so the next launch signs in automatically
-        # (token first; username + password as the fallback when it expires)
         profile.set_value("platform", "token", api.token)
         profile.set_value("platform", "username", username)
-        profile.set_value("platform", "password", api.password)
+        # remembered so the login card comes up pre-filled — one click to play
+        if not password.is_empty():
+                profile.set_value("platform", "password", password)
         profile.save("user://profile.cfg")
-        _dismiss_auth()
         if hud != null:
                 hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
         _begin_online()
@@ -258,29 +219,10 @@ func _begin_online() -> void:
                 return
         if dedicated or force_host:
                 _start_server()
-        elif OS.has_feature("web"):
-                # The web build has no UDP sockets — LAN hosting/joining is
-                # impossible there. Skip straight to a solo world instead of
-                # looping create_server/create_client failures forever.
-                _begin_solo()
         elif not server_address.is_empty():
                 _connect_to(server_address)
         else:
                 _begin_discovery()
-
-## A one-player world with no ENet peer at all. Every RPC is guarded by
-## `solo` and respawn/chat/reset run locally — this is also the fallback
-## when LAN hosting and joining have both failed a few times.
-func _begin_solo() -> void:
-        _close_network()
-        solo = true
-        multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
-        server_mode = false
-        local_id = 1
-        phase = "playing"
-        phase_time = 0.0
-        _spawn_player(1, _clean_name(player_name, 1), arena.spawn_point(0), true, 0, platform_user_id)
-        _status("●  Solo world  /  " + room_name, true)
 
 # ---------------------------------------------------------------- input
 
@@ -319,13 +261,10 @@ func _input(event: InputEvent) -> void:
                 camera_yaw -= event.relative.x * 0.003 * mouse_sensitivity
                 camera_pitch = clampf(camera_pitch - event.relative.y * 0.003 * mouse_sensitivity, -1.2, 0.8)
         if event is InputEventMouseButton and event.pressed:
-                # classic zoom — wheel out to a bird's-eye view, wheel in all
-                # the way to first person (0.0). Steps grow with distance so
-                # very far zooms do not take forever.
                 if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-                        camera_distance = clampf(camera_distance - clampf(camera_distance * 0.14, 1.0, 9.0), 0.0, 120.0)
+                        camera_distance = clampf(camera_distance - 1.4, 0.5, 30.0)
                 elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-                        camera_distance = clampf(camera_distance + clampf(camera_distance * 0.14 + 0.8, 1.0, 9.0), 0.0, 120.0)
+                        camera_distance = clampf(camera_distance + 1.4, 0.5, 30.0)
 
 func _set_shiftlock(enabled: bool) -> void:
         shiftlock = enabled
@@ -363,11 +302,7 @@ func _process(delta: float) -> void:
         if phase == "connecting" and phase_time > 8.0:
                 _schedule_retry("Server did not answer. Retrying…")
         elif phase == "retry" and phase_time > 3.0:
-                if net_failures >= 3:
-                        # hosting + joining both keep failing — play solo instead
-                        # of looping errors forever
-                        _begin_solo()
-                elif server_address.is_empty():
+                if server_address.is_empty():
                         _begin_discovery()
                 else:
                         _connect_to(server_address)
@@ -376,7 +311,7 @@ func _process(delta: float) -> void:
                 if not server_mode and int(id) != local_id:
                         p.render_remote(delta)
                 p.update_visuals(delta)
-                if not server_mode and not solo and not p.alive:
+                if not server_mode and not p.alive:
                         p.respawn_left = maxf(p.respawn_left - delta, 0.0)
         if dedicated:
                 return
@@ -392,16 +327,13 @@ func _process(delta: float) -> void:
                 shoulder_blend = lerpf(shoulder_blend, shoulder_target, 1.0 - exp(-10.0 * delta))
                 # shift lock rests the camera on your right shoulder, classic style
                 var right := Vector3(cos(camera_yaw), 0.0, -sin(camera_yaw))
-                # while dying the camera rides down with your falling torso
-                var target: Vector3 = local.death_focus() if not local.alive \
-                        else local.global_position + Vector3(0, 4.3, 0) + right * shoulder_blend
+                var target: Vector3 = local.global_position + Vector3(0, 4.3, 0) + right * shoulder_blend
                 if not camera_initialized:
                         camera_pivot.global_position = target
                         camera_initialized = true
                 else:
                         camera_pivot.global_position = camera_pivot.global_position.lerp(target, 1.0 - exp(-18.0 * delta))
                 local.avatar.visible = local.alive and camera_distance >= 1.0
-                local.first_person = camera_distance < 1.0
                 hud.toast.text = "Rebuilding you… %.1f" % local.respawn_left if not local.alive else ""
                 hud.reset_button.disabled = not local.alive
         else:
@@ -421,8 +353,15 @@ func _physics_process(delta: float) -> void:
                 var direction := Vector2.ZERO
                 if not hud.input_busy():
                         direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-                        if Input.is_action_just_pressed("jump"):
-                                jump_serial += 1
+                if viewer_mode:
+                        # the avatar viewer: camera + shift lock are live, feet
+                        # planted. The first walk key / jump hands you the keys.
+                        camera_yaw += delta * 0.45
+                        if not hud.input_busy() and (direction != Vector2.ZERO or Input.is_action_just_pressed("jump")):
+                                _set_viewer(false)
+                        direction = Vector2.ZERO
+                elif not hud.input_busy() and Input.is_action_just_pressed("jump"):
+                        jump_serial += 1
                 sequence += 1
                 if server_mode:
                         _store_input(local_id, direction, camera_yaw, jump_serial, sequence, local.life_epoch, shiftlock)
@@ -432,8 +371,7 @@ func _physics_process(delta: float) -> void:
                         send_time += delta
                         if send_time >= 1.0 / 30.0:
                                 send_time = 0.0
-                                if not solo:  # solo: no one to send input to
-                                        _receive_input.rpc_id(1, direction, camera_yaw, jump_serial, sequence, local.life_epoch, shiftlock)
+                                _receive_input.rpc_id(1, direction, camera_yaw, jump_serial, sequence, local.life_epoch, shiftlock)
         if server_mode:
                 for id in players.keys():
                         var p = players[id]
@@ -464,17 +402,6 @@ func _physics_process(delta: float) -> void:
                                 rows.append([int(id), p.global_position, p.velocity, p.heading, p.grounded, p.life_epoch])
                         if not multiplayer.get_peers().is_empty():
                                 _snapshot.rpc(rows)
-        elif solo:
-                # no server: respawn, void-fall and death run locally
-                for id in players.keys():
-                        var p = players[id]
-                        if not p.alive:
-                                p.respawn_left -= delta
-                                if p.respawn_left <= 0.0:
-                                        var pos: Vector3 = arena.spawn_point(int(id) + p.life_epoch)
-                                        _life_event(int(id), true, pos, p.life_epoch + 1, 0)
-                        elif p.global_position.y < -18.0:
-                                _kill_player(int(id))
 
 # ---------------------------------------------------------------- discovery
 
@@ -537,16 +464,12 @@ func _start_server() -> void:
         var error := peer.create_server(port, max_players if dedicated else max_players - 1, 3)
         if error != OK:
                 peer = null
-                net_failures += 1
                 if dedicated or force_host:
                         push_error("Cannot listen on UDP %d (error %d). Is another server using it?" % [port, error])
                         _status("Could not host: UDP port is already in use.", false)
                         phase = "failed"
                         if dedicated:
                                 get_tree().quit(1)
-                elif OS.has_feature("web") or net_failures >= 2:
-                        # another instance won the race, or UDP is unavailable
-                        _begin_solo()
                 else:
                         # Another local instance may have won the auto-host race.
                         _connect_to("127.0.0.1")
@@ -574,7 +497,6 @@ func _connect_to(address: String) -> void:
         peer = ENetMultiplayerPeer.new()
         var error := peer.create_client(address, port, 3)
         if error != OK:
-                net_failures += 1
                 _schedule_retry("Could not reach the server. Retrying…")
                 return
         multiplayer.multiplayer_peer = peer
@@ -588,11 +510,10 @@ func _connected_to_server() -> void:
         _register_player.rpc_id(1, player_name, VERSION, platform_user_id)
 
 func _connection_failed() -> void:
-        net_failures += 1
         _schedule_retry("Server unavailable. Retrying in 3 seconds…")
 
 func _server_disconnected() -> void:
-        if quitting or solo:
+        if quitting:
                 return
         _system_notice("The host disconnected. Finding your way back…")
         _schedule_retry("Disconnected. Reconnecting…")
@@ -670,14 +591,14 @@ func _register_player(requested_name: String, version: String, user_id: String) 
                 if p.display_name == safe_name:
                         safe_name = safe_name.left(12) + "-%04d" % (id % 10000)
                         break
-        var spawn_pos: Vector3 = arena.spawn_point(players.size())
-        _spawn_player(id, safe_name, spawn_pos, true, 0, user_id)
+        var position: Vector3 = arena.spawn_point(players.size())
+        _spawn_player(id, safe_name, position, true, 0, user_id)
         var roster: Array = []
         for other_id in players:
                 var p = players[other_id]
                 roster.append([int(other_id), p.display_name, p.global_position, p.alive, p.life_epoch, p.platform_user_id])
         _roster.rpc_id(id, roster, room_name)
-        _spawn_player.rpc(id, safe_name, spawn_pos, true, 0, user_id)
+        _spawn_player.rpc(id, safe_name, position, true, 0, user_id)
         _system_notice(safe_name + " joined the game.")
         _system_notice.rpc(safe_name + " joined the game.")
         print("PLAYER_JOINED id=%d name=%s user=%s players=%d" % [id, safe_name, user_id, players.size()])
@@ -723,6 +644,10 @@ func _spawn_player(id: int, safe_name: String, pos: Vector3, live: bool, epoch: 
                         p.health_changed.connect(hud.set_health)
                         p.health_depleted.connect(_on_local_health_depleted)
                         hud.set_health(p.health, p.MAX_HEALTH)
+                if not dedicated and not _viewer_seen:
+                        # first spawn of the session — show the avatar off
+                        _viewer_seen = true
+                        _set_viewer(true)
         _update_roster()
         # fetch + paint the account avatar (async; guests keep noob colors)
         _dress_player(p)
@@ -810,10 +735,15 @@ func request_reset() -> void:
                 hud.set_menu(false)
         if phase != "playing" or not players.has(local_id):
                 return
-        if server_mode or solo:
+        if server_mode:
                 _kill_player(local_id)
         else:
                 _request_reset.rpc_id(1)
+
+func _set_viewer(on: bool) -> void:
+        viewer_mode = on
+        if hud != null:
+                hud.set_viewer_mode(on, player_name)
 
 @rpc("any_peer", "call_remote", "reliable", 0)
 func _request_reset() -> void:
@@ -828,8 +758,7 @@ func _kill_player(id: int) -> void:
         var seed_value: int = randi_range(1, 1000000)
         var pos: Vector3 = p.global_position
         _life_event(id, false, pos, epoch, seed_value)
-        if not solo:  # solo: no peers to broadcast the death to
-                _life_event.rpc(id, false, pos, epoch, seed_value)
+        _life_event.rpc(id, false, pos, epoch, seed_value)
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _life_event(id: int, live: bool, pos: Vector3, epoch: int, seed_value: int) -> void:
@@ -861,7 +790,7 @@ func send_chat(message: String) -> void:
         if phase != "playing" or not players.has(local_id):
                 _system_notice("You are not connected yet.")
                 return
-        if server_mode or solo:
+        if server_mode:
                 _accept_chat(local_id, message)
         else:
                 _request_chat.rpc_id(1, message)
@@ -891,8 +820,7 @@ func _accept_chat(id: int, message: String) -> void:
                 return
         p.chat_last = now
         _chat_event(id, p.display_name, clean)
-        if not solo:
-                _chat_event.rpc(id, p.display_name, clean)
+        _chat_event.rpc(id, p.display_name, clean)
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _chat_event(id: int, sender_name: String, message: String) -> void:
@@ -900,7 +828,8 @@ func _chat_event(id: int, sender_name: String, message: String) -> void:
         if hud != null:
                 hud.add_chat(sender_name, message)
         if players.has(id):
-                players[id].show_message(message)
+                # the bubble is a plain label — wear the FX in the log, not here
+                players[id].show_message(hud.strip_fx(message) if hud != null else message)
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _system_notice(message: String) -> void:
