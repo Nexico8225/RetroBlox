@@ -58,7 +58,8 @@ model User {
   tradesRecv     UgcTrade[]          @relation("tradesRecv")
   ugcTradeMsgs   UgcTradeMessage[]   @relation("ugcTradeMessages")
   notifications  Notification[]
-  rbxBalance    Int           @default(0) // server-side RBX wallet — only the ledger moves it
+  rbxBalance    Int           @default(0) // server-side Tix wallet — only the ledger moves it
+  robuxBalance  Int           @default(0) // server-side Robux wallet — the premium money (10 Tix traded for 1 Robux at the exchange)
   rbxTransactions RbxTransaction[]
   payments      Payment[]
 }
@@ -542,7 +543,8 @@ model RbxTransaction {
   userId                String
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount                Int // signed: positive = credit, negative = debit/reversal
-  type                  String // purchase | admin_grant | spend | refund | reversal
+  currency              String @default("tix") // tix | robux — which wallet this ledger row moved
+  type                  String // purchase | admin_grant | spend | refund | reversal | transfer_sent | transfer_received | exchange
   balanceBefore         Int
   balanceAfter          Int
   note                  String   @default("")
@@ -640,6 +642,7 @@ model UgcOffer {
   buyerId     String
   buyer       User       @relation("ugcOffers", fields: [buyerId], references: [id], onDelete: Cascade)
   amount      Int // offered Tix
+  robux       Int  @default(0) // offered Robux on top of (or instead of) the Tix
   offerItemIdsJson String @default("[]") // JSON array — UGC the buyer puts on the table alongside (or instead of) the Tix
   status      String     @default("pending") // pending | accepted | declined | cancelled
   createdAt   DateTime   @default(now())
@@ -670,6 +673,8 @@ model UgcTrade {
   takeItemIds String            @default("[]") // JSON array — items the sender wants FROM the recipient
   tixFrom     Int               @default(0) // Tix the sender adds on top
   tixTo       Int               @default(0) // Tix the recipient adds (set by countering)
+  robuxFrom   Int               @default(0) // Robux the sender adds on top (the premium money)
+  robuxTo     Int               @default(0) // Robux the recipient adds (set by countering)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   messages    UgcTradeMessage[]
