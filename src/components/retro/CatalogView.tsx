@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRetro, api, flash, refreshBalance, attachUpload } from '@/lib/store'
+import { tixFull } from '@/lib/tix'
 import { Avatar } from './Shell'
 import {
   UGC_TYPES,
@@ -183,6 +184,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   const { user, setToast } = useRetro()
   const [items, setItems] = useState<CatalogItem[]>([])
   const [ownedIds, setOwnedIds] = useState<string[]>([])
+  const [forSale, setForSale] = useState<Record<string, number>>({})
   const [type, setType] = useState(initialType)
   const [q, setQ] = useState(initialQ)
   const [onlyLimited, setOnlyLimited] = useState(false)
@@ -222,9 +224,10 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
       if (type) params.set('type', type)
       if (q.trim()) params.set('q', q.trim())
       if (onlyLimited) params.set('limited', '1')
-      const res = await api<{ items: CatalogItem[]; ownedItemIds: string[] }>(`/api/catalog?${params}`)
+      const res = await api<{ items: CatalogItem[]; ownedItemIds: string[]; forSale?: Record<string, number> }>(`/api/catalog?${params}`)
       setItems(res.items)
       setOwnedIds(res.ownedItemIds)
+      setForSale(res.forSale || {})
     } catch { /* ignore */ } finally {
       setLoading(false)
     }
@@ -431,6 +434,18 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       }}
                     >
                       ★ Limited
+                    </span>
+                  )}
+                  {(forSale[item.id] ?? null) !== null && (
+                    <span
+                      title={`A player is reselling a copy from ${tixFull(forSale[item.id])} on the resale market`}
+                      style={{
+                        position: 'absolute', top: 30, right: 6, fontSize: 9, fontWeight: 'bold', padding: '2px 7px',
+                        background: '#fffdf4', color: '#8a6d1a', border: '1px solid #e0c98a', borderRadius: 3,
+                        boxShadow: '1px 1px 3px rgba(0,0,0,.25)',
+                      }}
+                    >
+                      FOR SALE {tixFull(forSale[item.id])}
                     </span>
                   )}
                   {item.isLimited && item.remaining != null && (
