@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { notifyUser, ensureNotificationSchema } from '@/lib/notifications'
 
-const NUDGE_COOLDOWN_MS = 10 * 60 * 1000 // one nudge per 10 minutes per request
-
-// POST { action: "accept" | "decline" | "remove" | "cancel" | "nudge" }
+// POST { action: "accept" | "decline" | "remove" | "cancel" }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const me = await getUserFromReq(req)
@@ -25,54 +22,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Only the recipient can accept' }, { status: 403 })
     }
     await db.friendship.update({ where: { id }, data: { status: 'accepted' } })
-    await notifyUser(friendship.requesterId, {
-      type: 'friend_accepted',
-      title: `${me.username} accepted your friend request!`,
-      body: 'You can chat with each other now.',
-      linkUrl: `/chat/${me.id}`,
-      actorId: me.id,
-    })
+    // the bell rings for the requester: their request was accepted
+    try {
+      await db.notification.create({
+        data: {
+          userId: friendship.requesterId,
+          type: 'friend_accepted',
+          title: `${me.username} accepted your friend request`,
+          body: 'You are friends now!',
+          link: `/users/${me.id}`,
+        },
+      })
+    } catch { /* never block a friend action on the bell */ }
     return NextResponse.json({ ok: true })
   }
 
   if (action === 'decline' || action === 'remove' || action === 'cancel') {
     await db.friendship.delete({ where: { id } })
     return NextResponse.json({ ok: true })
-  }
-
-  // NUDGE — the sender of a still-pending request taps the other player
-  // on the shoulder ("accept my request!"). Rate-limited so it stays a
-  // friendly poke, not spam: one nudge per 10 minutes per friendship.
-  if (action === 'nudge') {
-    if (friendship.requesterId !== me.id) {
-      return NextResponse.json({ error: 'Only the sender can nudge a request.' }, { status: 403 })
-    }
-    if (friendship.status !== 'pending') {
-      return NextResponse.json({ error: 'That request is not pending anymore.' }, { status: 400 })
-    }
-    await ensureNotificationSchema()
-    const last = await db.notification.findFirst({
-      where: { type: 'nudge', actorId: me.id, userId: friendship.addresseeId },
-      orderBy: { createdAt: 'desc' },
-    })
-    if (last) {
-      const waited = Date.now() - new Date(last.createdAt).getTime()
-      if (waited < NUDGE_COOLDOWN_MS) {
-        const mins = Math.max(1, Math.ceil((NUDGE_COOLDOWN_MS - waited) / 60000))
-        return NextResponse.json(
-          { error: `You already nudged them — try again in ${mins} minute${mins === 1 ? '' : 's'}.` },
-          { status: 429 },
-        )
-      }
-    }
-    await notifyUser(friendship.addresseeId, {
-      type: 'nudge',
-      title: `${me.username} is waiting for your reply!`,
-      body: 'They sent you a friend request. Open Friends to accept or decline it.',
-      linkUrl: '/friends',
-      actorId: me.id,
-    })
-    return NextResponse.json({ ok: true, nudged: true })
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
