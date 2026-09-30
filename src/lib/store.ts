@@ -6,6 +6,7 @@ import { saveSessionToken, clearSessionToken, getStoredToken } from '@/lib/sessi
 export interface RetroUser {
   id: string
   username: string
+  playerNo?: number
   avatarUrl: string | null
   role: string
   gender: string | null
@@ -14,7 +15,6 @@ export interface RetroUser {
   lastSeen: string
   online: boolean
   rbxBalance?: number
-  robuxBalance?: number
 }
 
 interface RetroState {
@@ -56,9 +56,9 @@ export function flash(setToast: (t: string | null) => void, msg: string, ms = 26
 /** Re-pull the wallet balance into the header chip (after buys, grants, payments). */
 export async function refreshBalance() {
   try {
-    const res = await api<{ user: { rbxBalance?: number; robuxBalance?: number } | null }>('/api/me')
+    const res = await api<{ user: { rbxBalance?: number } | null }>('/api/me')
     const u = useRetro.getState().user
-    if (u && res.user) useRetro.getState().setUser({ ...u, rbxBalance: res.user.rbxBalance ?? 0, robuxBalance: res.user.robuxBalance ?? 0 })
+    if (u && res.user) useRetro.getState().setUser({ ...u, rbxBalance: res.user.rbxBalance ?? 0 })
   } catch { /* ignore */ }
 }
 
