@@ -42,8 +42,6 @@ model User {
   followsRecv   Follow[]     @relation("following")
   chatsSent     ChatMessage[] @relation("chatSender")
   chatsRecv     ChatMessage[] @relation("chatRecipient")
-  notifications      Notification[] @relation("notificationOwner")
-  triggeredNotifs    Notification[] @relation("notificationActor")
   videos        Video[]
   videoComments VideoComment[]
   createdSubs   Sub[]
@@ -51,6 +49,15 @@ model User {
   avatarConfig  AvatarConfig?
   inventory     InventoryEntry[]
   ugcItems      AvatarItem[]
+  // ---- UGC market & trades ----
+  ugcListings    UgcListing[]        @relation("ugcListings") // copies this user put up for sale
+  ugcListingsBought UgcListing[]     @relation("ugcListingsBought") // listings this user bought
+  ugcOffers      UgcOffer[]          @relation("ugcOffers") // offers this user sent on listings
+  ugcListingMsgs UgcListingMessage[] @relation("ugcListingMessages") // haggle chat on listings
+  tradesSent     UgcTrade[]          @relation("tradesSent")
+  tradesRecv     UgcTrade[]          @relation("tradesRecv")
+  ugcTradeMsgs   UgcTradeMessage[]   @relation("ugcTradeMessages")
+  notifications  Notification[]
   rbxBalance    Int           @default(0) // server-side RBX wallet — only the ledger moves it
   rbxTransactions RbxTransaction[]
   payments      Payment[]
@@ -188,27 +195,6 @@ model ChatMessage {
   fileName    String?
   readAt      DateTime?
   createdAt   DateTime  @default(now())
-}
-
-// ---------------- Notifications (bell icon) ----------------
-// Player events land here: a new member joined RetroBlox, someone sent you
-// a friend request, someone accepted yours. "actor" = who caused it.
-
-model Notification {
-  id        String    @id @default(cuid())
-  userId    String // recipient
-  user      User      @relation("notificationOwner", fields: [userId], references: [id], onDelete: Cascade)
-  actorId   String? // who triggered it (null = system)
-  actor     User?     @relation("notificationActor", fields: [actorId], references: [id], onDelete: Cascade)
-  type      String // new_player | friend_request | friend_accepted
-  title     String
-  body      String    @default("")
-  linkUrl   String? // where clicking goes (/users/x, /friends...)
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId, readAt])
-  @@index([actorId])
 }
 
 // ---------------- Groups (classic Roblox-style communities) ----------------
@@ -511,6 +497,8 @@ model AvatarItem {
   createdAt   DateTime @default(now())
   deletedAt   DateTime? // soft delete — UGC is NEVER hard-deleted, an admin can always restore it
   ownedBy     InventoryEntry[]
+  listings    UgcListing[] // active resale listings for this item
+  pricePoints UgcPricePoint[] // every real sale — powers the market history graph
 }
 
 // Who owns which UGC item (publishers get their item automatically; "Get" grants it too)
@@ -520,6 +508,10 @@ model InventoryEntry {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   itemId     String
   item       AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  // LIMITED copies only: the copy's serial number (copy #3 of a 25-print run
+  // carries serial 3 forever — trading or reselling moves the SAME serial).
+  // null = the creator's own master copy or a non-limited item.
+  serial     Int?
   acquiredAt DateTime   @default(now())
 
   @@unique([userId, itemId])
@@ -607,4 +599,118 @@ model GameData {
   updatedAt DateTime @updatedAt
 
   @@unique([gameId, userId, key])
+}
+
+// ================= UGC MARKET & TRADES (player-to-player economy) =================
+// The classic limited resale loop: buy a limited from its creator, then resell
+// it (or trade it) to other players. The suggested resale value is 1.5x what
+// you paid — buyers haggle in the listing chat, send offers, or trade.
+
+// A player puts one of their UGC copies up for Tix. One ACTIVE listing per
+// (seller, item) — the copy is spoken for until it sells or is cancelled.
+model UgcListing {
+  id        String     @id @default(cuid())
+  itemId    String
+  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  sellerId  String
+  seller    User       @relation("ugcListings", fields: [sellerId], references: [id], onDelete: Cascade)
+  price     Int // asking price in Tix — the seller can lower it while haggling
+  status    String     @default("active") // active | sold | cancelled
+  buyerId   String?
+  buyer     User?      @relation("ugcListingsBought", fields: [buyerId], references: [id], onDelete: SetNull)
+  soldPrice Int? // final amount paid (the asking price, or an accepted offer)
+  soldAt    DateTime?
+  createdAt DateTime   @default(now())
+  offers    UgcOffer[]
+  messages  UgcListingMessage[]
+
+  @@index([itemId, status])
+  @@index([sellerId, status])
+}
+
+// A buyer sends some Tix on a listing — the seller then takes a guess to keep
+// the item or hand it over: accept (they get the Tix, the buyer gets the UGC)
+// or decline. Exactly the "it depends if they want" step.
+model UgcOffer {
+  id          String     @id @default(cuid())
+  listingId   String
+  listing     UgcListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId     String
+  buyer       User       @relation("ugcOffers", fields: [buyerId], references: [id], onDelete: Cascade)
+  amount      Int // offered Tix
+  status      String     @default("pending") // pending | accepted | declined | cancelled
+  createdAt   DateTime   @default(now())
+  respondedAt DateTime?
+}
+
+// Haggle chat on a listing — this is where the price gets talked down.
+model UgcListingMessage {
+  id        String     @id @default(cuid())
+  listingId String
+  listing   UgcListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User       @relation("ugcListingMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime   @default(now())
+}
+
+// Direct player-to-player trade: items (+ optional Tix both ways) for items.
+// Both sides confirm by accepting; either side can counter before that.
+model UgcTrade {
+  id          String            @id @default(cuid())
+  fromUserId  String
+  fromUser    User              @relation("tradesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId    String
+  toUser      User              @relation("tradesRecv", fields: [toUserId], references: [id], onDelete: Cascade)
+  status      String            @default("pending") // pending | accepted | declined | cancelled
+  giveItemIds String            @default("[]") // JSON array — items the SENDER hands over
+  takeItemIds String            @default("[]") // JSON array — items the sender wants FROM the recipient
+  tixFrom     Int               @default(0) // Tix the sender adds on top
+  tixTo       Int               @default(0) // Tix the recipient adds (set by countering)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  messages    UgcTradeMessage[]
+}
+
+// Negotiation chat inside a trade ("throw in the Dominus and it's a deal").
+model UgcTradeMessage {
+  id        String   @id @default(cuid())
+  tradeId   String
+  trade     UgcTrade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation("ugcTradeMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+}
+
+// Site-wide notifications: trade offers, listing offers, sales, friend
+// requests — the bell in the header. Everyone sees who wants to trade.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // trade_offer | trade_message | trade_accepted | trade_declined | trade_cancelled | friend_request | friend_accepted | listing_offer | listing_sold | offer_accepted | offer_declined
+  title     String
+  body      String    @default("")
+  link      String    @default("") // where the click sends the player (/trades, /catalog/x, ...)
+  dataJson  String    @default("{}")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+// Every REAL sale of a UGC item — creator sale (mint), player resale, or an
+// accepted listing offer. This is the market history the item page graphs.
+model UgcPricePoint {
+  id        String     @id @default(cuid())
+  itemId    String
+  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  price     Int
+  kind      String // mint | resale | trade
+  buyerId   String
+  sellerId  String?
+  createdAt DateTime   @default(now())
+
+  @@index([itemId, createdAt])
 }
