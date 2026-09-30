@@ -34,6 +34,10 @@ export const FX_LIST: FxDef[] = [
   { tag: 'flip', label: 'Flip', cls: 'fx-flip', hint: 'flips upside down', group: 'fx' },
   { tag: 'ghost', label: 'Ghost', cls: 'fx-ghost', hint: 'fades in and out', group: 'fx' },
   { tag: 'tilt', label: 'Tilt', cls: 'fx-tilt', hint: 'tips side to side', group: 'fx' },
+  { tag: 'spin', label: 'Spin', cls: 'fx-spin', hint: 'letters twirl around', perLetter: true, group: 'fx' },
+  { tag: 'flash', label: 'Flash', cls: 'fx-flash', hint: 'blinks on and off', group: 'fx' },
+  { tag: 'shadow', label: '3D', cls: 'fx-shadow', hint: 'hard 3D block shadow', group: 'fx' },
+  { tag: 'orbit', label: 'Orbit', cls: 'fx-orbit', hint: 'letters circle their spot', perLetter: true, group: 'fx' },
   { tag: 'big', label: 'Big', cls: 'fx-big', hint: 'jumbo size', group: 'fx' },
   { tag: 'red', label: 'Red', cls: 'fx-red', hint: 'red text', group: 'color' },
   { tag: 'blue', label: 'Blue', cls: 'fx-blue', hint: 'blue text', group: 'color' },
@@ -250,6 +254,34 @@ export function FxIcon({ tag, size = 13 }: { tag: string; size?: number }) {
         <svg {...p}>
           <path d="M4 12.5L8 3.5l4 9" fill="none" stroke="#ef6c00" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M2.5 14.5h11" stroke="#ffb74d" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      )
+    case 'spin':
+      return (
+        <svg {...p}>
+          <text x="8" y="11.5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#0d69ac" transform="rotate(28 8 8)">S</text>
+          <path d="M13.5 3.2a6.5 6.5 0 0 1 0 9.6" fill="none" stroke="#8fc5e8" strokeWidth="1.4" strokeLinecap="round" strokeDasharray="2.2 1.8" />
+        </svg>
+      )
+    case 'flash':
+      return (
+        <svg {...p}>
+          <path d="M9 1.5L4.5 9h3l-1.2 5.5L11 7H8z" fill="#fdd835" stroke="#e6a817" strokeWidth="0.8" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'shadow':
+      return (
+        <svg {...p}>
+          <rect x="6.2" y="6.2" width="7" height="7" rx="1" fill="#2b3945" />
+          <rect x="3.5" y="3.5" width="7" height="7" rx="1" fill="#7cbde0" stroke="#0d69ac" strokeWidth="1" />
+        </svg>
+      )
+    case 'orbit':
+      return (
+        <svg {...p}>
+          <circle cx="8" cy="8" r="2" fill="#0d69ac" />
+          <ellipse cx="8" cy="8" rx="6" ry="2.6" fill="none" stroke="#8fc5e8" strokeWidth="1.3" transform="rotate(-24 8 8)" />
+          <circle cx="13.4" cy="5.6" r="1.5" fill="#ef6c00" />
         </svg>
       )
     case 'big':
