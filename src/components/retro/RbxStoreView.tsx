@@ -59,12 +59,6 @@ export function RbxStoreView() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
 
-  // currency exchange state
-  const [exAmount, setExAmount] = useState('')
-  const [exDirection, setExDirection] = useState<'tix_to_robux' | 'robux_to_tix'>('tix_to_robux')
-  const [exBusy, setExBusy] = useState(false)
-  const [exError, setExError] = useState('')
-
   const load = useCallback(async () => {
     try {
       const [pkgs, tx] = await Promise.all([
@@ -133,35 +127,8 @@ export function RbxStoreView() {
   }
 
   const balance = user?.rbxBalance ?? 0
-  const robuxBalance = user?.robuxBalance ?? 0
   // the biggest Tix-per-cent wins the classic "BEST VALUE" starburst
   const bestRatio = packages.length ? Math.max(...packages.map((p) => p.rbxAmount / Math.max(p.priceCents, 1))) : 0
-
-  async function exchange() {
-    setExError('')
-    const amount = Math.floor(Number(exAmount))
-    if (!Number.isFinite(amount) || amount < 1) {
-      setExError('Enter an amount of at least 1.')
-      return
-    }
-    const label = exDirection === 'tix_to_robux' ? 'Tix' : 'Robux'
-    if (!window.confirm(`Exchange ${amount.toLocaleString('en-US')} ${label} at the desk?`)) return
-    setExBusy(true)
-    try {
-      const res = await api<{ message: string; balanceAfter: number; robuxAfter: number }>('/api/rbx/balance', {
-        method: 'POST',
-        body: JSON.stringify({ direction: exDirection, amount }),
-      })
-      flash(setToast, res.message, 3200)
-      setExAmount('')
-      if (user) setUser({ ...user, rbxBalance: res.balanceAfter, robuxBalance: res.robuxAfter })
-      load()
-    } catch (e) {
-      setExError(e instanceof Error ? e.message : 'The exchange desk is closed — try again.')
-    } finally {
-      setExBusy(false)
-    }
-  }
 
   return (
     <div>
@@ -200,13 +167,6 @@ export function RbxStoreView() {
               <div style={{ fontSize: 10, color: '#7a611a' }}>Your balance</div>
               <div style={{ fontSize: 20, color: '#5d4a0a', fontFamily: 'monospace', fontWeight: 'bold' }}>
                 {tixFull(balance)} Tix
-              </div>
-            </div>
-            <div style={{ width: 1, alignSelf: 'stretch', background: '#d8c98a' }} />
-            <div>
-              <div style={{ fontSize: 10, color: '#3c5a74' }}>Your Robux</div>
-              <div style={{ fontSize: 20, color: '#1c4e7c', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                {tixFull(robuxBalance)} R$
               </div>
             </div>
           </div>
@@ -356,65 +316,6 @@ export function RbxStoreView() {
           {!user && (
             <div style={{ marginTop: 8, fontSize: 11, color: '#7b8896' }}>Log in to send Tix.</div>
           )}
-        </div>
-      </div>
-
-      {/* the currency exchange desk — Tix ↔ Robux, like the old Trade Currency window */}
-      <div className="rb-box" style={{ marginBottom: 12 }} id="exchange">
-        <div className="rb-panel-head"><span>Currency Exchange</span></div>
-        <div style={{ padding: 14 }}>
-          <div style={{ fontSize: 11, color: '#41586c', marginBottom: 10 }}>
-            The old-school desk: <b>T$ 10 buys R$ 1</b>, and the reverse desk pays <b>T$ 9 per R$ 1</b>.
-            Robux is the premium money — traders love it in offers, and every trade window takes it.
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 190 }}>
-              <label style={{ fontSize: 10, color: '#5a6b7b' }} htmlFor="ex-direction">Direction</label>
-              <select
-                id="ex-direction"
-                className="rb-input"
-                value={exDirection}
-                onChange={(e) => setExDirection(e.target.value as typeof exDirection)}
-                style={{ height: 32 }}
-              >
-                <option value="tix_to_robux">Tix → Robux (10:1)</option>
-                <option value="robux_to_tix">Robux → Tix (1:9)</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 150 }}>
-              <label style={{ fontSize: 10, color: '#5a6b7b' }} htmlFor="ex-amount">
-                Amount ({exDirection === 'tix_to_robux' ? 'Tix' : 'Robux'})
-              </label>
-              <input
-                id="ex-amount"
-                className="rb-input"
-                placeholder={exDirection === 'tix_to_robux' ? 'e.g. 500 → R$ 50' : 'e.g. 50 → T$ 450'}
-                inputMode="numeric"
-                value={exAmount}
-                onChange={(e) => setExAmount(e.target.value.replace(/[^0-9]/g, ''))}
-              />
-            </div>
-            <button
-              className="rb-btn rb-btn-blue"
-              style={{ fontSize: 12, padding: '8px 18px', height: 32 }}
-              disabled={exBusy || !user}
-              onClick={exchange}
-            >
-              {exBusy ? 'Exchanging...' : 'Exchange at the desk'}
-            </button>
-          </div>
-          {exDirection === 'tix_to_robux' && exAmount && Number(exAmount) >= 10 && (
-            <div style={{ marginTop: 7, fontSize: 11, color: '#2c6e31' }}>
-              You get <b>R$ {Math.floor(Number(exAmount) / 10).toLocaleString('en-US')}</b> for T$ {(Math.floor(Number(exAmount) / 10) * 10).toLocaleString('en-US')}.
-            </div>
-          )}
-          {exDirection === 'robux_to_tix' && exAmount && Number(exAmount) >= 1 && (
-            <div style={{ marginTop: 7, fontSize: 11, color: '#2c6e31' }}>
-              You get <b>T$ {(Number(exAmount) * 9).toLocaleString('en-US')}</b> for R$ {Number(exAmount).toLocaleString('en-US')}.
-            </div>
-          )}
-          {exError && <div style={{ marginTop: 8, fontSize: 11, color: '#a81a13' }}>{exError}</div>}
-          {!user && <div style={{ marginTop: 8, fontSize: 11, color: '#7b8896' }}>Log in to use the exchange.</div>}
         </div>
       </div>
 
