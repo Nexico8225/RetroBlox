@@ -23,37 +23,31 @@ press **F5**. No plugins, no external assets.
 
 The game opens on the login card:
 
-- **Log In** — your existing RetroBlox account. Your account avatar (body
-  colors, shirt, pants, face, 3D UGC) loads from the website.
-- **Sign Up** — create a brand-new account WITHOUT leaving the game.
-- **Play as Guest** — no account; classic noob colors, "Guest-1234" name.
+- **Log In** — your RetroBlox account. Your account avatar (body colors,
+  shirt, pants, face, 3D UGC) loads from the website.
+- **Sign-in only** — accounts are created on the website
+  (https://retro-blox.vercel.app), then you sign in here. The website URL
+  on the card is locked to the official server and cannot be changed.
 
-The game remembers you — the next launch signs you in automatically.
+The game remembers you — the card comes up pre-filled, one click to play.
 
 | Action | Control |
 |---|---|
 | Move | WASD or arrow keys |
 | Jump | Space |
 | Orbit the camera | Hold right mouse button and drag |
-| Zoom / first person | Mouse wheel — out to a sky view, all the way in for first person |
+| Zoom / first person | Mouse wheel |
 | **Shift Lock** | Shift (or toggle it in the Esc menu) |
 | Chat | **/** (already in typing mode) or Enter, then Enter to send |
 | Menu / close chat focus | Esc |
 
-**Stairs**: just walk into them — collide + press W and you step straight
-up onto the step (anything up to 3 studs tall). **Ladders (trusses)**: face
-the truss and hold **W** to latch on, W/S to climb up/down, **Space** to
-jump off, and looking back with Shift Lock lets go. The Climb animation
-only plays while you are actually moving.
-
 Internet play: run a build with `-- --server` on a machine with a public IP,
 open **UDP 42420** (+42421 for LAN discovery), and set
 `server="YOUR_SERVER_IP"` in the `network.cfg` beside the players' builds.
-Point the login card at any RetroBlox site with `-- --api=https://your-site`.
 
 ### The avatar uses the real catalog model (R6IK)
 
-In-game players wear **`assets/models/R6IK_rig.scn`** (built from the catalog `R6IK.fbx`, kept un-imported in `assets/models/source/`) — the exact rig the
+In-game players wear **`assets/models/R6IK.fbx`** — the exact rig the
 website's catalog and avatar editor render — normalized to the game's
 capsule, with limbs swinging from shoulder/hip pivots and arms-up jumps,
 like the site's playground. If the FBX has not been imported yet (a
@@ -80,15 +74,12 @@ filmic tonemapping.
 ### Troubleshooting sign-in
 
 - **"Incorrect username or password"** — accounts are shared with the
-  website, so the same name + password work. No account yet? Use the
-  **Sign Up** tab right on the card.
-- **"Could not reach …"** — the Server field on the card should read
-  `https://retro-blox.vercel.app` (that is the default). If you edited it,
-  clear it and press Log In again — the empty field falls back to the
-  official site.
-- **Signing in works but the error comes back** — delete
-  `user://profile.cfg` (Godot's *Project → Open User Data Folder*) to
-  clear a stale saved token, then sign in again.
+  website, so the same name + password work. No account yet? Create one
+  free on https://retro-blox.vercel.app, then sign in here.
+- **"Could not reach …"** — check your internet first. The card always
+  talks to `https://retro-blox.vercel.app` (the locked official server).
+- **Signed in but the world stays behind the card?** Fixed in this build —
+  if you still see it, re-download this zip and try again.
 - **Still stuck on an older kit?** Re-download this zip — versions before
   September 27, 2026 defaulted the Server field to `localhost:3000`, which
   always fails. This build defaults to the official site.
@@ -105,7 +96,7 @@ code:
 |---|---|
 | `scenes/avatar.tscn` | The six-part block avatar (head/torso/arms/legs + nameplate + face). Paintable, textureable, animatable. |
 | `scenes/player.tscn` | CharacterBody3D with capsule, avatar and chat bubble — drop it in your world and call `initialize()`. |
-| `scenes/auth_screen.tscn` | The account gate: log in / sign up / guest, saved-token auto sign-in. |
+| `scenes/auth_screen.tscn` | The account gate: log in only (accounts are made on the website). |
 | `scenes/hud.tscn` | Chat, roster, status line, Esc menu with settings. |
 | `main.tscn` | The demo game: arena + player spawns + camera rig + HUD + auth. Use it as a reference or a starting world. |
 
@@ -120,17 +111,12 @@ extends Node3D
 func _ready() -> void:
         var auth := $AuthScreen
         auth.completed.connect(_on_signed_in)
-        auth.guest_requested.connect(_on_guest)
-        auth.set_api_url("https://your-retroblox-site.example")  # or leave default
 
 func _on_signed_in(_api, username: String, _user_id: String, _avatar: Dictionary) -> void:
-        _spawn_player(username)
-
-func _on_guest() -> void:
-        _spawn_player("Guest-%04d" % (randi() % 10000))
+        $AuthScreen.visible = false     # ALWAYS put the card away first —
+        _spawn_player(username)         # the game waits while it is visible
 
 func _spawn_player(player_name: String) -> void:
-        $AuthScreen.visible = false
         var player := preload("res://scenes/player.tscn").instantiate()
         add_child(player)                      # add to the tree FIRST
         player.initialize(1, player_name)      # then configure
