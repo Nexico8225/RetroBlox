@@ -1699,13 +1699,10 @@ body.rb-konami .rb-header-inner::after {
 .fx-pink { color: #ec407a; }
 .fx-purple { color: #9c27b0; }
 
-/* respect users who turn animations off */
-@media (prefers-reduced-motion: reduce) {
-  .fx,
-  .fx-char {
-    animation: none !important;
-  }
-}
+/* NOTE: the old "prefers-reduced-motion kills .fx" rule is GONE on purpose —
+   it silently disabled shake/wiggle/whirly for anyone whose OS turns
+   animations off, which read as "the text FX are broken". The FX are the
+   product here: they always animate. */
 
 /* ============================================================
    FX toolbar — the little bar under text editors. Popover menu
