@@ -46,9 +46,8 @@ func _run_all() -> void:
         check(avatar._part_sizes.size() == 6, "avatar collected 6 part sizes")
         if avatar.is_r6ik():
                 var head_size: Vector3 = avatar._part_sizes[0]
-                # the rig is built at STUD scale (5 studs tall = 5 units), so the
-                # classic 1.2-stud ball head lands just over 1.1 units wide
-                check(head_size.x > 1.0 and head_size.x < 1.4, "R6IK head normalized to stud scale")
+                # classic proportions: head ~1.17 wide, torso exactly 2x2x1 studs (x0.975)
+                check(head_size.x > 1.1 and head_size.x < 1.25, "R6IK head normalized to classic scale")
                 check(avatar.get_node_or_null("R6IKModel") != null, "R6IK model mounted")
                 check(avatar.get_node("HeadPivot").visible == false, "box fallback hidden in R6IK mode")
         else:
@@ -94,22 +93,20 @@ func _run_all() -> void:
         root.add_child(hud)
         check(hud.get_node_or_null("%ChatLog") != null, "hud scene has ChatLog")
         check(hud.get_node_or_null("%Menu") != null, "hud scene has Menu")
-        # NOTE: the toolbar buttons are REPARENTED into the classic toolbar at
-        # _ready — %UniqueName lookups break across reparenting, so the test
-        # goes through the @onready vars (the same thing the game code uses).
-        check(hud.chat_button != null, "hud scene has ChatButton")
-        check(hud.people_button != null, "hud scene has PeopleButton")
+        check(hud.get_node_or_null("%ChatButton") != null, "hud scene has ChatButton")
+        check(hud.get_node_or_null("%PeopleButton") != null, "hud scene has PeopleButton")
         check(hud.chat_panel.visible == false, "chat panel starts hidden")
         check(hud.roster_panel.visible == false, "roster panel starts hidden")
         hud.add_chat("Ann", "hello")
-        check(hud.chat_log.text.contains("Ann: hello"), "hud add_chat renders")
-        # the badge is the button's TEXT (an unread count over the icon)
+        # the log carries BBCode now (Text FX) — the words are what matters
+        check(hud.chat_log.text.contains("Ann:") and hud.chat_log.text.contains("hello"), "hud add_chat renders")
         check(hud.chat_button.text == "1", "unread badge counts hidden chat")
         hud.toggle_chat(true)
         check(hud.chat_panel.visible and hud.chat_open, "chat button opens the panel")
         check(hud.chat_button.text == "", "opening chat clears the badge")
         hud.toggle_chat(false)
-        check(not hud.chat_panel.visible and not hud.chat_open, "chat button closes the panel")
+        # the panel fades out — the flag flips now, visibility follows the tween
+        check(not hud.chat_open and bool(hud.chat_panel.get_meta("closing", false)), "chat button closes the panel (fade)")
         hud.toggle_people(true)
         check(hud.roster_panel.visible, "people button shows the roster")
         hud.update_roster([{"id": 1, "name": "Ann"}], 1)
@@ -133,10 +130,9 @@ func _run_all() -> void:
         root.add_child(main)
         check(main.arena != null, "main @onready wired arena")
         check(main.spring_arm != null, "main @onready wired spring arm")
-        # the zoom rework: the camera lerps to camera_distance (classic 14.5
-        # stud default, 0..120 range) — the scene's static spring_length is
-        # never used directly anymore
-        check(is_equal_approx(main.camera_distance, 14.5), "classic default camera distance")
+        # main._process eases the arm toward the classic 14.5-stud zoom
+        check(main.camera_distance == 14.5, "classic default camera zoom is 14.5 studs")
+        check(main.spring_arm.spring_length >= 8.5 and main.spring_arm.spring_length <= 14.6, "spring arm eases from scene default toward 14.5")
         main.queue_free()
 
         # --- api class: pure logic paths ---
