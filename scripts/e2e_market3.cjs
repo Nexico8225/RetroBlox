@@ -78,17 +78,11 @@ async function main() {
   execSync(py(eva.id, 100000, 40))
   execSync(py(fin.id, 100000, 40))
 
-  // ---- the exchange desk ----
-  let r = await api('/api/rbx/balance', { method: 'POST', token: eva.token, body: { direction: 'tix_to_robux', amount: 500 } })
-  ok('eva exchanges 500 Tix -> R$ 50 at 10:1', r.status === 200 && r.data.robuxAfter === 90, JSON.stringify(r.data.message || r.data.error))
-  r = await api('/api/rbx/balance', { method: 'POST', token: eva.token, body: { direction: 'tix_to_robux', amount: 5 } })
-  ok('a too-small exchange is bounced', r.status === 400, r.data.error)
-  r = await api('/api/rbx/balance', { method: 'POST', token: eva.token, body: { direction: 'robux_to_tix', amount: 10 } })
-  ok('eva flips 10 Robux back -> 90 Tix at 1:9', r.status === 200 && r.data.balanceAfter === 99590, JSON.stringify(r.data.message || r.data.error))
-  r = await api('/api/rbx/balance', { method: 'POST', token: eva.token, body: { direction: 'sideways', amount: 10 } })
-  ok('nonsense direction rejected', r.status === 400)
-  const evaBal1 = (await api('/api/me', { token: eva.token })).data.user
-  ok('/api/me now returns robuxBalance', typeof evaBal1.robuxBalance === 'number', `robux=${evaBal1.robuxBalance} tix=${evaBal1.rbxBalance}`)
+  // ---- the exchange desk is GONE (Robux removed from the economy) ----
+  r = await api('/api/rbx/balance', { method: 'POST', token: eva.token, body: { direction: 'tix_to_robux', amount: 500 } })
+  ok('the exchange desk is closed for good (410)', r.status === 410, String(r.status))
+  evaBal1 = (await api('/api/me', { token: eva.token })).data.user
+  ok('wallets are Tix-only now (robuxBalance retired from /api/me)', typeof evaBal1.robuxBalance === 'undefined', `robux=${evaBal1.robuxBalance}`)
 
   // ---- the item everyone wants ----
   const crown = await publishItem(dex, `Rex Crown ${s}`, 1000, true)
@@ -98,13 +92,13 @@ async function main() {
   // ---- a trade carrying ROBUX: fin offers his hat + 2000 Tix + 5 R$ ----
   const finHat = await publishItem(fin, `Fins Fedora ${s}`, 60, false)
   r = await api('/api/trades', { method: 'POST', token: fin.token, body: { toUserId: eva.id, giveItemIds: [finHat.id], takeItemIds: [crown.id], tix: 2000, robux: 5, message: 'crown for the fedora + [shake]serious[/shake] money' } })
-  ok('fin offers hat + T$ 2000 + R$ 5 for the crown', r.status === 200, r.data.message || r.data.error)
+  ok('fin offers hat + T$ 2000 for the crown', r.status === 200, r.data.message || r.data.error)
   const tradeId = r.data.tradeId
 
   // the trade room API exposes both currencies + the chat
   let room = await api(`/api/trades/${tradeId}`, { token: fin.token })
   ok('trade room GET works for a party', room.status === 200)
-  ok('the room shows robuxFrom=5 / robuxTo=0', room.data.trade?.robuxFrom === 5 && room.data.trade?.robuxTo === 0, JSON.stringify({ from: room.data.trade?.robuxFrom, to: room.data.trade?.robuxTo }))
+  ok('the room carries tix terms (robux fields retired)', typeof room.data.trade?.robuxFrom === 'undefined', JSON.stringify({ tixFrom: room.data.trade?.tixFrom }))
   ok('the room carries the chat with FX markup intact', (room.data.messages || []).some((m) => m.text?.includes('[shake]')))
   const stranger = await api(`/api/trades/${tradeId}`, { token: eva.token === fin.token ? dex.token : (await signup(`m3_${s}_z`)).token })
   ok('a stranger cannot open the trade room', stranger.status === 403)
@@ -117,17 +111,17 @@ async function main() {
   // eva counters with robux both ways — the counter keeps the ORIGINAL item
   // directions (fin still gives the fedora, eva still gives the crown), so
   // she moves the MONEY to her side: tixTo/robuxTo are what EVA adds
-  r = await api(`/api/trades/${tradeId}`, { method: 'POST', token: eva.token, body: { action: 'counter', giveItemIds: [finHat.id], takeItemIds: [crown.id], tixFrom: 0, tixTo: 3000, robuxFrom: 0, robuxTo: 2 } })
-  ok('eva counters: crown for fedora + T$ 3000 + R$ 2 to fin', r.status === 200, JSON.stringify(r.data))
+  r = await api(`/api/trades/${tradeId}`, { method: 'POST', token: eva.token, body: { action: 'counter', giveItemIds: [finHat.id], takeItemIds: [crown.id], tixFrom: 0, tixTo: 3000 } })
+  ok('eva counters: crown for fedora + T$ 3000 to fin', r.status === 200, JSON.stringify(r.data))
   room = await api(`/api/trades/${tradeId}`, { token: eva.token })
-  ok('the counter stored both robux terms', room.data.trade?.robuxTo === 2 && room.data.trade?.robuxFrom === 0)
+  ok('the counter stored the tix terms', room.data.trade?.tixTo === 3000, `tixTo=${room.data.trade?.tixTo}`)
   r = await api(`/api/trades/${tradeId}`, { method: 'POST', token: fin.token, body: { action: 'accept' } })
   ok('fin accepts the countered trade', r.status === 200, r.data.message || r.data.error)
 
   const finAfter = (await api('/api/me', { token: fin.token })).data.user
   const evaAfter = (await api('/api/me', { token: eva.token })).data.user
-  ok('fin wallet: 100000 + 3000 Tix and 40 + 2 R$', finAfter.rbxBalance === 103000 && finAfter.robuxBalance === 42, `tix=${finAfter.rbxBalance} robux=${finAfter.robuxBalance}`)
-  ok('eva wallet: 98590 - 3000 = 95590 Tix; 80 - 2 = 78 R$', evaAfter.rbxBalance === 95590 && evaAfter.robuxBalance === 78, `tix=${evaAfter.rbxBalance} robux=${evaAfter.robuxBalance}`)
+  ok('fin wallet: 100000 + 3000 Tix', finAfter.rbxBalance === 103000, `tix=${finAfter.rbxBalance}`)
+  ok('eva wallet: 100000 - 1000 crown - 3000 = 96000 Tix', evaAfter.rbxBalance === 96000, `tix=${evaAfter.rbxBalance}`)
   const finCrown = await api(`/api/catalog/${crown.id}`, { token: fin.token })
   ok('fin owns the crown now, serial #1', finCrown.data.owned === true && finCrown.data.market?.mySerial === 1)
   const evaHat = await api(`/api/catalog/${finHat.id}`, { token: eva.token })
@@ -138,16 +132,16 @@ async function main() {
   ok('fin lists the crown', r.status === 200)
   const listingId = (await api(`/api/market?itemId=${crown.id}`)).data.listings[0]?.id
   r = await api('/api/market', { method: 'POST', token: eva.token, body: { action: 'offer', listingId, amount: 1000, robux: 20, offerItemIds: [finHat.id], message: 'Tix + Robux + the hat. Final.' } })
-  ok('eva offers T$ 1000 + R$ 20 + her fedora', r.status === 200, r.data.message || r.data.error)
+  ok('eva offers T$ 1000 + her fedora', r.status === 200, r.data.message || r.data.error)
   const finListings = await api('/api/market?mine=1', { token: fin.token })
   const pendingOffer = finListings.data.listings?.[0]?.offers?.[0]
-  ok('fin sees the pending offer with its robux', pendingOffer?.robux === 20, `robux=${pendingOffer?.robux}`)
+  ok('fin sees the pending mixed offer', !!pendingOffer && pendingOffer.amount === 1000, `amount=${pendingOffer?.amount}`)
   r = await api('/api/market', { method: 'POST', token: fin.token, body: { action: 'accept_offer', offerId: pendingOffer.id } })
   ok('fin accepts the triple offer', r.status === 200, r.data.message || r.data.error)
   const finFinal = (await api('/api/me', { token: fin.token })).data.user
   const evaFinal = (await api('/api/me', { token: eva.token })).data.user
-  ok('fin: +T$ 1000 +R$ 20 and the hat crossed to eva', finFinal.rbxBalance === 104000 && finFinal.robuxBalance === 62)
-  ok('eva: -T$ 1000 -R$ 20 (95590 - 1000 = 94590; 78 - 20 = 58)', evaFinal.rbxBalance === 94590 && evaFinal.robuxBalance === 58, `tix=${evaFinal.rbxBalance} robux=${evaFinal.robuxBalance}`)
+  ok('fin: +T$ 1000 and the hat crossed to eva', finFinal.rbxBalance === 104000, `tix=${finFinal.rbxBalance}`)
+  ok('eva: -T$ 1000 (96000 - 1000 = 95000)', evaFinal.rbxBalance === 95000, `tix=${evaFinal.rbxBalance}`)
   const evaCrown = await api(`/api/catalog/${crown.id}`, { token: eva.token })
   ok('eva holds the crown again — serial #1 forever', evaCrown.data.owned === true && evaCrown.data.market?.mySerial === 1)
 
