@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, makeToken } from '@/lib/auth'
 import { PLATFORM_CORS } from '@/lib/platform'
-import { notifyEveryone } from '@/lib/notifications'
 
 /**
  * PLATFORM SIGNUP — POST /api/platform/signup
@@ -53,10 +52,15 @@ export async function POST(req: NextRequest) {
   const birthday = body?.birthday ? String(body.birthday).slice(0, 10) : null
 
   try {
+    // short public player number — join order, same as the website signup
+    const topNo = await db.user.aggregate({ _max: { playerNo: true } })
+    const playerNo = (topNo._max.playerNo ?? 0) + 1
+
     const user = await db.user.create({
       data: {
         username,
         usernameLower: lower,
+        playerNo,
         passwordHash: hashPassword(password),
         gender,
         birthday,
@@ -68,18 +72,6 @@ export async function POST(req: NextRequest) {
     // serverless filesystems skip the row — the token still works)
     const token = makeToken(user.id)
     await db.session.create({ data: { token, userId: user.id } }).catch(() => {})
-
-    // in-game signup also rings every member's bell (never blocks signup)
-    await notifyEveryone(
-      {
-        type: 'new_player',
-        title: 'New player joined RetroBlox!',
-        body: `${user.username} just joined — say hi and send them a friend request!`,
-        linkUrl: `/users/${user.id}`,
-        actorId: user.id,
-      },
-      user.id
-    )
 
     return NextResponse.json(
       {
