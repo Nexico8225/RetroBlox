@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Dev tool: dump the imported R6IK.fbx scene structure so kit code can
+## Dev tool: dump the R6IK_rig.scn scene structure so kit code can
 ## target the real bone / mesh names. Usage (after --import):
 ##   godot --headless --path . --script tests/dump_rig.gd
 
@@ -8,7 +8,7 @@ var _total := AABB()
 var _has_any := false
 
 func _init() -> void:
-        var packed: PackedScene = load("res://assets/models/R6IK.fbx")
+        var packed: PackedScene = load("res://assets/models/R6IK_rig.scn")
         if packed == null:
                 print("RIG_DUMP_FAILED: could not load FBX")
                 quit(1)
