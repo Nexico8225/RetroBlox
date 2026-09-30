@@ -1,4 +1,4 @@
-# RetroBlox Player System — Player + Dev Kit
+# RetroBlox Godot SDK — Player + Dev Kit
 
 The official RetroBlox player system for **Godot 4.5+**: a classic six-part
 multiplayer world that signs players into their RetroBlox account **inside
@@ -24,26 +24,27 @@ press **F5**. No plugins, no external assets.
 The game opens on the login card:
 
 - **Log In** — your existing RetroBlox account. Your account avatar (body
-  colors, shirt, pants, face, 3D UGC) loads from the website. No account?
-  Make one on [retro-blox.vercel.app](https://retro-blox.vercel.app) first —
-  accounts are shared between the site and the game.
+  colors, shirt, pants, face, 3D UGC) loads from the website.
+- **Sign Up** — create a brand-new account WITHOUT leaving the game.
 - **Play as Guest** — no account; classic noob colors, "Guest-1234" name.
 
-The game remembers you — the next launch signs you in automatically. The
-platform URL is baked in (no Server field); self-hosts override it with
-`RETROBLOX_API=...` or `-- --api=https://your-site`.
+The game remembers you — the next launch signs you in automatically.
 
 | Action | Control |
 |---|---|
 | Move | WASD or arrow keys |
-| Jump | Space — hold it to hop the moment you land |
-| Walk over low ledges | Anything up to 3 studs tall — stairs need no jumping |
-| Orbit the camera | Hold right mouse button and drag, or hold **E** (cursor stays visible) |
-| Zoom | Mouse wheel (2–24 studs) |
+| Jump | Space |
+| Orbit the camera | Hold right mouse button and drag |
+| Zoom / first person | Mouse wheel — out to a sky view, all the way in for first person |
 | **Shift Lock** | Shift (or toggle it in the Esc menu) |
 | Chat | **/** (already in typing mode) or Enter, then Enter to send |
-| Chat walk | While typing, your character keeps going the way you were headed; S/A/D or jump stops it |
 | Menu / close chat focus | Esc |
+
+**Stairs**: just walk into them — collide + press W and you step straight
+up onto the step (anything up to 3 studs tall). **Ladders (trusses)**: face
+the truss and hold **W** to latch on, W/S to climb up/down, **Space** to
+jump off, and looking back with Shift Lock lets go. The Climb animation
+only plays while you are actually moving.
 
 Internet play: run a build with `-- --server` on a machine with a public IP,
 open **UDP 42420** (+42421 for LAN discovery), and set
@@ -55,7 +56,7 @@ Point the login card at any RetroBlox site with `-- --api=https://your-site`.
 In-game players wear **`assets/models/R6IK.fbx`** — the exact rig the
 website's catalog and avatar editor render — normalized to the game's
 capsule, with limbs swinging from shoulder/hip pivots and arms-up jumps,
-matching the website's catalog look. If the FBX has not been imported yet (a
+like the site's playground. If the FBX has not been imported yet (a
 brand-new project), the kit falls back to its built-in box rig
 automatically and upgrades the moment Godot imports the model.
 
@@ -79,26 +80,18 @@ filmic tonemapping.
 ### Troubleshooting sign-in
 
 - **"Incorrect username or password"** — accounts are shared with the
-  website, so the same name + password work. No account yet? Create one on
-  the website first.
-- **"Could not reach …"** — the platform is baked in
-  (`https://retro-blox.vercel.app`). Self-hosts: pass
-  `-- --api=https://your-site` or set `RETROBLOX_API`.
+  website, so the same name + password work. No account yet? Use the
+  **Sign Up** tab right on the card.
+- **"Could not reach …"** — the Server field on the card should read
+  `https://retro-blox.vercel.app` (that is the default). If you edited it,
+  clear it and press Log In again — the empty field falls back to the
+  official site.
 - **Signing in works but the error comes back** — delete
   `user://profile.cfg` (Godot's *Project → Open User Data Folder*) to
   clear a stale saved token, then sign in again.
 - **Still stuck on an older kit?** Re-download this zip — versions before
   September 27, 2026 defaulted the Server field to `localhost:3000`, which
   always fails. This build defaults to the official site.
-
-### Sounds and cursor
-
-Game sounds live in `assets/sounds/` as **slots**: `Hover` (UI tick),
-`RetroBloxJump` (jump), `Walking` (footstep loop) and `OOF` (death). An
-mp3 with the slot's name always wins over a wav — drop your own
-`RetroBloxJump.mp3` in and it plays on the next launch, no code changes.
-The mouse cursor is the same classic arrow the website uses
-(`assets/cursors/cursor.png`).
 
 ---
 
@@ -112,7 +105,7 @@ code:
 |---|---|
 | `scenes/avatar.tscn` | The six-part block avatar (head/torso/arms/legs + nameplate + face). Paintable, textureable, animatable. |
 | `scenes/player.tscn` | CharacterBody3D with capsule, avatar and chat bubble — drop it in your world and call `initialize()`. |
-| `scenes/auth_screen.tscn` | The account gate: log in / guest, saved-token auto sign-in. |
+| `scenes/auth_screen.tscn` | The account gate: log in / sign up / guest, saved-token auto sign-in. |
 | `scenes/hud.tscn` | Chat, roster, status line, Esc menu with settings. |
 | `main.tscn` | The demo game: arena + player spawns + camera rig + HUD + auth. Use it as a reference or a starting world. |
 
@@ -243,9 +236,8 @@ godot --headless --path . --script res://tests/validate_actions.gd
 | `scripts/avatar.gd` | Drives the avatar scene nodes (paint/animate/burst) |
 | `scripts/avatar_platform.gd` | Account avatar dressing (site-identical rules) |
 | `scripts/retroblox_api.gd` | HTTP client for the platform |
-| `scripts/auth_screen.gd` | Login/guest behavior |
+| `scripts/auth_screen.gd` | Login/signup/guest behavior |
 | `scripts/hud.gd` | Chat, roster, menu behavior |
-| `scripts/sounds.gd` | Sound slots (assets/sounds/, mp3-over-wav) |
 | `scripts/arena.gd` | The procedural demo baseplate world |
 | `network.cfg` | Room name, ports, server address, platform api_url |
 
