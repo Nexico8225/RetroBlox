@@ -14,6 +14,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRetro, api, flash, refreshBalance, attachUpload } from '@/lib/store'
 import { tixFull } from '@/lib/tix'
+import { FxText } from '@/lib/textfx'
 import { Avatar } from './Shell'
 import {
   UGC_TYPES,
@@ -607,7 +608,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                 </div>
                 <div style={{ padding: 8 }}>
                   <Link href={`/catalog/${item.id}`} className="rb-link" style={{ display: 'block', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.name}
+                    <FxText text={item.name} />
                   </Link>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '3px 0 6px', fontSize: 10, color: '#5a6b7b' }}>
                     <Avatar user={item.creator} size={14} rounded={3} />
@@ -684,13 +685,13 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       </button>
                     )}
                     {/* TRADE — beside every UGC, free items too: buyers open the
-                        trade window, the owner jumps to their waiting offers */}
+                        trade window, the owner gets the give-away window */}
                     {user && (
                       <Link
-                        href={owned ? `/catalog/${item.id}#offers` : `/trades/new?item=${item.id}`}
+                        href={owned ? `/trades/new?give=${item.id}` : `/trades/new?item=${item.id}`}
                         className="rb-btn"
                         style={{ fontSize: 10, textDecoration: 'none', padding: '3px 8px' }}
-                        title={owned ? 'See the trade offers waiting on this item' : 'Offer your own UGC / Tix for this item — even if it is free'}
+                        title={owned ? 'Give this away / trade it to another player — even if it is free' : 'Offer your own UGC / Tix for this item — even if it is free'}
                       >
                         🔁 Trade
                       </Link>
@@ -790,7 +791,7 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
     >
       <div className="rb-box" style={{ width: 'min(640px, 100%)', background: '#fff' }}>
         <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Trying on: {item.name}</span>
+          <span>Trying on: <FxText text={item.name} /></span>
           <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
         </div>
         <div style={{ padding: 12 }}>
@@ -810,7 +811,7 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginTop: 10 }}>
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 12, color: '#1c2733' }}>{item.description || 'No description.'}</div>
+              <div style={{ fontSize: 12, color: '#1c2733' }}>{item.description ? <FxText text={item.description} /> : 'No description.'}</div>
               <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#7b8896', marginTop: 2 }}>
                 {item.assetId} · drag to spin the camera
               </div>
