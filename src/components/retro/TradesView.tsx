@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { api, flash, timeAgo, useRetro } from '@/lib/store'
 import { Avatar } from './Shell'
 import { tixFull } from '@/lib/tix'
+import { OfferItemChips, OfferItemPreview, parseIds as parseIdsJson } from './MarketPanel'
 
 interface ItemPreview {
   id: string
@@ -288,20 +289,22 @@ interface ListingRow {
   status: string
   soldPrice?: number | null
   item: ItemPreview & { price: number; stock: number | null }
-  offers: { id: string; amount: number; status: string; createdAt: string; buyer: { id: string; username: string; avatarUrl: string | null } }[]
+  offers: { id: string; amount: number; offerItemIdsJson?: string; status: string; createdAt: string; buyer: { id: string; username: string; avatarUrl: string | null } }[]
 }
 
 function MarketTab({ onChanged }: { onChanged: () => void }) {
   const { setToast } = useRetro()
   const [listings, setListings] = useState<ListingRow[]>([])
-  const [offersSent, setOffersSent] = useState<{ id: string; amount: number; status: string; createdAt: string; listing: { id: string; price: number; item: ItemPreview; seller: { id: string; username: string; avatarUrl: string | null } } }[]>([])
+  const [offersSent, setOffersSent] = useState<{ id: string; amount: number; offerItemIdsJson?: string; status: string; createdAt: string; listing: { id: string; price: number; item: ItemPreview; seller: { id: string; username: string; avatarUrl: string | null } } }[]>([])
+  const [offerItemMap, setOfferItemMap] = useState<Record<string, OfferItemPreview>>({})
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const res = await api<{ listings: ListingRow[]; offersSent: typeof offersSent }>('/api/market?mine=1')
+      const res = await api<{ listings: ListingRow[]; offersSent: typeof offersSent; offerItemMap?: Record<string, OfferItemPreview> }>('/api/market?mine=1')
       setListings(res.listings || [])
       setOffersSent(res.offersSent || [])
+      setOfferItemMap(res.offerItemMap || {})
     } catch { /* ignore */ }
   }, [])
 
@@ -353,13 +356,14 @@ function MarketTab({ onChanged }: { onChanged: () => void }) {
                 {l.offers.length > 0 && (
                   <div style={{ borderTop: '1px solid #e8eef4', padding: '7px 10px', display: 'grid', gap: 5, background: '#fffdf4' }}>
                     <div style={{ fontSize: 10, fontWeight: 'bold', color: '#8a6d1a' }}>
-                      {l.offers.length} PENDING OFFER{l.offers.length > 1 ? 'S' : ''} — accept to trade the item for their Tix:
+                      {l.offers.length} PENDING OFFER{l.offers.length > 1 ? 'S' : ''} — accept to trade the item for their Tix + UGC:
                     </div>
                     {l.offers.map((o) => (
-                      <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <Avatar user={o.buyer} size={20} rounded={3} />
                         <Link href={`/users/${o.buyer.id}`} className="rb-link" style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.buyer.username}</Link>
-                        <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>{fmt(o.amount)}</span>
+                        {o.amount > 0 && <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>{fmt(o.amount)}</span>}
+                        <OfferItemChips ids={parseIdsJson(o.offerItemIdsJson)} itemMap={offerItemMap} />
                         <span style={{ fontSize: 9.5, color: '#8ba0b3' }}>{timeAgo(o.createdAt)}</span>
                         <span style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
                           <button type="button" className="rb-btn rb-btn-green" disabled={busy} style={{ fontSize: 10.5, padding: '2px 10px' }} onClick={() => act({ action: 'accept_offer', offerId: o.id }, 'Sold!')}>
@@ -389,7 +393,8 @@ function MarketTab({ onChanged }: { onChanged: () => void }) {
                 <img src={`/api/files/${o.listing.item.imageFileId}`} alt="" width={26} height={26} style={{ border: '1px solid #dbe4ec', objectFit: 'cover' }} />
                 <Link href={`/catalog/${o.listing.item.id}`} className="rb-link" style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.listing.item.name}</Link>
                 <span style={{ fontSize: 10.5, color: '#5a6b7b' }}>asking {fmt(o.listing.price)}</span>
-                <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>your offer {fmt(o.amount)}</span>
+                {o.amount > 0 && <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>your offer {fmt(o.amount)}</span>}
+                <OfferItemChips ids={parseIdsJson(o.offerItemIdsJson)} itemMap={offerItemMap} />
                 <span
                   style={{
                     marginLeft: 'auto', fontSize: 10, fontWeight: 'bold', padding: '1px 8px',
