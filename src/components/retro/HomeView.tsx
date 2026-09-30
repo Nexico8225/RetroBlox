@@ -112,7 +112,7 @@ export function GameCard({ game }: { game: GameSummary }) {
           textOverflow: 'ellipsis',
         }}
       >
-        {game.name}
+        <FxText text={game.name} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#5a6b7b' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
