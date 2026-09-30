@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
 import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson } from '@/lib/avatarAssets'
 import { buyPrice, RbxError } from '@/lib/rbx'
+import { resaleValue } from '@/lib/market'
 import { saveUpload, resolveUpload } from '@/lib/uploads'
 
 /**
@@ -70,6 +71,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       createdAt: item.createdAt,
     },
     owned,
+    // ---- the RESALE MARKET for this item (player-to-player economy) ----
+    market: await marketData(id, item, viewer),
     // the ladder of prices this limited will climb (original, x2, x4...) —
     // the detail page draws its price chart from this
     priceLadder: item.isLimited
@@ -88,6 +91,73 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     })),
     canDelete: !!viewer && (viewer.role === 'admin' || viewer.id === item.creatorId || (item.groupId && viewer.id === (await db.group.findUnique({ where: { id: item.groupId }, select: { ownerId: true } }))?.ownerId)),
   })
+}
+
+/** Everything the item page's Resale Market panel needs: active listings,
+ *  the viewer's involvement, the real sale history (the market graph) and
+ *  the viewer's own copy's serial + suggested 1.5x resale value. */
+async function marketData(
+  id: string,
+  item: { price: number },
+  viewer: { id: string } | null
+) {
+  const listings = await db.ugcListing.findMany({
+    where: { itemId: id, status: 'active' },
+    orderBy: { price: 'asc' },
+    take: 20,
+    include: {
+      seller: { select: { id: true, username: true, avatarUrl: true } },
+      offers: { where: { status: 'pending' }, select: { amount: true } },
+    },
+  })
+  // the REAL market history — every mint + resale, oldest first (graph X axis)
+  const history = await db.ugcPricePoint.findMany({
+    where: { itemId: id },
+    orderBy: { createdAt: 'asc' },
+    take: 120,
+    select: { price: true, kind: true, createdAt: true },
+  })
+  let myListing: string | null = null
+  let myOffer: { id: string; amount: number } | null = null
+  let mySerial: number | null = null
+  let suggestedPrice: number | null = null
+  if (viewer) {
+    myListing = listings.find((l) => l.sellerId === viewer.id)?.id ?? null
+    const offer = await db.ugcOffer.findFirst({
+      where: { buyerId: viewer.id, status: 'pending', listing: { itemId: id, status: 'active' } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, amount: true },
+    })
+    myOffer = offer ? { id: offer.id, amount: offer.amount } : null
+    const copy = await db.inventoryEntry.findUnique({
+      where: { userId_itemId: { userId: viewer.id, itemId: id } },
+      select: { serial: true },
+    })
+    mySerial = copy?.serial ?? null
+    if (copy) {
+      const paid = await db.ugcPricePoint.findFirst({
+        where: { itemId: id, buyerId: viewer.id },
+        orderBy: { createdAt: 'desc' },
+        select: { price: true },
+      })
+      suggestedPrice = resaleValue(paid?.price ?? 0, item.price)
+    }
+  }
+  return {
+    listings: listings.map((l) => ({
+      id: l.id,
+      price: l.price,
+      createdAt: l.createdAt,
+      seller: l.seller,
+      offerCount: l.offers.length,
+      topOffer: l.offers.reduce((m, o) => Math.max(m, o.amount), 0),
+    })),
+    history: history.map((h) => ({ price: h.price, kind: h.kind, at: h.createdAt })),
+    myListing,
+    myOffer,
+    mySerial,
+    suggestedPrice,
+  }
 }
 
 /** PATCH /api/catalog/[id] — the OWNER (creator, group owner, or site admin)
@@ -312,8 +382,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         if (cost <= 0 || item.creatorId === user.id) {
           // free item (or the creator grabbing a spare copy) — no money moves
-          await tx.inventoryEntry.create({ data: { userId: user.id, itemId: id } })
-          return { message: cost <= 0 ? `"${item.name}" is yours — it was free!` : `"${item.name}" is in your inventory now.`, balanceAfter: null as number | null }
+          await tx.inventoryEntry.create({
+            data: { userId: user.id, itemId: id, serial: item.isLimited ? sold + 1 : null },
+          })
+          return { message: cost <= 0 ? `"${item.name}" is yours — it was free!` : `"${item.name}" is in your inventory now.`, balanceAfter: null as number | null, creatorId: item.creatorId, itemName: item.name, assetId: item.assetId, serial: item.isLimited ? sold + 1 : (null as number | null), paid: 0 }
         }
 
         const buyer = await tx.user.findUnique({ where: { id: user.id }, select: { rbxBalance: true } })
@@ -334,10 +406,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             note: `Bought "${item.name}" (${item.assetId})${item.isLimited ? ` — LIMITED #${sold + 1}${item.stock != null ? `/${item.stock}` : ''}` : ''}`,
           },
         })
-        await tx.inventoryEntry.create({ data: { userId: user.id, itemId: id } })
-        return { message: `"${item.name}" is yours! T$ ${after.toLocaleString('en-US')} left.`, balanceAfter: after }
+        // LIMITED copies get a permanent serial (copy #3 of 25 stays #3 forever,
+        // even after trades and resales) — and every sale lands on the market graph
+        await tx.inventoryEntry.create({ data: { userId: user.id, itemId: id, serial: item.isLimited ? sold + 1 : null } })
+        await tx.ugcPricePoint.create({ data: { itemId: id, price: cost, kind: 'mint', buyerId: user.id, sellerId: item.creatorId } })
+        return { message: `"${item.name}" is yours! T$ ${after.toLocaleString('en-US')} left.`, balanceAfter: after, creatorId: item.creatorId, itemName: item.name, assetId: item.assetId, serial: item.isLimited ? sold + 1 : (null as number | null), paid: cost }
       })
-      return NextResponse.json({ ok: true, message: result.message, balanceAfter: result.balanceAfter ?? undefined })
+      // the creator's bell rings after the sale commits (never blocks the purchase)
+      if (result.creatorId && result.creatorId !== user.id && result.paid > 0) {
+        try {
+          await db.notification.create({
+            data: {
+              userId: result.creatorId,
+              type: 'listing_sold',
+              title: `"${result.itemName}" just sold!`,
+              body: `T$ ${result.paid.toLocaleString('en-US')} — someone bought your creation straight from the catalog.`,
+              link: `/catalog/${id}`,
+            },
+          })
+        } catch { /* ignore */ }
+      }
+      return NextResponse.json({ ok: true, message: result.message, balanceAfter: result.balanceAfter ?? undefined, serial: result.serial ?? undefined })
     } catch (e) {
       if (e instanceof RbxError) {
         const status = e.code === 'INSUFFICIENT' ? 400 : e.code === 'NO_ITEM' ? 404 : 400
