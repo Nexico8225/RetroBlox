@@ -238,15 +238,24 @@ func _attempt_step_up() -> void:
                 return
         var feet := global_position.y
         var exclude: Array[RID] = [get_rid()]
-        # 1) something actually blocking straight ahead at knee height?
-        var probe := PhysicsRayQueryParameters3D.create(
-                global_position + Vector3(0.0, 0.45, 0.0),
-                global_position + Vector3(0.0, 0.45, 0.0) + dir * 1.6,
-                collision_mask, exclude
-        )
-        probe.hit_from_inside = true
-        var block := space.intersect_ray(probe)
-        if block.is_empty():
+        # 1) something actually blocking straight ahead? Two probes: knee
+        # height catches normal stairs, shin height catches the low lips
+        # (half-steps) the knee ray sails over — this is what made stepping
+        # feel random before.
+        var blocked := false
+        var block := {}
+        for knee_h in [0.45, 0.12]:
+                var probe := PhysicsRayQueryParameters3D.create(
+                        global_position + Vector3(0.0, knee_h, 0.0),
+                        global_position + Vector3(0.0, knee_h, 0.0) + dir * 1.6,
+                        collision_mask, exclude
+                )
+                probe.hit_from_inside = true
+                block = space.intersect_ray(probe)
+                if not block.is_empty():
+                        blocked = true
+                        break
+        if not blocked:
                 return
         # 2) headroom to stand on top of the step? (blocked above = ceiling)
         if test_move(global_transform, Vector3.UP * (MAX_STEP + 0.1)):
