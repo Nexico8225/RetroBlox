@@ -188,6 +188,12 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   const [type, setType] = useState(initialType)
   const [q, setQ] = useState(initialQ)
   const [onlyLimited, setOnlyLimited] = useState(false)
+  // the finder: sort, price range, ownership and "popular in <year>"
+  const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'price_desc' | 'price_asc'>('newest')
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+  const [onlyMine, setOnlyMine] = useState(false)
+  const [year, setYear] = useState('')
   const [loading, setLoading] = useState(true)
   const [showPublish, setShowPublish] = useState(false)
   const [myGroups, setMyGroups] = useState<GroupOpt[]>([])
@@ -234,6 +240,33 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   }, [type, q, onlyLimited])
 
   useEffect(() => { load() }, [load])
+
+  // the finder runs client-side — everything the API returned (200 newest)
+  // is already in memory, so sorting/ranging is instant and the API stays stable
+  const years = useMemo(() => {
+    const set = new Set(items.map((i) => new Date(i.createdAt).getFullYear()))
+    return [...set].sort((a, b) => b - a)
+  }, [items])
+
+  const effPrice = (i: CatalogItem) => (i.buyPrice > 0 ? i.buyPrice : i.price)
+
+  const filtered = useMemo(() => {
+    let list = [...items]
+    if (onlyMine) list = list.filter((i) => ownedIds.includes(i.id))
+    if (year) list = list.filter((i) => String(new Date(i.createdAt).getFullYear()) === year)
+    const min = Number(priceMin)
+    const max = Number(priceMax)
+    if (Number.isFinite(min) && priceMin !== '') list = list.filter((i) => effPrice(i) >= min)
+    if (Number.isFinite(max) && priceMax !== '') list = list.filter((i) => effPrice(i) <= max)
+    switch (sortBy) {
+      case 'popular': list.sort((a, b) => b.owners - a.owners || b.sold - a.sold); break
+      case 'price_desc': list.sort((a, b) => effPrice(b) - effPrice(a)); break
+      case 'price_asc': list.sort((a, b) => effPrice(a) - effPrice(b)); break
+      default: list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    }
+    return list
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, ownedIds, onlyMine, year, priceMin, priceMax, sortBy])
 
   // group memberships drive both the publish-as-group dropdown and group-owner delete rights
   useEffect(() => {
@@ -310,6 +343,94 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
             aria-label="Search catalog"
           />
         </div>
+        {/* the finder row — sort, price range, year, your shelf */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: '#5a6b7b' }}>
+            Sort
+            <select
+              className="rb-input"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              style={{ fontSize: 11, height: 28, width: 150 }}
+              aria-label="Sort the catalog"
+            >
+              <option value="newest">Newest</option>
+              <option value="popular">Most popular</option>
+              <option value="price_desc">Price: high to low</option>
+              <option value="price_asc">Price: low to high</option>
+            </select>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: '#5a6b7b' }}>
+            Price
+            <input
+              className="rb-input"
+              type="number"
+              min={0}
+              placeholder="from"
+              value={priceMin}
+              onChange={(e) => setPriceMin(e.target.value)}
+              style={{ fontSize: 11, height: 28, width: 72 }}
+              aria-label="Minimum price"
+            />
+            <span style={{ color: '#8ba0b3' }}>–</span>
+            <input
+              className="rb-input"
+              type="number"
+              min={0}
+              placeholder="to"
+              value={priceMax}
+              onChange={(e) => setPriceMax(e.target.value)}
+              style={{ fontSize: 11, height: 28, width: 72 }}
+              aria-label="Maximum price"
+            />
+          </label>
+          {years.length > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: '#5a6b7b' }}>
+              From
+              <select
+                className="rb-input"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                style={{ fontSize: 11, height: 28, width: 140 }}
+                aria-label="Filter by year"
+              >
+                <option value="">All years</option>
+                {years.map((y) => (
+                  <option key={y} value={String(y)}>Popular in {y}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {user && (
+            <button
+              type="button"
+              onClick={() => setOnlyMine(!onlyMine)}
+              aria-pressed={onlyMine}
+              style={{
+                fontSize: 11,
+                padding: '4px 12px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                border: onlyMine ? '1px solid #1c4e7c' : '1px solid #b7c6d4',
+                background: onlyMine ? 'linear-gradient(180deg,#3d7dbd,#2a5f96)' : '#fff',
+                color: onlyMine ? '#fff' : '#1c4e7c',
+              }}
+              title="Show only the UGC sitting in your inventory"
+            >
+              My UGC
+            </button>
+          )}
+          {(onlyMine || year || priceMin || priceMax || sortBy !== 'newest') && (
+            <button
+              type="button"
+              className="rb-link"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10.5 }}
+              onClick={() => { setOnlyMine(false); setYear(''); setPriceMin(''); setPriceMax(''); setSortBy('newest') }}
+            >
+              Reset
+            </button>
+          )}
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
           <button
             key="limiteds"
@@ -378,14 +499,17 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
       {/* item grid */}
       {loading ? (
         <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Loading the catalog...</div>
-      ) : items.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b', fontSize: 12 }}>
-          Nothing here yet — the catalog is a blank canvas.
-          {user && <> Be the first: hit + Publish UGC and give RetroBlox its first hat.</>}
+          {items.length === 0 ? (
+            <>Nothing here yet — the catalog is a blank canvas.{user && <> Be the first: hit + Publish UGC and give RetroBlox its first hat.</>}</>
+          ) : (
+            <>No matches for those filters — widen the price range or clear a filter or two.</>
+          )}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(205px, 1fr))', gap: 10 }}>
-          {items.map((item) => {
+          {filtered.map((item) => {
             const owned = ownedIds.includes(item.id)
             return (
               <div key={item.id} className="rb-box rb-card" style={{ padding: 0, overflow: 'hidden' }}>
