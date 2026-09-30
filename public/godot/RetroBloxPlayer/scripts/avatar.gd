@@ -235,7 +235,7 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
         _anim_player.speed_scale = rate if (next == ANIM_WALK or next == ANIM_CLIMB) else 1.0
 
 ## Box-fallback rig: procedural limb swings, same classic feel.
-func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var movement: float = clampf(abs(speed) / 5.0, 0.0, 1.0)
         var walk_rate: float = 4.8 + movement * 2.0
         var swing: float = sin(_time * walk_rate) * movement
@@ -404,12 +404,12 @@ func _try_r6ik() -> bool:
                 part_boxes[index] = box
                 raw_bounds = box if not have_bounds else raw_bounds.merge(box)
                 have_bounds = true
-        var scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
+        var model_scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
         var raw_center := raw_bounds.get_center()
         var model := Node3D.new()
         model.name = "R6IKModel"
-        model.scale = Vector3.ONE * scale
-        model.position = Vector3(-raw_center.x * scale, -raw_bounds.position.y * scale, -raw_center.z * scale)
+        model.scale = Vector3.ONE * model_scale
+        model.position = Vector3(-raw_center.x * model_scale, -raw_bounds.position.y * model_scale, -raw_center.z * model_scale)
         model.add_child(inst)
         add_child(model)
 
