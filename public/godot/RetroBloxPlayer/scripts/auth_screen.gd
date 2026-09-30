@@ -44,11 +44,17 @@ func _ready() -> void:
         _login_tab_btn.pressed.connect(_set_mode.bind(false))
         _signup_tab_btn.pressed.connect(_set_mode.bind(true))
         _submit_btn.pressed.connect(_submit)
-        # accounts-only RetroBlox: no guest play — every player signs in or
-        # signs up so they always wear their account avatar
+        # Sign-in ONLY: accounts are made on the website, the game just logs
+        # you in (no in-game sign up) — exactly like the classic client.
+        _signup_tab_btn.visible = false
+        # accounts-only RetroBlox: no guest play — every player signs in so
+        # they always wear their account avatar
         if has_node("%GuestBtn"):
                 %GuestBtn.visible = false
-        for edit: LineEdit in [_server_edit, _user_edit, _pass_edit, _confirm_edit]:
+        # the website is locked: the login card shows it, nobody edits it
+        _server_edit.editable = false
+        _server_edit.tooltip_text = "The official RetroBlox server — this cannot be changed."
+        for edit: LineEdit in [_user_edit, _pass_edit, _confirm_edit]:
                 edit.text_submitted.connect(_on_field_submitted)
         _set_mode(false)
 
@@ -85,7 +91,8 @@ func _style_tab(button: Button, active: bool) -> void:
         button.add_theme_color_override("font_color", Color.WHITE if active else INK)
 
 
-## Pre-fill from config / a previous session.
+## Pre-fill from config / a previous session. The field is READ-ONLY:
+## the game always talks to the official RetroBlox website.
 func set_api_url(url: String) -> void:
         if _server_edit != null:
                 _server_edit.text = url
@@ -159,7 +166,7 @@ func _submit() -> void:
                 # help with the two most common stalls — a 401 usually means
                 # "no account yet" or "typo in the password"
                 if msg.contains("Incorrect username or password"):
-                        msg += "\nNo account yet? Use the Sign Up tab — accounts made on the website work here too."
+                        msg += "\nNo account yet? Create one free on the RetroBlox website, then sign in here."
                 _error(msg)
                 return
 
