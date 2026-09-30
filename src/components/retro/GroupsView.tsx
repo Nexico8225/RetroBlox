@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, fmtDate, timeAgo, flash, type RetroUser } from '@/lib/store'
+import { FxText } from '@/lib/textfx'
 import { Avatar, OnlineDot } from './Shell'
 import { GameCard, GameSummary } from './HomeView'
 import { RetroVideoPlayer } from './RetroVideoPlayer'
@@ -171,7 +172,7 @@ export function GroupsView() {
                 {g.iconUrl ? <img src={g.iconUrl} alt={`${g.name} emblem`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '?'}
               </span>
               <span style={{ minWidth: 0, flex: 1 }}>
-                <span className="rb-link" style={{ fontSize: 12, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name}</span>
+                <span className="rb-link" style={{ fontSize: 12, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><FxText text={g.name} /></span>
                 <span style={{ display: 'block', fontSize: 10, color: '#5a6b7b', marginTop: 2 }}>
                   {g.memberCount} member{g.memberCount === 1 ? '' : 's'} · {g.gameCount} game{g.gameCount === 1 ? '' : 's'}
                 </span>
@@ -356,7 +357,7 @@ export function GroupDetailView({ id }: { id: string }) {
     <div>
       {/* header */}
       <div className="rb-box" style={{ overflow: 'hidden', marginBottom: 12 }}>
-        <div className="rb-panel-head"><span>{g.name}</span><span style={{ fontSize: 10, color: '#5a6b7b' }}>Group</span></div>
+        <div className="rb-panel-head"><span><FxText text={g.name} /></span><span style={{ fontSize: 10, color: '#5a6b7b' }}>Group</span></div>
         <div style={{ background: 'linear-gradient(180deg,#e9eef3,#cfd9e2)', padding: 14, display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <span
             style={{
@@ -368,7 +369,7 @@ export function GroupDetailView({ id }: { id: string }) {
             {g.iconUrl ? <img src={g.iconUrl} alt={`${g.name} emblem`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '?'}
           </span>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <h1 style={{ fontSize: 22, color: '#1c2733', margin: 0 }}>{g.name}</h1>
+            <h1 style={{ fontSize: 22, color: '#1c2733', margin: 0 }}><FxText text={g.name} /></h1>
             <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 4 }}>
               Created {fmtDate(g.createdAt)} · {g.members.length} member{g.members.length === 1 ? '' : 's'} · {g.games.length} game{g.games.length === 1 ? '' : 's'} · {g.posts.length} wall post{g.posts.length === 1 ? '' : 's'}
             </div>
@@ -403,7 +404,7 @@ export function GroupDetailView({ id }: { id: string }) {
           </div>
         </div>
         <div style={{ padding: 12, borderTop: '1px solid #e4eaf0', fontSize: 12, color: '#2c3e50', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
-          {g.description || 'This group has not written a description yet.'}
+          {g.description ? <FxText text={g.description} /> : 'This group has not written a description yet.'}
         </div>
       </div>
 
@@ -739,7 +740,7 @@ function GroupWall({
                               </button>
                             )}
                           </div>
-                          <div style={{ fontSize: 11, color: '#2c3e50', whiteSpace: 'pre-wrap' }}>{r.text}</div>
+                          <div style={{ fontSize: 11, color: '#2c3e50', whiteSpace: 'pre-wrap' }}><FxText text={r.text} /></div>
                         </div>
                       </div>
                     ))}
