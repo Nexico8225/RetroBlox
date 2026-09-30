@@ -220,11 +220,11 @@ static func zone_box(size: Vector3, zone: Rect2, tw: int, th: int) -> ArrayMesh:
                 var hu := absf(u_axis.x) * half.x + absf(u_axis.y) * half.y + absf(u_axis.z) * half.z
                 var hv := absf(v_axis.x) * half.x + absf(v_axis.y) * half.y + absf(v_axis.z) * half.z
                 var tl := center - u_axis * hu - v_axis * hv
-                var tr := center + u_axis * hu - v_axis * hv
+                var corner_tr := center + u_axis * hu - v_axis * hv
                 var br := center + u_axis * hu + v_axis * hv
                 var bl := center - u_axis * hu + v_axis * hv
                 var base := verts.size()
-                for corner in [tl, tr, br, bl]:
+                for corner in [tl, corner_tr, br, bl]:
                         verts.push_back(corner)
                 for _i in range(4):
                         norms.push_back(normal)
