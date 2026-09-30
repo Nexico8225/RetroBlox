@@ -81,8 +81,6 @@ var _ui_audio: AudioStreamPlayer
 
 # --- UI animation tween working set ---
 var _menu_tween: Tween
-var _chat_base_x: float = -1.0
-var _roster_base_x: float = -1.0
 var _viewer_panel: PanelContainer
 var _viewer_tween: Tween
 
@@ -771,10 +769,14 @@ func set_viewer_mode(on: bool, who: String) -> void:
         if _viewer_tween != null and _viewer_tween.is_valid():
                 _viewer_tween.kill()
         if on:
-                var title := _viewer_panel.get_node("ViewerTitle") as Label
-                var body := _viewer_panel.get_node("ViewerLabel") as Label
-                title.text = "Welcome, %s!" % who
-                body.text = "This is YOUR avatar — spin the camera, SHIFT for shift lock.\nPress a move key or SPACE to start playing!"
+                # labels live inside the ViewerBox VBox (built above) — look
+                # them up through it or the lookup returns null
+                var title := _viewer_panel.get_node("ViewerBox/ViewerTitle") as Label
+                var body := _viewer_panel.get_node("ViewerBox/ViewerLabel") as Label
+                if title != null:
+                        title.text = "Welcome, %s!" % who
+                if body != null:
+                        body.text = "This is YOUR avatar — spin the camera, SHIFT for shift lock.\nPress a move key or SPACE to start playing!"
                 _viewer_panel.visible = true
                 _viewer_panel.modulate.a = 0.0
                 _play(_snd_open)
