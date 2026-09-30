@@ -9,14 +9,15 @@ collect 8 coins. That's the whole platform loop — now build YOUR game.
 1. Open the RetroBlox Player project in Godot 4.2 or newer (4.5.1 recommended).
 2. In the file dock open `examples/mini_game/mini_game.tscn`.
 3. Press **F6** (Run Current Scene) — or set it as the main scene and press F5.
-4. Type your RetroBlox site URL in the Server box (for example
-   `https://retro-blox.vercel.app`), then log in, sign up, or play as guest.
+4. Log in with your RetroBlox account (created on
+   `https://retro-blox.vercel.app` — the card is locked to the official
+   server and signs in only).
 
 ## What it shows
 
 | Step | What happens | Where to look |
 |------|--------------|---------------|
-| 1 | The login/signup/guest card appears | `scenes/auth_screen.tscn` reused as-is |
+| 1 | The login card appears (sign-in only) | `scenes/auth_screen.tscn` reused as-is |
 | 2 | On login, the classic player spawns | `scenes/player.tscn` + `initialize()` |
 | 3 | The account avatar is dressed (colors, shirt/pants templates, UGC) | `dress_from_payload(api, payload)` |
 | 4 | Your game drives the player every physics frame | `player.drive(delta, direction, camera_yaw, jump_serial)` |
@@ -27,7 +28,7 @@ collect 8 coins. That's the whole platform loop — now build YOUR game.
 Copy the whole `examples/mini_game/` folder, rename things, and build on top.
 The reusable kit pieces live in:
 
-- `scripts/retroblox_api.gd` — login / signup / me / assets / file downloads
+- `scripts/retroblox_api.gd` — login / me / assets / file downloads
 - `scripts/auth_screen.gd` + `scenes/auth_screen.tscn` — the login card
 - `scripts/avatar.gd` + `scenes/avatar.tscn` — the six-part classic avatar
 - `scripts/avatar_platform.gd` — the website-identical avatar dressing engine
@@ -49,4 +50,4 @@ another Godot project just works — no global class registration needed.
 - The fixed camera passes `camera_yaw = 0.0`; with a rotating camera, pass its
   Y rotation so WASD stays screen-relative (see `scripts/main.gd` for the
   full third-person rig with Shift Lock).
-- Guests get no avatar payload — the kit falls back to classic noob colors.
+- If an account has no customized avatar the kit falls back to classic noob colors.
