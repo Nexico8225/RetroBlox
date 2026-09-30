@@ -65,6 +65,17 @@ const STATUS_COLOR: Record<string, string> = {
   partially_refunded: '#0d69ac',
 }
 
+interface BotRow {
+  id: string
+  username: string
+  playerNo: number
+  createdAt: string
+  lastSeen: string
+  role: string
+  likelyBot: boolean
+  _count: { inventory: number; ugcItems: number; tradesSent: number; tradesRecv: number }
+}
+
 export function RbxAdminView() {
   const { user, setToast } = useRetro()
   const [data, setData] = useState<Overview | null>(null)
@@ -75,6 +86,10 @@ export function RbxAdminView() {
   const [busy, setBusy] = useState(false)
   // draft edits per package row (only touched fields get sent)
   const [draft, setDraft] = useState<Record<string, Partial<Pkg>>>({})
+  // bot cleanup state — recent accounts, bot-shaped names flagged
+  const [bots, setBots] = useState<BotRow[]>([])
+  const [botPicked, setBotPicked] = useState<Set<string>>(new Set())
+  const [botBusy, setBotBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -84,7 +99,31 @@ export function RbxAdminView() {
     }
   }, [])
 
-  useEffect(() => { if (user?.role === 'admin') load() }, [user, load])
+  const loadBots = useCallback(async () => {
+    try {
+      const res = await api<{ users: BotRow[] }>('/api/admin/bots')
+      setBots(res.users || [])
+      setBotPicked(new Set((res.users || []).filter((u) => u.likelyBot).map((u) => u.id)))
+    } catch { /* the panel just stays empty */ }
+  }, [])
+
+  useEffect(() => { if (user?.role === 'admin') { load(); loadBots() } }, [user, load, loadBots])
+
+  async function removeBots() {
+    const ids = [...botPicked]
+    if (ids.length === 0) return
+    if (!window.confirm(`Permanently remove ${ids.length} account${ids.length === 1 ? '' : 's'} and everything they own? This cannot be undone.`)) return
+    setBotBusy(true)
+    try {
+      const res = await api<{ removed: string[] }>('/api/admin/bots', { method: 'POST', body: JSON.stringify({ userIds: ids }) })
+      flash(setToast, `Removed ${res.removed.length} account${res.removed.length === 1 ? '' : 's'}.`, 3200)
+      await loadBots()
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Cleanup failed.', 3600)
+    } finally {
+      setBotBusy(false)
+    }
+  }
 
   if (!user) return null
   if (user.role !== 'admin') {
@@ -330,6 +369,47 @@ export function RbxAdminView() {
       {/* balances */}
       <div className="rb-box">
         <div className="rb-panel-head"><span>Top Wallets</span></div>
+        {/* bot cleanup — sweep junk accounts the tests/probes left behind */}
+        <div className="rb-box" style={{ marginBottom: 12 }}>
+          <div className="rb-panel-head"><span>Bot Cleanup — remove junk accounts</span></div>
+          <div style={{ padding: 12 }}>
+            <div style={{ fontSize: 11, color: '#41586c', marginBottom: 8 }}>
+              Recent accounts (newest first). Probe/bot-shaped names are pre-checked. Removing an account deletes its items, trades, chats and comments too. Admins can never be removed.
+            </div>
+            <div style={{ display: 'grid', gap: 4, maxHeight: 300, overflowY: 'auto' }}>
+              {bots.map((u) => (
+                <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, background: u.likelyBot ? '#fdf6e4' : '#fbfdfe', border: '1px solid #e8eef4', padding: '5px 8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={botPicked.has(u.id)}
+                    disabled={u.role === 'admin'}
+                    onChange={(e) => setBotPicked((prev) => {
+                      const n = new Set(prev)
+                      if (e.target.checked) n.add(u.id)
+                      else n.delete(u.id)
+                      return n
+                    })}
+                  />
+                  <span style={{ fontWeight: 'bold', color: '#1c2733' }}>{u.username}</span>
+                  <span style={{ fontFamily: 'monospace', color: '#9aa7b4' }}>#{u.playerNo}</span>
+                  {u.likelyBot && <span style={{ fontSize: 9, fontWeight: 'bold', color: '#8a6d1a', background: '#fffdf4', border: '1px solid #e0c98a', padding: '0 5px', borderRadius: 2 }}>bot?</span>}
+                  {u.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
+                  <span style={{ marginLeft: 'auto', fontSize: 9.5, color: '#7b8896' }}>
+                    joined {new Date(u.createdAt).toLocaleDateString('en-US')} · {u._count.inventory} items · {u._count.tradesSent + u._count.tradesRecv} trades
+                  </span>
+                </label>
+              ))}
+              {bots.length === 0 && <div style={{ fontSize: 11, color: '#8ba0b3' }}>No accounts to review.</div>}
+            </div>
+            <div style={{ marginTop: 9, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button type="button" className="rb-btn rb-btn-red" disabled={botBusy || botPicked.size === 0} onClick={removeBots} style={{ fontSize: 11.5, padding: '5px 14px' }}>
+                {botBusy ? 'Removing…' : `Remove ${botPicked.size || ''} picked`}
+              </button>
+              <span style={{ fontSize: 10, color: '#8ba0b3' }}>This cannot be undone.</span>
+            </div>
+          </div>
+        </div>
+
         <div style={{ padding: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {data.holders.map((h) => (
             <Link
