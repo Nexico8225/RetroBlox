@@ -12,6 +12,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRetro, api, flash, refreshBalance } from '@/lib/store'
 import { Avatar } from './Shell'
+import { MarketPanel, MarketHistoryChart, TradeOfferModal, type MarketData } from './MarketPanel'
 import {
   UGC_TYPE_LABELS,
   DEFAULT_AVATAR,
@@ -65,6 +66,7 @@ interface DetailItem {
 interface DetailData {
   item: DetailItem
   owned: boolean
+  market: MarketData
   priceLadder: { soldAfter: number; price: number }[] | null
   sales: SaleRow[]
   canDelete: boolean
@@ -173,6 +175,7 @@ export function ItemDetailView({ id }: { id: string }) {
   // emotes: which clip the preview performs
   const [clip, setClip] = useState('')
   const [reload, setReload] = useState(0)
+  const [tradeOpen, setTradeOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -402,6 +405,14 @@ export function ItemDetailView({ id }: { id: string }) {
             <div style={{ fontSize: 11, color: '#5a6b7b', marginBottom: 12 }}>
               {item.owners.toLocaleString('en-US')} {item.owners === 1 ? 'member owns' : 'members own'} this
               {item.isLimited && item.stock != null && <> · {item.sold.toLocaleString('en-US')}/{item.stock.toLocaleString('en-US')} copies sold</>}
+              {data.market?.mySerial != null && item.isLimited && item.stock != null && (
+                <span
+                  title="Limited copies carry a permanent serial number — it travels with every trade and resale"
+                  style={{ marginLeft: 6, fontSize: 10, fontWeight: 'bold', color: '#8a6d1a', background: '#fffdf4', border: '1px solid #e0c98a', padding: '1px 7px', borderRadius: 3 }}
+                >
+                  ★ You own copy #{data.market.mySerial}/{item.stock}
+                </span>
+              )}
             </div>
 
             {/* ACTIONS */}
@@ -414,22 +425,36 @@ export function ItemDetailView({ id }: { id: string }) {
                   <span style={{ fontSize: 12, color: '#2c6e31', fontWeight: 'bold' }}>✓ In your inventory</span>
                 </>
               ) : soldOut ? (
-                <button className="rb-btn" style={{ fontSize: 13, padding: '8px 22px' }} disabled>
-                  Sold out forever
-                </button>
+                <>
+                  <button className="rb-btn" style={{ fontSize: 13, padding: '8px 22px' }} disabled>
+                    Sold out forever
+                  </button>
+                  {user && (
+                    <button type="button" className="rb-btn" style={{ fontSize: 12, padding: '7px 14px' }} onClick={() => setTradeOpen(true)} title="It sold out — but another player may trade or resell theirs">
+                      🔁 Offer a Trade
+                    </button>
+                  )}
+                </>
               ) : !user ? (
                 <Link href="/login" className="rb-btn rb-btn-green" style={{ fontSize: 13, padding: '8px 22px', textDecoration: 'none' }}>
                   Log in to {item.buyPrice > 0 ? 'buy' : 'get'} this
                 </Link>
               ) : (
-                <button
-                  className={item.buyPrice > 0 ? 'rb-btn rb-btn-green' : 'rb-btn'}
-                  style={{ fontSize: 13, padding: '8px 22px', fontWeight: 'bold' }}
-                  disabled={busy}
-                  onClick={buyOrGet}
-                >
-                  {busy ? 'Working...' : item.buyPrice > 0 ? `Buy for T$ ${item.buyPrice.toLocaleString('en-US')}` : 'Get it — free'}
-                </button>
+                <>
+                  <button
+                    className={item.buyPrice > 0 ? 'rb-btn rb-btn-green' : 'rb-btn'}
+                    style={{ fontSize: 13, padding: '8px 22px', fontWeight: 'bold' }}
+                    disabled={busy}
+                    onClick={buyOrGet}
+                  >
+                    {busy ? 'Working...' : item.buyPrice > 0 ? `Buy for T$ ${item.buyPrice.toLocaleString('en-US')}` : 'Get it — free'}
+                  </button>
+                  {!data.owned && (
+                    <button type="button" className="rb-btn" style={{ fontSize: 12, padding: '7px 14px' }} onClick={() => setTradeOpen(true)} title="Offer items from your inventory instead of Tix">
+                      🔁 Offer a Trade
+                    </button>
+                  )}
+                </>
               )}
               {user?.role === 'admin' && (
                 <span style={{ fontSize: 10, color: '#8ba0b3' }} title="Manage stock, owners boost and the locked price from the catalog card's Edit panel">
@@ -462,6 +487,24 @@ export function ItemDetailView({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* RESALE MARKET — listings, offers, haggle chat, trade offers */}
+      {data.market && (
+        <div className="rb-box" style={{ padding: 0 }}>
+          <div className="rb-panel-head">
+            <span>Resale Market — trade it, sell it, haggle for it</span>
+          </div>
+          <div style={{ padding: 12 }}>
+            <MarketPanel
+              itemId={item.id}
+              itemName={item.name}
+              owned={data.owned}
+              market={data.market}
+              onChanged={() => setReload((r) => r + 1)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* LIMITED: the doubling price chart */}
       {item.isLimited && data.priceLadder && data.priceLadder.length > 1 && (
         <div className="rb-box" style={{ padding: 0 }}>
@@ -474,6 +517,21 @@ export function ItemDetailView({ id }: { id: string }) {
               Copies sold on the X axis, the buyer&apos;s price on the Y. {soldOut
                 ? 'Every copy is gone — the chart is history now.'
                 : <>The next buyer pays <b>T$ {item.buyPrice.toLocaleString('en-US')}</b>; after that sale the price jumps to <b>T$ {(item.buyPrice * 2).toLocaleString('en-US')}</b>.</>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* the REAL market history — actual sale prices over time */}
+      {data.market && data.market.history.length >= 2 && (
+        <div className="rb-box" style={{ padding: 0 }}>
+          <div className="rb-panel-head">
+            <span>Market History — what buyers ACTUALLY paid</span>
+          </div>
+          <div style={{ padding: 12 }}>
+            <MarketHistoryChart history={data.market.history} />
+            <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 6 }}>
+              Every real transaction on this item: creator sales, player resales and trades. The resale market runs at 1.5x — buy low, sell at 1.5x, and the value climbs with every hand-off.
             </div>
           </div>
         </div>
@@ -515,6 +573,18 @@ export function ItemDetailView({ id }: { id: string }) {
           )}
         </div>
       </div>
+
+      {/* trade-with-creator modal (the "Offer a Trade" button) */}
+      {tradeOpen && item && (
+        <TradeOfferModal
+          itemId={item.id}
+          itemName={item.name}
+          toUserId={item.creator.id}
+          toLabel={item.creator.username}
+          onClose={() => setTradeOpen(false)}
+          onSent={() => setReload((r) => r + 1)}
+        />
+      )}
     </div>
   )
 }
