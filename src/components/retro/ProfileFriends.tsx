@@ -103,6 +103,8 @@ export function ProfileView({ id }: { id: string }) {
     friendshipId: string | null
     isMe: boolean
     inventory?: ProfileUGCItem[]
+    ugcWorth?: number
+    creations?: { id: string; name: string; type: string; imageFileId: string; isLimited: boolean; price: number; stock: number | null; owners: number; createdAt: string }[]
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ProfileStats | null>(null)
@@ -439,6 +441,7 @@ export function ProfileView({ id }: { id: string }) {
             ['🛠 Games Created', profile.games.length, 'games published'],
             ['⭐ Favorites', profile.favoriteGames.length, 'games favorited'],
             ['👥 Followers', profile.followersCount, 'players following them'],
+            ['💰 UGC Worth', profile.ugcWorth != null ? `T$ ${profile.ugcWorth.toLocaleString('en-US')}` : '—', 'what their UGC collection is worth on the market (asks + 1.5x resale)'],
           ].map(([label, value, title]) => (
             <div
               key={String(label)}
@@ -716,18 +719,49 @@ export function ProfileView({ id }: { id: string }) {
           </span>
         </div>
 
-        {/* CREATIONS tab — their games + videos */}
+        {/* CREATIONS tab — their games + videos + UGC */}
         {contentTab === 'creations' && (
         <div style={{ padding: 12 }}>
-          {profile.games.length === 0 && profile.videos.length === 0 && (
+          {profile.games.length === 0 && profile.videos.length === 0 && (profile.creations || []).length === 0 && (
             <div style={{ color: '#7b8896', fontSize: 11, padding: 8 }}>
               Nothing published yet.
               {profile.isMe && (
                 <>
                   <Link className="rb-btn" style={{ marginLeft: 8, textDecoration: 'none', display: 'inline-block' }} href="/create">Publish a game!</Link>
+                  <Link className="rb-btn" style={{ marginLeft: 8, textDecoration: 'none', display: 'inline-block' }} href="/catalog">Make UGC!</Link>
                   <Link className="rb-btn" style={{ marginLeft: 8, textDecoration: 'none', display: 'inline-block' }} href="/videos">Upload a video!</Link>
                 </>
               )}
+            </div>
+          )}
+          {(profile.creations || []).length > 0 && (
+            <div style={{ marginBottom: profile.games.length > 0 || profile.videos.length > 0 ? 14 : 0 }}>
+              <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>UGC they made ({(profile.creations || []).length})</span>
+                <Link className="rb-link" style={{ fontSize: 10 }} href="/catalog">Browse Catalog &rarr;</Link>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+                {(profile.creations || []).map((it) => (
+                  <Link
+                    key={it.id}
+                    href={`/catalog/${it.id}`}
+                    className="rb-clickable"
+                    style={{ display: 'block', border: '1px solid #c3cdd7', borderRadius: 4, padding: 7, background: '#fff', textDecoration: 'none', textAlign: 'center' }}
+                    title={`${it.name} — view item page`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/files/${it.imageFileId}`}
+                      alt={it.name}
+                      style={{ width: 72, height: 72, objectFit: 'cover', border: '1px solid #dbe4ec', display: 'block', margin: '0 auto 5px', background: '#f3f6f9' }}
+                    />
+                    <span style={{ fontSize: 10, fontWeight: 'bold', color: '#1c2733', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
+                    <span style={{ fontSize: 9, color: '#7b8896' }}>
+                      {it.isLimited ? '★ LIMITED · ' : ''}{it.owners} owner{it.owners === 1 ? '' : 's'}
+                    </span>
+                  </Link>
+                ))}
+              </div>
             </div>
           )}
           {profile.videos.length > 0 && (
