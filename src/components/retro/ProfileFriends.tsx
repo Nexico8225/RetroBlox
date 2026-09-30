@@ -7,6 +7,19 @@ import { useRetro, api, fmtDate, fmtCount, timeAgo, letterAvatar, flash, clearAu
 import { Avatar, OnlineDot } from './Shell'
 import { GameCard, GameSummary, SuggestedStrip, type SuggestedUser } from './HomeView'
 import { VideoCard } from './VideosView'
+import { ProfileTradeModal } from './MarketPanel'
+
+/* their UGC shelf — returned by /api/users/[id] as `inventory` */
+interface ProfileUGCItem {
+  id: string
+  name: string
+  type: string
+  imageFileId: string
+  isLimited: boolean
+  price: number
+  stock: number | null
+  serial: number | null
+}
 
 /* lightweight video shape returned by /api/users/[id] */
 interface ProfileVideo {
@@ -89,12 +102,14 @@ export function ProfileView({ id }: { id: string }) {
     friendState: 'none' | 'friends' | 'request_sent' | 'request_received'
     friendshipId: string | null
     isMe: boolean
+    inventory?: ProfileUGCItem[]
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [bio, setBio] = useState('')
-  // profile content lives in tabs — Creations (games + videos), Favorites, Groups
-  const [contentTab, setContentTab] = useState<'creations' | 'favorites' | 'groups'>('creations')
+  // profile content lives in tabs — Creations (games + videos), UGC (tradeable shelf), Favorites, Groups
+  const [contentTab, setContentTab] = useState<'creations' | 'favorites' | 'groups' | 'ugc'>('creations')
+  const [tradeOpen, setTradeOpen] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -271,6 +286,21 @@ export function ProfileView({ id }: { id: string }) {
     )
   }
 
+  /* the trade window — open their UGC shelf and put an offer on the table */
+  const tradeButton = () => {
+    if (profile.isMe || !user) return null
+    return (
+      <button
+        className="rb-btn"
+        style={{ background: 'linear-gradient(180deg,#a4e2a8,#4c9f53)', borderColor: '#2e6b34', color: '#fff', fontWeight: 'bold', textShadow: '1px 1px 0 rgba(0,0,0,.3)' }}
+        title={`See what UGC ${p.username} owns and send them a trade — Tix, items, or both`}
+        onClick={() => setTradeOpen(true)}
+      >
+        🔁 Trade
+      </button>
+    )
+  }
+
   return (
     <div>
       <div className="rb-box" style={{ overflow: 'hidden' }}>
@@ -374,6 +404,7 @@ export function ProfileView({ id }: { id: string }) {
               {friendButton()}
               {followButton()}
               {messageButton()}
+              {tradeButton()}
               {profile.isMe && (
                 <>
                   <input
@@ -662,6 +693,7 @@ export function ProfileView({ id }: { id: string }) {
           <span style={{ display: 'flex', gap: 3 }} role="tablist" aria-label="Profile sections">
             {([
               ['creations', `Creations (${profile.games.length + profile.videos.length})`],
+              ['ugc', `UGC (${(profile.inventory || []).length})`],
               ['favorites', `Favorites (${profile.favoriteGames.length})`],
               ['groups', `Groups (${profile.groups.length})`],
             ] as const).map(([t, label]) => (
@@ -754,6 +786,48 @@ export function ProfileView({ id }: { id: string }) {
         </div>
         )}
 
+        {/* UGC tab — the tradeable shelf: what they own, serials included */}
+        {contentTab === 'ugc' && (
+        <div style={{ padding: 12 }}>
+          {(profile.inventory || []).length === 0 ? (
+            <div style={{ color: '#7b8896', fontSize: 11, padding: 8 }}>
+              No UGC yet — rare limiteds and catalog finds show up here once they own them.
+            </div>
+          ) : (
+            <>
+              {!profile.isMe && (
+                <div style={{ fontSize: 11, color: '#5a6b7b', marginBottom: 9, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span>See something you like? Press <b>Trade</b> to put Tix, your own UGC, or both on the table — they accept or haggle.</span>
+                  <button type="button" className="rb-btn rb-btn-green" style={{ fontSize: 10.5, padding: '2px 10px', fontWeight: 'bold' }} onClick={() => setTradeOpen(true)}>
+                    🔁 Trade with {p.username}
+                  </button>
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+                {(profile.inventory || []).map((it) => (
+                  <Link
+                    key={it.id}
+                    href={`/catalog/${it.id}`}
+                    className="rb-clickable"
+                    style={{ display: 'block', border: '1px solid #c3cdd7', borderRadius: 4, padding: 7, background: '#fff', textDecoration: 'none', position: 'relative', textAlign: 'center' }}
+                    title={`${it.name} — view item page${it.isLimited ? ' (LIMITED)' : ''}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/files/${it.imageFileId}`}
+                      alt={it.name}
+                      style={{ width: 72, height: 72, objectFit: 'cover', border: '1px solid #dbe4ec', display: 'block', margin: '0 auto 5px', background: '#f3f6f9' }}
+                    />
+                    <span style={{ fontSize: 10, fontWeight: 'bold', color: '#1c2733', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
+                    <span style={{ fontSize: 9, color: '#7b8896' }}>{it.isLimited ? `★ LIMITED${it.serial ? ` #${it.serial}${it.stock ? `/${it.stock}` : ''}` : ''}` : it.type}</span>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        )}
+
         {/* GROUPS tab */}
         {contentTab === 'groups' && (
         <div style={{ padding: 12 }}>
@@ -784,6 +858,17 @@ export function ProfileView({ id }: { id: string }) {
         </div>
         )}
       </div>
+
+      {/* the trade window — pick from their shelf + yours, add Tix, send */}
+      {tradeOpen && profile && !profile.isMe && (
+        <ProfileTradeModal
+          toUserId={profile.user.id}
+          toUsername={profile.user.username}
+          theirItems={profile.inventory || []}
+          onClose={() => setTradeOpen(false)}
+          onSent={load}
+        />
+      )}
     </div>
   )
 }
@@ -907,60 +992,14 @@ export function FollowListView({ id, type }: { id: string; type: 'followers' | '
 
 /* ================= Friends (/friends) ================= */
 
-const NUDGE_COOLDOWN_MS = 10 * 60 * 1000
-
-/** NUDGE — remind someone about YOUR pending request to them. Mirrors
- *  the ChatView chip; starts in the done state when the request was
- *  already nudged inside the 10-minute server cooldown. */
-function NudgeButton({ friendshipId, nudgedAt }: { friendshipId: string; nudgedAt?: string | null }) {
-  const { setToast } = useRetro()
-  const [state, setState] = useState<'idle' | 'busy' | 'done'>(() =>
-    nudgedAt && Date.now() - new Date(nudgedAt).getTime() < NUDGE_COOLDOWN_MS ? 'done' : 'idle'
-  )
-
-  async function nudge() {
-    if (state !== 'idle') return
-    setState('busy')
-    try {
-      await api(`/api/friends/${friendshipId}`, { method: 'POST', body: JSON.stringify({ action: 'nudge' }) })
-      setState('done')
-      flash(setToast, 'Nudge sent — it will pop up in their bell!', 2400)
-    } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Failed to nudge', 2600)
-      setState('idle')
-    }
-  }
-
-  if (state === 'done') {
-    return <span style={{ fontSize: 10, color: '#2c6e31', fontStyle: 'italic' }}>Nudged ✓</span>
-  }
-  return (
-    <button
-      className="rb-btn"
-      style={{ fontSize: 10 }}
-      disabled={state === 'busy'}
-      onClick={nudge}
-      title="Remind them about your pending friend request"
-    >
-      {state === 'busy' ? '...' : 'Nudge'}
-    </button>
-  )
-}
-
 export function FriendsView() {
   const { user, setToast, setPendingRequests } = useRetro()
   const router = useRouter()
   const [friends, setFriends] = useState<(RetroUser & { friendshipId: string })[]>([])
   const [incoming, setIncoming] = useState<{ id: string; user: RetroUser }[]>([])
-  const [outgoing, setOutgoing] = useState<{ id: string; user: RetroUser; lastNudgeAt?: string | null }[]>([])
+  const [outgoing, setOutgoing] = useState<{ id: string; user: RetroUser }[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])
-  const [similar, setSimilar] = useState<SuggestedUser[]>([])
-  const [similarFor, setSimilarFor] = useState('')
   const [addName, setAddName] = useState('')
-  const [suggests, setSuggests] = useState<SuggestedUser[]>([])
-  const [showSuggests, setShowSuggests] = useState(false)
-  const [activeIdx, setActiveIdx] = useState(-1)
-  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
   const [sessionError, setSessionError] = useState(false)
@@ -969,7 +1008,7 @@ export function FriendsView() {
     setLoading(true)
     try {
       const [res, s] = await Promise.all([
-        api<{ friends: (RetroUser & { friendshipId: string })[]; incoming: { id: string; user: RetroUser }[]; outgoing: { id: string; user: RetroUser; lastNudgeAt?: string | null }[] }>('/api/friends'),
+        api<{ friends: (RetroUser & { friendshipId: string })[]; incoming: { id: string; user: RetroUser }[]; outgoing: { id: string; user: RetroUser }[] }>('/api/friends'),
         api<{ suggested: SuggestedUser[] }>('/api/friends/suggested'),
       ])
       setFriends(res.friends)
@@ -990,79 +1029,20 @@ export function FriendsView() {
     if (user) load()
   }, [user, load])
 
-  // "send a request to RetroBlox and RetroBloxian shows up" — the
-  // closest name matches, closest first (the API sorts by similarity)
-  async function loadSimilar(name: string, excludeId?: string) {
-    try {
-      const s = await api<{ similar: SuggestedUser[] }>(
-        `/api/users/similar?name=${encodeURIComponent(name)}${excludeId ? `&exclude=${excludeId}` : ''}`
-      )
-      setSimilar(s.similar || [])
-      setSimilarFor(name)
-    } catch {
-      setSimilar([])
-    }
-  }
-
-  async function addFriend(nameOverride?: string) {
+  async function addFriend() {
     setMsg('')
-    const name = (nameOverride ?? addName).trim()
-    if (!name) return
+    if (!addName.trim()) return
     try {
-      const res = await api<{ autoAccepted?: boolean; user?: RetroUser }>('/api/friends', {
+      const res = await api<{ autoAccepted?: boolean }>('/api/friends', {
         method: 'POST',
-        body: JSON.stringify({ username: name }),
+        body: JSON.stringify({ username: addName.trim() }),
       })
-      flash(setToast, res.autoAccepted ? `You and ${name} are now friends!` : `Friend request sent to ${name}!`, 2400)
+      flash(setToast, res.autoAccepted ? `You and ${addName} are now friends!` : `Friend request sent to ${addName}!`, 2400)
       setAddName('')
-      setSuggests([])
-      setShowSuggests(false)
       await load()
-      // the request went through — surface players with similar names
-      void loadSimilar(name, res.user?.id)
     } catch (e) {
-      const m = e instanceof Error ? e.message : 'Failed'
-      if (/no user named/i.test(m)) {
-        // no exact match — show the closest real usernames instead
-        setMsg(`No player named "${name}" — did you mean one of these?`)
-        void loadSimilar(name)
-      } else {
-        setMsg(m)
-      }
+      setMsg(e instanceof Error ? e.message : 'Failed')
     }
-  }
-
-  // AS-YOU-TYPE AUTOCOMPLETE — "type retroblox, see RetroBloxian"
-  // while still typing (debounced), closest names ranked on top by the
-  // API. Picking one sends the request immediately.
-  function onAddNameChange(v: string) {
-    setAddName(v)
-    setMsg('')
-    if (suggestTimer.current) clearTimeout(suggestTimer.current)
-    const term = v.trim()
-    if (term.length < 2) {
-      setSuggests([])
-      setShowSuggests(false)
-      return
-    }
-    suggestTimer.current = setTimeout(async () => {
-      try {
-        const s = await api<{ similar: SuggestedUser[] }>(
-          `/api/users/similar?name=${encodeURIComponent(term)}`
-        )
-        setSuggests(s.similar || [])
-        setShowSuggests((s.similar || []).length > 0)
-        setActiveIdx(-1)
-      } catch {
-        setSuggests([])
-        setShowSuggests(false)
-      }
-    }, 220)
-  }
-
-  function pickSuggest(u: SuggestedUser) {
-    setShowSuggests(false)
-    void addFriend(u.username)
   }
 
   async function act(friendshipId: string, action: 'accept' | 'decline' | 'remove' | 'cancel') {
@@ -1094,92 +1074,19 @@ export function FriendsView() {
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>Add Friends</span></div>
         <div style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 180, position: 'relative' }}>
-            <input
-              className="rb-input"
-              placeholder="Type a username to add..."
-              value={addName}
-              onChange={(e) => onAddNameChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (showSuggests && suggests.length > 0) {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault()
-                    setActiveIdx((i) => (i + 1) % suggests.length)
-                    return
-                  }
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault()
-                    setActiveIdx((i) => (i <= 0 ? suggests.length - 1 : i - 1))
-                    return
-                  }
-                  if (e.key === 'Escape') {
-                    setShowSuggests(false)
-                    return
-                  }
-                  if (e.key === 'Enter' && activeIdx >= 0) {
-                    e.preventDefault()
-                    pickSuggest(suggests[activeIdx])
-                    return
-                  }
-                }
-                if (e.key === 'Enter') addFriend()
-              }}
-              onBlur={() => setTimeout(() => setShowSuggests(false), 140)}
-              style={{ width: '100%' }}
-              aria-label="Username to add"
-              aria-autocomplete="list"
-              autoComplete="off"
-            />
-            {showSuggests && suggests.length > 0 && (
-              <div
-                className="rb-box"
-                role="listbox"
-                aria-label="Player name suggestions"
-                style={{
-                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-                  zIndex: 30, maxHeight: 244, overflowY: 'auto',
-                  boxShadow: '0 6px 18px rgba(9,32,52,.25)', padding: 0,
-                }}
-              >
-                {suggests.map((u, i) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    role="option"
-                    aria-selected={i === activeIdx}
-                    onMouseDown={(e) => {
-                      e.preventDefault() // keep input focus; click still registers
-                      pickSuggest(u)
-                    }}
-                    onMouseEnter={() => setActiveIdx(i)}
-                    style={{
-                      display: 'flex', width: '100%', alignItems: 'center', gap: 8,
-                      padding: '6px 9px', textAlign: 'left', cursor: 'pointer',
-                      background: i === activeIdx ? '#eef4fa' : '#fff',
-                      border: 'none', borderBottom: '1px solid #eef2f6',
-                    }}
-                  >
-                    <Avatar user={u} size={26} rounded="50%" />
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: 11, color: '#1c4e7c', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {u.username}
-                      </span>
-                      <span style={{ fontSize: 9, color: '#7b8896' }}>{u.reason}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button className="rb-btn rb-btn-green" onClick={() => addFriend()}>Send Friend Request</button>
+          <input
+            className="rb-input"
+            placeholder="Type a username to add..."
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addFriend()}
+            style={{ flex: 1, minWidth: 180 }}
+            aria-label="Username to add"
+          />
+          <button className="rb-btn rb-btn-green" onClick={addFriend}>Send Friend Request</button>
         </div>
         {msg && <div style={{ padding: '0 12px 10px', color: '#a81a13', fontSize: 11 }}>{msg}</div>}
       </div>
-
-      {/* similar-name players — closest match on top */}
-      {similar.length > 0 && (
-        <SuggestedStrip users={similar} title={`Players like "${similarFor}"`} />
-      )}
 
       {/* incoming requests */}
       {incoming.length > 0 && (
@@ -1213,7 +1120,6 @@ export function FriendsView() {
                 <Avatar user={r.user} size={32} />
                 <div style={{ flex: 1, fontSize: 11, color: '#24425f' }}>{r.user.username}</div>
                 <span style={{ fontSize: 10, color: '#7b8896', fontStyle: 'italic' }}>pending...</span>
-                <NudgeButton friendshipId={r.id} nudgedAt={r.lastNudgeAt} />
                 <button className="rb-btn" onClick={() => act(r.id, 'cancel')}>Cancel</button>
               </div>
             ))}
