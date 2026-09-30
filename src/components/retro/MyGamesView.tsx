@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRetro, api, fmtDate, fmtCount } from '@/lib/store'
+import { FxText } from '@/lib/textfx'
 import { GameIcon } from './Shell'
 import { GameCard, type GameSummary } from './HomeView'
 
@@ -77,7 +78,7 @@ export function MyGamesView() {
               <GameIcon src={g.iconUrl || g.thumbnailUrl} name={g.name} size={52} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, color: '#0d69ac', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {g.name}
+                  <FxText text={g.name} />
                 </div>
                 <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 2 }}>
                   {g.genre} · {g.engine} · {fmtCount(g.downloads)} downloads
