@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, makeToken, publicUser, setSessionCookie } from '@/lib/auth'
-import { notifyEveryone } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,10 +54,16 @@ export async function POST(req: NextRequest) {
     // a brand-new Turso cloud database — register FIRST, before sharing!)
     const userCount = await db.user.count()
 
+    // short public player number — join order (Nexico8225 is #1, you get the idea).
+    // max+1 inside the create; the unique index keeps two same-moment signups honest.
+    const topNo = await db.user.aggregate({ _max: { playerNo: true } })
+    const playerNo = (topNo._max.playerNo ?? 0) + 1
+
     const user = await db.user.create({
       data: {
         username,
         usernameLower: lower,
+        playerNo,
         passwordHash: hashPassword(password),
         gender,
         birthday,
@@ -92,19 +97,6 @@ export async function POST(req: NextRequest) {
     // serverless filesystems skip the row — the token still works)
     const token = makeToken(user.id)
     await db.session.create({ data: { token, userId: user.id } }).catch(() => {})
-
-    // tell the whole town a new blockhead walked in (bell feed for every
-    // member; never blocks the signup itself)
-    await notifyEveryone(
-      {
-        type: 'new_player',
-        title: 'New player joined RetroBlox!',
-        body: `${user.username} just joined — say hi and send them a friend request!`,
-        linkUrl: `/users/${user.id}`,
-        actorId: user.id,
-      },
-      user.id
-    )
 
     const res = NextResponse.json({ user: publicUser(user), token })
     setSessionCookie(res, req, token)
