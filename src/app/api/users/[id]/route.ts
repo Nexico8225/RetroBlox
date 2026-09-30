@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq, publicUser, isOnline } from '@/lib/auth'
+import { resaleValue } from '@/lib/market'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -137,18 +138,73 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   })
 
   // the tradeable UGC — soft-deleted items are hidden from the showcase
-  const inventory = user.inventory
-    .filter((e) => !e.item.deletedAt)
-    .map((e) => ({
-      id: e.item.id,
-      name: e.item.name,
-      type: e.item.type,
-      imageFileId: e.item.imageFileId,
-      isLimited: e.item.isLimited,
-      price: e.item.price,
-      stock: e.item.stock,
-      serial: e.serial,
-    }))
+  const inventoryRows = user.inventory.filter((e) => !e.item.deletedAt)
+  const inventory = inventoryRows.map((e) => ({
+    id: e.item.id,
+    name: e.item.name,
+    type: e.item.type,
+    imageFileId: e.item.imageFileId,
+    isLimited: e.item.isLimited,
+    price: e.item.price,
+    stock: e.item.stock,
+    serial: e.serial,
+  }))
+
+  // ---- UGC WORTH — what their collection is worth on the market ----
+  // per copy: the active listing ask if there is one, otherwise the
+  // suggested resale (1.5x what they paid; creators count 1.5x mint price)
+  const invItemIds = inventoryRows.map((e) => e.item.id)
+  const [lastPaidRows, askRows] = await Promise.all([
+    invItemIds.length
+      ? db.ugcPricePoint.findMany({
+          where: { itemId: { in: invItemIds }, buyerId: user.id },
+          orderBy: { createdAt: 'desc' },
+          select: { itemId: true, price: true },
+        })
+      : Promise.resolve([] as { itemId: string; price: number }[]),
+    invItemIds.length
+      ? db.ugcListing.groupBy({
+          by: ['itemId'],
+          where: { itemId: { in: invItemIds }, sellerId: user.id, status: 'active' },
+          _max: { price: true },
+        })
+      : Promise.resolve([] as { itemId: string; _max: { price: number | null } }[]),
+  ])
+  const paidMap = new Map<string, number>() // first hit per item = the latest (rows are desc)
+  for (const r of lastPaidRows) if (!paidMap.has(r.itemId)) paidMap.set(r.itemId, r.price)
+  const askMap = new Map<string, number>()
+  for (const r of askRows) if ((r._max.price ?? 0) > 0) askMap.set(r.itemId, r._max.price as number)
+  let ugcWorth = 0
+  for (const e of inventoryRows) {
+    const ask = askMap.get(e.item.id)
+    if (ask != null) { ugcWorth += ask; continue }
+    const paid = paidMap.get(e.item.id) ?? 0
+    ugcWorth += resaleValue(paid, e.item.price)
+  }
+
+  // ---- CREATIONS — everything they published to the catalog ----
+  const creationRows = await db.avatarItem.findMany({
+    where: { creatorId: user.id, deletedAt: null },
+    orderBy: { createdAt: 'desc' },
+    take: 60,
+    select: {
+      id: true, name: true, type: true, imageFileId: true,
+      isLimited: true, price: true, stock: true, createdAt: true,
+      _count: { select: { ownedBy: true } },
+    },
+  })
+  // real sales per creation (the creator's own copy is not a sale)
+  const creations = creationRows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    imageFileId: c.imageFileId,
+    isLimited: c.isLimited,
+    price: c.price,
+    stock: c.stock,
+    owners: c._count.ownedBy,
+    createdAt: c.createdAt,
+  }))
 
   return NextResponse.json({
     user: {
@@ -161,6 +217,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     favoriteGames,
     videos,
     inventory,
+    ugcWorth,
+    creations,
     friends,
     followersCount,
     followingCount,
