@@ -2,14 +2,14 @@ extends Node3D
 
 ## A six-part classic block avatar. Two visual modes, one API:
 ##
-##  1) R6IK mode (default) — the REAL catalog player model. The same
-##     R6IK.fbx rig the website's catalog / avatar editor renders ships
-##     inside assets/models/. Limbs swing from shoulder/hip pivots, the
-##     helper plane and IK bones are hidden, and every part can be
-##     painted or dressed exactly like the site does it.
+##  1) R6IK mode (default) — the REAL catalog player model. A cleaned
+##     build of the catalog rig ships prepackaged as
+##     assets/models/R6IK_rig.scn; the raw R6IK.fbx sits un-imported in
+##     assets/models/source/ (its empty helper meshes made the editor
+##     spam import errors on every open). Every part can be painted or
+##     dressed exactly like the site does it.
 ##  2) Box mode (fallback) — scenes/avatar.tscn's built-in box rig. Used
-##     on a brand-new project before Godot has imported the FBX, or if
-##     someone strips the models folder. Nothing else changes.
+##     if someone strips the models folder. Nothing else changes.
 ##
 ## Both modes expose the same API avatar_platform.gd drives:
 ## set_part_color / set_part_textured / set_face / animate / burst.
@@ -18,10 +18,10 @@ extends Node3D
 # project's very first open, before Godot has imported the .wav asset
 var _oof_audio: AudioStream
 const HEAD_INDEX: int = 0
-const RIG_SCENE_PATH: String = "res://assets/models/R6IK.fbx"
+const RIG_SCENE_PATH: String = "res://assets/models/R6IK_rig.scn"
 const RIG_HEIGHT: float = 5.0  # STUDS: the classic character is exactly 5 studs tall
 
-# the real R6IK animations, straight from the FBX (old Roblox moves)
+# the real R6IK animations, shipped inside the rig (old Roblox moves)
 const ANIM_IDLE: StringName = &"Old_Idle"
 const ANIM_WALK: StringName = &"Old_Walk"
 const ANIM_JUMP: StringName = &"Old_Jump"
@@ -89,6 +89,25 @@ func _ready() -> void:
 
 func is_r6ik() -> bool:
         return _using_r6ik
+
+## The avatar's real height in avatar-space units (the R6IK rig is built to
+## exactly 5.0 — the same units the site's 5-stud rig uses, so UGC placements
+## authored on the site map 1:1; the box fallback rig is whatever it measures).
+## Measured from the actual part meshes so clothing/UGC code never hardcodes it.
+func rig_height() -> float:
+        _ensure_built()
+        if not is_inside_tree():
+                return RIG_HEIGHT
+        var top := 0.0
+        var any := false
+        var inv := global_transform.affine_inverse()
+        for part in parts:
+                if part == null or not is_instance_valid(part) or part.mesh == null:
+                        continue
+                var box: AABB = inv * part.global_transform * part.mesh.get_aabb()
+                top = maxf(top, box.position.y + box.size.y)
+                any = true
+        return top if any else RIG_HEIGHT
 
 func configure(peer_id: int, display_name: String) -> void:
         _peer_id = peer_id
