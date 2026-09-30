@@ -53,10 +53,11 @@ export async function POST(req: NextRequest) {
   const giveItemIds = [...new Set(parseIdArray(JSON.stringify(body.giveItemIds ?? [])))]
   const takeItemIds = [...new Set(parseIdArray(JSON.stringify(body.takeItemIds ?? [])))]
   const tix = Math.max(0, Math.floor(Number(body.tix) || 0))
+  const robux = Math.max(0, Math.floor(Number(body.robux) || 0))
   const message = String(body.message || '').trim().slice(0, 300)
 
-  if (!giveItemIds.length && !takeItemIds.length && tix <= 0) {
-    return NextResponse.json({ error: 'Offer at least one item or some Tix — an empty trade is just a handshake.' }, { status: 400 })
+  if (!giveItemIds.length && !takeItemIds.length && tix <= 0 && robux <= 0) {
+    return NextResponse.json({ error: 'Offer at least one item, some Tix or some Robux — an empty trade is just a handshake.' }, { status: 400 })
   }
   if (giveItemIds.length > MAX_ITEMS_PER_SIDE || takeItemIds.length > MAX_ITEMS_PER_SIDE) {
     return NextResponse.json({ error: `Keep it to ${MAX_ITEMS_PER_SIDE} items per side.` }, { status: 400 })
@@ -68,15 +69,24 @@ export async function POST(req: NextRequest) {
   if (!target) return NextResponse.json({ error: `No player named "${toUsername || toUserId}" exists.` }, { status: 404 })
   if (target.id === me.id) return NextResponse.json({ error: 'You cannot trade with yourself!' }, { status: 400 })
 
-  // sanity: I own what I give; they own what I ask for; I have the Tix
-  await db.$transaction(async (tx) => {
-    await assertOwnsAll(tx, me.id, giveItemIds)
-    await assertOwnsAll(tx, target.id, takeItemIds)
-    if (tix > 0) {
-      const u = await tx.user.findUnique({ where: { id: me.id }, select: { rbxBalance: true } })
-      if (!u || u.rbxBalance < tix) throw new MarketError('NO_FUNDS', `You only have T$ ${(u?.rbxBalance ?? 0).toLocaleString('en-US')} — not enough for this offer.`)
-    }
-  })
+  // sanity: I own what I give; they own what I ask for; I have the Tix AND the Robux
+  try {
+    await db.$transaction(async (tx) => {
+      await assertOwnsAll(tx, me.id, giveItemIds)
+      await assertOwnsAll(tx, target.id, takeItemIds)
+      if (tix > 0) {
+        const u = await tx.user.findUnique({ where: { id: me.id }, select: { rbxBalance: true } })
+        if (!u || u.rbxBalance < tix) throw new MarketError('NO_FUNDS', `You only have T$ ${(u?.rbxBalance ?? 0).toLocaleString('en-US')} — not enough for this offer.`)
+      }
+      if (robux > 0) {
+        const u = await tx.user.findUnique({ where: { id: me.id }, select: { robuxBalance: true } })
+        if (!u || u.robuxBalance < robux) throw new MarketError('NO_ROBUX', `You only have R$ ${(u?.robuxBalance ?? 0).toLocaleString('en-US')} — not enough Robux for this offer.`)
+      }
+    })
+  } catch (e) {
+    if (e instanceof MarketError) return NextResponse.json({ error: e.message }, { status: 400 })
+    throw e
+  }
 
   const trade = await db.ugcTrade.create({
     data: {
@@ -85,6 +95,7 @@ export async function POST(req: NextRequest) {
       giveItemIds: JSON.stringify(giveItemIds),
       takeItemIds: JSON.stringify(takeItemIds),
       tixFrom: tix,
+      robuxFrom: robux,
     },
   })
   if (message) {
@@ -96,8 +107,8 @@ export async function POST(req: NextRequest) {
     title: `${me.username} wants to trade with you!`,
     body: message
       ? `"${message}"`
-      : `${giveItemIds.length} item(s)${tix > 0 ? ` + T$ ${tix.toLocaleString('en-US')}` : ''} on the table — take a look before it's gone.`,
-    link: '/trades',
+      : `${giveItemIds.length} item(s)${tix > 0 ? ` + T$ ${tix.toLocaleString('en-US')}` : ''}${robux > 0 ? ` + R$ ${robux.toLocaleString('en-US')}` : ''} on the table — take a look before it's gone.`,
+    link: `/trades/${trade.id}`,
     data: { tradeId: trade.id },
   })
 
