@@ -53,7 +53,7 @@ Point the login card at any RetroBlox site with `-- --api=https://your-site`.
 
 ### The avatar uses the real catalog model (R6IK)
 
-In-game players wear **`assets/models/R6IK.fbx`** — the exact rig the
+In-game players wear **`assets/models/R6IK_rig.scn`** (built from the catalog `R6IK.fbx`, kept un-imported in `assets/models/source/`) — the exact rig the
 website's catalog and avatar editor render — normalized to the game's
 capsule, with limbs swinging from shoulder/hip pivots and arms-up jumps,
 like the site's playground. If the FBX has not been imported yet (a
