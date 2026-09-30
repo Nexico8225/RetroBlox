@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
 import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson } from '@/lib/avatarAssets'
 import { buyPrice, RbxError } from '@/lib/rbx'
-import { resaleValue } from '@/lib/market'
+import { resaleValue, parseIdArray as parseIdArraySafe } from '@/lib/market'
 import { saveUpload, resolveUpload } from '@/lib/uploads'
 
 /**
@@ -31,6 +31,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // sold = REAL BUYERS (the creator's own auto-granted copy is not a sale)
   const sold = await db.inventoryEntry.count({
     where: { itemId: id, NOT: { userId: item.creatorId } },
+  })
+  // trade targeting: press Trade beside an item -> offer the person who
+  // currently sells it (cheapest active listing) or, with no listing, the
+  // creator (who holds the master copy). Owners pressing Trade get routed
+  // to the incoming offers below instead.
+  const cheapestListing = await db.ugcListing.findFirst({
+    where: { itemId: id, status: 'active' },
+    orderBy: { price: 'asc' },
+    select: { seller: { select: { id: true, username: true } } },
+  })
+  const tradeTarget = cheapestListing?.seller ?? { id: item.creator.id, username: item.creator.username }
+  // pending TRADES that request this item (the owner's "offers waiting" list)
+  const pendingTradeRows = await db.ugcTrade.findMany({
+    where: { toUserId: tradeTarget.id, status: 'pending', takeItemIds: { contains: `"${id}"` } },
+    orderBy: { updatedAt: 'desc' },
+    take: 12,
+    select: {
+      id: true,
+      tixFrom: true,
+      giveItemIds: true,
+      fromUser: { select: { id: true, username: true, avatarUrl: true } },
+    },
   })
   // the sales ledger for the item page: WHO bought and WHEN (newest first)
   const sales = await db.inventoryEntry.findMany({
@@ -71,6 +93,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       createdAt: item.createdAt,
     },
     owned,
+    // who a Trade button should open a trade with (listing seller ?? creator)
+    tradeTarget,
+    // the owner's waiting room: pending trades that want THIS item
+    incomingTrades: pendingTradeRows.map((t) => ({
+      id: t.id,
+      tixFrom: t.tixFrom,
+      giveItemIds: parseIdArraySafe(t.giveItemIds),
+      fromUser: t.fromUser,
+    })),
     // ---- the RESALE MARKET for this item (player-to-player economy) ----
     market: await marketData(id, item, viewer),
     // the ladder of prices this limited will climb (original, x2, x4...) —
