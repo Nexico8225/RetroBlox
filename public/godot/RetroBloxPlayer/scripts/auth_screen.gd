@@ -1,14 +1,16 @@
 # RetrobloxAuthScreen — the door into RetroBlox, drawn inside the game.
 #
 # The card itself lives in scenes/auth_screen.tscn — open it in the editor to
-# restyle the login UI visually. This script keeps the behavior: what happens
-# when you log in, sign up, or play as a guest.
+# restyle the login UI visually. This script keeps the behavior:
 #
 #   LOG IN   — existing accounts (username + password)
 #   SIGN UP  — create a brand-new account without ever opening the website;
 #              the fresh account's avatar loads immediately via /api/platform/me
-#   GUEST    — play without an account (classic noob colors, "Guest-1234")
-# Remembers the last username; a saved token auto-signs-in instantly.
+#
+# ACCOUNTS ONLY — there is no guest play: everyone in the world wears the
+# avatar their RetroBlox account wears on the website. The server is locked
+# to the official RetroBlox platform (players cannot point the game at some
+# other web). A saved username + password auto-signs-in on the next launch.
 class_name RetrobloxAuthScreen
 extends CanvasLayer
 
@@ -17,7 +19,6 @@ extends CanvasLayer
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
 signal completed(api, username: String, user_id: String, avatar: Dictionary)
-signal guest_requested
 
 const RED := Color("e2231a")
 const GREEN := Color("02b757")
@@ -38,29 +39,22 @@ const LINK := Color("0d69ac")
 
 var _signup_mode := false
 var _busy := false
+var _api_url := "https://retro-blox.vercel.app"
 
 
 func _ready() -> void:
         _login_tab_btn.pressed.connect(_set_mode.bind(false))
         _signup_tab_btn.pressed.connect(_set_mode.bind(true))
         _submit_btn.pressed.connect(_submit)
-        %GuestBtn.pressed.connect(_guest_pressed)
-        for edit: LineEdit in [_server_edit, _user_edit, _pass_edit, _confirm_edit]:
+        for edit: LineEdit in [_user_edit, _pass_edit, _confirm_edit]:
                 edit.text_submitted.connect(_on_field_submitted)
-        # ONE platform, ONE door: the production site. The Server field and
-        # the Sign Up tab are gone — accounts are made on retro-blox.vercel.app
-        # (or through the platform signup API), and this card is log-in only.
-        _server_edit.visible = false
-        var server_label := _server_edit.get_parent().get_node_or_null("ServerLabel") as Label
-        if server_label != null:
-                server_label.visible = false
-        _signup_tab_btn.visible = false
+        # ACCOUNTS ONLY + LOCKED SERVER: the guest door is gone and the server
+        # field stays hidden — the game talks to exactly one web, the official
+        # RetroBlox platform, and players cannot redirect it.
+        %GuestBtn.visible = false
+        %ServerLabel.visible = false
+        %ServerEdit.visible = false
         _set_mode(false)
-
-
-func _guest_pressed() -> void:
-        if not _busy:
-                guest_requested.emit()
 
 
 func _on_field_submitted(_text: String) -> void:
@@ -90,10 +84,11 @@ func _style_tab(button: Button, active: bool) -> void:
         button.add_theme_color_override("font_color", Color.WHITE if active else INK)
 
 
-## Pre-fill from config / a previous session.
+## The locked platform URL — called once by main.gd before the card shows.
 func set_api_url(url: String) -> void:
+        _api_url = url if not url.is_empty() else _api_url
         if _server_edit != null:
-                _server_edit.text = url
+                _server_edit.text = _api_url  # kept for the editor inspector only
 
 func set_saved_username(username: String) -> void:
         if _user_edit != null:
@@ -114,8 +109,7 @@ func _error(text: String) -> void:
 func _submit() -> void:
         if _busy:
                 return
-        # the platform is baked in — self-hosts use RETROBLOX_API / --api=
-        var server := "https://retro-blox.vercel.app"
+        var server := _api_url  # LOCKED — the player cannot change the platform
         var user := _user_edit.text.strip_edges()
         var passw := _pass_edit.text
         if user.is_empty() or passw.is_empty():
