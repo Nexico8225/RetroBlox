@@ -615,6 +615,8 @@ model UgcListing {
   sellerId  String
   seller    User       @relation("ugcListings", fields: [sellerId], references: [id], onDelete: Cascade)
   price     Int // asking price in Tix — the seller can lower it while haggling
+  title       String   @default("") // the seller's sales pitch on the market ("CHEAP Dominus, taking offers!")
+  description String   @default("") // longer pitch — what they accept, why they're selling
   status    String     @default("active") // active | sold | cancelled
   buyerId   String?
   buyer     User?      @relation("ugcListingsBought", fields: [buyerId], references: [id], onDelete: SetNull)
@@ -638,6 +640,7 @@ model UgcOffer {
   buyerId     String
   buyer       User       @relation("ugcOffers", fields: [buyerId], references: [id], onDelete: Cascade)
   amount      Int // offered Tix
+  offerItemIdsJson String @default("[]") // JSON array — UGC the buyer puts on the table alongside (or instead of) the Tix
   status      String     @default("pending") // pending | accepted | declined | cancelled
   createdAt   DateTime   @default(now())
   respondedAt DateTime?
