@@ -75,6 +75,7 @@ const NAV = [
   { label: 'Catalog', href: '/catalog' },
   { label: 'Trades', href: '/trades' },
   { label: 'Avatar', href: '/avatar' },
+  { label: 'Players', href: '/users' },
   { label: 'Groups', href: '/groups' },
   { label: 'Music', href: '/music' },
   { label: 'RetroLabs', href: '/labs' },
@@ -88,6 +89,7 @@ export function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const [q, setQ] = useState('')
+  const [scope, setScope] = useState<'games' | 'players'>('games')
 
   useEffect(() => {
     // refresh pending friend-request + chat + notification badges + the Tix wallet chip occasionally
@@ -108,7 +110,11 @@ export function Header() {
 
   function search(e: React.FormEvent) {
     e.preventDefault()
-    router.push(q.trim() ? `/games?q=${encodeURIComponent(q.trim())}` : '/games')
+    if (!q.trim()) {
+      router.push(scope === 'players' ? '/users' : '/games')
+    } else {
+      router.push(`/${scope === 'players' ? 'users' : 'games'}?q=${encodeURIComponent(q.trim())}`)
+    }
     setQ('')
   }
 
@@ -142,14 +148,23 @@ export function Header() {
             exactly like the old site, so the search finally has room to
             breathe (the nav links live in the white strip below). */}
         <form onSubmit={search} className="rb-header-search" style={{ display: 'flex', flex: 1, minWidth: 150, maxWidth: 560, marginLeft: 10 }}>
+          <select
+            value={scope}
+            onChange={(e) => setScope(e.target.value as 'games' | 'players')}
+            style={{ height: 30, fontSize: 11.5, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRight: 'none', width: 86, flexShrink: 0 }}
+            aria-label="What to search"
+          >
+            <option value="games">Games</option>
+            <option value="players">Players</option>
+          </select>
           <input
             className="rb-input"
             type="search"
-            placeholder="Search games..."
+            placeholder={scope === 'players' ? 'Search players or #number...' : 'Search games...'}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            style={{ flex: 1, minWidth: 0, borderRadius: '3px 0 0 3px', fontSize: 12.5, height: 30 }}
-            aria-label="Search games"
+            style={{ flex: 1, minWidth: 0, borderRadius: 0, fontSize: 12.5, height: 30 }}
+            aria-label={scope === 'players' ? 'Search players' : 'Search games'}
           />
           <button className="rb-btn" type="submit" style={{ borderRadius: '0 3px 3px 0', borderLeft: 'none', height: 30 }}>
             Go
