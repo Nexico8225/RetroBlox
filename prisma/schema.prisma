@@ -9,6 +9,7 @@ datasource db {
 
 model User {
   id            String       @id @default(cuid())
+  playerNo      Int          @default(0) @unique // short PUBLIC id: Nexico8225 is #1, the next signup is #2 — display-only, cuid stays internal
   username      String       @unique
   usernameLower String?      @unique // case-insensitive uniqueness ("people can't have the same username")
   passwordHash  String
@@ -57,6 +58,7 @@ model User {
   tradesSent     UgcTrade[]          @relation("tradesSent")
   tradesRecv     UgcTrade[]          @relation("tradesRecv")
   ugcTradeMsgs   UgcTradeMessage[]   @relation("ugcTradeMessages")
+  ugcComments    UgcComment[]        @relation("ugcComments") // comments this player left on UGC
   notifications  Notification[]
   rbxBalance    Int           @default(0) // server-side Tix wallet — only the ledger moves it
   robuxBalance  Int           @default(0) // server-side Robux wallet — the premium money (10 Tix traded for 1 Robux at the exchange)
@@ -500,6 +502,7 @@ model AvatarItem {
   ownedBy     InventoryEntry[]
   listings    UgcListing[] // active resale listings for this item
   pricePoints UgcPricePoint[] // every real sale — powers the market history graph
+  ugcComments UgcComment[] @relation("ugcComments") // the item page comment section
 }
 
 // Who owns which UGC item (publishers get their item automatically; "Get" grants it too)
@@ -718,6 +721,20 @@ model UgcPricePoint {
   kind      String // mint | resale | trade
   buyerId   String
   sellerId  String?
+  createdAt DateTime   @default(now())
+
+  @@index([itemId, createdAt])
+}
+
+// Player comments on a UGC item's page ("this hat is fire [fire]") —
+// a flat list like the classic catalog, newest first.
+model UgcComment {
+  id        String     @id @default(cuid())
+  itemId    String
+  item      AvatarItem @relation("ugcComments", fields: [itemId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation("ugcComments", fields: [userId], references: [id], onDelete: Cascade)
+  text      String
   createdAt DateTime   @default(now())
 
   @@index([itemId, createdAt])
