@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, fmtDate, fmtCount, timeAgo, letterAvatar, flash, clearAuthToken, type RetroUser } from '@/lib/store'
+import { FxText } from '@/lib/textfx'
 import { Avatar, OnlineDot } from './Shell'
 import { GameCard, GameSummary, SuggestedStrip, type SuggestedUser } from './HomeView'
 import { VideoCard } from './VideosView'
@@ -340,7 +341,13 @@ export function ProfileView({ id }: { id: string }) {
 
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: 24, color: '#1c2733', margin: 0 }}>{p.username}</h1>
+              <h1 style={{ fontSize: 24, color: '#1c2733', margin: 0 }}><FxText text={p.username} /></h1>
+              <span
+                style={{ fontSize: 10, fontFamily: 'monospace', color: '#7b8896', background: '#f4f8fb', border: '1px solid #dbe4ec', padding: '2px 7px', borderRadius: 3 }}
+                title="Every player gets a number in join order — this is theirs"
+              >
+                ID: #{p.playerNo || '?'}
+              </span>
               {p.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
               {stats && (
                 <span
@@ -383,7 +390,7 @@ export function ProfileView({ id }: { id: string }) {
             {/* every member has an ID — copyable, like the classic profile pages */}
             <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span>
-                ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>{p.id}</span>
+                ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>#{p.playerNo || '?'}</span>
               </span>
               <button
                 type="button"
@@ -472,7 +479,7 @@ export function ProfileView({ id }: { id: string }) {
             </div>
           ) : (
             <div style={{ fontSize: 12, color: '#2c3e50', lineHeight: 1.6 }}>
-              {p.bio || 'This blockhead has not written anything yet.'}
+              {p.bio ? <FxText text={p.bio} /> : 'This blockhead has not written anything yet.'}
             </div>
           )}
         </div>
@@ -1026,6 +1033,14 @@ export function FollowListView({ id, type }: { id: string; type: 'followers' | '
 
 /* ================= Friends (/friends) ================= */
 
+interface SearchHit {
+  id: string
+  username: string
+  playerNo?: number
+  avatarUrl: string | null
+  bio?: string
+}
+
 export function FriendsView() {
   const { user, setToast, setPendingRequests } = useRetro()
   const router = useRouter()
@@ -1034,6 +1049,10 @@ export function FriendsView() {
   const [outgoing, setOutgoing] = useState<{ id: string; user: RetroUser }[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])
   const [addName, setAddName] = useState('')
+  // find-people search — look anyone up, land on their profile, trade from there
+  const [searchQ, setSearchQ] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchHit[]>([])
+  const [searching, setSearching] = useState(false)
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
   const [sessionError, setSessionError] = useState(false)
@@ -1079,6 +1098,24 @@ export function FriendsView() {
     }
   }
 
+  // live people search — debounced, hits /api/users?q=
+  useEffect(() => {
+    if (!user) return
+    const q = searchQ.trim()
+    const t = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await api<{ users: SearchHit[] }>(`/api/users?q=${encodeURIComponent(q)}`)
+        setSearchResults(res.users || [])
+      } catch {
+        setSearchResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [searchQ, user])
+
   async function act(friendshipId: string, action: 'accept' | 'decline' | 'remove' | 'cancel') {
     try {
       await api(`/api/friends/${friendshipId}`, { method: 'POST', body: JSON.stringify({ action }) })
@@ -1120,6 +1157,50 @@ export function FriendsView() {
           <button className="rb-btn rb-btn-green" onClick={addFriend}>Send Friend Request</button>
         </div>
         {msg && <div style={{ padding: '0 12px 10px', color: '#a81a13', fontSize: 11 }}>{msg}</div>}
+      </div>
+
+      {/* find people — search every player, open their profile, trade from there */}
+      <div className="rb-box" style={{ marginBottom: 12 }}>
+        <div className="rb-panel-head"><span>Find People</span></div>
+        <div style={{ padding: 12 }}>
+          <input
+            className="rb-input"
+            placeholder="Search players by name..."
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            style={{ width: '100%' }}
+            aria-label="Search players"
+          />
+          <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
+            {searching ? 'Searching…' : searchQ.trim() ? `${searchResults.length} player${searchResults.length === 1 ? '' : 's'} found` : 'Type to search everyone on RetroBlox — or scroll the newest members.'}
+          </div>
+          {searchResults.length > 0 && (
+            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+              {searchResults.map((u) => (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#fbfdfe', border: '1px solid #e8eef4', padding: '6px 9px', flexWrap: 'wrap' }}>
+                  <Link href={`/users/${u.id}`} style={{ display: 'inline-flex' }} aria-label={`View ${u.username}'s profile`}>
+                    <Avatar user={u} size={34} rounded={4} />
+                  </Link>
+                  <div style={{ flex: 1, minWidth: 130 }}>
+                    <Link href={`/users/${u.id}`} className="rb-link" style={{ fontSize: 12, fontWeight: 'bold' }}>
+                      {u.username}
+                    </Link>
+                    <span style={{ fontSize: 9.5, fontFamily: 'monospace', color: '#9aa7b4', marginLeft: 6 }}>#{u.playerNo || '?'}</span>
+                    <div style={{ fontSize: 10, color: '#7b8896', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                      {u.bio ? u.bio : 'no bio yet'}
+                    </div>
+                  </div>
+                  <Link href={`/users/${u.id}`} className="rb-btn" style={{ fontSize: 10, textDecoration: 'none', padding: '3px 10px' }}>
+                    Profile
+                  </Link>
+                  <Link href={`/trades/new?with=${u.id}`} className="rb-btn" style={{ fontSize: 10, textDecoration: 'none', padding: '3px 10px' }} title="Open the trade window with this player">
+                    🔁 Trade
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* incoming requests */}
