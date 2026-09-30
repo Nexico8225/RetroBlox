@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { MarketError, moveTix, transferItem, pricePoint, notify, paidByOwner, resaleValue } from '@/lib/market'
+import { MarketError, moveTix, transferItem, pricePoint, notify, paidByOwner, resaleValue, parseIdArray, assertOwnsAll } from '@/lib/market'
 
 /**
  * GET /api/market                — everything active on the resale market
@@ -9,14 +9,33 @@ import { MarketError, moveTix, transferItem, pricePoint, notify, paidByOwner, re
  * GET /api/market?mine=1         — my listings + offers I received / sent
  *
  * POST /api/market — { action, ... }
- *   list          {itemId, price}                    put a copy up for sale
+ *   list          {itemId, price, title?, description?}      put a copy up for sale (pitch it!)
  *   set_price     {listingId, price}                 lower the asking price while haggling
  *   cancel        {listingId}                        take the listing down
  *   buy           {listingId}                        buy NOW at the asking price
- *   offer         {listingId, amount, message?}      send some Tix — the seller takes a guess to keep the item or hand it over
- *   accept_offer  {offerId}                          seller accepts: they get the Tix, the buyer gets the UGC
+ *   offer         {listingId, amount, offerItemIds?, message?}
+ *                                                    send Tix and/or UGC — the seller takes a guess to keep
+ *                                                    the item or hand it over (accept = everything swaps)
+ *   accept_offer  {offerId}                          seller accepts: they get the Tix + offered UGC, the buyer gets the item
  *   decline_offer {offerId}                          seller declines
  */
+
+const LISTING_TITLE_MAX = 80
+const LISTING_DESC_MAX = 300
+const MAX_OFFER_ITEMS = 4
+
+/** Offer previews for every offer row the UI is about to render —
+ *  the buyer's UGC-on-the-table shown as chips next to the Tix. */
+async function offerItemMapFor(offers: { offerItemIdsJson: string }[]) {
+  const ids = new Set<string>()
+  for (const o of offers) for (const id of parseIdArray(o.offerItemIdsJson)) ids.add(id)
+  if (!ids.size) return {}
+  const items = await db.avatarItem.findMany({
+    where: { id: { in: [...ids] } },
+    select: { id: true, name: true, type: true, imageFileId: true, isLimited: true },
+  })
+  return Object.fromEntries(items.map((i) => [i.id, i]))
+}
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const viewer = await getUserFromReq(req)
@@ -48,7 +67,8 @@ export async function GET(req: NextRequest) {
         },
       },
     })
-    return NextResponse.json({ listings, offersSent })
+    const offerItemMap = await offerItemMapFor([...listings.flatMap((l) => l.offers), ...offersSent])
+    return NextResponse.json({ listings, offersSent, offerItemMap })
   }
 
   if (itemId) {
@@ -89,7 +109,7 @@ export async function GET(req: NextRequest) {
       }
     }
     return NextResponse.json({
-      listings: listings.map((l) => ({ id: l.id, price: l.price, createdAt: l.createdAt, seller: l.seller, offerCount: l.offers.length, topOffer: l.offers.reduce((m, o) => Math.max(m, o.amount), 0) })),
+      listings: listings.map((l) => ({ id: l.id, title: l.title, price: l.price, createdAt: l.createdAt, seller: l.seller, offerCount: l.offers.length, topOffer: l.offers.reduce((m, o) => Math.max(m, o.amount), 0) })),
       soldHistory,
       myListing,
       myOffer,
@@ -108,7 +128,7 @@ export async function GET(req: NextRequest) {
       _count: { select: { offers: true } },
     },
   })
-  return NextResponse.json({ listings })
+  return NextResponse.json({ listings, offerItemMap: {} })
 }
 
 export async function POST(req: NextRequest) {
@@ -118,10 +138,12 @@ export async function POST(req: NextRequest) {
   const action = String(body.action || '')
 
   try {
-    // ---------------- list a copy for sale ----------------
+    // ---------------- list a copy for sale (with a pitch) ----------------
     if (action === 'list') {
       const itemId = String(body.itemId || '')
       const price = Math.floor(Number(body.price))
+      const title = String(body.title || '').trim().slice(0, LISTING_TITLE_MAX)
+      const description = String(body.description || '').trim().slice(0, LISTING_DESC_MAX)
       if (!Number.isFinite(price) || price < 1 || price > 1_000_000) {
         return NextResponse.json({ error: 'Asking price must be between T$ 1 and T$ 1,000,000.' }, { status: 400 })
       }
@@ -132,7 +154,7 @@ export async function POST(req: NextRequest) {
       await db.$transaction(async (tx) => {
         const owned = await tx.inventoryEntry.findUnique({ where: { userId_itemId: { userId: user.id, itemId } }, select: { id: true } })
         if (!owned) throw new MarketError('NOT_OWNED', 'You do not own this item.')
-        await tx.ugcListing.create({ data: { itemId, sellerId: user.id, price } })
+        await tx.ugcListing.create({ data: { itemId, sellerId: user.id, price, title, description } })
       })
       return NextResponse.json({ ok: true, message: `"${item.name}" is on the market for T$ ${price.toLocaleString('en-US')}.` })
     }
@@ -222,33 +244,70 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, message: `"${result.itemName}" is yours! T$ ${result.cost.toLocaleString('en-US')} paid.` })
     }
 
-    // ---------------- send an offer (the seller decides) ----------------
+    // ---------------- send an offer (Tix and/or UGC — the seller decides) ----------------
     if (action === 'offer') {
       const listingId = String(body.listingId || '')
-      const amount = Math.floor(Number(body.amount))
+      const amount = Math.max(0, Math.floor(Number(body.amount) || 0))
+      const offerItemIds = [...new Set(parseIdArray(JSON.stringify(body.offerItemIds ?? [])))]
       const message = String(body.message || '').trim().slice(0, 300)
-      if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000) {
+      if (amount > 1_000_000) {
         return NextResponse.json({ error: 'Offers must be between T$ 1 and T$ 1,000,000.' }, { status: 400 })
+      }
+      if (offerItemIds.length > MAX_OFFER_ITEMS) {
+        return NextResponse.json({ error: `Keep it to ${MAX_OFFER_ITEMS} items on the table.` }, { status: 400 })
+      }
+      if (amount < 1 && offerItemIds.length === 0) {
+        return NextResponse.json({ error: 'Offer some Tix or some UGC — an empty offer is just a wave.' }, { status: 400 })
       }
       const listing = await db.ugcListing.findUnique({ where: { id: listingId } })
       if (!listing) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
       if (listing.status !== 'active') return NextResponse.json({ error: 'This listing is no longer active.' }, { status: 400 })
       if (listing.sellerId === user.id) return NextResponse.json({ error: 'That is your own listing!' }, { status: 400 })
+      if (offerItemIds.includes(listing.itemId)) {
+        return NextResponse.json({ error: 'That is the item being sold — offer something else!' }, { status: 400 })
+      }
       const dup = await db.ugcOffer.findFirst({ where: { listingId, buyerId: user.id, status: 'pending' } })
       if (dup) return NextResponse.json({ error: 'You already have a pending offer here — wait for an answer or send a message.' }, { status: 400 })
-      const offer = await db.ugcOffer.create({ data: { listingId, buyerId: user.id, amount } })
+      // early sanity so nothing weird lands on the table: I own what I put up,
+      // and the seller can never receive an item they already own (one per member)
+      if (offerItemIds.length) {
+        await db.$transaction(async (tx) => {
+          await assertOwnsAll(tx, user.id, offerItemIds)
+          for (const itId of offerItemIds) {
+            const sellerHas = await tx.inventoryEntry.findUnique({
+              where: { userId_itemId: { userId: listing.sellerId, itemId: itId } },
+              select: { id: true },
+            })
+            if (sellerHas) {
+              const it = await tx.avatarItem.findUnique({ where: { id: itId }, select: { name: true } })
+              throw new MarketError('ALREADY_OWNED', `The seller already owns "${it?.name || 'that item'}" — pick something they don't have.`)
+            }
+          }
+          if (amount > 0) {
+            const u = await tx.user.findUnique({ where: { id: user.id }, select: { rbxBalance: true } })
+            if (!u || u.rbxBalance < amount) {
+              throw new MarketError('NO_FUNDS', `You only have T$ ${(u?.rbxBalance ?? 0).toLocaleString('en-US')} — not enough for this offer.`)
+            }
+          }
+        })
+      }
+      const offer = await db.ugcOffer.create({ data: { listingId, buyerId: user.id, amount, offerItemIdsJson: JSON.stringify(offerItemIds) } })
       if (message) {
         await db.ugcListingMessage.create({ data: { listingId, senderId: user.id, text: message } })
       }
       const item = await db.avatarItem.findUnique({ where: { id: listing.itemId }, select: { name: true } })
+      const offerBits = [
+        amount > 0 ? `T$ ${amount.toLocaleString('en-US')}` : '',
+        `${offerItemIds.length} item${offerItemIds.length === 1 ? '' : 's'}`,
+      ].filter(Boolean).join(' + ')
       await notify(listing.sellerId, {
         type: 'listing_offer',
-        title: `${user.username} offered T$ ${amount.toLocaleString('en-US')}`,
-        body: `For "${item?.name || 'your item'}". Take the Tix and hand it over, or hold out for more.`,
+        title: `${user.username} offered ${offerBits}`,
+        body: `For "${item?.name || 'your item'}". Take it and hand it over, or haggle in the chat.`,
         link: `/catalog/${listing.itemId}`,
         data: { listingId, offerId: offer.id },
       })
-      return NextResponse.json({ ok: true, message: `Offer sent — T$ ${amount.toLocaleString('en-US')}. The seller decides.` })
+      return NextResponse.json({ ok: true, message: `Offer sent — ${offerBits}. The seller decides.` })
     }
 
     // ---------------- seller accepts an offer: Tix for UGC ----------------
@@ -269,8 +328,15 @@ export async function POST(req: NextRequest) {
         })
         if (!owned) throw new MarketError('NOT_OWNED', 'You no longer own this copy.')
 
+        // the buyer's UGC on the table — verified fresh, moved with everything else
+        const offerItemIds = parseIdArray(offer.offerItemIdsJson)
+        await assertOwnsAll(tx, offer.buyerId, offerItemIds)
+
         await moveTix(tx, offer.buyerId, user.id, offer.amount, `Offer accepted on "${offer.listing.item.name}"`)
         await transferItem(tx, offer.listing.itemId, user.id, offer.buyerId)
+        // offered UGC crosses to the seller — the listed item already moved,
+        // so a seller-side copy clash can only come from the offered items
+        for (const itId of offerItemIds) await transferItem(tx, itId, offer.buyerId, user.id)
         await tx.ugcListing.update({
           where: { id: offer.listingId },
           data: { status: 'sold', buyerId: offer.buyerId, soldPrice: offer.amount, soldAt: new Date() },
@@ -280,13 +346,15 @@ export async function POST(req: NextRequest) {
           where: { listingId: offer.listingId, status: 'pending' },
           data: { status: 'declined', respondedAt: new Date() },
         })
-        await pricePoint(tx, offer.listing.itemId, offer.amount, 'resale', offer.buyerId, user.id)
+        // only cash sales draw the price graph — a pure UGC-for-UGC swap
+        // has no Tix price to plot (the ledger + notifications tell that story)
+        if (offer.amount > 0) await pricePoint(tx, offer.listing.itemId, offer.amount, 'resale', offer.buyerId, user.id)
         return offer
       })
       await notify(result.buyerId, {
         type: 'offer_accepted',
         title: 'Offer accepted!',
-        body: `"${result.listing.item.name}" is in your inventory — T$ ${result.amount.toLocaleString('en-US')} was taken from your wallet.`,
+        body: `"${result.listing.item.name}" is in your inventory — T$ ${result.amount.toLocaleString('en-US')} was taken from your wallet${parseIdArray(result.offerItemIdsJson).length ? ' and the UGC you offered went to the seller' : ''}.`,
         link: `/catalog/${result.listing.itemId}`,
       })
       return NextResponse.json({ ok: true, message: `Sold for T$ ${result.amount.toLocaleString('en-US')} — the Tix are in your wallet.` })
