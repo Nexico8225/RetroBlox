@@ -6,17 +6,20 @@
 
      ┌───────────────────────────┬──────────────────┐
      │  THEIR offer  ⇄  YOUR offer │  the negotiation │
-     │  (items + Tix + Robux)      │  chat, FX included│
+     │  (items + Tix)              │  chat, FX included│
      └───────────────────────────┴──────────────────┘
 
    Chat refreshes every few seconds so both sides watch the
-   deal come together live. Accepting swaps items + both
-   currencies atomically — nobody can ever be left holding
-   half a trade.
+   deal come together live. Accepting swaps items + Tix
+   atomically — nobody can ever be left holding half a trade.
+   The moment the other side answers, you're moved off the
+   room automatically: accepted -> the item's page (go see
+   your new stuff), declined/cancelled -> back to the list.
 ------------------------------------------------------------------ */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { api, flash, timeAgo, useRetro, refreshBalance } from '@/lib/store'
 import { Avatar } from './Shell'
 import { tixFull } from '@/lib/tix'
@@ -49,13 +52,9 @@ interface TradeInfo {
   takeItemIds: string[]
   tixFrom: number
   tixTo: number
-  robuxFrom: number
-  robuxTo: number
   createdAt: string
   updatedAt: string
 }
-
-const robux = (n: number) => `R$ ${tixFull(n)}`
 
 function StatusChip({ status }: { status: string }) {
   const map: Record<string, { bg: string; fg: string; label: string }> = {
@@ -72,66 +71,92 @@ function StatusChip({ status }: { status: string }) {
   )
 }
 
-/** One side of the trade table — items stacked like the classic window. */
-function TradeSidePanel({
-  title, person, ids, itemMap, tix, robuxAmt, tone, missingIds,
+/** One side of the trade window — the classic Roblox look: a section
+    header, a grid of item cards with each item's value underneath, and a
+    Total Value row. "Items you will give" sits above "you will receive". */
+function TradeSection({
+  title, person, ids, itemMap, tix, tone, missingIds,
 }: {
   title: string
   person: { id: string; username: string; avatarUrl: string | null }
   ids: string[]
   itemMap: Record<string, ItemInfo>
   tix: number
-  robuxAmt: number
   tone: 'give' | 'take'
   missingIds: string[]
 }) {
   const color = tone === 'give' ? '#2c6e31' : '#1c4e7c'
-  const empty = ids.length === 0 && tix <= 0 && robuxAmt <= 0
+  const empty = ids.length === 0 && tix <= 0
+  const total = ids.reduce((sum, id) => sum + (itemMap[id]?.price ?? 0), 0) + tix
   return (
-    <div style={{ flex: 1, minWidth: 210, border: '1px solid #dbe4ec', background: '#fbfdfe' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 9px', borderBottom: '1px solid #e8eef4', background: '#fff' }}>
-        <Avatar user={person} size={26} rounded={4} />
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 'bold', color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</div>
-          <Link href={`/users/${person.id}`} className="rb-link" style={{ fontSize: 11.5, fontWeight: 'bold' }}>{person.username}</Link>
-        </div>
-        <span style={{ marginLeft: 'auto', fontSize: 10, color: '#8ba0b3' }}>{ids.length} item{ids.length === 1 ? '' : 's'}</span>
+    <div>
+      <div style={{ fontSize: 14, fontWeight: 'bold', color: '#1c2733', margin: '2px 0 8px' }}>
+        {title} <span style={{ fontSize: 10.5, fontWeight: 'normal', color: '#8ba0b3' }}>— from {person.username}&apos;s side</span>
       </div>
-      <div style={{ padding: 8, display: 'grid', gap: 5, minHeight: 92 }}>
-        {empty && <span style={{ fontSize: 11, color: '#8ba0b3', fontStyle: 'italic' }}>nothing on this side yet</span>}
-        {ids.map((id) => {
-          const it = itemMap[id]
-          const gone = !it || missingIds.includes(id)
-          return (
-            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: `1px solid ${gone ? '#eec4c1' : '#dbe4ec'}`, padding: '3px 6px 3px 3px', opacity: gone ? 0.6 : 1 }}>
-              {it ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/files/${it.imageFileId}`} alt="" width={30} height={30} style={{ border: '1px solid #dbe4ec', objectFit: 'cover' }} />
-                  <span style={{ fontSize: 11.5, fontWeight: 'bold', color: '#1c2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
-                  {it.isLimited && <span title="Limited item" style={{ color: '#2c8e31', fontWeight: 'bold', fontSize: 11 }}>★</span>}
-                  {gone && <span style={{ marginLeft: 'auto', fontSize: 9.5, color: '#a81a13' }}>no longer owned</span>}
-                </>
-              ) : (
-                <span style={{ fontSize: 10.5, color: '#a81a13' }}>item removed from the catalog</span>
-              )}
+      {empty ? (
+        <div style={{ fontSize: 11, color: '#8ba0b3', fontStyle: 'italic', border: '1px dashed #c9d6e2', padding: '14px 10px', textAlign: 'center' }}>
+          nothing on this side yet
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 9 }}>
+          {ids.map((id) => {
+            const it = itemMap[id]
+            const gone = !it || missingIds.includes(id)
+            return (
+              <div key={id} style={{ opacity: gone ? 0.55 : 1 }}>
+                <div
+                  style={{
+                    background: '#fff', border: `1px solid ${gone ? '#eec4c1' : '#dbe4ec'}`,
+                    padding: 6, position: 'relative', minHeight: 96,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {gone ? (
+                    <span style={{ fontSize: 9.5, color: '#a81a13', textAlign: 'center' }}>no longer owned</span>
+                  ) : it ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/api/files/${it.imageFileId}`} alt={it.name} width={56} height={56} style={{ objectFit: 'contain', display: 'block' }} />
+                      {it.isLimited && (
+                        <span title="Limited item" style={{ position: 'absolute', top: 3, left: 4, color: '#2c8e31', fontWeight: 'bold', fontSize: 11 }}>★</span>
+                      )}
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 9.5, color: '#a81a13', textAlign: 'center' }}>removed from the catalog</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 10.5, fontWeight: 'bold', color: '#1c2733', marginTop: 4, lineHeight: 1.25, overflowWrap: 'anywhere' }}>
+                  {it ? <FxText text={it.name} /> : '—'}
+                </div>
+                <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#5a6b7b' }}>
+                  {it && it.price > 0 ? `T$ ${tixFull(it.price)}` : it ? 'free' : ''}
+                </div>
+              </div>
+            )
+          })}
+          {tix > 0 && (
+            <div>
+              <div
+                style={{
+                  background: '#fffdf4', border: '1px solid #e0c98a', padding: 6, minHeight: 96,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <span style={{ fontSize: 15, fontFamily: 'monospace', fontWeight: 'bold', color: '#8a6d1a' }}>T$</span>
+                <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', color: '#8a6d1a' }}>{tixFull(tix)}</span>
+              </div>
+              <div style={{ fontSize: 10.5, fontWeight: 'bold', color: '#1c2733', marginTop: 4 }}>Tix on top</div>
+              <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#5a6b7b' }}>cash</div>
             </div>
-          )
-        })}
-        {(tix > 0 || robuxAmt > 0) && (
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-            {tix > 0 && (
-              <span style={{ fontSize: 12.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#8a6d1a', background: '#fffdf4', border: '1px solid #e0c98a', padding: '2px 8px' }}>
-                T$ {tixFull(tix)}
-              </span>
-            )}
-            {robuxAmt > 0 && (
-              <span style={{ fontSize: 12.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c', background: '#f2f8fd', border: '1px solid #b9d4e8', padding: '2px 8px' }}>
-                {robux(robuxAmt)}
-              </span>
-            )}
-          </div>
-        )}
+          )}
+        </div>
+      )}
+      {/* the classic Total Value row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '1px solid #e8eef4', marginTop: 10, paddingTop: 7 }}>
+        <span style={{ fontSize: 12, color: '#5a6b7b' }}>Total Value:</span>
+        <span style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 'bold', color }}>
+          T$ {tixFull(total)}
+        </span>
       </div>
     </div>
   )
@@ -139,6 +164,7 @@ function TradeSidePanel({
 
 export function TradeDetailView({ id }: { id: string }) {
   const { user, setToast } = useRetro()
+  const router = useRouter()
   const [trade, setTrade] = useState<TradeInfo | null>(null)
   const [itemMap, setItemMap] = useState<Record<string, ItemInfo>>({})
   const [iStillOwn, setIStillOwn] = useState<string[]>([])
@@ -149,8 +175,6 @@ export function TradeDetailView({ id }: { id: string }) {
   const [counterOpen, setCounterOpen] = useState(false)
   const [cTixFrom, setCTixFrom] = useState('0')
   const [cTixTo, setCTixTo] = useState('0')
-  const [cRobuxFrom, setCRobuxFrom] = useState('0')
-  const [cRobuxTo, setCRobuxTo] = useState('0')
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -166,6 +190,10 @@ export function TradeDetailView({ id }: { id: string }) {
   }, [id])
 
   const lastSeenUpdate = useRef<string>('')
+  // the room notices the moment the other side answers — and moves you
+  // off the page automatically instead of leaving you staring at a dead offer
+  const lastStatus = useRef<string>('pending')
+  const handledSettle = useRef(false)
 
   const loadTrade = useCallback(async () => {
     try {
@@ -180,13 +208,27 @@ export function TradeDetailView({ id }: { id: string }) {
         lastSeenUpdate.current = res.trade.updatedAt
         setCTixFrom(String(res.trade.tixFrom))
         setCTixTo(String(res.trade.tixTo))
-        setCRobuxFrom(String(res.trade.robuxFrom))
-        setCRobuxTo(String(res.trade.robuxTo))
       }
+      // settle redirect: pending -> accepted/declined/cancelled
+      if (!handledSettle.current && lastStatus.current === 'pending' && res.trade.status !== 'pending') {
+        handledSettle.current = true
+        if (res.trade.status === 'accepted') {
+          flash(setToast, 'Trade accepted — the items are in your inventory!', 4200)
+          refreshBalance()
+          // land on the item you were after (or got rid of) — see it in your hands
+          const target = res.trade.takeItemIds[0] || res.trade.giveItemIds[0]
+          router.push(target ? `/catalog/${target}` : '/trades')
+        } else {
+          flash(setToast, res.trade.status === 'declined' ? 'They declined the trade.' : 'The trade was withdrawn.', 3800)
+          router.push('/trades')
+        }
+        return
+      }
+      lastStatus.current = res.trade.status
     } catch {
       setNotFound(true)
     }
-  }, [id])
+  }, [id, router, setToast])
 
   useEffect(() => { loadTrade() }, [loadTrade])
 
@@ -246,8 +288,8 @@ export function TradeDetailView({ id }: { id: string }) {
   }
 
   // when I'm the sender: I give "give", they give "take" — flip it when I'm the recipient
-  const myGive = isSender ? { ids: trade.giveItemIds, tix: trade.tixFrom, robuxAmt: trade.robuxFrom } : { ids: trade.takeItemIds, tix: trade.tixTo, robuxAmt: trade.robuxTo }
-  const theirGive = isSender ? { ids: trade.takeItemIds, tix: trade.tixTo, robuxAmt: trade.robuxTo } : { ids: trade.giveItemIds, tix: trade.tixFrom, robuxAmt: trade.robuxFrom }
+  const myGive = isSender ? { ids: trade.giveItemIds, tix: trade.tixFrom } : { ids: trade.takeItemIds, tix: trade.tixTo }
+  const theirGive = isSender ? { ids: trade.takeItemIds, tix: trade.tixTo } : { ids: trade.giveItemIds, tix: trade.tixFrom }
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
@@ -262,32 +304,28 @@ export function TradeDetailView({ id }: { id: string }) {
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* ---- left: the two-sided table ---- */}
+        {/* ---- left: "Items you will give" / "Items you will receive" ---- */}
         <div style={{ flex: '1 1 380px', display: 'grid', gap: 10, minWidth: 0 }}>
-          <div className="rb-box" style={{ padding: 12 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', flexWrap: 'wrap' }}>
-              <TradeSidePanel
-                title="They give"
-                person={other}
-                ids={theirGive.ids}
-                itemMap={itemMap}
-                tix={theirGive.tix}
-                robuxAmt={theirGive.robuxAmt}
-                tone="take"
-                missingIds={[]}
-              />
-              <div style={{ alignSelf: 'center', fontSize: 22, color: '#8ba0b3' }} title="for">⇄</div>
-              <TradeSidePanel
-                title="You give"
-                person={{ id: user.id, username: user.username, avatarUrl: user.avatarUrl }}
-                ids={myGive.ids}
-                itemMap={itemMap}
-                tix={myGive.tix}
-                robuxAmt={myGive.robuxAmt}
-                tone="give"
-                missingIds={myGive.ids.filter((x) => !iStillOwn.includes(x))}
-              />
-            </div>
+          <div className="rb-box" style={{ padding: 14 }}>
+            <TradeSection
+              title="Items you will give"
+              person={{ id: user.id, username: user.username, avatarUrl: user.avatarUrl }}
+              ids={myGive.ids}
+              itemMap={itemMap}
+              tix={myGive.tix}
+              tone="give"
+              missingIds={myGive.ids.filter((x) => !iStillOwn.includes(x))}
+            />
+            <div style={{ borderTop: '1px dashed #dbe4ec', margin: '14px 0 12px' }} />
+            <TradeSection
+              title="Items you will receive"
+              person={other}
+              ids={theirGive.ids}
+              itemMap={itemMap}
+              tix={theirGive.tix}
+              tone="take"
+              missingIds={[]}
+            />
 
             {/* actions */}
             <div style={{ borderTop: '1px solid #e8eef4', marginTop: 10, paddingTop: 9, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -323,8 +361,6 @@ export function TradeDetailView({ id }: { id: string }) {
                 {[
                   { label: `Tix from ${trade.fromUser.username}`, val: cTixFrom, set: setCTixFrom },
                   { label: `Tix from ${trade.toUser.username}`, val: cTixTo, set: setCTixTo },
-                  { label: `Robux from ${trade.fromUser.username}`, val: cRobuxFrom, set: setCRobuxFrom },
-                  { label: `Robux from ${trade.toUser.username}`, val: cRobuxTo, set: setCRobuxTo },
                 ].map((row) => (
                   <label key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#3c4c5c' }}>
                     <span style={{ width: 210 }}>{row.label}:</span>
@@ -345,8 +381,6 @@ export function TradeDetailView({ id }: { id: string }) {
                           takeItemIds: trade.takeItemIds,
                           tixFrom: Math.max(0, Math.floor(Number(cTixFrom) || 0)),
                           tixTo: Math.max(0, Math.floor(Number(cTixTo) || 0)),
-                          robuxFrom: Math.max(0, Math.floor(Number(cRobuxFrom) || 0)),
-                          robuxTo: Math.max(0, Math.floor(Number(cRobuxTo) || 0)),
                         },
                         'Counter sent.'
                       ).then((ok) => { if (ok) setCounterOpen(false) })
@@ -363,7 +397,7 @@ export function TradeDetailView({ id }: { id: string }) {
           </div>
 
           <div style={{ fontSize: 10.5, color: '#8ba0b3', padding: '0 4px' }}>
-            Accepting swaps every item and every coin in one motion — half-trades are impossible. Currency: <b>T$</b> Tix · <b>R$</b> Robux.
+            Accepting swaps every item and every Tix in one motion — half-trades are impossible.
           </div>
         </div>
 
