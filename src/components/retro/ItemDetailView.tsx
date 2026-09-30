@@ -503,13 +503,15 @@ export function ItemDetailView({ id }: { id: string }) {
                 </>
               )}
               {/* TRADE — beside the Buy button on every item, free ones too.
-                  Buyers open the trade window; the owner jumps to the offers. */}
+                  Buyers open the trade window; the owner gets the give-away
+                  window (hand your UGC to any player, even a free item) —
+                  incoming offers wait right below on this page. */}
               {user && (
                 <Link
-                  href={data.owned || isOwner ? '/catalog/' + item.id + '#offers' : '/trades/new?item=' + item.id}
+                  href={data.owned || isOwner ? '/trades/new?give=' + item.id : '/trades/new?item=' + item.id}
                   className="rb-btn"
                   style={{ fontSize: 12, padding: '7px 14px', textDecoration: 'none' }}
-                  title={data.owned || isOwner ? 'See the trade offers waiting on your item' : 'Offer your UGC and/or Tix for this — even if it is free'}
+                  title={data.owned || isOwner ? 'Give this away / trade it to another player — even if it is free' : 'Offer your UGC and/or Tix for this — even if it is free'}
                 >
                   🔁 Trade
                 </Link>
