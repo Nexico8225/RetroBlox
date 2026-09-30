@@ -140,6 +140,7 @@ export function publicUser(u: {
   createdAt: Date | string
   lastSeen: Date | string
   rbxBalance?: number
+  robuxBalance?: number
 }) {
   return {
     id: u.id,
@@ -152,5 +153,6 @@ export function publicUser(u: {
     lastSeen: u.lastSeen,
     online: isOnline(u.lastSeen),
     rbxBalance: typeof u.rbxBalance === 'number' ? u.rbxBalance : 0,
+    robuxBalance: typeof u.robuxBalance === 'number' ? u.robuxBalance : 0,
   }
 }
