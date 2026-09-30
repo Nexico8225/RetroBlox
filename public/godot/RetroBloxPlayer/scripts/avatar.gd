@@ -2,14 +2,14 @@ extends Node3D
 
 ## A six-part classic block avatar. Two visual modes, one API:
 ##
-##  1) R6IK mode (default) — the REAL catalog player model. A cleaned
-##     build of the catalog rig ships prepackaged as
-##     assets/models/R6IK_rig.scn; the raw R6IK.fbx sits un-imported in
-##     assets/models/source/ (its empty helper meshes made the editor
-##     spam import errors on every open). Every part can be painted or
-##     dressed exactly like the site does it.
+##  1) R6IK mode (default) — the REAL catalog player model. The same
+##     R6IK.fbx rig the website's catalog / avatar editor renders ships
+##     inside assets/models/. Limbs swing from shoulder/hip pivots, the
+##     helper plane and IK bones are hidden, and every part can be
+##     painted or dressed exactly like the site does it.
 ##  2) Box mode (fallback) — scenes/avatar.tscn's built-in box rig. Used
-##     if someone strips the models folder. Nothing else changes.
+##     on a brand-new project before Godot has imported the FBX, or if
+##     someone strips the models folder. Nothing else changes.
 ##
 ## Both modes expose the same API avatar_platform.gd drives:
 ## set_part_color / set_part_textured / set_face / animate / burst.
@@ -18,10 +18,10 @@ extends Node3D
 # project's very first open, before Godot has imported the .wav asset
 var _oof_audio: AudioStream
 const HEAD_INDEX: int = 0
-const RIG_SCENE_PATH: String = "res://assets/models/R6IK_rig.scn"
+const RIG_SCENE_PATH: String = "res://assets/models/R6IK.fbx"
 const RIG_HEIGHT: float = 5.0  # STUDS: the classic character is exactly 5 studs tall
 
-# the real R6IK animations, shipped inside the rig (old Roblox moves)
+# the real R6IK animations, straight from the FBX (old Roblox moves)
 const ANIM_IDLE: StringName = &"Old_Idle"
 const ANIM_WALK: StringName = &"Old_Walk"
 const ANIM_JUMP: StringName = &"Old_Jump"
@@ -78,10 +78,10 @@ var _using_r6ik: bool = false
 var _time: float = 0.0
 var _face_boxes: Array[MeshInstance3D] = []
 var _face_decal: MeshInstance3D
+var _tshirt_decal: MeshInstance3D
 var _applied_colors: Dictionary = {}     # part index -> Color, reapplied if the rig upgrades
 var _anim_player: AnimationPlayer        # the R6IK rig's own AnimationPlayer (old Roblox clips)
 var _current_anim: StringName = &""
-var debris_torso: RigidBody3D            # the falling torso after a death (death camera)
 
 
 func _ready() -> void:
@@ -89,25 +89,6 @@ func _ready() -> void:
 
 func is_r6ik() -> bool:
         return _using_r6ik
-
-## The avatar's real height in avatar-space units (the R6IK rig is built to
-## exactly 5.0 — the same units the site's 5-stud rig uses, so UGC placements
-## authored on the site map 1:1; the box fallback rig is whatever it measures).
-## Measured from the actual part meshes so clothing/UGC code never hardcodes it.
-func rig_height() -> float:
-        _ensure_built()
-        if not is_inside_tree():
-                return RIG_HEIGHT
-        var top := 0.0
-        var any := false
-        var inv := global_transform.affine_inverse()
-        for part in parts:
-                if part == null or not is_instance_valid(part) or part.mesh == null:
-                        continue
-                var box: AABB = inv * part.global_transform * part.mesh.get_aabb()
-                top = maxf(top, box.position.y + box.size.y)
-                any = true
-        return top if any else RIG_HEIGHT
 
 func configure(peer_id: int, display_name: String) -> void:
         _peer_id = peer_id
@@ -193,6 +174,41 @@ func clear_face() -> void:
                 _face_decal.queue_free()
         _face_decal = null
 
+## T-shirt — an image decal on the FRONT of the torso, the site's
+## tshirtUrls -> frontDecal rule (92% of the torso face, just off the
+## surface). Replaces any t-shirt worn before.
+func set_tshirt(tex: Texture2D) -> void:
+        _ensure_built()
+        if tex == null:
+                return
+        if _tshirt_decal != null and is_instance_valid(_tshirt_decal):
+                _tshirt_decal.queue_free()
+        _tshirt_decal = null
+        var torso_size: Vector3 = _part_sizes[TORSO]
+        var quad := MeshInstance3D.new()
+        quad.name = "TshirtDecal"
+        var mesh := QuadMesh.new()
+        mesh.size = Vector2(torso_size.x * 0.92, torso_size.y * 0.92)
+        quad.mesh = mesh
+        var material := StandardMaterial3D.new()
+        material.albedo_texture = tex
+        material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+        material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        material.cull_mode = BaseMaterial3D.CULL_DISABLED
+        quad.material_override = material
+        # front of the torso (the rig faces -Z), just off the surface,
+        # parented to the torso mount so it follows every swing
+        var host: Node3D = _mounts[TORSO] if _using_r6ik else _pivots[TORSO]
+        host.add_child(quad)
+        quad.position = Vector3(0.0, 0.0, -_part_aabb[TORSO].size.z * 0.5 - 0.014)
+        quad.rotation.y = PI
+        _tshirt_decal = quad
+
+func clear_tshirt() -> void:
+        if _tshirt_decal != null and is_instance_valid(_tshirt_decal):
+                _tshirt_decal.queue_free()
+        _tshirt_decal = null
+
 func animate(delta: float, speed: float, grounded: bool, climbing: bool = false) -> void:
         _ensure_built()
         _time += delta
@@ -206,8 +222,6 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false)
 ## to the actual movement so feet do not slide; the jump clip plays once and
 ## holds its last frame until you land (classic old-Roblox jump).
 func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
-        if _anim_player == null:
-                return
         var next: StringName = ANIM_IDLE
         var rate := 1.0
         if climbing:
@@ -217,25 +231,16 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
                 next = ANIM_JUMP
         elif speed > 1.2:
                 next = ANIM_WALK
-                rate = clampf(speed / 8.0, 0.6, 2.2)
-        # never play an animation the rig does not actually have — a missing
-        # clip used to error every frame while walking
-        if not _anim_player.has_animation(next):
-                if not _anim_player.has_animation(ANIM_IDLE):
-                        return
-                next = ANIM_IDLE
-                rate = 1.0
+                rate = clampf(speed / 8.0, 0.8, 2.2)
         if _current_anim != next:
                 _current_anim = next
                 # snappy jump, gentle blends everywhere else
                 _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
-        # the walk/climb clips follow the player's real speed; everything
-        # else resets to 1x so a stale 2x walk speed never leaks into the
-        # idle or jump clips (the "anims break" bug)
-        _anim_player.speed_scale = rate if (next == ANIM_WALK or next == ANIM_CLIMB) else 1.0
+        elif next == ANIM_WALK or next == ANIM_CLIMB:
+                _anim_player.speed_scale = rate
 
 ## Box-fallback rig: procedural limb swings, same classic feel.
-func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var movement: float = clampf(abs(speed) / 5.0, 0.0, 1.0)
         var walk_rate: float = 4.8 + movement * 2.0
         var swing: float = sin(_time * walk_rate) * movement
@@ -281,7 +286,6 @@ func burst(world: Node3D, impulse_seed: int) -> void:
         if world == null:
                 return
         visible = false
-        debris_torso = null
         var debris_group: Node3D = Node3D.new()
         debris_group.name = "AvatarBreakup"
         world.add_child(debris_group)
@@ -303,8 +307,6 @@ func burst(world: Node3D, impulse_seed: int) -> void:
                         rng.randf_range(-5.5, 5.5),
                         rng.randf_range(-5.5, 5.5)
                 )
-                if i == TORSO:
-                        debris_torso = piece  # the camera follows this while dead
 
         var audio: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
         audio.name = "OriginalOof"
@@ -378,13 +380,6 @@ func _try_r6ik() -> bool:
                 anim_player.stop()
                 # IDLE processing: advances every frame, honoring speed_scale
                 # (used to speed the walk clip up and down with the player)
-                # LOOPING IS SET EXPLICITLY: if the FBX import dropped the loop
-                # flag, the walk clip used to play once and freeze mid-stride
-                # (the "walk anim sometimes does not play" bug)
-                for looped in [ANIM_IDLE, ANIM_WALK, ANIM_CLIMB]:
-                        var clip := anim_player.get_animation(looped)
-                        if clip != null:
-                                clip.loop_mode = Animation.LOOP_LINEAR
                 # the jump clip must hold its last frame mid-air, not loop
                 var jump_anim := anim_player.get_animation(ANIM_JUMP)
                 if jump_anim != null:
@@ -404,12 +399,12 @@ func _try_r6ik() -> bool:
                 part_boxes[index] = box
                 raw_bounds = box if not have_bounds else raw_bounds.merge(box)
                 have_bounds = true
-        var model_scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
+        var scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
         var raw_center := raw_bounds.get_center()
         var model := Node3D.new()
         model.name = "R6IKModel"
-        model.scale = Vector3.ONE * model_scale
-        model.position = Vector3(-raw_center.x * model_scale, -raw_bounds.position.y * model_scale, -raw_center.z * model_scale)
+        model.scale = Vector3.ONE * scale
+        model.position = Vector3(-raw_center.x * scale, -raw_bounds.position.y * scale, -raw_center.z * scale)
         model.add_child(inst)
         add_child(model)
 
