@@ -27,6 +27,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       },
       requestsSent: { where: { status: 'accepted' }, select: { addresseeId: true } },
       requestsRecv: { where: { status: 'accepted' }, select: { requesterId: true } },
+      // their UGC — profiles double as trade windows: see what they own,
+      // then press Trade to put an offer on the table
+      inventory: {
+        orderBy: { acquiredAt: 'desc' },
+        select: {
+          serial: true,
+          acquiredAt: true,
+          item: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              imageFileId: true,
+              isLimited: true,
+              price: true,
+              stock: true,
+              deletedAt: true,
+            },
+          },
+        },
+      },
     },
   })
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -115,6 +136,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   })
 
+  // the tradeable UGC — soft-deleted items are hidden from the showcase
+  const inventory = user.inventory
+    .filter((e) => !e.item.deletedAt)
+    .map((e) => ({
+      id: e.item.id,
+      name: e.item.name,
+      type: e.item.type,
+      imageFileId: e.item.imageFileId,
+      isLimited: e.item.isLimited,
+      price: e.item.price,
+      stock: e.item.stock,
+      serial: e.serial,
+    }))
+
   return NextResponse.json({
     user: {
       ...publicUser(user),
@@ -125,6 +160,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     games,
     favoriteGames,
     videos,
+    inventory,
     friends,
     followersCount,
     followingCount,
