@@ -15,6 +15,9 @@ var base_url: String
 var token: String = ""
 var user_id: String = ""
 var username: String = ""
+# remembered on a successful login/signup so the player is auto-signed-in
+# next launch (saved ONLY in their own user:// profile, never sent anywhere)
+var password: String = ""
 
 # toggle verbose logging of every request
 var debug := false
@@ -43,7 +46,7 @@ func _request(method: int, path: String, headers: PackedStringArray = PackedStri
                 var why := error_string(int(result[0]))
                 if int(result[0]) == ERR_TIMEOUT:
                         why = "the request timed out — check your internet, then try again"
-                return { "ok": false, "error": "Could not reach %s (%s). Check the Server field and your internet." % [base_url, why] }
+                return { "ok": false, "error": "Could not reach %s (%s). Check your internet connection, then try again." % [base_url, why] }
         var status: int = result[1]
         var raw: PackedByteArray = result[3]
         var text := raw.get_string_from_utf8()
@@ -79,6 +82,7 @@ func login(p_username: String, p_password: String) -> Dictionary:
                 token = String(res.get("token", ""))
                 user_id = String(res.get("userId", ""))
                 username = String(res.get("username", ""))
+                password = p_password
         return res
 
 
@@ -98,6 +102,7 @@ func signup(p_username: String, p_password: String, p_birthday := "", p_gender :
                 token = String(res.get("token", ""))
                 user_id = String(res.get("userId", ""))
                 username = String(res.get("username", ""))
+                password = p_password
         return res
 
 
