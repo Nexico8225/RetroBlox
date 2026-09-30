@@ -57,9 +57,9 @@ var quitting: bool = false
 var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
 
 # --- platform account ---
-# The production RetroBlox site — sign-in, avatars, catalog. Override with
-# the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
-var api_url: String = "https://retro-blox.vercel.app"
+# The production RetroBlox site — sign-in, avatars, catalog. This URL is
+# LOCKED for players (see _read_configuration); only the editor may override.
+var api_url: String = "https://retro-blox.vercel.app"   # LOCKED below — see _read_configuration
 var api_ref: RetrobloxApiScript
 var platform_user_id: String = ""
 var my_avatar: Dictionary = {}
@@ -96,14 +96,13 @@ func _ready() -> void:
                 hud.set_sliders(mouse_sensitivity, volume_setting)
                 hud.set_shiftlock(shiftlock)
                 hud.add_chat("", "Welcome! Only connected players appear here.", true)
-                # the door: sign in, sign up, or play as a guest
+                # the door: sign in or sign up with a RetroBlox account
                 auth = AuthScreenScene.instantiate() as CanvasLayer
                 add_child(auth)
                 auth.completed.connect(_on_auth_completed)
-                auth.guest_requested.connect(_on_guest_requested)
                 auth.set_api_url(api_url)
                 auth.set_saved_username(str(profile.get_value("platform", "username", "")))
-                _try_saved_token()
+                _try_auto_login()
         multiplayer.peer_connected.connect(_peer_connected)
         multiplayer.peer_disconnected.connect(_peer_disconnected)
         multiplayer.connected_to_server.connect(_connected_to_server)
@@ -125,7 +124,16 @@ func _read_configuration() -> void:
         discovery_port = clampi(int(config.get_value("network", "discovery_port", 42421)), 1024, 65535)
         max_players = clampi(int(config.get_value("network", "max_players", 32)), 2, 64)
         room_name = str(config.get_value("game", "room_name", "RetroBlox Baseplate")).left(32)
-        api_url = str(config.get_value("platform", "api_url", "https://retro-blox.vercel.app")).strip_edges().trim_suffix("/")
+        # THE PLATFORM IS LOCKED: every account/avatar/chat request goes to the
+        # official RetroBlox web and nothing else. Players cannot redirect the
+        # game with a config edit, an environment variable or a launch flag.
+        # (Inside the editor a network.cfg override is still honored so the
+        # developer can test against a local server.)
+        api_url = "https://retro-blox.vercel.app"
+        if OS.has_feature("editor"):
+                api_url = str(config.get_value("platform", "api_url", api_url)).strip_edges().trim_suffix("/")
+                if api_url.is_empty():
+                        api_url = "https://retro-blox.vercel.app"
 
         profile = ConfigFile.new()
         if profile.load("user://profile.cfg") != OK:
@@ -136,8 +144,6 @@ func _read_configuration() -> void:
         mouse_sensitivity = clampf(float(profile.get_value("settings", "sensitivity", 1.0)), 0.4, 2.0)
         volume_setting = clampf(float(profile.get_value("settings", "volume", 1.0)), 0.0, 1.0)
 
-        if not OS.get_environment("RETROBLOX_API").is_empty():
-                api_url = OS.get_environment("RETROBLOX_API").strip_edges().trim_suffix("/")
         if not OS.get_environment("BLOCKYARD_SERVER").is_empty():
                 server_address = OS.get_environment("BLOCKYARD_SERVER")
         for arg in OS.get_cmdline_user_args():
@@ -151,8 +157,7 @@ func _read_configuration() -> void:
                         port = clampi(arg.trim_prefix("--port=").to_int(), 1024, 65535)
                 elif arg.begins_with("--name="):
                         player_name = arg.trim_prefix("--name=")
-                elif arg.begins_with("--api="):
-                        api_url = arg.trim_prefix("--api=").trim_suffix("/")
+        # NOTE: no --api= / RETROBLOX_API override anymore — the platform URL is locked.
 
 func _setup_input() -> void:
         _bind_key("move_forward", KEY_W)
@@ -174,37 +179,50 @@ func _bind_key(action: String, key: Key) -> void:
 
 # ---------------------------------------------------------------- auth flow
 
-func _try_saved_token() -> void:
-        var saved_token := str(profile.get_value("platform", "token", ""))
-        if saved_token.is_empty() or auth == null:
+func _try_auto_login() -> void:
+        if auth == null:
                 return
+        var saved_token := str(profile.get_value("platform", "token", ""))
+        var saved_user := str(profile.get_value("platform", "username", ""))
+        var saved_pass := str(profile.get_value("platform", "password", ""))
+        if saved_token.is_empty() and (saved_user.is_empty() or saved_pass.is_empty()):
+                return  # nothing saved — show the login form
         auth.set_status_text("Signing you in…")
-        var probe := RetrobloxApiScript.new(api_url)
-        probe.token = saved_token
-        var me: Dictionary = await probe.get_me()
+        # 1) a still-valid session token signs in instantly
+        if not saved_token.is_empty():
+                var probe := RetrobloxApiScript.new(api_url)
+                probe.token = saved_token
+                var me: Dictionary = await probe.get_me()
+                if quitting or auth == null:
+                        return
+                if me.get("ok", false) and not str(me.get("username", "")).is_empty():
+                        var av = me.get("avatar", {})
+                        _finish_auth(probe, String(me.get("username", "")), String(me.get("userId", "")), av if av is Dictionary else {})
+                        return
+        # 2) token expired — sign back in with the remembered username + password
+        if saved_user.is_empty() or saved_pass.is_empty():
+                auth.set_status_text("")
+                return
+        var api := RetrobloxApiScript.new(api_url)
+        var res: Dictionary = await api.login(saved_user, saved_pass)
         if quitting or auth == null:
                 return
-        if me.get("ok", false) and not str(me.get("username", "")).is_empty():
-                var av = me.get("avatar", {})
-                auth.visible = false
-                _finish_auth(probe, String(me.get("username", "")), String(me.get("userId", "")), av if av is Dictionary else {})
+        if not res.get("ok", false):
+                # wrong password or offline — back to the form, prefilled
+                auth.set_saved_username(saved_user)
+                auth.set_status_text("")
+                return
+        var me2: Dictionary = await api.get_me()
+        if quitting or auth == null:
+                return
+        if me2.get("ok", false):
+                var av2 = me2.get("avatar", {})
+                _finish_auth(api, String(me2.get("username", saved_user)), String(me2.get("userId", api.user_id)), av2 if av2 is Dictionary else {})
         else:
-                # token expired or the site moved on — back to the form
                 auth.set_status_text("")
 
 func _on_auth_completed(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
         _finish_auth(api, username, user_id, avatar)
-
-func _on_guest_requested() -> void:
-        if _auth_done:
-                return
-        _auth_done = true
-        api_ref = RetrobloxApiScript.new(api_url)  # token-less: still fetches PUBLIC avatars
-        platform_user_id = ""
-        my_avatar = {}
-        player_name = "Guest-%04d" % randi_range(1000, 9999)
-        _dismiss_auth()
-        _begin_online()
 
 ## Hide and free the login card. THE login handoff: without this the card
 ## stays on screen showing "Ready!" and _process/_physics_process keep
@@ -224,8 +242,11 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         platform_user_id = user_id
         my_avatar = avatar if avatar is Dictionary else {}
         player_name = username if not username.is_empty() else player_name
+        # remember the account so the next launch signs in automatically
+        # (token first; username + password as the fallback when it expires)
         profile.set_value("platform", "token", api.token)
         profile.set_value("platform", "username", username)
+        profile.set_value("platform", "password", api.password)
         profile.save("user://profile.cfg")
         _dismiss_auth()
         if hud != null:
