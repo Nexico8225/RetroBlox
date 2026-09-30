@@ -39,8 +39,6 @@ interface TradeRow {
   takeItemIds: string[]
   tixFrom: number
   tixTo: number
-  robuxFrom: number
-  robuxTo: number
   createdAt: string
   updatedAt: string
   messages?: { id: string; text: string; sender: { id: string; username: string } }[]
@@ -54,7 +52,6 @@ interface TradeMsg {
 }
 
 const fmt = (n: number) => `T$ ${tixFull(n)}`
-const fmtR = (n: number) => `R$ ${tixFull(n)}`
 
 function ItemChip({ item, note }: { item?: ItemPreview; note?: string }) {
   if (!item) return <span style={{ fontSize: 10.5, color: '#a81a13' }}>{note || 'item gone'}</span>
@@ -74,22 +71,17 @@ function ItemChip({ item, note }: { item?: ItemPreview; note?: string }) {
   )
 }
 
-function TradeSide({ title, ids, itemMap, tix, robuxAmt, tone }: { title: string; ids: string[]; itemMap: Record<string, ItemPreview>; tix: number; robuxAmt: number; tone: 'give' | 'take' }) {
+function TradeSide({ title, ids, itemMap, tix, tone }: { title: string; ids: string[]; itemMap: Record<string, ItemPreview>; tix: number; tone: 'give' | 'take' }) {
   const color = tone === 'give' ? '#2c6e31' : '#1c4e7c'
   return (
     <div style={{ flex: 1, minWidth: 180 }}>
       <div style={{ fontSize: 10, fontWeight: 'bold', color, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{title}</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
-        {ids.length === 0 && tix <= 0 && robuxAmt <= 0 && <span style={{ fontSize: 10.5, color: '#8ba0b3' }}>nothing</span>}
+        {ids.length === 0 && tix <= 0 && <span style={{ fontSize: 10.5, color: '#8ba0b3' }}>nothing</span>}
         {ids.map((id) => <ItemChip key={id} item={itemMap[id]} />)}
         {tix > 0 && (
           <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#8a6d1a', background: '#fffdf4', border: '1px solid #e0c98a', padding: '2px 7px' }}>
             {fmt(tix)}
-          </span>
-        )}
-        {robuxAmt > 0 && (
-          <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c', background: '#f2f8fd', border: '1px solid #b9d4e8', padding: '2px 7px' }}>
-            {fmtR(robuxAmt)}
           </span>
         )}
       </div>
@@ -116,8 +108,6 @@ function TradeCard({
   const [busy, setBusy] = useState(false)
   const [counterTixFrom, setCounterTixFrom] = useState(String(trade.tixFrom))
   const [counterTixTo, setCounterTixTo] = useState(String(trade.tixTo))
-  const [counterRobuxFrom, setCounterRobuxFrom] = useState(String(trade.robuxFrom))
-  const [counterRobuxTo, setCounterRobuxTo] = useState(String(trade.robuxTo))
   const [counterOpen, setCounterOpen] = useState(false)
 
   const isSender = trade.fromUserId === meId
@@ -184,9 +174,9 @@ function TradeCard({
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <TradeSide title={`${trade.fromUser.username} gives`} ids={trade.giveItemIds} itemMap={itemMap} tix={trade.tixFrom} robuxAmt={trade.robuxFrom} tone="give" />
+          <TradeSide title={`${trade.fromUser.username} gives`} ids={trade.giveItemIds} itemMap={itemMap} tix={trade.tixFrom} tone="give" />
           <div style={{ alignSelf: 'center', fontSize: 16, color: '#8ba0b3' }}>⇄</div>
-          <TradeSide title={`${trade.toUser.username} gives`} ids={trade.takeItemIds} itemMap={itemMap} tix={trade.tixTo} robuxAmt={trade.robuxTo} tone="take" />
+          <TradeSide title={`${trade.toUser.username} gives`} ids={trade.takeItemIds} itemMap={itemMap} tix={trade.tixTo} tone="take" />
         </div>
 
         {!open && (
@@ -244,18 +234,12 @@ function TradeCard({
             {/* counter — reshape the terms */}
             {counterOpen ? (
               <div style={{ border: '1px solid #cfe0ef', background: '#f3f9fe', padding: 8, display: 'grid', gap: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c' }}>Counter — keep the items, move the money (Tix + Robux):</div>
+                <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c' }}>Counter — keep the items, move the Tix:</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>Tix from {trade.fromUser.username}:</label>
                   <input className="rb-input" type="number" min={0} value={counterTixFrom} onChange={(e) => setCounterTixFrom(e.target.value)} style={{ width: 96, fontSize: 11.5, height: 26 }} />
                   <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>Tix from {trade.toUser.username}:</label>
                   <input className="rb-input" type="number" min={0} value={counterTixTo} onChange={(e) => setCounterTixTo(e.target.value)} style={{ width: 96, fontSize: 11.5, height: 26 }} />
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>Robux from {trade.fromUser.username}:</label>
-                  <input className="rb-input" type="number" min={0} value={counterRobuxFrom} onChange={(e) => setCounterRobuxFrom(e.target.value)} style={{ width: 96, fontSize: 11.5, height: 26 }} />
-                  <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>Robux from {trade.toUser.username}:</label>
-                  <input className="rb-input" type="number" min={0} value={counterRobuxTo} onChange={(e) => setCounterRobuxTo(e.target.value)} style={{ width: 96, fontSize: 11.5, height: 26 }} />
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button
@@ -271,8 +255,6 @@ function TradeCard({
                           takeItemIds: trade.takeItemIds,
                           tixFrom: Math.max(0, Math.floor(Number(counterTixFrom) || 0)),
                           tixTo: Math.max(0, Math.floor(Number(counterTixTo) || 0)),
-                          robuxFrom: Math.max(0, Math.floor(Number(counterRobuxFrom) || 0)),
-                          robuxTo: Math.max(0, Math.floor(Number(counterRobuxTo) || 0)),
                         },
                         'Counter sent.'
                       ).then((ok) => { if (ok) { setCounterOpen(false); onChanged() } })
@@ -314,13 +296,13 @@ interface ListingRow {
   status: string
   soldPrice?: number | null
   item: ItemPreview & { price: number; stock: number | null }
-  offers: { id: string; amount: number; robux?: number; offerItemIdsJson?: string; status: string; createdAt: string; buyer: { id: string; username: string; avatarUrl: string | null } }[]
+  offers: { id: string; amount: number; offerItemIdsJson?: string; status: string; createdAt: string; buyer: { id: string; username: string; avatarUrl: string | null } }[]
 }
 
 function MarketTab({ onChanged }: { onChanged: () => void }) {
   const { setToast } = useRetro()
   const [listings, setListings] = useState<ListingRow[]>([])
-  const [offersSent, setOffersSent] = useState<{ id: string; amount: number; robux?: number; offerItemIdsJson?: string; status: string; createdAt: string; listing: { id: string; price: number; item: ItemPreview; seller: { id: string; username: string; avatarUrl: string | null } } }[]>([])
+  const [offersSent, setOffersSent] = useState<{ id: string; amount: number; offerItemIdsJson?: string; status: string; createdAt: string; listing: { id: string; price: number; item: ItemPreview; seller: { id: string; username: string; avatarUrl: string | null } } }[]>([])
   const [offerItemMap, setOfferItemMap] = useState<Record<string, OfferItemPreview>>({})
   const [busy, setBusy] = useState(false)
 
@@ -388,7 +370,6 @@ function MarketTab({ onChanged }: { onChanged: () => void }) {
                         <Avatar user={o.buyer} size={20} rounded={3} />
                         <Link href={`/users/${o.buyer.id}`} className="rb-link" style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.buyer.username}</Link>
                         {o.amount > 0 && <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>{fmt(o.amount)}</span>}
-                        {(o.robux ?? 0) > 0 && <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>R$ {(o.robux ?? 0).toLocaleString('en-US')}</span>}
                         <OfferItemChips ids={parseIdsJson(o.offerItemIdsJson)} itemMap={offerItemMap} />
                         <span style={{ fontSize: 9.5, color: '#8ba0b3' }}>{timeAgo(o.createdAt)}</span>
                         <span style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
@@ -420,7 +401,6 @@ function MarketTab({ onChanged }: { onChanged: () => void }) {
                 <Link href={`/catalog/${o.listing.item.id}`} className="rb-link" style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.listing.item.name}</Link>
                 <span style={{ fontSize: 10.5, color: '#5a6b7b' }}>asking {fmt(o.listing.price)}</span>
                 {o.amount > 0 && <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>your offer {fmt(o.amount)}</span>}
-                {(o.robux ?? 0) > 0 && <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>+ R$ {(o.robux ?? 0).toLocaleString('en-US')}</span>}
                 <OfferItemChips ids={parseIdsJson(o.offerItemIdsJson)} itemMap={offerItemMap} />
                 <span
                   style={{
@@ -522,6 +502,13 @@ export function TradesView() {
     </button>
   )
 
+  // the Roblox-style trades screen: a sidebar list (Inbound / Outbound) on
+  // the left, the selected trade's window on the right
+  const [direction, setDirection] = useState<'inbound' | 'outbound'>('inbound')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const list = direction === 'inbound' ? incoming : outgoing
+  const selected = list.find((t) => t.id === selectedId) || list[0] || null
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 4, marginBottom: -1 }}>
@@ -530,27 +517,80 @@ export function TradesView() {
       </div>
       <div className="rb-box" style={{ borderTopLeftRadius: 0, padding: 12 }}>
         {tab === 'trades' ? (
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 6 }}>INCOMING — they want to trade with you:</div>
-              {incoming.length === 0 ? (
-                <div style={{ fontSize: 11.5, color: '#5a6b7b', padding: '9px 11px', background: '#f6f9fc', border: '1px solid #e8eef4' }}>
-                  No trade offers right now. Offer one from any item page — or send a friend request and talk it out.
-                </div>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            {/* ---- sidebar: Trades / filter / list ---- */}
+            <div style={{ flex: '0 1 250px', minWidth: 220 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 16, fontWeight: 'bold', color: '#1c2733' }}>Trades</span>
+                <select
+                  className="rb-input"
+                  value={direction}
+                  onChange={(e) => { setDirection(e.target.value as 'inbound' | 'outbound'); setSelectedId(null) }}
+                  style={{ fontSize: 11, height: 27, marginLeft: 'auto', width: 'auto' }}
+                  aria-label="Inbound or outbound trades"
+                >
+                  <option value="inbound">Inbound ({incoming.length})</option>
+                  <option value="outbound">Outbound ({outgoing.length})</option>
+                </select>
+              </div>
+              <div style={{ fontSize: 10.5, marginBottom: 8 }}>
+                <Link href="/trades/new" className="rb-link">＋ Start a new trade</Link>
+                <span style={{ color: '#c9d6e2' }}> · </span>
+                <Link href="#how-do-i-trade" className="rb-link" title="Scroll down for how trades work">How do I trade?</Link>
+              </div>
+              <div style={{ display: 'grid', gap: 6 }}>
+                {list.length === 0 && (
+                  <div style={{ fontSize: 11, color: '#8ba0b3', fontStyle: 'italic', border: '1px dashed #c9d6e2', padding: '12px 9px', textAlign: 'center' }}>
+                    {direction === 'inbound' ? 'No inbound offers yet.' : 'You have not offered anything yet.'}
+                  </div>
+                )}
+                {list.map((t) => {
+                  const other = t.fromUserId === user?.id ? t.toUser : t.fromUser
+                  const on = selected?.id === t.id
+                  const statusLabel = t.status === 'pending' ? 'Pending' : t.status === 'accepted' ? 'Accepted' : t.status === 'declined' ? 'Declined' : 'Cancelled'
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setSelectedId(t.id)}
+                      aria-pressed={on}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', cursor: 'pointer',
+                        background: on ? '#eaf3fb' : '#fbfdfe',
+                        border: on ? '2px solid #1c4e7c' : '1px solid #dbe4ec',
+                        padding: '7px 9px', width: '100%',
+                      }}
+                    >
+                      <Avatar user={other} size={34} rounded={4} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 'bold', color: '#1c2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {other.username}
+                        </div>
+                        <div style={{ fontSize: 9.5, color: t.status === 'pending' ? '#8a6d1a' : '#7b8896' }}>
+                          {statusLabel}
+                          <span style={{ marginLeft: 5, color: '#a8b8c6' }}>{timeAgo(t.updatedAt)}</span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* ---- main: the selected trade's window ---- */}
+            <div style={{ flex: '1 1 380px', minWidth: 0 }}>
+              {selected ? (
+                <TradeCard key={selected.id} trade={selected} itemMap={itemMap} meId={user!.id} onChanged={() => setReload((r) => r + 1)} />
               ) : (
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {incoming.map((t) => <TradeCard key={t.id} trade={t} itemMap={itemMap} meId={user!.id} onChanged={() => setReload((r) => r + 1)} />)}
+                <div id="how-do-i-trade" style={{ border: '1px solid #e8eef4', background: '#f6f9fc', padding: 16, fontSize: 12, color: '#5a6b7b', lineHeight: 1.7 }}>
+                  <div style={{ fontWeight: 'bold', color: '#1c4e7c', marginBottom: 5 }}>How do I trade?</div>
+                  1. Find any UGC item in the Catalog (or open a player&apos;s profile) and press <b>Trade</b>.<br />
+                  2. The trade window opens: check what you want from their inventory, check what you&apos;ll give, add Tix if the deal needs it, and hit <b>Make Offer</b>.<br />
+                  3. They get a notification and find the offer right here. Both sides can chat, counter the terms, accept — or walk away.<br />
+                  4. Accepting swaps every item and every Tix in one motion. Trades work on <b>every</b> item, even free ones.
                 </div>
               )}
             </div>
-            {outgoing.length > 0 && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 'bold', color: '#5a6b7b', marginBottom: 6 }}>OUTGOING — your offers on the table:</div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {outgoing.map((t) => <TradeCard key={t.id} trade={t} itemMap={itemMap} meId={user!.id} onChanged={() => setReload((r) => r + 1)} />)}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <MarketTab onChanged={() => setReload((r) => r + 1)} />
