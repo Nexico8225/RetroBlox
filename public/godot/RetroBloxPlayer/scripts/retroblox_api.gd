@@ -29,7 +29,7 @@ func _init(p_base_url: String) -> void:
 
 # ---------------------------------------------------------------- requests
 
-func _request(method: int, path: String, headers: PackedStringArray = PackedStringArray(), body: String = "") -> Dictionary:
+func _request(method: HTTPClient.Method, path: String, headers: PackedStringArray = PackedStringArray(), body: String = "") -> Dictionary:
         var http := HTTPRequest.new()
         http.timeout = 30.0
         http.use_threads = true
