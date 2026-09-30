@@ -136,6 +136,10 @@ function TradeComposerInner() {
   const params = useSearchParams()
   const withParam = params.get('with') || ''
   const itemParam = params.get('item') || ''
+  // ?give=<itemId> — the OWNER's flow: give your own UGC away (even a free
+  // one) by picking a player; ?item=<itemId> — the BUYER's flow: offer
+  // something for another player's item (or just buy it outright).
+  const giveParam = params.get('give') || ''
 
   const [target, setTarget] = useState<{ id: string; username: string } | null>(null)
   const [theirShelf, setTheirShelf] = useState<ShelfEntry[]>([])
@@ -149,9 +153,17 @@ function TradeComposerInner() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [itemData, setItemData] = useState<{ id: string; name: string; buyPrice: number; isLimited: boolean; remaining: number | null; owned: boolean } | null>(null)
+  const [pickerQ, setPickerQ] = useState('')
+  const [pickerResults, setPickerResults] = useState<{ id: string; username: string; playerNo: number }[]>([])
+  const [pickerBusy, setPickerBusy] = useState(false)
+  const [buyBusy, setBuyBusy] = useState(false)
+  const [buyMsg, setBuyMsg] = useState('')
 
-  // resolve WHO we're trading with: ?with=<userId> wins; ?item=<itemId>
-  // looks the current owner up on the item's page data
+  // resolve WHO we're trading with, and WHAT item sits in the window:
+  //   ?with=<userId>  -> that player
+  //   ?item=<itemId>  -> the item's current owner (listing seller ?? creator)
+  //   ?give=<itemId>  -> nobody yet — the owner picks the recipient below
   useEffect(() => {
     let dead = false
     async function resolve() {
@@ -159,19 +171,34 @@ function TradeComposerInner() {
       setError('')
       try {
         let t: { id: string; username: string } | null = null
+        let it: { id: string; name: string; buyPrice: number; isLimited: boolean; remaining: number | null; owned: boolean } | null = null
         if (withParam) {
           const res = await api<{ user: { id: string; username: string } }>(`/api/users/${withParam}`)
           t = { id: res.user.id, username: res.user.username }
-        } else if (itemParam) {
-          const res = await api<{ tradeTarget: { id: string; username: string } | null }>(`/api/catalog/${itemParam}`)
-          t = res.tradeTarget
+        } else if (itemParam || giveParam) {
+          const res = await api<{ item: { id: string; name: string; buyPrice: number; isLimited: boolean; remaining: number | null }; owned: boolean; tradeTarget: { id: string; username: string } | null }>(`/api/catalog/${itemParam || giveParam}`)
+          it = {
+            id: res.item.id,
+            name: res.item.name,
+            buyPrice: res.item.buyPrice,
+            isLimited: res.item.isLimited,
+            remaining: res.item.remaining,
+            owned: res.owned,
+          }
+          // give-mode starts recipient-less; item-mode targets the owner
+          if (itemParam) t = res.tradeTarget
         }
         if (dead) return
         setTarget(t)
-        if (t) {
+        setItemData(it)
+        if (t && !giveParam) {
           const shelf = await api<{ inventory: ShelfEntry[] }>(`/api/users/${t.id}`)
           if (dead) return
           setTheirShelf(shelf.inventory || [])
+          // the item that opened the window is what the buyer wants — tick it
+          if (itemParam && shelf.inventory.some((e) => e.id === itemParam)) {
+            setWant(new Set([itemParam]))
+          }
         }
       } catch (e) {
         if (!dead) setError(e instanceof Error ? e.message : 'Could not open that trade.')
@@ -181,17 +208,82 @@ function TradeComposerInner() {
     }
     resolve()
     return () => { dead = true }
-  }, [withParam, itemParam])
+  }, [withParam, itemParam, giveParam])
 
-  // my own shelf
+  // my own shelf — in give-mode the gifted item ticks itself
   useEffect(() => {
     if (!user?.id) return
     let dead = false
     api<{ inventory: ShelfEntry[] }>(`/api/users/${user.id}`)
-      .then((res) => { if (!dead) setMyShelf(res.inventory || []) })
+      .then((res) => {
+        if (dead) return
+        const inv = res.inventory || []
+        setMyShelf(inv)
+        if (giveParam && inv.some((e) => e.id === giveParam)) {
+          setGive((g) => (g.size > 0 ? g : new Set([giveParam])))
+        }
+      })
       .catch(() => {})
     return () => { dead = true }
-  }, [user?.id])
+  }, [user?.id, giveParam])
+
+  // give-mode people picker — find the player who should receive your item
+  useEffect(() => {
+    if (!giveParam) return
+    const q = pickerQ.trim()
+    if (!q) {
+      setPickerResults([])
+      return
+    }
+    let cancelled = false
+    setPickerBusy(true)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api<{ users: { id: string; username: string; playerNo: number }[] }>(`/api/users?q=${encodeURIComponent(q)}`)
+        if (cancelled) return
+        setPickerResults((res.users || []).filter((u) => u.id !== user?.id))
+      } catch {
+        if (!cancelled) setPickerResults([])
+      } finally {
+        if (!cancelled) setPickerBusy(false)
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [pickerQ, giveParam, user?.id])
+
+  // give-mode: after the recipient is picked, load their shelf so the owner
+  // can still ask something back if they want
+  useEffect(() => {
+    if (!target || target.id === user?.id) return
+    if (theirShelf.length > 0) return
+    let dead = false
+    api<{ inventory: ShelfEntry[] }>(`/api/users/${target.id}`)
+      .then((res) => { if (!dead) setTheirShelf(res.inventory || []) })
+      .catch(() => {})
+    return () => { dead = true }
+  }, [target, user?.id, theirShelf.length])
+
+  // "just buy the offer" — skip the haggling and pay the price tag
+  async function buyOutright() {
+    if (!itemData) return
+    setBuyBusy(true)
+    setBuyMsg('')
+    try {
+      const res = await api<{ message?: string }>(`/api/catalog/${itemData.id}`, {
+        method: 'POST',
+        body: JSON.stringify({ action: itemData.buyPrice > 0 ? 'buy' : 'get' }),
+      })
+      setBuyMsg(res.message || 'It is yours!')
+      router.push(`/catalog/${itemData.id}`)
+    } catch (e) {
+      setBuyMsg(e instanceof Error ? e.message : 'That did not work.')
+    } finally {
+      setBuyBusy(false)
+    }
+  }
 
   const toggle = (set: Set<string>, apply: (n: Set<string>) => void, max: number) => (id: string) => {
     const n = new Set(set)
@@ -271,8 +363,13 @@ function TradeComposerInner() {
   if (target.id === user.id) {
     return (
       <div className="rb-box" style={{ padding: 30, textAlign: 'center', fontSize: 13, color: '#5a6b7b', display: 'grid', gap: 10, justifyItems: 'center' }}>
-        <div>That&apos;s your own item — you already have it! Check the <b>Trades</b> page for incoming offers instead.</div>
-        <Link href="/trades" className="rb-btn" style={{ textDecoration: 'none', fontSize: 12 }}>Open Trades</Link>
+        <div>That&apos;s your own item — you already have it! Give it away from here, or check the <b>Trades</b> page for incoming offers.</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link href={`/trades/new?give=${itemParam}`} className="rb-btn rb-btn-green" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 14px' }}>
+            🔁 Give it to someone
+          </Link>
+          <Link href="/trades" className="rb-btn" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 14px' }}>Open Trades</Link>
+        </div>
       </div>
     )
   }
@@ -283,12 +380,20 @@ function TradeComposerInner() {
       <div className="rb-box" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Link href="/trades" className="rb-link" style={{ fontSize: 11.5 }}>← Trades</Link>
         <h1 style={{ fontSize: 20, color: '#1c2733', margin: 0 }}>
-          Trade with <FxText text={target.username} />
+          {giveParam ? (
+            <>Give away <FxText text={itemData?.name || 'your item'} /></>
+          ) : (
+            <>Trade with <FxText text={target.username} /></>
+          )}
         </h1>
-        <Link href={`/users/${target.id}`} className="rb-link" style={{ fontSize: 11 }}>view profile</Link>
-        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Avatar user={{ username: target.username, avatarUrl: null }} size={30} rounded={5} />
-        </span>
+        {target && (
+          <Link href={`/users/${target.id}`} className="rb-link" style={{ fontSize: 11 }}>view profile</Link>
+        )}
+        {target && (
+          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Avatar user={{ username: target.username, avatarUrl: null }} size={30} rounded={5} />
+          </span>
+        )}
       </div>
 
       {error && (
@@ -298,19 +403,57 @@ function TradeComposerInner() {
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {/* ---------- LEFT: the two inventories ---------- */}
         <div style={{ flex: '1 1 420px', display: 'grid', gap: 12, minWidth: 0 }}>
-          <div className="rb-box" style={{ padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c4e7c' }}>{target.username}&apos;s Inventory</span>
-              <span style={{ fontSize: 10, color: '#8ba0b3' }}>check what you want</span>
-              <span style={{ marginLeft: 'auto' }}><TypeFilter value={typeFilterTheirs} onChange={setTypeFilterTheirs} /></span>
+          {giveParam && !target ? (
+            <div className="rb-box" style={{ padding: 12 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 3 }}>Who should get it?</div>
+              <div style={{ fontSize: 10.5, color: '#8ba0b3', marginBottom: 8 }}>
+                Search players by name or #number, pick one, and the offer window opens with your item already on your side.
+              </div>
+              <input
+                className="rb-input"
+                type="search"
+                placeholder="Search players…"
+                value={pickerQ}
+                onChange={(e) => setPickerQ(e.target.value)}
+                style={{ width: '100%', fontSize: 12.5, height: 32 }}
+                aria-label="Search players"
+              />
+              <div style={{ display: 'grid', gap: 5, marginTop: 9 }}>
+                {pickerBusy && <div style={{ fontSize: 11, color: '#8ba0b3', fontStyle: 'italic' }}>searching…</div>}
+                {!pickerBusy && pickerQ.trim() && pickerResults.length === 0 && (
+                  <div style={{ fontSize: 11, color: '#8ba0b3', fontStyle: 'italic' }}>no players found — try another name</div>
+                )}
+                {pickerResults.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    className="rb-btn"
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', textAlign: 'left' }}
+                    onClick={() => setTarget({ id: u.id, username: u.username })}
+                  >
+                    <Avatar user={{ username: u.username, avatarUrl: null }} size={24} rounded={4} />
+                    <span style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c2733' }}><FxText text={u.username} /></span>
+                    <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#9aa7b4' }}>#{u.playerNo || '?'}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: '#2c8e31', fontWeight: 'bold' }}>choose</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <ShelfGrid
-              entries={filterShelf(theirShelf, typeFilterTheirs)}
-              picked={want}
-              onToggle={toggle(want, setWant, 8)}
-              accent="#1c4e7c"
-            />
-          </div>
+          ) : (
+            <div className="rb-box" style={{ padding: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c4e7c' }}>{target?.username}&apos;s Inventory</span>
+                <span style={{ fontSize: 10, color: '#8ba0b3' }}>check what you want</span>
+                <span style={{ marginLeft: 'auto' }}><TypeFilter value={typeFilterTheirs} onChange={setTypeFilterTheirs} /></span>
+              </div>
+              <ShelfGrid
+                entries={filterShelf(theirShelf, typeFilterTheirs)}
+                picked={want}
+                onToggle={toggle(want, setWant, 8)}
+                accent="#1c4e7c"
+              />
+            </div>
+          )}
 
           <div className="rb-box" style={{ padding: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -329,8 +472,29 @@ function TradeComposerInner() {
 
         {/* ---------- RIGHT: request / offer panels ---------- */}
         <div style={{ flex: '0 1 300px', display: 'grid', gap: 12, minWidth: 260 }}>
+          {itemParam && itemData && !itemData.owned && !(itemData.isLimited && itemData.remaining === 0) && (
+            <div className="rb-box" style={{ padding: 12, background: '#fffdf4', border: '1px solid #e0c98a' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#8a6d1a', marginBottom: 4 }}>Don&apos;t want to trade?</div>
+              <div style={{ fontSize: 10.5, color: '#5a6b7b', marginBottom: 8 }}>
+                Skip the haggling — take it at the price tag instead.
+              </div>
+              <button
+                type="button"
+                className="rb-btn rb-btn-green"
+                disabled={buyBusy}
+                onClick={buyOutright}
+                style={{ width: '100%', fontSize: 12.5, padding: '8px 0', fontWeight: 'bold' }}
+              >
+                {buyBusy ? 'Working…' : itemData.buyPrice > 0 ? `Just buy it — T$ ${tixShort(itemData.buyPrice)}` : 'Just take it — free'}
+              </button>
+              {buyMsg && <div style={{ fontSize: 11, color: '#2c6e31', marginTop: 6 }}>{buyMsg}</div>}
+            </div>
+          )}
+
           <div className="rb-box" style={{ padding: 12 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 7 }}>You are asking for</div>
+            <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 7 }}>
+              {giveParam ? 'You are asking for (optional)' : 'You are asking for'}
+            </div>
             <PickList ids={[...want]} shelf={theirShelf} emptyText="Nothing yet — check items on the left." />
             <div style={{ borderTop: '1px solid #e8eef4', marginTop: 8, paddingTop: 6, fontSize: 10.5, color: '#5a6b7b', display: 'flex', justifyContent: 'space-between' }}>
               <span>value</span>
