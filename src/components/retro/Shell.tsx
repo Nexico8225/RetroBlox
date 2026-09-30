@@ -93,12 +93,12 @@ export function Header() {
     // refresh pending friend-request + chat + notification badges + the Tix wallet chip occasionally
     const tick = async () => {
       try {
-        const res = await api<{ pendingFriendRequests: number; unreadChats: number; unreadNotifications?: number; user: { rbxBalance?: number } | null }>('/api/me')
+        const res = await api<{ pendingFriendRequests: number; unreadChats: number; unreadNotifications?: number; user: { rbxBalance?: number; robuxBalance?: number } | null }>('/api/me')
         setPendingRequests(res.pendingFriendRequests || 0)
         setUnreadChats(res.unreadChats || 0)
         setUnreadNotifications(res.unreadNotifications || 0)
         const u = useRetro.getState().user
-        if (u && res.user) useRetro.getState().setUser({ ...u, rbxBalance: res.user.rbxBalance ?? 0 })
+        if (u && res.user) useRetro.getState().setUser({ ...u, rbxBalance: res.user.rbxBalance ?? 0, robuxBalance: res.user.robuxBalance ?? 0 })
       } catch { /* ignore */ }
     }
     tick()
@@ -195,6 +195,32 @@ export function Header() {
                 </svg>
                 <span style={{ fontFamily: 'monospace' }}>{tixCompact(user.rbxBalance ?? 0)}</span>
                 <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#cfe8f8' }}>+ Buy</span>
+              </Link>
+
+              {/* the premium wallet — R$ lives at the same exchange desk */}
+              <Link
+                href="/store#exchange"
+                title="Robux — exchange Tix for R$ at the store desk"
+                className="rb-header-chip"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: 3,
+                  padding: '3px 8px',
+                  color: '#fff',
+                  textDecoration: 'none',
+                  fontSize: 12,
+                  textShadow: '0 1px 1px rgba(0,0,0,.3)',
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ flexShrink: 0, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.45))' }}>
+                  {/* the classic rounded-square R coin */}
+                  <rect x="4" y="4" width="16" height="16" rx="3.2" fill="#e2e8ee" stroke="#5a6b7b" strokeWidth="1.2" />
+                  <path d="M9 17V7.5h4a2.9 2.9 0 0 1 .9 5.65L16 17" fill="none" stroke="#1c4e7c" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 12.6h3.4" stroke="#1c4e7c" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+                <span style={{ fontFamily: 'monospace' }}>{tixCompact(user.robuxBalance ?? 0)}</span>
               </Link>
 
               <Link
