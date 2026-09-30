@@ -81,6 +81,7 @@ var _face_decal: MeshInstance3D
 var _applied_colors: Dictionary = {}     # part index -> Color, reapplied if the rig upgrades
 var _anim_player: AnimationPlayer        # the R6IK rig's own AnimationPlayer (old Roblox clips)
 var _current_anim: StringName = &""
+var debris_torso: RigidBody3D            # the falling torso after a death (death camera)
 
 
 func _ready() -> void:
@@ -100,13 +101,6 @@ func set_display_name(value: String) -> void:
         _display_name = value
         if _nameplate != null:
                 _nameplate.text = value
-
-## Your own name stays off your head — you see everyone ELSE's name, the
-## classic Roblox way. Call with false for the local player.
-func set_nameplate_visible(value: bool) -> void:
-        _ensure_built()
-        if _nameplate != null:
-                _nameplate.visible = value
 
 ## Paint one body part a solid color (texture-free).
 func set_part_color(index: int, color: Color) -> void:
@@ -192,27 +186,34 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false)
 ## animations that ship inside the rig. The walk/climb clips are speed-scaled
 ## to the actual movement so feet do not slide; the jump clip plays once and
 ## holds its last frame until you land (classic old-Roblox jump).
-##
-## IMPORTANT: speed_scale is set EVERY frame for every state. It used to be
-## only updated for walk/climb, so the last walk speed leaked into the idle
-## (idle played at 2x after walking) and into Climb (arms flailed off).
 func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
+        if _anim_player == null:
+                return
         var next: StringName = ANIM_IDLE
-        var rate := 0.85
+        var rate := 1.0
         if climbing:
                 next = ANIM_CLIMB
-                rate = clampf(speed / 9.0, 0.6, 1.4)
+                rate = clampf(speed / 6.0, 0.5, 1.5)
         elif not grounded:
                 next = ANIM_JUMP
-                rate = 1.0
         elif speed > 1.2:
                 next = ANIM_WALK
-                rate = clampf(speed / 16.0, 0.75, 1.25)
+                rate = clampf(speed / 8.0, 0.6, 2.2)
+        # never play an animation the rig does not actually have — a missing
+        # clip used to error every frame while walking
+        if not _anim_player.has_animation(next):
+                if not _anim_player.has_animation(ANIM_IDLE):
+                        return
+                next = ANIM_IDLE
+                rate = 1.0
         if _current_anim != next:
                 _current_anim = next
                 # snappy jump, gentle blends everywhere else
-                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08)
-        _anim_player.speed_scale = rate
+                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
+        # the walk/climb clips follow the player's real speed; everything
+        # else resets to 1x so a stale 2x walk speed never leaks into the
+        # idle or jump clips (the "anims break" bug)
+        _anim_player.speed_scale = rate if (next == ANIM_WALK or next == ANIM_CLIMB) else 1.0
 
 ## Box-fallback rig: procedural limb swings, same classic feel.
 func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
@@ -261,6 +262,7 @@ func burst(world: Node3D, impulse_seed: int) -> void:
         if world == null:
                 return
         visible = false
+        debris_torso = null
         var debris_group: Node3D = Node3D.new()
         debris_group.name = "AvatarBreakup"
         world.add_child(debris_group)
@@ -282,6 +284,8 @@ func burst(world: Node3D, impulse_seed: int) -> void:
                         rng.randf_range(-5.5, 5.5),
                         rng.randf_range(-5.5, 5.5)
                 )
+                if i == TORSO:
+                        debris_torso = piece  # the camera follows this while dead
 
         var audio: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
         audio.name = "OriginalOof"
@@ -297,15 +301,10 @@ func burst(world: Node3D, impulse_seed: int) -> void:
         var cleanup_timer: SceneTreeTimer = world.get_tree().create_timer(5.0)
         cleanup_timer.timeout.connect(debris_group.queue_free)
 
-## Lazy-load the death sound on first use (never at parse time). The user's
-## own OOF slot (assets/sounds/OOF.mp3) wins when present; the bundled classic
-## oof.wav is the fallback.
+## Lazy-load the classic oof sound on first use (never at parse time).
 func _get_oof_audio() -> AudioStream:
         if _oof_audio == null:
-                if ResourceLoader.exists("res://assets/sounds/OOF.mp3"):
-                        _oof_audio = load("res://assets/sounds/OOF.mp3")
-                else:
-                        _oof_audio = load("res://assets/oof.wav")
+                _oof_audio = load("res://assets/oof.wav")
         return _oof_audio
 
 func set_local_hidden(hidden: bool) -> void:
@@ -360,6 +359,13 @@ func _try_r6ik() -> bool:
                 anim_player.stop()
                 # IDLE processing: advances every frame, honoring speed_scale
                 # (used to speed the walk clip up and down with the player)
+                # LOOPING IS SET EXPLICITLY: if the FBX import dropped the loop
+                # flag, the walk clip used to play once and freeze mid-stride
+                # (the "walk anim sometimes does not play" bug)
+                for looped in [ANIM_IDLE, ANIM_WALK, ANIM_CLIMB]:
+                        var clip := anim_player.get_animation(looped)
+                        if clip != null:
+                                clip.loop_mode = Animation.LOOP_LINEAR
                 # the jump clip must hold its last frame mid-air, not loop
                 var jump_anim := anim_player.get_animation(ANIM_JUMP)
                 if jump_anim != null:
