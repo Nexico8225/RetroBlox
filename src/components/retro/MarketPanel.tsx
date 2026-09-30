@@ -19,6 +19,7 @@ import { Avatar } from './Shell'
 
 export interface MarketListing {
   id: string
+  title?: string
   price: number
   createdAt: string
   seller: { id: string; username: string; avatarUrl: string | null }
@@ -42,15 +43,60 @@ interface ChatMsg {
   sender: { id: string; username: string; avatarUrl: string | null }
 }
 
+export interface OfferItemPreview {
+  id: string
+  name: string
+  type: string
+  imageFileId: string
+  isLimited: boolean
+}
+
 interface OfferRow {
   id: string
   amount: number
+  offerItemIdsJson?: string
   status: string
   createdAt: string
   buyer: { id: string; username: string; avatarUrl: string | null }
 }
 
 const fmt = (n: number) => `T$ ${n.toLocaleString('en-US')}`
+
+/** client-side parse of a JSON id-array column (offers carry the buyer's
+ *  UGC-on-the-table as a string column, exactly like trades do) */
+export function parseIds(raw: string | null | undefined): string[] {
+  try {
+    const v = JSON.parse(raw || '[]')
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** the UGC a buyer put on the table — little chips next to their Tix */
+export function OfferItemChips({ ids, itemMap }: { ids: string[]; itemMap: Record<string, OfferItemPreview> }) {
+  if (!ids.length) return null
+  return (
+    <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+      {ids.map((id) => {
+        const it = itemMap[id]
+        if (!it) return null
+        return (
+          <span
+            key={id}
+            title={`${it.name}${it.isLimited ? ' · LIMITED' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid #cfe0ef', background: '#f3f9fe', padding: '1px 6px 1px 2px', borderRadius: 3, fontSize: 10, color: '#1c2733' }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/files/${it.imageFileId}`} alt={it.name} width={18} height={18} style={{ objectFit: 'cover', border: '1px solid #dbe4ec', display: 'block' }} />
+            <span style={{ maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
+            {it.isLimited && <span style={{ color: '#b8860b', fontWeight: 'bold' }}>★</span>}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
 
 /* ---------------- the market history graph ----------------
    Real transaction prices over time — blue dots are creator sales
@@ -258,6 +304,170 @@ export function TradeOfferModal({
   )
 }
 
+/* ---------------- the profile trade modal ----------------
+   Opened from a member's profile: their UGC sits on the shelf, so pick
+   what you WANT from their side, add what YOU give from your inventory
+   (+ any Tix — 6000, 12, whatever the deal is) and put it on the table.
+   The other player gets a notification and can chat, counter, accept
+   or decline — the classic "it depends if they want". */
+export function ProfileTradeModal({
+  toUserId,
+  toUsername,
+  theirItems,
+  onClose,
+  onSent,
+}: {
+  toUserId: string
+  toUsername: string
+  theirItems: { id: string; name: string; imageFileId: string; type: string; isLimited: boolean; serial?: number | null }[]
+  onClose: () => void
+  onSent: () => void
+}) {
+  const { setToast } = useRetro()
+  const [mine, setMine] = useState<OfferItemPreview[]>([])
+  const [myOwned, setMyOwned] = useState<Set<string>>(new Set())
+  const [wantPicked, setWantPicked] = useState<Set<string>>(new Set())
+  const [givePicked, setGivePicked] = useState<Set<string>>(new Set())
+  const [tix, setTix] = useState('')
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api<{ items: OfferItemPreview[]; ownedItemIds: string[] }>('/api/catalog')
+      .then((res) => {
+        setMine(res.items.filter((i) => res.ownedItemIds.includes(i.id)))
+        setMyOwned(new Set(res.ownedItemIds))
+      })
+      .catch(() => {})
+  }, [])
+
+  const theirOwned = new Set(theirItems.map((i) => i.id))
+  // you cannot request a copy you already own (one copy per member)
+  const requestable = theirItems.filter((i) => !myOwned.has(i.id))
+  // handing over something they already own would bounce at accept-time
+  const giveable = mine.filter((i) => !theirOwned.has(i.id))
+
+  function toggle(set: React.Dispatch<React.SetStateAction<Set<string>>>, id: string, max = 8) {
+    set((p) => {
+      const n = new Set(p)
+      if (n.has(id)) n.delete(id)
+      else if (n.size < max) n.add(id)
+      return n
+    })
+  }
+
+  async function send() {
+    setBusy(true)
+    try {
+      const res = await api<{ message?: string }>('/api/trades', {
+        method: 'POST',
+        body: JSON.stringify({
+          toUserId,
+          giveItemIds: [...givePicked],
+          takeItemIds: [...wantPicked],
+          tix: Math.max(0, Math.floor(Number(tix) || 0)),
+          message: msg,
+        }),
+      })
+      flash(setToast, res.message || 'Trade offer sent!', 3400)
+      onSent()
+      onClose()
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'That did not work.', 3600)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const grid = (items: typeof theirItems, picked: Set<string>, onPick: (id: string) => void, emptyText: string) =>
+    items.length === 0 ? (
+      <div style={{ fontSize: 11.5, color: '#5a6b7b', padding: '8px 10px', background: '#f6f9fc', border: '1px solid #e8eef4' }}>{emptyText}</div>
+    ) : (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(86px,1fr))', gap: 6, marginBottom: 8, maxHeight: 190, overflowY: 'auto' }}>
+        {items.map((i) => {
+          const on = picked.has(i.id)
+          return (
+            <button
+              key={i.id}
+              type="button"
+              onClick={() => onPick(i.id)}
+              aria-pressed={on}
+              style={{
+                padding: 5, cursor: 'pointer', textAlign: 'center',
+                border: on ? '2px solid #2c8e31' : '1px solid #b7c6d4',
+                background: on ? '#eaf7eb' : '#fff',
+                position: 'relative',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/api/files/${i.imageFileId}`} alt={i.name} width={56} height={56} style={{ objectFit: 'cover', display: 'block', margin: '0 auto 3px', border: '1px solid #dbe4ec' }} />
+              <span style={{ fontSize: 9, color: '#1c2733', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.name}</span>
+              {i.isLimited && (
+                <span style={{ position: 'absolute', top: 2, left: 3, fontSize: 8, fontWeight: 'bold', color: '#b8860b' }}>
+                  ★{typeof i.serial === 'number' ? `#${i.serial}` : ''}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    )
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(9,30,50,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div
+        className="rb-box"
+        style={{ width: '100%', maxWidth: 620, maxHeight: '88vh', overflowY: 'auto', padding: 14, background: '#fff' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 16, color: '#1c2733' }}>Trade with {toUsername}</h3>
+          <button type="button" className="rb-btn" style={{ padding: '2px 9px' }} onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div style={{ fontSize: 11.5, color: '#5a6b7b', marginBottom: 10 }}>
+          Pick what you want from their shelf, add what you give (+ Tix if the deal needs it) — they can chat, counter, accept or decline.
+        </div>
+
+        <div style={{ fontSize: 11, fontWeight: 'bold', color: '#8a6d1a', margin: '8px 0 5px' }}>
+          YOU REQUEST — from {toUsername}&apos;s UGC ({wantPicked.size}/8):
+        </div>
+        {grid(requestable, wantPicked, (id) => toggle(setWantPicked, id), `${toUsername} has nothing tradeable on their shelf yet.`)}
+
+        <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c', margin: '8px 0 5px' }}>YOU GIVE — from your inventory ({givePicked.size}/8):</div>
+        {grid(giveable, givePicked, (id) => toggle(setGivePicked, id), 'Nothing tradeable in your inventory yet — grab something from the catalog first (or just offer Tix).')}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, alignItems: 'center', margin: '8px 0' }}>
+          <label style={{ fontSize: 11, color: '#5a6b7b' }}>Tix you add:</label>
+          <input className="rb-input" type="number" min={0} max={1000000} value={tix} onChange={(e) => setTix(e.target.value)} placeholder="0 — any amount, e.g. 6000" style={{ fontSize: 12, height: 28 }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, alignItems: 'start', marginBottom: 12 }}>
+          <label style={{ fontSize: 11, color: '#5a6b7b', paddingTop: 4 }}>Say something:</label>
+          <textarea
+            className="rb-input"
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            placeholder="I want your Dominus — will give this + 6,000 Tix. Deal?"
+            rows={2}
+            style={{ fontSize: 12, resize: 'vertical' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button type="button" className="rb-btn" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="rb-btn rb-btn-green"
+            disabled={busy || (wantPicked.size === 0 && givePicked.size === 0 && !(Number(tix) > 0))}
+            onClick={send}
+            style={{ fontWeight: 'bold' }}
+          >
+            {busy ? 'Sending...' : 'Send trade offer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ---------------- the panel ---------------- */
 export function MarketPanel({
   itemId,
@@ -275,8 +485,13 @@ export function MarketPanel({
   const { user, setToast } = useRetro()
   const [sellOpen, setSellOpen] = useState(false)
   const [sellPrice, setSellPrice] = useState('')
+  const [sellTitle, setSellTitle] = useState('')
+  const [sellDesc, setSellDesc] = useState('')
   const [lowerPrice, setLowerPrice] = useState('')
   const [offerAmount, setOfferAmount] = useState('')
+  const [offerItemsOpen, setOfferItemsOpen] = useState(false)
+  const [offerPicked, setOfferPicked] = useState<Set<string>>(new Set())
+  const [myInv, setMyInv] = useState<OfferItemPreview[]>([])
   const [busy, setBusy] = useState(false)
   const [chatFor, setChatFor] = useState<string | null>(null)
   const [tradeFor, setTradeFor] = useState<{ userId: string; label: string } | null>(null)
@@ -312,6 +527,28 @@ export function MarketPanel({
   )
 
   const canSell = owned && !myListing
+
+  // the buyer's UGC picker — pull my inventory once when it opens
+  useEffect(() => {
+    if (!offerItemsOpen || myInv.length) return
+    api<{ items: OfferItemPreview[]; ownedItemIds: string[] }>('/api/catalog')
+      .then((res) => setMine_inv(res))
+      .catch(() => {})
+    function setMine_inv(res: { items: OfferItemPreview[]; ownedItemIds: string[] }) {
+      setMyInv(res.items.filter((i) => res.ownedItemIds.includes(i.id)))
+    }
+  }, [offerItemsOpen, myInv.length])
+
+  function toggleOfferItem(id: string) {
+    setOfferPicked((p) => {
+      const n = new Set(p)
+      if (n.has(id)) n.delete(id)
+      else if (n.size < 4) n.add(id)
+      return n
+    })
+  }
+
+  const offerHasSomething = Number(offerAmount) > 0 || offerPicked.size > 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -356,7 +593,7 @@ export function MarketPanel({
             </div>
           ) : sellOpen ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontSize: 12, fontWeight: 'bold', color: '#1c4e7c' }}>Sell your copy of {itemName}</div>
+              <div style={{ fontSize: 12, fontWeight: 'bold', color: '#1c4e7c' }}>Publish your copy of {itemName} on the market</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, color: '#5a6b7b' }}>Asking price:</span>
                 <input
@@ -368,11 +605,30 @@ export function MarketPanel({
                   style={{ width: 120, fontSize: 12, height: 28 }}
                   aria-label="Asking price"
                 />
-                <button type="button" className="rb-btn rb-btn-green" disabled={busy} onClick={async () => { if (await act({ action: 'list', itemId, price: Number(sellPrice) }, 'Listed!')) setSellOpen(false) }} style={{ fontWeight: 'bold' }}>
-                  List it
+                <button type="button" className="rb-btn rb-btn-green" disabled={busy} onClick={async () => { if (await act({ action: 'list', itemId, price: Number(sellPrice), title: sellTitle, description: sellDesc }, 'Listed!')) { setSellOpen(false); setSellTitle(''); setSellDesc('') } }} style={{ fontWeight: 'bold' }}>
+                  Publish it
                 </button>
                 <button type="button" className="rb-btn" onClick={() => setSellOpen(false)}>Cancel</button>
               </div>
+              <input
+                className="rb-input"
+                value={sellTitle}
+                maxLength={80}
+                onChange={(e) => setSellTitle(e.target.value)}
+                placeholder="Title — e.g. CHEAP Dominus, taking offers!"
+                style={{ fontSize: 12, height: 28 }}
+                aria-label="Listing title"
+              />
+              <textarea
+                className="rb-input"
+                value={sellDesc}
+                maxLength={300}
+                onChange={(e) => setSellDesc(e.target.value)}
+                placeholder="Description — what you accept (Tix, UGC, trades), why you're selling..."
+                rows={2}
+                style={{ fontSize: 12, resize: 'vertical' }}
+                aria-label="Listing description"
+              />
               {market.suggestedPrice && (
                 <div style={{ fontSize: 10.5, color: '#8a6d1a' }}>
                   Suggested: <b>{fmt(market.suggestedPrice)}</b> — 1.5x what you paid. Sell at 1.5x and every hand-off profits!
@@ -425,6 +681,11 @@ export function MarketPanel({
                     </span>
                   )}
                 </div>
+                {l.title && (
+                  <div style={{ padding: '0 9px 4px', fontSize: 11, color: '#24425f' }}>
+                    <b>“{l.title}”</b>
+                  </div>
+                )}
                 {user && user.id !== l.seller.id && (
                   <div style={{ display: 'flex', gap: 6, padding: '0 9px 8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button type="button" className="rb-btn rb-btn-green" disabled={busy} onClick={() => act({ action: 'buy', listingId: l.id }, 'Bought!')} style={{ fontSize: 11.5, padding: '4px 12px', fontWeight: 'bold' }}>
@@ -434,7 +695,7 @@ export function MarketPanel({
                       className="rb-input"
                       type="number"
                       min={1}
-                      placeholder="Your offer"
+                      placeholder="Your Tix"
                       value={offerAmount}
                       onChange={(e) => setOfferAmount(e.target.value)}
                       style={{ width: 96, fontSize: 11.5, height: 26 }}
@@ -443,14 +704,27 @@ export function MarketPanel({
                     <button
                       type="button"
                       className="rb-btn"
-                      disabled={busy || !(Number(offerAmount) > 0)}
+                      disabled={busy || !offerHasSomething}
                       onClick={async () => {
-                        if (await act({ action: 'offer', listingId: l.id, amount: Number(offerAmount) }, 'Offer sent!')) setOfferAmount('')
+                        if (await act({ action: 'offer', listingId: l.id, amount: Math.max(0, Math.floor(Number(offerAmount) || 0)), offerItemIds: [...offerPicked] }, 'Offer sent!')) {
+                          setOfferAmount('')
+                          setOfferPicked(new Set())
+                          setOfferItemsOpen(false)
+                        }
                       }}
-                      style={{ fontSize: 11.5, padding: '4px 10px' }}
-                      title="Send some Tix — the seller decides whether to hand the item over"
+                      style={{ fontSize: 11.5, padding: '4px 10px', fontWeight: offerPicked.size ? 'bold' : 'normal' }}
+                      title="Send Tix and/or your own UGC — the seller decides whether to hand the item over"
                     >
-                      Send offer
+                      Send offer{offerPicked.size ? ` +${offerPicked.size} item${offerPicked.size > 1 ? 's' : ''}` : ''}
+                    </button>
+                    <button
+                      type="button"
+                      className="rb-btn"
+                      onClick={() => setOfferItemsOpen(!offerItemsOpen)}
+                      style={{ fontSize: 11.5, padding: '4px 10px' }}
+                      title="Put your own UGC on the table next to the Tix"
+                    >
+                      ＋UGC
                     </button>
                     <button type="button" className="rb-btn" onClick={() => setTradeFor({ userId: l.seller.id, label: l.seller.username })} style={{ fontSize: 11.5, padding: '4px 10px' }} title="Offer items from your inventory instead">
                       🔁 Trade
@@ -458,6 +732,42 @@ export function MarketPanel({
                     <button type="button" className="rb-link" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11 }} onClick={() => setChatFor(chatFor === l.id ? null : l.id)}>
                       {chatFor === l.id ? 'hide chat' : 'chat'}
                     </button>
+                  </div>
+                )}
+                {offerItemsOpen && user && user.id !== l.seller.id && (
+                  <div style={{ borderTop: '1px dashed #dbe4ec', padding: '7px 9px 9px', background: '#fbfdff' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 5 }}>
+                      ADD YOUR UGC TO THE OFFER ({offerPicked.size}/4) — Tix, UGC, or both:
+                    </div>
+                    {myInv.filter((i) => i.id !== itemId).length === 0 ? (
+                      <div style={{ fontSize: 11, color: '#5a6b7b' }}>Nothing in your inventory yet — offer Tix or grab something from the catalog first.</div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                        {myInv
+                          .filter((i) => i.id !== itemId)
+                          .map((i) => {
+                            const on = offerPicked.has(i.id)
+                            return (
+                              <button
+                                key={i.id}
+                                type="button"
+                                onClick={() => toggleOfferItem(i.id)}
+                                aria-pressed={on}
+                                title={i.name}
+                                style={{
+                                  padding: 3, cursor: 'pointer', textAlign: 'center', width: 62,
+                                  border: on ? '2px solid #2c8e31' : '1px solid #b7c6d4',
+                                  background: on ? '#eaf7eb' : '#fff',
+                                }}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={`/api/files/${i.imageFileId}`} alt={i.name} width={40} height={40} style={{ objectFit: 'cover', display: 'block', margin: '0 auto 2px', border: '1px solid #dbe4ec' }} />
+                                <span style={{ fontSize: 8, color: '#1c2733', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.name}</span>
+                              </button>
+                            )
+                          })}
+                      </div>
+                    )}
                   </div>
                 )}
                 {chatFor === l.id && (
@@ -489,15 +799,17 @@ function ListingChat({ listingId, isSeller, onChanged }: { listingId: string; is
   const { setToast } = useRetro()
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [offers, setOffers] = useState<OfferRow[]>([])
+  const [offerItemMap, setOfferItemMap] = useState<Record<string, OfferItemPreview>>({})
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const bottom = useRef<HTMLDivElement | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const res = await api<{ messages: ChatMsg[]; offers: OfferRow[] }>(`/api/market/${listingId}`)
+      const res = await api<{ messages: ChatMsg[]; offers: OfferRow[]; offerItemMap?: Record<string, OfferItemPreview> }>(`/api/market/${listingId}`)
       setMsgs(res.messages || [])
       setOffers(res.offers || [])
+      setOfferItemMap(res.offerItemMap || {})
     } catch { /* ignore */ }
   }, [listingId])
 
@@ -542,24 +854,29 @@ function ListingChat({ listingId, isSeller, onChanged }: { listingId: string; is
     <div style={{ borderTop: '1px solid #dbe4ec', background: '#f9fbfd', padding: 9 }}>
       {isSeller && offers.length > 0 && (
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 'bold', color: '#8a6d1a', marginBottom: 4 }}>OFFERS — take the Tix and hand over the item, or hold out:</div>
+          <div style={{ fontSize: 10.5, fontWeight: 'bold', color: '#8a6d1a', marginBottom: 4 }}>OFFERS — take the Tix + UGC and hand over the item, or hold out:</div>
           <div style={{ display: 'grid', gap: 4 }}>
-            {offers.map((o) => (
-              <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e8eef4', padding: '4px 8px' }}>
-                <Avatar user={o.buyer} size={20} rounded={3} />
-                <span style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.buyer.username}</span>
-                <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#1c4e7c', fontWeight: 'bold' }}>{fmt(o.amount)}</span>
-                <span style={{ fontSize: 9.5, color: '#8ba0b3' }}>{timeAgo(o.createdAt)}</span>
-                <span style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
-                  <button type="button" className="rb-btn rb-btn-green" disabled={busy} onClick={() => answer(o.id, true)} style={{ fontSize: 10.5, padding: '2px 10px' }}>
-                    Accept
-                  </button>
-                  <button type="button" className="rb-btn" disabled={busy} onClick={() => answer(o.id, false)} style={{ fontSize: 10.5, padding: '2px 10px' }}>
-                    Decline
-                  </button>
-                </span>
-              </div>
-            ))}
+            {offers.map((o) => {
+              const oItems = parseIds(o.offerItemIdsJson)
+              return (
+                <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e8eef4', padding: '4px 8px', flexWrap: 'wrap' }}>
+                  <Avatar user={o.buyer} size={20} rounded={3} />
+                  <span style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.buyer.username}</span>
+                  {o.amount > 0 && <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#1c4e7c', fontWeight: 'bold' }}>{fmt(o.amount)}</span>}
+                  <OfferItemChips ids={oItems} itemMap={offerItemMap} />
+                  {o.amount === 0 && oItems.length === 0 && <span style={{ fontSize: 10.5, color: '#8ba0b3' }}>(empty)</span>}
+                  <span style={{ fontSize: 9.5, color: '#8ba0b3' }}>{timeAgo(o.createdAt)}</span>
+                  <span style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
+                    <button type="button" className="rb-btn rb-btn-green" disabled={busy} onClick={() => answer(o.id, true)} style={{ fontSize: 10.5, padding: '2px 10px' }}>
+                      Accept
+                    </button>
+                    <button type="button" className="rb-btn" disabled={busy} onClick={() => answer(o.id, false)} style={{ fontSize: 10.5, padding: '2px 10px' }}>
+                      Decline
+                    </button>
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
