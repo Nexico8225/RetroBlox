@@ -7,10 +7,10 @@
    DOUBLING ladder (pay 1,000 -> next buyer pays 2,000 -> 4,000...),
    and the real sales ledger lists who bought, when and for how much. */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { useRetro, api, flash, refreshBalance } from '@/lib/store'
+import { useRetro, api, flash, refreshBalance, attachUpload } from '@/lib/store'
 import { Avatar } from './Shell'
 import { MarketPanel, MarketHistoryChart, TradeOfferModal, type MarketData } from './MarketPanel'
 import {
@@ -176,6 +176,8 @@ export function ItemDetailView({ id }: { id: string }) {
   const [clip, setClip] = useState('')
   const [reload, setReload] = useState(0)
   const [tradeOpen, setTradeOpen] = useState(false)
+  // owner thumbnail editor (the picture everyone sees on catalog cards)
+  const [thumbOpen, setThumbOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -191,6 +193,9 @@ export function ItemDetailView({ id }: { id: string }) {
   useEffect(() => { load() }, [load, reload])
 
   const item = data?.item
+
+  /** creator / admin can retouch this item's listing picture */
+  const isOwner = !!user && !!item && (user.id === item.creator.id || user.role === 'admin')
 
   /** the default blockhead wearing THIS item — the try-on lives on the page now */
   const look: AvatarLook3D | null = useMemo(() => {
@@ -324,8 +329,15 @@ export function ItemDetailView({ id }: { id: string }) {
                 Replaces your: {item.bundleParts.join(', ')} — the classic body steps aside.
               </div>
             )}
-            <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#9aa7b4', marginTop: 8 }}>
-              {item.assetId} · drag to spin
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#9aa7b4' }}>
+                {item.assetId} · drag to spin
+              </div>
+              {isOwner && (
+                <button type="button" className="rb-btn" style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => setThumbOpen(true)} title="Swap the picture players see in the catalog">
+                  ✎ Change Thumbnail
+                </button>
+              )}
             </div>
           </div>
 
@@ -585,6 +597,165 @@ export function ItemDetailView({ id }: { id: string }) {
           onSent={() => setReload((r) => r + 1)}
         />
       )}
+      {/* 3D try-on — the same scene every game renders through the SDK */}
+      {thumbOpen && item && (
+        <ChangeThumbModal
+          item={item}
+          onClose={() => setThumbOpen(false)}
+          onSaved={() => {
+            setThumbOpen(false)
+            setReload((r) => r + 1)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ---------------- owner: swap the catalog thumbnail ----------------
+   The picture on catalog cards / search rows is a separate file from the
+   3D model — creators often want a nicer shot than the auto one, so this
+   little editor swaps JUST that image without touching the item itself. */
+function ChangeThumbModal({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: DetailItem
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { setToast } = useRetro()
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  function pick(f: File | null) {
+    setFile(f)
+    setError('')
+    if (!f) {
+      setPreview(null)
+      return
+    }
+    const r = new FileReader()
+    r.onload = () => setPreview(String(r.result))
+    r.readAsDataURL(f)
+  }
+
+  async function save() {
+    if (!file) {
+      setError('Pick a picture first — or just close this if you changed your mind.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const fd = new FormData()
+      await attachUpload(fd, 'image', file, file.name || 'thumbnail.png', file.type || 'image/png')
+      await api(`/api/catalog/${item.id}`, { method: 'PATCH', body: fd })
+      flash(setToast, 'Thumbnail updated — the catalog shows the new look right away!', 3400)
+      onSaved()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the new thumbnail.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(20,32,44,0.72)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14,
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Change the thumbnail of ${item.name}`}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="rb-box" style={{ width: 'min(440px, 100%)', background: '#fff' }}>
+        <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Change Thumbnail — {item.name}</span>
+          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: 12 }}>
+          <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 3 }}>The picture players see</div>
+          <div style={{ fontSize: 10, color: '#5a6b7b', lineHeight: 1.45, marginBottom: 10 }}>
+            This is the shot on catalog cards, search rows and your profile shelf.
+            {item.modelFileId
+              ? ' Your 3D model stays exactly the same — this only swaps the flat picture.'
+              : ' Your item itself stays exactly the same — this only swaps the artwork.'}
+          </div>
+
+          {/* before / after */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div
+                style={{
+                  width: 84, height: 84, border: '1px solid #b7c6d4', background: '#fff', overflow: 'hidden',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <img src={`/api/files/${item.imageFileId}`} alt="Current thumbnail" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
+              </div>
+              <div style={{ fontSize: 9, color: '#7b8896', marginTop: 3 }}>now</div>
+            </div>
+            <div style={{ fontSize: 16, color: '#9aa7b4' }}>→</div>
+            <div style={{ textAlign: 'center' }}>
+              <div
+                style={{
+                  width: 84, height: 84, border: preview ? '1px solid #2c8e31' : '1px dashed #b7c6d4', background: '#fff', overflow: 'hidden',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#8ba0b3', textAlign: 'center', padding: 4,
+                }}
+              >
+                {preview ? (
+                  <img src={preview} alt="New thumbnail preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
+                ) : (
+                  'pick a picture'
+                )}
+              </div>
+              <div style={{ fontSize: 9, color: preview ? '#2c8e31' : '#7b8896', marginTop: 3 }}>new</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+            <button type="button" className="rb-btn" style={{ fontSize: 11, padding: '5px 12px' }} disabled={busy} onClick={() => fileRef.current?.click()}>
+              {file ? '↺ Choose a different picture' : '📁 Pick a picture (PNG / JPG)'}
+            </button>
+            {file && !busy && (
+              <button type="button" className="rb-link" style={{ background: 'none', border: 'none', padding: 0, fontSize: 10 }} onClick={() => pick(null)}>
+                undo
+              </button>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                pick(e.target.files?.[0] || null)
+                e.target.value = ''
+              }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 10, color: '#a81a13', background: '#fdf3f2', border: '1px solid #eecac7', padding: '6px 9px', marginBottom: 8 }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="rb-btn" style={{ fontSize: 11, padding: '5px 12px' }} disabled={busy} onClick={onClose}>
+              {file ? 'Cancel' : 'Close'}
+            </button>
+            <button type="button" className="rb-btn rb-btn-green" style={{ fontSize: 11, padding: '5px 14px', fontWeight: 'bold' }} disabled={busy || !file} onClick={save}>
+              {busy ? 'Saving...' : 'Save New Thumbnail'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
