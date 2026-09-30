@@ -218,7 +218,12 @@ func _style_dialog_button(button: Button) -> void:
         button.add_theme_stylebox_override("normal", _classic_button_style(CLASSIC_BTN))
         button.add_theme_stylebox_override("hover", _classic_button_style(CLASSIC_BTN_HOVER))
         button.add_theme_stylebox_override("pressed", _classic_button_style(CLASSIC_BTN_DOWN))
-        button.add_theme_color_override("font_color", CLASSIC_INK)
+        button.add_theme_stylebox_override("focus", _classic_button_style(CLASSIC_BTN_HOVER))
+        # the scene bakes WHITE hover/pressed/focus font colors — on these
+        # light classic buttons that is white-on-grey. Every state gets ink.
+        for state in ["font_color", "font_hover_color", "font_pressed_color",
+                        "font_hover_pressed_color", "font_focus_color"]:
+                button.add_theme_color_override(state, CLASSIC_INK)
 
 
 func _classic_panel_style() -> StyleBoxFlat:
