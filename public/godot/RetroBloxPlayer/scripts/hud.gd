@@ -32,7 +32,7 @@ const CLASSIC_BLUE := Color("0d69ac")
 
 # --- the website's Text FX (src/lib/textfx.tsx), same tags, same feel ---
 # animated tags carried by custom RichTextEffects in scripts/fx/
-const FX_EFFECTS: Array[String] = ["shake", "wiggle", "swirl", "wave", "bounce", "rainbow", "glow", "neon", "fire", "ice"]
+const FX_EFFECTS: Array[String] = ["shake", "wiggle", "swirl", "wave", "bounce", "rainbow", "glow", "neon", "fire", "ice", "sparkle", "pulse", "flip", "ghost", "tilt"]
 # plain color tags
 const FX_COLORS: Dictionary = {
         "red": "e53935", "blue": "1e88e5", "green": "43a047",
@@ -117,6 +117,9 @@ func _ready() -> void:
                 load("res://scripts/fx/fx_bounce.gd"), load("res://scripts/fx/fx_rainbow.gd"),
                 load("res://scripts/fx/fx_glow.gd"), load("res://scripts/fx/fx_neon.gd"),
                 load("res://scripts/fx/fx_fire.gd"), load("res://scripts/fx/fx_ice.gd"),
+                load("res://scripts/fx/fx_sparkle.gd"), load("res://scripts/fx/fx_pulse.gd"),
+                load("res://scripts/fx/fx_flip.gd"), load("res://scripts/fx/fx_ghost.gd"),
+                load("res://scripts/fx/fx_tilt.gd"),
         ]
         _build_health_bar()
         _build_toolbar()
