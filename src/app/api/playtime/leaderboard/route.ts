@@ -7,48 +7,55 @@ import { levelForXp, BADGES } from '@/lib/badges'
  * Steam-style "most played" boards for the community:
  *   ?window=week (last 7 days) | all (all time, default)
  * Returns top players by playtime + top games by playtime.
+ *
+ * NOTE: intentionally NO `groupBy` + `orderBy: { _sum }` here — that
+ * combination crashes on the libSQL (Turso) adapter in production, so
+ * the rows are aggregated in JS instead (the row counts are tiny).
  */
+async function topSeconds(
+  model: 'gamePlay' | 'playSession',
+  where?: Record<string, unknown>
+): Promise<{ players: Map<string, number>; games: Map<string, number> }> {
+  const rows =
+    model === 'gamePlay'
+      ? await db.gamePlay.findMany({ where, select: { userId: true, gameId: true, seconds: true } })
+      : await db.playSession.findMany({ where, select: { userId: true, gameId: true, seconds: true } })
+  const players = new Map<string, number>()
+  const games = new Map<string, number>()
+  for (const r of rows) {
+    players.set(r.userId, (players.get(r.userId) || 0) + r.seconds)
+    games.set(r.gameId, (games.get(r.gameId) || 0) + r.seconds)
+  }
+  return { players, games }
+}
+
+/** keep the top 10 entries of an aggregated map */
+function top10(m: Map<string, number>): { id: string; seconds: number }[] {
+  return [...m.entries()]
+    .map(([id, seconds]) => ({ id, seconds }))
+    .sort((a, b) => b.seconds - a.seconds)
+    .slice(0, 10)
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const window = url.searchParams.get('window') === 'week' ? 'week' : 'all'
   const since = new Date(Date.now() - 7 * 86400000)
 
-  if (window === 'week') {
-    const topPlayers = await db.playSession.groupBy({
-      by: ['userId'],
-      where: { lastBeatAt: { gte: since } },
-      _sum: { seconds: true },
-      orderBy: { _sum: { seconds: 'desc' } },
-      take: 10,
-    })
-    const topGames = await db.playSession.groupBy({
-      by: ['gameId'],
-      where: { lastBeatAt: { gte: since } },
-      _sum: { seconds: true },
-      orderBy: { _sum: { seconds: 'desc' } },
-      take: 10,
-    })
-    return NextResponse.json(await decorate(topPlayers, topGames))
-  }
+  const { players: playerSeconds, games: gameSeconds } =
+    window === 'week'
+      ? await topSeconds('playSession', { lastBeatAt: { gte: since } })
+      : await topSeconds('gamePlay')
 
-  const topPlayers = await db.gamePlay.groupBy({
-    by: ['userId'],
-    _sum: { seconds: true },
-    orderBy: { _sum: { seconds: 'desc' } },
-    take: 10,
-  })
-  const topGames = await db.gamePlay.groupBy({
-    by: ['gameId'],
-    _sum: { seconds: true },
-    orderBy: { _sum: { seconds: 'desc' } },
-    take: 10,
-  })
-  return NextResponse.json(await decorate(topPlayers, topGames))
+  const topPlayers = top10(playerSeconds).map((p) => ({ userId: p.id, _sum: { seconds: p.seconds } }))
+  const topGames = top10(gameSeconds).map((g) => ({ gameId: g.id, _sum: { seconds: g.seconds } }))
+  return NextResponse.json(await decorate(topPlayers, topGames, window))
 }
 
 async function decorate(
   topPlayers: { userId: string; _sum: { seconds: number | null } }[],
-  topGames: { gameId: string; _sum: { seconds: number | null } }[]
+  topGames: { gameId: string; _sum: { seconds: number | null } }[],
+  window: string
 ) {
   const [users, games, badgeRows] = await Promise.all([
     db.user.findMany({
