@@ -683,6 +683,18 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                             : 'Get'}
                       </button>
                     )}
+                    {/* TRADE — beside every UGC, free items too: buyers open the
+                        trade window, the owner jumps to their waiting offers */}
+                    {user && (
+                      <Link
+                        href={owned ? `/catalog/${item.id}#offers` : `/trades/new?item=${item.id}`}
+                        className="rb-btn"
+                        style={{ fontSize: 10, textDecoration: 'none', padding: '3px 8px' }}
+                        title={owned ? 'See the trade offers waiting on this item' : 'Offer your own UGC / Tix for this item — even if it is free'}
+                      >
+                        🔁 Trade
+                      </Link>
+                    )}
                     {canManage(item) && (
                       <button className="rb-btn" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setEditing(item)}>
                         Edit
