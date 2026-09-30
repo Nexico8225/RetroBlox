@@ -9,38 +9,32 @@ extends CharacterBody3D
 ## using the classic numbers: WalkSpeed 16, JumpPower 50, gravity 196.2.
 ## Levels built from RetroPart scenes are automatically stud-accurate.
 
-# classic movement — every number is @export so developers (and the map
-# editor) can tune the feel per player scene without touching code.
-@export_group("Movement")
-@export var walk_speed: float = 16.0    # studs / second (classic WalkSpeed)
-@export var jump_speed: float = 38.0    # floatier than the classic 50 — the old
-                                        # 50/196.2 mix snapped to the apex instantly
-@export var gravity: float = 110.0      # studs / s² — calmer arc, same jump height
-@export var accel_ground: float = 145.0 # reach full speed in ~0.11s: crisp, not slippery
-@export var accel_air: float = 62.0     # real air control — you can steer mid-jump
-@export var brake_ground: float = 170.0 # stop on release, classic style
+# classic movement — the exact defaults players remember
+const WALK_SPEED: float = 16.0          # studs / second (classic WalkSpeed)
+const JUMP_SPEED: float = 50.0          # studs / second (classic JumpPower)
+const GRAVITY: float = 196.2            # studs / s² (classic workspace gravity)
+const ACCEL_GROUND: float = 145.0       # reach full speed in ~0.11s: crisp, not slippery
+const ACCEL_AIR: float = 62.0           # real air control — you can steer mid-jump
+const BRAKE_GROUND: float = 170.0       # stop on release, classic style
 
-# steps — walk over anything between a paper-thin lip and 3 studs (stairs!)
-@export_group("Steps")
-@export var max_step: float = 3.0
-@export var min_step: float = 0.05
-const STEP_REACH: float = 1.35          # must clear the capsule radius (1.0) or the
-                                        # body never crosses the lip and gets stuck
-const STEP_VISUAL_SPEED: float = 46.0   # how fast the body's visual catches up after a step
+# steps — Minecraft-style: when you walk into a ledge you are TELEPORTED
+# straight up onto it (collide + press W = on top). Anything between a
+# paper-thin lip and 3 studs (stairs!) just works.
+const MAX_STEP: float = 3.0
+const MIN_STEP: float = 0.05
+const STEP_PUSH: float = 0.9           # nudge forward after the step teleport
 
-# ladders (TrussPart-style) — climb up while pushing forward, climb down
-# while pressing back, jump to let go; plays the rig's Climb animation.
-# Climbing is strictly vertical: forward/back only, never sideways.
-@export_group("Climbing")
-@export var can_climb: bool = true
-@export var climb_speed: float = 9.0
-@export var ladder_jump: float = 34.0
-
-# sounds — slot names inside assets/sounds/ (mp3 beats wav when both exist)
-@export_group("Sounds")
-@export var jump_sound: String = "RetroBloxJump"
-@export var walk_sound: String = "Walking"
-@export var sounds_enabled: bool = true
+# ladders (TrussPart-style) — you only latch on when you are FACING the
+# ladder and holding W. Push forward to climb up, back to climb down, and
+# the Climb animation plays only while you actually move. SPACE jumps you
+# off; looking back-left/back-right (shift lock) lets go too.
+const CLIMB_SPEED: float = 9.0
+const LADDER_JUMP: float = 34.0
+const LADDER_JUMP_AWAY: float = 8.0    # horizontal push off the ladder
+const CLIMB_FACING_DOT: float = 0.45   # must look at the ladder to grab it
+const CLIMB_LOOKAWAY_DOT: float = -0.25  # looking back-ish lets go
+const CLIMB_LOOKAWAY_TIME: float = 0.18  # ...held this long (no flicker)
+const CLIMB_COOLDOWN: float = 0.4      # after a jump-off, before re-latch
 
 # classic health — big falls hurt, 1%/s regen after five quiet seconds
 # (the Roblox default), zero health routes into the normal respawn flow
@@ -57,7 +51,6 @@ const FALL_DMG_PER_STUD: float = 4.0
 # very first open, even before Godot registers global class_names.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 const AvatarPlatformScript := preload("res://scripts/avatar_platform.gd")
-const RetroSounds := preload("res://scripts/sounds.gd")
 
 var peer_id: int = 0
 var display_name: String = "Guest"
@@ -90,21 +83,14 @@ var regen_wait: float = 0.0
 var falling: bool = false
 var fall_peak_y: float = 0.0
 var climbing: bool = false           # on a ladder right now (drives the Climb anim)
+var first_person: bool = false       # set by main.gd when the camera zooms all the way in
 var _ladder_count: int = 0
+var _wish: Vector3 = Vector3.ZERO    # input direction this frame (camera-relative)
+var _ladder_dir: Vector3 = Vector3.ZERO  # horizontal direction toward the ladder we latched
+var _climb_cooldown: float = 0.0
+var _look_away: float = 0.0
+var _climb_anim: bool = false         # true only while actually moving on a ladder
 var _step_visual: float = 0.0        # avatar's downward offset that eases out after a step
-
-# head-top health bar — appears when a player is hurt, fades away a moment
-# after they are back to full (the classic Roblox above-head health bar)
-var _hb_root: Node3D
-var _hb_fill: MeshInstance3D
-var _hb_fill_mesh: QuadMesh
-var _hb_wait: float = 0.0
-var _footstep_audio: AudioStreamPlayer3D
-var _jump_audio: AudioStreamPlayer3D
-
-const HB_WIDTH: float = 2.2          # studs
-const HB_HEIGHT: float = 0.3
-const HB_LINGER: float = 2.5         # seconds the bar stays after reaching full
 
 func initialize(id: int, player_name: String) -> void:
         peer_id = id
@@ -114,14 +100,16 @@ func initialize(id: int, player_name: String) -> void:
         collision_mask = 1
         floor_snap_length = 0.5
         floor_max_angle = deg_to_rad(50.0)
+        # Roblox-style wall behavior: EVERY wall contact slides, so walking
+        # into a wall at any angle glides along it instead of sticking
+        wall_min_slide_angle = 0.0
+        max_slides = 6
         # the scene provides the capsule, the avatar and the chat bubble
         avatar = get_node("Avatar")
         avatar.configure(id, player_name)
         bubble = get_node("ChatBubble")
         bubble.visible = false
         _setup_ladder_sensor()
-        _setup_head_bar()
-        _setup_sounds()
 
 ## Dress this player from a platform avatar payload
 ## (GET /api/platform/me for yourself, GET /api/users/{id}/avatar for others).
@@ -135,68 +123,94 @@ func dress_from_payload(api: RetrobloxApiScript, payload: Dictionary) -> void:
 func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int, use_shiftlock: bool = false) -> void:
         if not alive:
                 return
-        var wish := Vector3(direction.x, 0.0, direction.y).rotated(Vector3.UP, camera_yaw)
-        if wish.length() > 1.0:
-                wish = wish.normalized()
+        _wish = Vector3(direction.x, 0.0, direction.y).rotated(Vector3.UP, camera_yaw)
+        if _wish.length() > 1.0:
+                _wish = _wish.normalized()
+        if _climb_cooldown > 0.0:
+                _climb_cooldown = maxf(_climb_cooldown - delta, 0.0)
 
-        # ---- ladders: touching a TrussPart-style ladder while pushing toward it
-        # climbs it — forward = up, back = down, jump = let go. No gravity here.
-        climbing = false
-        if _ladder_count > 0 and can_climb:
-                if jump_serial > consumed_jump:
+        var jumped := false
+        # ---- ladders: latch on ONLY when facing the ladder and holding W;
+        # while climbing, W = up / S = down / nothing = hang still; SPACE or
+        # looking away (shift lock) lets go. No gravity while on the ladder.
+        var climbing_move := false
+        if climbing:
+                if _ladder_count <= 0:
+                        climbing = false            # climbed past the top / stepped off
+                elif jump_serial > consumed_jump:
                         consumed_jump = jump_serial
-                        velocity.y = ladder_jump
-                        velocity.x = -wish.x * 6.0
-                        velocity.z = -wish.z * 6.0
-                elif direction.y < -0.2:
-                        velocity.y = climb_speed
-                        climbing = true
-                elif direction.y > 0.2:
-                        velocity.y = -climb_speed
-                        climbing = true
+                        climbing = false
+                        _climb_cooldown = CLIMB_COOLDOWN
+                        velocity.y = LADDER_JUMP
+                        velocity.x = -_ladder_dir.x * LADDER_JUMP_AWAY
+                        velocity.z = -_ladder_dir.z * LADDER_JUMP_AWAY
                 else:
-                        velocity.y = 0.0
+                        # looking back-left / back-right / back (shift lock) lets go
+                        var view := Vector3(-sin(camera_yaw), 0.0, -cos(camera_yaw))
+                        if view.dot(_ladder_dir) < CLIMB_LOOKAWAY_DOT:
+                                _look_away += delta
+                                if _look_away >= CLIMB_LOOKAWAY_TIME:
+                                        climbing = false
+                        else:
+                                _look_away = 0.0
+                if climbing:
+                        if direction.y < -0.2:
+                                velocity.y = CLIMB_SPEED
+                                climbing_move = true
+                        elif direction.y > 0.2:
+                                velocity.y = -CLIMB_SPEED
+                                climbing_move = true
+                        else:
+                                velocity.y = 0.0    # hang still — the anim stops too
+                        # hug the ladder; face it like the classic truss
+                        velocity.x = move_toward(velocity.x, 0.0, ACCEL_GROUND * delta)
+                        velocity.z = move_toward(velocity.z, 0.0, ACCEL_GROUND * delta)
+                        heading = lerp_angle(heading, atan2(-_ladder_dir.x, -_ladder_dir.z), 1.0 - exp(-16.0 * delta))
+        elif _ladder_count > 0 and _climb_cooldown <= 0.0 and direction.y < -0.2 and _wish.length_squared() > 0.05:
+                # entering: only when you are FACING the ladder and holding W
+                var to_ladder := _nearest_ladder_dir()
+                if to_ladder != Vector3.ZERO and _wish.dot(to_ladder) > CLIMB_FACING_DOT:
                         climbing = true
-                # climbing is strictly vertical: W/S only. Sideways wish is
-                # ignored (velocity damped toward zero) — no strafing on ladders.
-                velocity.x = move_toward(velocity.x, 0.0, accel_ground * delta)
-                velocity.z = move_toward(velocity.z, 0.0, accel_ground * delta)
-        else:
+                        _ladder_dir = to_ladder
+                        _look_away = 0.0
+                        velocity.y = maxf(velocity.y, 0.0)
+
+        if not climbing:
                 # ---- ground / air movement, classic response ----
-                var accel: float = accel_ground if is_on_floor() else accel_air
-                var target := wish * walk_speed
-                if wish.length_squared() < 0.005 and is_on_floor():
+                var accel: float = ACCEL_GROUND if is_on_floor() else ACCEL_AIR
+                var target := _wish * WALK_SPEED
+                if _wish.length_squared() < 0.005 and is_on_floor():
                         # no input on the ground: brake toward a clean stop
-                        velocity.x = move_toward(velocity.x, 0.0, brake_ground * delta)
-                        velocity.z = move_toward(velocity.z, 0.0, brake_ground * delta)
+                        velocity.x = move_toward(velocity.x, 0.0, BRAKE_GROUND * delta)
+                        velocity.z = move_toward(velocity.z, 0.0, BRAKE_GROUND * delta)
                 else:
                         velocity.x = move_toward(velocity.x, target.x, accel * delta)
                         velocity.z = move_toward(velocity.z, target.z, accel * delta)
                 if not is_on_floor():
-                        velocity.y -= gravity * delta
+                        velocity.y -= GRAVITY * delta
                 elif velocity.y < 0.0:
                         velocity.y = 0.0
                 if jump_serial > consumed_jump:
                         consumed_jump = jump_serial
                         if is_on_floor():
-                                velocity.y = jump_speed
-                                _play_jump()
+                                velocity.y = JUMP_SPEED
+                                jumped = true
 
         move_and_slide()
         grounded = is_on_floor()
-        # step-up runs when the wall test says so OR when the wish is strong but
-        # we are barely moving — tiny lips can block without a wall slide event
-        if grounded and (is_on_wall() or _is_blocked()):
+        if grounded and not jumped:
                 _attempt_step_up()
         # facing — shift lock squares up to the camera, otherwise face the run
-        if use_shiftlock:
+        if climbing:
+                pass  # heading already tracks the ladder
+        elif use_shiftlock:
                 heading = lerp_angle(heading, camera_yaw, 1.0 - exp(-14.0 * delta))
-        elif wish.length_squared() > 0.005:
-                heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
+        elif _wish.length_squared() > 0.005:
+                heading = lerp_angle(heading, atan2(-_wish.x, -_wish.z), 1.0 - exp(-18.0 * delta))
         # the avatar eases up to the body after a step — stairs look smooth,
         # the collision stays exact
         if _step_visual != 0.0:
-                _step_visual = move_toward(_step_visual, 0.0, STEP_VISUAL_SPEED * delta)
+                _step_visual = move_toward(_step_visual, 0.0, 46.0 * delta)
                 avatar.position.y = _step_visual
         _update_fall_damage()
         # passive regen — the classic 1%/s after five quiet seconds
@@ -206,147 +220,78 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                 health = minf(health + REGEN_RATE, MAX_HEALTH)
                 health_changed.emit(health, MAX_HEALTH)
         avatar.rotation.y = heading
+        _climb_anim = climbing_move
 
-## True when the player is pushing hard but the body barely moves — the
-## classic "stuck on the part edge" case the plain is_on_wall() test missed.
-func _is_blocked() -> bool:
-        var wish_len := Vector3(input_direction.x, 0.0, input_direction.y).length()
-        if wish_len < 0.5:
-                return false
-        var hvel := Vector3(velocity.x, 0.0, velocity.z).length()
-        return hvel < walk_speed * 0.35
-
-## STAIRS — walk over any ledge between min_step and max_step studs.
-## Runs after move_and_slide when we ended up against a wall (or wedged on
-## a part edge): measure the ledge with a downward ray from a raised
-## position, and if the lip is in range and there is headroom, rise + reach
-## over + settle onto the step.
+## STAIRS — collide with a ledge + press W = teleported on top of it.
+## Uses the INPUT direction (not the post-collision velocity, which is
+## zeroed against the wall you are pushing into — the old bug that made
+## stairs work only at diagonal angles). Measured with rays; teleported
+## straight up when the lip is MIN_STEP..MAX_STEP high and there is
+## headroom. Walls taller than MAX_STEP stay solid — you glide along them.
 func _attempt_step_up() -> void:
-        var hvel := Vector3(velocity.x, 0.0, velocity.z)
-        if hvel.length_squared() < 1.0:
+        var dir := Vector3(_wish.x, 0.0, _wish.z)
+        if dir.length_squared() < 0.2:
                 return
-        var dir := hvel.normalized()
+        dir = dir.normalized()
         var space := get_world_3d().direct_space_state
         if space == null:
                 return
         var feet := global_position.y
-        # 1) something low actually blocking straight ahead?
+        var exclude: Array[RID] = [get_rid()]
+        # 1) something actually blocking straight ahead at knee height?
         var probe := PhysicsRayQueryParameters3D.create(
-                global_position + Vector3(0.0, min_step + 0.15, 0.0),
-                global_position + Vector3(0.0, min_step + 0.15, 0.0) + dir * 1.4,
-                collision_mask
+                global_position + Vector3(0.0, 0.45, 0.0),
+                global_position + Vector3(0.0, 0.45, 0.0) + dir * 1.6,
+                collision_mask, exclude
         )
-        if space.intersect_ray(probe).is_empty():
+        probe.hit_from_inside = true
+        var block := space.intersect_ray(probe)
+        if block.is_empty():
                 return
-        # 2) headroom to rise the full step? (blocked above = ceiling, abort)
-        if test_move(global_transform, Vector3.UP * max_step):
+        # 2) headroom to stand on top of the step? (blocked above = ceiling)
+        if test_move(global_transform, Vector3.UP * (MAX_STEP + 0.1)):
                 return
-        # 3) reach PAST the capsule radius over the lip and measure the landing
-        #    height with a ray — a short reach here is what used to wedge the
-        #    capsule on the very edge of the part
-        var over := global_position + Vector3.UP * max_step + dir * STEP_REACH
-        var down_ray := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (max_step + 0.4), collision_mask)
+        # 3) measure the landing height with a downward ray past the blocker
+        var top_start: Vector3 = (block["position"] as Vector3) + dir * 0.3 + Vector3.UP * (MAX_STEP + 0.6)
+        var down_ray := PhysicsRayQueryParameters3D.create(
+                top_start, top_start + Vector3.DOWN * (MAX_STEP + 0.9), collision_mask, exclude
+        )
         var hit := space.intersect_ray(down_ray)
         if hit.is_empty():
                 return  # nothing to land on at that height — it is a tall wall
         var lip: float = float(hit["position"].y) - feet
-        if lip < min_step or lip > max_step + 0.01:
-                return  # too tall (or we are already level) — jump like classic
-        # 4) execute: rise, reach over, settle. The body snaps; the avatar eases.
-        move_and_collide(Vector3.UP * (lip + 0.06))
-        move_and_collide(dir * STEP_REACH)
-        var settle := move_and_collide(Vector3.DOWN * (lip + 0.25))
-        if settle != null and velocity.y < 0.0:
+        if lip < MIN_STEP or lip > MAX_STEP:
+                return  # too tall (or already level) — jump like classic
+        var rise: float = lip + 0.05
+        if test_move(global_transform, Vector3.UP * rise):
+                return
+        # 4) THE TELEPORT: straight up onto the step, then a small push
+        # forward so you stand ON it. The body snaps; the avatar eases.
+        move_and_collide(Vector3.UP * rise)
+        if not test_move(global_transform, dir * STEP_PUSH):
+                move_and_collide(dir * STEP_PUSH)
+        if velocity.y < 0.0:
                 velocity.y = 0.0
         grounded = true
-        _step_visual = minf(_step_visual - lip, -lip)
-        if _step_visual < -max_step:
-                _step_visual = -max_step
+        _step_visual = -lip
 
-## Head-top health bar — two billboarded quads. Shows whenever the player is
-## below full health, then lingers a moment and disappears once healed.
-func _setup_head_bar() -> void:
-        _hb_root = Node3D.new()
-        _hb_root.name = "HealthBillboard"
-        _hb_root.position = Vector3(0.0, 5.75, 0.0)
-        _hb_root.visible = false
-        add_child(_hb_root)
-        var bg := MeshInstance3D.new()
-        bg.name = "Track"
-        var bg_mesh := QuadMesh.new()
-        bg_mesh.size = Vector2(HB_WIDTH, HB_HEIGHT)
-        bg.mesh = bg_mesh
-        bg.material_override = _hb_material(Color(0.055, 0.09, 0.11, 0.82))
-        _hb_root.add_child(bg)
-        _hb_fill = MeshInstance3D.new()
-        _hb_fill.name = "Fill"
-        _hb_fill_mesh = QuadMesh.new()
-        _hb_fill_mesh.size = Vector2(HB_WIDTH, HB_HEIGHT)
-        _hb_fill.mesh = _hb_fill_mesh
-        _hb_fill.material_override = _hb_material(Color("02b757"))
-        _hb_fill.position = Vector3(0.0, 0.0, -0.02)  # a hair in front: no z-fighting
-        _hb_root.add_child(_hb_fill)
-
-func _hb_material(color: Color) -> StandardMaterial3D:
-        var mat := StandardMaterial3D.new()
-        mat.albedo_color = color
-        mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-        mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-        mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-        mat.no_depth_test = false
-        mat.render_priority = 10
-        return mat
-
-func _update_head_bar(delta: float) -> void:
-        if _hb_root == null:
-                return
-        var ratio := clampf(health / MAX_HEALTH, 0.0, 1.0)
-        if alive and ratio < 0.995:
-                _hb_wait = 0.0
-                _hb_root.visible = true
-        elif _hb_wait < HB_LINGER:
-                _hb_wait += delta
-                _hb_root.visible = true
-                if _hb_wait >= HB_LINGER:
-                        _hb_root.visible = false
-        var w: float = maxf(HB_WIDTH * ratio - 0.08, 0.001)
-        _hb_fill_mesh.size = Vector2(w, HB_HEIGHT - 0.08)
-        # keep the fill glued to the left edge as it shrinks
-        _hb_fill.position = Vector3(-(HB_WIDTH - 0.08) * 0.5 + w * 0.5, 0.0, -0.02)
-        (_hb_fill.material_override as StandardMaterial3D).albedo_color = \
-                Color("e2231a").lerp(Color("02b757"), ratio)
-
-## Jump + footstep sounds — 3D, so nearby players hear them too.
-func _setup_sounds() -> void:
-        if not sounds_enabled:
-                return
-        _jump_audio = RetroSounds.world_player(jump_sound, -6.0)
-        if _jump_audio.stream == null:
-                _jump_audio = null
-        else:
-                _jump_audio.position = Vector3(0.0, 3.0, 0.0)
-                add_child(_jump_audio)
-        _footstep_audio = RetroSounds.world_player(walk_sound, -14.0, true)
-        if _footstep_audio.stream == null:
-                _footstep_audio = null
-        else:
-                _footstep_audio.position = Vector3(0.0, 0.2, 0.0)
-                add_child(_footstep_audio)
-
-func _play_jump() -> void:
-        if _jump_audio != null:
-                _jump_audio.play()
-
-func _update_footsteps() -> void:
-        if _footstep_audio == null:
-                return
-        var moving: bool = alive and grounded \
-                and Vector3(velocity.x, 0.0, velocity.z).length() > 2.0 \
-                and not climbing
-        if moving and not _footstep_audio.playing:
-                _footstep_audio.play()
-        elif not moving and _footstep_audio.playing:
-                _footstep_audio.stop()
+## Horizontal direction toward the nearest ladder area we are touching.
+func _nearest_ladder_dir() -> Vector3:
+        var sensor := get_node_or_null("LadderSensor") as Area3D
+        if sensor == null:
+                return Vector3.ZERO
+        var best: Vector3 = Vector3.ZERO
+        var best_dist: float = INF
+        for area in sensor.get_overlapping_areas():
+                if not area.is_in_group("ladder"):
+                        continue
+                var offset := area.global_position - global_position
+                offset.y = 0.0
+                var dist := offset.length_squared()
+                if dist < best_dist:
+                        best_dist = dist
+                        best = offset.normalized() if dist > 0.0001 else Vector3.ZERO
+        return best
 
 ## Ladder sensor — one Area3D hugging the body; TrussPart-style ladders are
 ## Area3D nodes on layer 16 in the "ladder" group.
@@ -423,16 +368,13 @@ func accept_snapshot(pos: Vector3, vel: Vector3, yaw: float, floor_state: bool, 
 
 func update_visuals(delta: float) -> void:
         if alive:
-                avatar.animate(delta, Vector2(velocity.x, velocity.z).length(), grounded, climbing)
-                _update_footsteps()
-        _update_head_bar(delta)
+                var speed := Vector2(velocity.x, velocity.z).length()
+                # the Climb clip only while actually moving on the ladder —
+                # hang still and the animation stops with you
+                avatar.animate(delta, speed, grounded, _climb_anim)
         if bubble_remaining > 0.0:
                 bubble_remaining -= delta
-                bubble.visible = alive and bubble_remaining > 0.0
-
-## Remote players get their health from the host's snapshot rows.
-func set_remote_health(value: float) -> void:
-        health = clampf(value, 0.0, MAX_HEALTH)
+                bubble.visible = alive and bubble_remaining > 0.0 and not first_person
 
 func show_message(message: String) -> void:
         # Plain text only: markup cannot be injected.
@@ -440,17 +382,17 @@ func show_message(message: String) -> void:
         var lines: Array[String] = []
         var current := ""
         for word in words:
-                if current.length() + word.length() > 28 and not current.is_empty():
+                if current.length() + word.length() > 30 and not current.is_empty():
                         lines.append(current)
                         current = ""
-                current += (" " if not current.is_empty() else "") + word.left(28)
-                if lines.size() >= 3:
+                current += (" " if not current.is_empty() else "") + word.left(30)
+                if lines.size() >= 4:
                         break
-        if lines.size() < 3 and not current.is_empty():
+        if lines.size() < 4 and not current.is_empty():
                 lines.append(current)
         bubble.text = "\n".join(lines)
-        bubble_remaining = 5.5
-        bubble.visible = alive
+        bubble_remaining = 6.0
+        bubble.visible = alive and not first_person
 
 ## Damage API — amount <= 0 is a no-op; hitting 0 emits health_depleted
 ## (main.gd routes that into the normal reset/respawn flow).
@@ -476,16 +418,20 @@ func die(world: Node3D, epoch: int, seed_value: int) -> void:
         alive = false
         health = 0.0
         health_changed.emit(health, MAX_HEALTH)
-        if _footstep_audio != null and _footstep_audio.playing:
-                _footstep_audio.stop()
-        if _hb_root != null:
-                _hb_root.visible = false
-                _hb_wait = HB_LINGER
         velocity = Vector3.ZERO
         correction = Vector3.ZERO
         input_direction = Vector2.ZERO
+        climbing = false
+        _climb_anim = false
         bubble.visible = false
         avatar.burst(world, seed_value)
+
+## Where the death camera should look while this player is rebuilding —
+## the falling torso piece, so the camera rides down with the body.
+func death_focus() -> Vector3:
+        if avatar != null and avatar.debris_torso != null and is_instance_valid(avatar.debris_torso):
+                return avatar.debris_torso.global_position + Vector3.UP * 1.2
+        return global_position + Vector3(0, 4.3, 0)
 
 func respawn_at(pos: Vector3, epoch: int) -> void:
         life_epoch = epoch
@@ -494,8 +440,12 @@ func respawn_at(pos: Vector3, epoch: int) -> void:
         regen_wait = 0.0
         falling = false
         climbing = false
+        _climb_anim = false
+        _climb_cooldown = 0.0
+        _look_away = 0.0
+        _ladder_dir = Vector3.ZERO
+        first_person = false
         _step_visual = 0.0
-        _hb_wait = HB_LINGER  # the bar starts hidden on a fresh life
         if avatar != null:
                 avatar.position.y = 0.0
         health_changed.emit(health, MAX_HEALTH)
