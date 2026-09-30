@@ -150,7 +150,7 @@ func _build_lattice_mesh() -> ArrayMesh:
 
 ## Append one oriented box (6 faces, 24 verts) into merged arrays.
 static func _add_box(verts: PackedVector3Array, norms: PackedVector3Array, indices: PackedInt32Array,
-                basis: Basis, origin: Vector3, box: Vector3) -> void:
+                xform: Basis, origin: Vector3, box: Vector3) -> void:
         var h := box * 0.5
         # normal, texture-right, texture-down per face (same winding as zone_box)
         var faces := [
@@ -169,13 +169,13 @@ static func _add_box(verts: PackedVector3Array, norms: PackedVector3Array, indic
                 var hu := absf(u.x) * h.x + absf(u.y) * h.y + absf(u.z) * h.z
                 var hv := absf(v.x) * h.x + absf(v.y) * h.y + absf(v.z) * h.z
                 var tl := center - u * hu - v * hv
-                var tr := center + u * hu - v * hv
+                var corner_tr := center + u * hu - v * hv
                 var br := center + u * hu + v * hv
                 var bl := center - u * hu + v * hv
                 var base := verts.size()
-                for corner in [tl, tr, br, bl]:
-                        verts.push_back(basis * corner + origin)
-                var wn := basis * n
+                for corner in [tl, corner_tr, br, bl]:
+                        verts.push_back(xform * corner + origin)
+                var wn := xform * n
                 for _i in range(4):
                         norms.push_back(wn)
                 for idx in [base, base + 3, base + 2, base, base + 2, base + 1]:
