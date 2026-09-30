@@ -8,8 +8,10 @@
 #   - shirt texture: 300x190 template -> zone-cropped onto torso + arms
 #   - pants texture: 220x190 template -> zone-cropped onto both legs
 #   - face: decal quad on the FRONT of the head (62% of the head at scale 1)
-#   - 3D UGC: loaded from GLB, normalized to 1.6, placed EXACTLY where its
-#     creator left it, scaled from the site's 5-stud rig down to this avatar
+#   - t-shirt: image decal on the FRONT of the torso (site rule)
+#   - 3D UGC: loaded from GLB, normalized to 1.6 site units, placed EXACTLY
+#     where its creator left it — through a 180° yaw bridge, because the
+#     site rig faces +Z and this rig faces -Z
 class_name AvatarPlatform
 extends RefCounted
 
@@ -18,10 +20,13 @@ extends RefCounted
 # and when other devs copy these scripts into their own project.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
-const RIG_HEIGHT := 2.9          # the fallback box rig's height (site rig = 5.0 studs)
+# This avatar IS the site rig: both normalize the body to 5.0 units tall,
+# feet on y=0, centered on x/z (measured from R6IK.fbx — the helper meshes
+# stay inside the body bounds, so the site's all-mesh normalize and this
+# body-only normalize land on the SAME space, scale factor 1.0).
+const RIG_HEIGHT := 5.0
 const SITE_RIG_HEIGHT := 5.0
 const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies (site units)
-const HEAD_PART := 0             # fixed part order: head(0) torso(1) armL(2) armR(3) legL(4) legR(5)
 
 # "this surface arrived with no real paint" threshold (raw sRGB ~0.97+),
 # matching the site converter's linear-space 0.93 rule
@@ -110,33 +115,38 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                         avatar_node.call("set_face", ImageTexture.create_from_image(face_img),
                                 float(avatar_data.get("faceScale", 1.0)))
 
-        # ---- 6) 3D UGC accessories — GLB, normalized, placed EXACTLY ----
-        # SITE SPACE BRIDGE: placements are authored in the site renderer's
-        # space, where the same FBX rig is turned 180 deg on Y to face +Z.
-        # This rig keeps its raw Blender orientation and faces -Z, so a
-        # verbatim placement used to land items mirrored (behind the head /
-        # through the torso). The bridge converts site space -> game space
-        # (x/z negate, Y rotations +180) AND carries the site->game unit
-        # ratio, so 5-stud site placements fit this avatar exactly.
-        var site_to_game := Node3D.new()
-        site_to_game.name = "UGCSiteSpace"
-        site_to_game.rotation_degrees = Vector3(0.0, 180.0, 0.0)
-        var rig_h: float = avatar_node.call("rig_height")
-        site_to_game.scale = Vector3.ONE * (rig_h / SITE_RIG_HEIGHT)
-        avatar_node.add_child(site_to_game)
-
+        # ---- 6) 3D UGC + t-shirt decals ----
+        # The SITE (src/lib/three/rig.ts) is the ground truth:
+        #   tshirt accessories -> image decal on the FRONT of the torso
+        #   everything else with a model -> GLB, normalized to 1.6 site
+        #   units, then the creator's placement p/r/s applied VERBATIM.
+        # A 180° yaw bridge converts site space (rig faces +Z) into this
+        # avatar's space (rig faces -Z): (x,y,z) -> (-x,y,-z), exactly the
+        # flip a viewer sees between the two renderers. No extra scale —
+        # both rigs are 5.0 tall in their own space (measured k = 1.0).
         var accessories: Array = avatar_data.get("accessories", [])
         for acc_id in accessories:
                 var asset := await api.get_asset(String(acc_id))
                 if not asset.get("ok", false):
                         continue
                 var surface_asset: Dictionary = asset.get("asset", {})
+                var kind := String(surface_asset.get("kind", ""))
+                var image_url := String(surface_asset.get("imageUrl", ""))
+                var tex_url := String(surface_asset.get("textureUrl", ""))
+                var tint := String(surface_asset.get("color", ""))
+
+                # T-SHIRTS: always a torso-front decal, never a placed model
+                # ("RetroBlox Logo" t-shirt belongs ON the torso).
+                if kind == "tshirt":
+                        if image_url != "":
+                                var t_img := await api.load_image(image_url)
+                                if t_img != null and is_instance_valid(avatar_node):
+                                        avatar_node.call("set_tshirt", ImageTexture.create_from_image(t_img))
+                        continue
+
                 var model_url := String(surface_asset.get("modelUrl", ""))
                 if model_url == "":
-                        # legacy image-only item — the site renders it as a
-                        # decal floating over the head; do the same here
-                        _legacy_image_accessory(avatar_node, api, surface_asset)
-                        continue
+                        continue  # legacy image-only item — nothing 3D to wear
                 var bytes: PackedByteArray = await api.get_bytes(model_url)
                 if bytes.is_empty():
                         push_warning("[RetroBlox] Could not download model for %s" % acc_id)
@@ -152,19 +162,20 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                         continue
                 _enable_vertex_colors(scene)
                 _normalize(scene, UGC_IMPORT_SIZE)
-                # same graph as the site: holder carries the creator's placement
-                # VERBATIM (site units, site orientation); the bridge above does
-                # the space conversion — the platform never re-fits UGC
+                # the site's scene graph, replicated 1:1:
+                #   worn (rig root) -> holder (placement p/r/s verbatim) -> model
                 var holder := Node3D.new()
                 holder.name = "UGC_" + String(acc_id)
                 holder.add_child(scene)
                 _apply_placement(holder, surface_asset.get("placement", null))
-                site_to_game.add_child(holder)
+                var bridge := Node3D.new()
+                bridge.name = "UGCBridge_" + String(acc_id)
+                bridge.rotation_degrees = Vector3(0.0, 180.0, 0.0)
+                bridge.add_child(holder)
+                avatar_node.add_child(bridge)
                 # creator texture / tint — THE ROBLOX RULE, DATA WINS: the
                 # model's own materials always show; the site's paint only
                 # fills surfaces that arrived with no real color
-                var tex_url := String(surface_asset.get("textureUrl", ""))
-                var tint := String(surface_asset.get("color", ""))
                 if tex_url != "":
                         var img := await api.load_image(tex_url)
                         if img != null:
@@ -220,11 +231,11 @@ static func zone_box(size: Vector3, zone: Rect2, tw: int, th: int) -> ArrayMesh:
                 var hu := absf(u_axis.x) * half.x + absf(u_axis.y) * half.y + absf(u_axis.z) * half.z
                 var hv := absf(v_axis.x) * half.x + absf(v_axis.y) * half.y + absf(v_axis.z) * half.z
                 var tl := center - u_axis * hu - v_axis * hv
-                var corner_tr := center + u_axis * hu - v_axis * hv
+                var tr := center + u_axis * hu - v_axis * hv
                 var br := center + u_axis * hu + v_axis * hv
                 var bl := center - u_axis * hu + v_axis * hv
                 var base := verts.size()
-                for corner in [tl, corner_tr, br, bl]:
+                for corner in [tl, tr, br, bl]:
                         verts.push_back(corner)
                 for _i in range(4):
                         norms.push_back(normal)
@@ -243,47 +254,6 @@ static func zone_box(size: Vector3, zone: Rect2, tw: int, th: int) -> ArrayMesh:
         var mesh := ArrayMesh.new()
         mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
         return mesh
-
-
-## Legacy image-only accessory — the site renders it as a decal floating
-## over the head (w = 1.6x head width, hovering just above), exactly like
-## the classic 2D slot. Duck-typed like apply(): works on both rig modes.
-static func _legacy_image_accessory(avatar_node, api: RetrobloxApiScript, surface_asset: Dictionary) -> void:
-        var img_url := String(surface_asset.get("imageUrl", ""))
-        if img_url == "":
-                return
-        var img := await api.load_image(img_url)
-        if img == null:
-                return
-        var aabbs: Array = avatar_node.get("_part_aabb")
-        if aabbs == null or aabbs.size() <= HEAD_PART:
-                return
-        var head: AABB = aabbs[HEAD_PART]
-        var aspect := float(img.get_width()) / float(maxf(img.get_height(), 1))
-        var w: float = head.size.x * 1.6
-        var quad := MeshInstance3D.new()
-        quad.name = "UGCImageDecal"
-        var mesh := QuadMesh.new()
-        mesh.size = Vector2(w, w / aspect)
-        quad.mesh = mesh
-        var material := StandardMaterial3D.new()
-        material.albedo_texture = ImageTexture.create_from_image(img)
-        material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-        material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-        material.cull_mode = BaseMaterial3D.CULL_DISABLED
-        quad.material_override = material
-        # glue to the head's mount so it follows head swings; site rule is
-        # head top + height/2 + 0.1 above the head, centered on x/z
-        var host: Node3D = avatar_node
-        var mounts: Array = avatar_node.get("_mounts")
-        if mounts != null and mounts.size() > HEAD_PART and mounts[HEAD_PART] != null:
-                host = mounts[HEAD_PART]
-                # mount sits at the head center — offset from there
-                quad.position = Vector3(0.0, head.size.y * 0.5 + (w / aspect) * 0.5 + 0.1, 0.0)
-        else:
-                quad.position = Vector3(head.get_center().x, head.end.y + (w / aspect) * 0.5 + 0.1, head.get_center().z)
-        quad.rotation.y = PI
-        host.add_child(quad)
 
 
 static func _asset_color(asset_res: Dictionary, fallback: Color) -> Color:
