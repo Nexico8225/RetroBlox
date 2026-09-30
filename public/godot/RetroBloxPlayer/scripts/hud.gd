@@ -12,9 +12,6 @@ signal shiftlock_toggled(enabled: bool)
 signal sensitivity_changed(value: float)
 signal volume_changed(value: float)
 
-# Referenced by FILE PATH — parses on the very first open, before class scan.
-const RetroSounds := preload("res://scripts/sounds.gd")
-
 const INK := Color("eaf3f3")
 const MUTED := Color("a6bac2")
 const GREEN := Color("02b757")
@@ -43,6 +40,7 @@ const CLASSIC_BLUE := Color("0d69ac")
 @onready var chat_button: Button = %ChatButton
 @onready var people_button: Button = %PeopleButton
 @onready var roster_panel: PanelContainer = %RosterPanel
+@onready var menu_button: Button = %MenuButton
 @onready var menu: Control = %Menu
 @onready var reset_button: Button = %ResetButton
 @onready var toast: Label = %Toast
@@ -62,7 +60,6 @@ var roster_names: Array = []
 var _shiftlock_on := false
 var chat_open := false
 var _unread := 0
-var _ui_sfx: AudioStreamPlayer      # the little hover tick on every button
 
 # classic health bar — built in code so scenes/hud.tscn stays untouched
 var _health_fill: ColorRect
@@ -87,8 +84,6 @@ func _ready() -> void:
         chat_entry.text_submitted.connect(_submit_chat)
         chat_button.pressed.connect(_on_chat_button)
         people_button.pressed.connect(_on_people_button)
-        _ui_sfx = RetroSounds.ui_player("Hover", -12.0)
-        add_child(_ui_sfx)
         _build_health_bar()
         _build_toolbar()
         _apply_classic_style()
@@ -110,63 +105,37 @@ func _build_toolbar() -> void:
         toolbar.offset_right = 10.0
         var row := HBoxContainer.new()
         row.name = "Buttons"
-        row.add_theme_constant_override("separation", 6)
+        row.add_theme_constant_override("separation", 4)
         toolbar.add_child(row)
         root.add_child(toolbar)
 
         # move the three real buttons into the toolbar (signals stay wired).
-        # Capture them BEFORE the reparent — %Name lookups break after a node
-        # moves into a code-built parent (the classic unique-name trap).
-        var menu_btn: Button = %MenuButton
-        var chat_btn: Button = %ChatButton
-        var people_btn: Button = %PeopleButton
-        for button in [menu_btn, chat_btn, people_btn]:
-                var btn := button as Button
-                btn.get_parent().remove_child(btn)
-                row.add_child(btn)
-                _style_toolbar_button(btn)
-        menu_btn.icon = load("res://assets/icons/menu.png")
-        menu_btn.tooltip_text = "Menu (ESC)"
-        chat_btn.icon = load("res://assets/icons/chat.png")
-        chat_btn.tooltip_text = "Chat (/)"
-        people_btn.icon = load("res://assets/icons/people.png")
-        people_btn.tooltip_text = "Players"
+        # They are captured as @onready vars BEFORE the reparent — looking
+        # them up with %Name AFTER remove_child/add_child fails (reparenting
+        # breaks unique-name lookup) and used to abort _ready mid-way, which
+        # killed the whole classic restyle and spammed errors.
+        for button: Button in [menu_button, chat_button, people_button]:
+                button.get_parent().remove_child(button)
+                row.add_child(button)
+                _style_toolbar_button(button)
+        menu_button.icon = load("res://assets/icons/menu.png")
+        menu_button.tooltip_text = "Menu (ESC)"
+        chat_button.icon = load("res://assets/icons/chat.png")
+        chat_button.tooltip_text = "Chat (/)"
+        people_button.icon = load("res://assets/icons/people.png")
+        people_button.tooltip_text = "Players"
         toolbar.reset_size()
 
 
 func _style_toolbar_button(button: Button) -> void:
         button.text = ""
-        button.custom_minimum_size = Vector2(40.0, 32.0)
+        button.custom_minimum_size = Vector2(38.0, 30.0)
         button.expand_icon = true
         button.focus_mode = Control.FOCUS_NONE
         button.add_theme_stylebox_override("normal", _classic_button_style(CLASSIC_BTN))
         button.add_theme_stylebox_override("hover", _classic_button_style(CLASSIC_BTN_HOVER))
         button.add_theme_stylebox_override("pressed", _classic_button_style(CLASSIC_BTN_DOWN))
         button.add_theme_color_override("font_color", CLASSIC_INK)
-        _wire_button_fx(button)
-
-## Every button gets the classic feel: a soft tick on hover and a tiny
-## squash-and-grow animation on hover/press.
-func _wire_button_fx(button: Button) -> void:
-        if button.has_meta("fx_wired"):
-                return
-        button.set_meta("fx_wired", true)
-        button.mouse_entered.connect(func() -> void:
-                if _ui_sfx != null:
-                        _ui_sfx.play()
-                _tween_button(button, 1.06))
-        button.mouse_exited.connect(func() -> void:
-                _tween_button(button, 1.0))
-        button.pressed.connect(func() -> void:
-                _tween_button(button, 0.94))
-
-func _tween_button(button: Button, target: float) -> void:
-        if not is_instance_valid(button):
-                return
-        button.pivot_offset = button.size * 0.5
-        var tw := button.create_tween()
-        tw.tween_property(button, "scale", Vector2.ONE * target, 0.08) \
-                .set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 ## Old-Roblox look for every HUD surface: light grey beveled panels, dark
@@ -175,31 +144,15 @@ func _apply_classic_style() -> void:
         var panel := _classic_panel_style()
         for node: Control in [chat_panel, roster_panel]:
                 node.add_theme_stylebox_override("panel", panel)
-        # roomier panels — nothing should feel cramped
-        var chat_box := chat_panel.get_node_or_null("ChatBox") as VBoxContainer
-        if chat_box != null:
-                chat_box.add_theme_constant_override("separation", 8)
-        var roster_box := roster_panel.get_node_or_null("RosterBox") as VBoxContainer
-        if roster_box != null:
-                roster_box.add_theme_constant_override("separation", 7)
         # header becomes a floating label strip (the toolbar replaces the bar)
         var header := root.get_node_or_null("Header") as PanelContainer
         if header != null:
                 header.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
         chat_log.add_theme_color_override("default_color", CLASSIC_INK)
         chat_log.add_theme_stylebox_override("normal", _classic_inner_style())
-        # THE FIX for "I can't see what I'm typing": the focused entry kept the
-        # scene's DARK stylebox while the font went dark ink — dark on dark.
-        # Both states now use the light inner card with a dark caret.
         chat_entry.add_theme_color_override("font_color", CLASSIC_INK)
         chat_entry.add_theme_color_override("font_placeholder_color", Color(0.45, 0.5, 0.55))
-        chat_entry.add_theme_color_override("caret_color", CLASSIC_INK)
-        chat_entry.add_theme_color_override("font_selected_color", Color.WHITE)
-        chat_entry.add_theme_color_override("selection_color", Color(0.05, 0.41, 0.67, 0.85))
-        chat_entry.add_theme_font_size_override("font_size", 15)
         chat_entry.add_theme_stylebox_override("normal", _classic_inner_style())
-        chat_entry.add_theme_stylebox_override("focus", _classic_inner_style())
-        chat_entry.add_theme_stylebox_override("read_only", _classic_inner_style())
         chat_entry.placeholder_text = "To chat, click here or press /"
         for label: Control in [%CountLabel, %NamesLabel]:
                 label.add_theme_color_override("font_color", CLASSIC_INK)
@@ -223,6 +176,30 @@ func _apply_classic_style() -> void:
         if card != null:
                 card.add_theme_stylebox_override("panel", panel)
                 _style_menu_labels(card)
+        # the PLAYERS list inside the ESC menu — the scene ships it with a
+        # dark panel while the names get dark ink: grey-on-black, unreadable.
+        # Give it the light classic inner style so the names actually read.
+        var players_card := root.get_node_or_null("Menu/Center/Card/Column/Body/PlayersCard") as PanelContainer
+        if players_card != null:
+                players_card.add_theme_stylebox_override("panel", _classic_inner_style())
+        # the player list on the HUD (People button) gets roomier text
+        if names_label != null:
+                names_label.add_theme_font_size_override("font_size", 15)
+        if menu_names_label != null:
+                menu_names_label.add_theme_font_size_override("font_size", 16)
+        # the toast ("Rebuilding you…") must read over the bright world
+        toast.add_theme_font_size_override("font_size", 18)
+        toast.add_theme_color_override("font_color", Color.WHITE)
+        toast.add_theme_color_override("font_shadow_color", Color(0.02, 0.06, 0.09, 0.85))
+        toast.add_theme_constant_override("shadow_offset_x", 2)
+        toast.add_theme_constant_override("shadow_offset_y", 2)
+        toast.add_theme_constant_override("shadow_outline_size", 4)
+        # the crosshair, same story
+        crosshair.add_theme_color_override("font_color", Color.WHITE)
+        crosshair.add_theme_color_override("font_shadow_color", Color(0.02, 0.06, 0.09, 0.85))
+        crosshair.add_theme_constant_override("shadow_offset_x", 1)
+        crosshair.add_theme_constant_override("shadow_offset_y", 1)
+        crosshair.add_theme_constant_override("shadow_outline_size", 3)
 
 
 func _style_menu_labels(from: Node) -> void:
@@ -242,9 +219,6 @@ func _style_dialog_button(button: Button) -> void:
         button.add_theme_stylebox_override("hover", _classic_button_style(CLASSIC_BTN_HOVER))
         button.add_theme_stylebox_override("pressed", _classic_button_style(CLASSIC_BTN_DOWN))
         button.add_theme_color_override("font_color", CLASSIC_INK)
-        button.add_theme_font_size_override("font_size", 15)
-        button.custom_minimum_size = Vector2(0.0, 34.0)
-        _wire_button_fx(button)
 
 
 func _classic_panel_style() -> StyleBoxFlat:
@@ -253,14 +227,14 @@ func _classic_panel_style() -> StyleBoxFlat:
         style.border_color = CLASSIC_BORDER
         style.set_border_width_all(2)
         style.set_corner_radius_all(4)
-        style.set_content_margin_all(10)
+        style.set_content_margin_all(8)
         return style
 
 
 func _classic_inner_style() -> StyleBoxFlat:
         var style := _classic_panel_style()
         style.bg_color = CLASSIC_FACE
-        style.set_content_margin_all(7)
+        style.set_content_margin_all(5)
         return style
 
 
@@ -412,12 +386,7 @@ func _build_health_bar() -> void:
         var panel := PanelContainer.new()
         panel.name = "HealthBar"
         panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        var style := StyleBoxFlat.new()
-        style.bg_color = PANEL
-        style.border_color = Color("223038")
-        style.set_border_width_all(2)
-        style.set_content_margin_all(6)
-        panel.add_theme_stylebox_override("panel", style)
+        panel.add_theme_stylebox_override("panel", _classic_panel_style())
         # anchored top-right, out of every other panel's way
         panel.anchor_left = 1.0
         panel.anchor_right = 1.0
@@ -433,11 +402,11 @@ func _build_health_bar() -> void:
         var title := Label.new()
         title.text = "Health"
         title.add_theme_font_size_override("font_size", 10)
-        title.add_theme_color_override("font_color", MUTED)
+        title.add_theme_color_override("font_color", CLASSIC_INK)
         _health_value = Label.new()
         _health_value.text = "100 / 100"
         _health_value.add_theme_font_size_override("font_size", 10)
-        _health_value.add_theme_color_override("font_color", INK)
+        _health_value.add_theme_color_override("font_color", CLASSIC_INK)
         _health_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         _health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         head.add_child(title)
@@ -445,7 +414,7 @@ func _build_health_bar() -> void:
 
         var track := ColorRect.new()
         track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        track.color = Color("10181d")
+        track.color = Color("88929a")
         track.custom_minimum_size = Vector2(HEALTH_BAR_W, HEALTH_BAR_H)
         _health_fill = ColorRect.new()
         _health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
