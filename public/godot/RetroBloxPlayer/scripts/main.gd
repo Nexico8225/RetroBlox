@@ -212,6 +212,12 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         profile.save("user://profile.cfg")
         if hud != null:
                 hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
+        # CRITICAL: put the login card away. Every loop in this script sits
+        # still while the card is visible (_process/_physics_process/_input),
+        # so leaving it up froze the whole game behind the UI — the player
+        # never spawned and the screen looked stuck.
+        if auth != null:
+                auth.visible = false
         _begin_online()
 
 func _begin_online() -> void:
@@ -318,7 +324,7 @@ func _process(delta: float) -> void:
         var local = players.get(local_id)
         var busy: bool = hud.input_busy()
         var capture: bool = not busy and (shiftlock or camera_distance < 1.0 or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
-        var wanted_mode: int = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
+        var wanted_mode: Input.MouseMode = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
         if Input.mouse_mode != wanted_mode:
                 Input.mouse_mode = wanted_mode
         hud.crosshair.visible = not busy and (shiftlock or camera_distance < 1.0)
@@ -591,14 +597,14 @@ func _register_player(requested_name: String, version: String, user_id: String) 
                 if p.display_name == safe_name:
                         safe_name = safe_name.left(12) + "-%04d" % (id % 10000)
                         break
-        var position: Vector3 = arena.spawn_point(players.size())
-        _spawn_player(id, safe_name, position, true, 0, user_id)
+        var spawn_pos: Vector3 = arena.spawn_point(players.size())
+        _spawn_player(id, safe_name, spawn_pos, true, 0, user_id)
         var roster: Array = []
         for other_id in players:
                 var p = players[other_id]
                 roster.append([int(other_id), p.display_name, p.global_position, p.alive, p.life_epoch, p.platform_user_id])
         _roster.rpc_id(id, roster, room_name)
-        _spawn_player.rpc(id, safe_name, position, true, 0, user_id)
+        _spawn_player.rpc(id, safe_name, spawn_pos, true, 0, user_id)
         _system_notice(safe_name + " joined the game.")
         _system_notice.rpc(safe_name + " joined the game.")
         print("PLAYER_JOINED id=%d name=%s user=%s players=%d" % [id, safe_name, user_id, players.size()])
