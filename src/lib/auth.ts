@@ -133,6 +133,7 @@ export function isOnline(lastSeen: Date | string): boolean {
 export function publicUser(u: {
   id: string
   username: string
+  playerNo?: number
   avatarUrl: string | null
   role?: string
   gender?: string | null
@@ -140,11 +141,11 @@ export function publicUser(u: {
   createdAt: Date | string
   lastSeen: Date | string
   rbxBalance?: number
-  robuxBalance?: number
 }) {
   return {
     id: u.id,
     username: u.username,
+    playerNo: typeof u.playerNo === 'number' ? u.playerNo : 0,
     avatarUrl: u.avatarUrl,
     role: u.role ?? 'user',
     gender: u.gender ?? null,
@@ -153,6 +154,5 @@ export function publicUser(u: {
     lastSeen: u.lastSeen,
     online: isOnline(u.lastSeen),
     rbxBalance: typeof u.rbxBalance === 'number' ? u.rbxBalance : 0,
-    robuxBalance: typeof u.robuxBalance === 'number' ? u.robuxBalance : 0,
   }
 }
