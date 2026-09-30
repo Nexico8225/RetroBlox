@@ -18,6 +18,7 @@ import { api, flash, timeAgo, useRetro } from '@/lib/store'
 import { Avatar } from './Shell'
 import { tixFull } from '@/lib/tix'
 import { OfferItemChips, OfferItemPreview, parseIds as parseIdsJson } from './MarketPanel'
+import { FxText } from '@/lib/textfx'
 
 interface ItemPreview {
   id: string
@@ -38,6 +39,8 @@ interface TradeRow {
   takeItemIds: string[]
   tixFrom: number
   tixTo: number
+  robuxFrom: number
+  robuxTo: number
   createdAt: string
   updatedAt: string
   messages?: { id: string; text: string; sender: { id: string; username: string } }[]
@@ -51,6 +54,7 @@ interface TradeMsg {
 }
 
 const fmt = (n: number) => `T$ ${tixFull(n)}`
+const fmtR = (n: number) => `R$ ${tixFull(n)}`
 
 function ItemChip({ item, note }: { item?: ItemPreview; note?: string }) {
   if (!item) return <span style={{ fontSize: 10.5, color: '#a81a13' }}>{note || 'item gone'}</span>
@@ -70,17 +74,22 @@ function ItemChip({ item, note }: { item?: ItemPreview; note?: string }) {
   )
 }
 
-function TradeSide({ title, ids, itemMap, tix, tone }: { title: string; ids: string[]; itemMap: Record<string, ItemPreview>; tix: number; tone: 'give' | 'take' }) {
+function TradeSide({ title, ids, itemMap, tix, robuxAmt, tone }: { title: string; ids: string[]; itemMap: Record<string, ItemPreview>; tix: number; robuxAmt: number; tone: 'give' | 'take' }) {
   const color = tone === 'give' ? '#2c6e31' : '#1c4e7c'
   return (
     <div style={{ flex: 1, minWidth: 180 }}>
       <div style={{ fontSize: 10, fontWeight: 'bold', color, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{title}</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
-        {ids.length === 0 && tix <= 0 && <span style={{ fontSize: 10.5, color: '#8ba0b3' }}>nothing</span>}
+        {ids.length === 0 && tix <= 0 && robuxAmt <= 0 && <span style={{ fontSize: 10.5, color: '#8ba0b3' }}>nothing</span>}
         {ids.map((id) => <ItemChip key={id} item={itemMap[id]} />)}
         {tix > 0 && (
           <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#8a6d1a', background: '#fffdf4', border: '1px solid #e0c98a', padding: '2px 7px' }}>
             {fmt(tix)}
+          </span>
+        )}
+        {robuxAmt > 0 && (
+          <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c', background: '#f2f8fd', border: '1px solid #b9d4e8', padding: '2px 7px' }}>
+            {fmtR(robuxAmt)}
           </span>
         )}
       </div>
@@ -107,6 +116,8 @@ function TradeCard({
   const [busy, setBusy] = useState(false)
   const [counterTixFrom, setCounterTixFrom] = useState(String(trade.tixFrom))
   const [counterTixTo, setCounterTixTo] = useState(String(trade.tixTo))
+  const [counterRobuxFrom, setCounterRobuxFrom] = useState(String(trade.robuxFrom))
+  const [counterRobuxTo, setCounterRobuxTo] = useState(String(trade.robuxTo))
   const [counterOpen, setCounterOpen] = useState(false)
 
   const isSender = trade.fromUserId === meId
@@ -152,11 +163,9 @@ function TradeCard({
             </span>
           )}
           <span style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
-            {!open && (
-              <button type="button" className="rb-btn" style={{ fontSize: 10.5, padding: '2px 10px' }} onClick={() => setOpen(true)}>
-                Open
-              </button>
-            )}
+            <Link href={`/trades/${trade.id}`} className="rb-btn" style={{ fontSize: 10.5, padding: '2px 10px' }}>
+              Open trade room
+            </Link>
             {!isSender ? (
               <>
                 <button type="button" className="rb-btn rb-btn-green" disabled={busy} style={{ fontSize: 10.5, padding: '2px 10px', fontWeight: 'bold' }} onClick={() => act({ action: 'accept' }, 'Trade complete!')}>
@@ -175,10 +184,18 @@ function TradeCard({
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <TradeSide title={`${trade.fromUser.username} gives`} ids={trade.giveItemIds} itemMap={itemMap} tix={trade.tixFrom} tone="give" />
+          <TradeSide title={`${trade.fromUser.username} gives`} ids={trade.giveItemIds} itemMap={itemMap} tix={trade.tixFrom} robuxAmt={trade.robuxFrom} tone="give" />
           <div style={{ alignSelf: 'center', fontSize: 16, color: '#8ba0b3' }}>⇄</div>
-          <TradeSide title={`${trade.toUser.username} gives`} ids={trade.takeItemIds} itemMap={itemMap} tix={trade.tixTo} tone="take" />
+          <TradeSide title={`${trade.toUser.username} gives`} ids={trade.takeItemIds} itemMap={itemMap} tix={trade.tixTo} robuxAmt={trade.robuxTo} tone="take" />
         </div>
+
+        {!open && (
+          <div>
+            <Link href={`/trades/${trade.id}`} className="rb-link" style={{ fontSize: 10.5 }}>
+              {lastMsg ? 'Reply in the trade room →' : 'See the full offer in the trade room →'}
+            </Link>
+          </div>
+        )}
 
         {open && (
           <div style={{ borderTop: '1px solid #e8eef4', paddingTop: 7 }}>
@@ -192,7 +209,7 @@ function TradeCard({
                     <Avatar user={m.sender} size={18} rounded={3} />
                     <div style={{ fontSize: 11.5, lineHeight: 1.45 }}>
                       <span style={{ fontWeight: 'bold', fontSize: 11 }}>{m.sender.username}</span>{' '}
-                      <span style={{ color: '#1c2733' }}>{m.text}</span>{' '}
+                      <span style={{ color: '#1c2733' }}><FxText text={m.text} /></span>{' '}
                       <span style={{ fontSize: 9, color: '#8ba0b3' }}>{timeAgo(m.createdAt)}</span>
                     </div>
                   </div>
@@ -227,12 +244,18 @@ function TradeCard({
             {/* counter — reshape the terms */}
             {counterOpen ? (
               <div style={{ border: '1px solid #cfe0ef', background: '#f3f9fe', padding: 8, display: 'grid', gap: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c' }}>Counter — keep the items, move the Tix:</div>
+                <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c' }}>Counter — keep the items, move the money (Tix + Robux):</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>From {trade.fromUser.username}:</label>
+                  <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>Tix from {trade.fromUser.username}:</label>
                   <input className="rb-input" type="number" min={0} value={counterTixFrom} onChange={(e) => setCounterTixFrom(e.target.value)} style={{ width: 96, fontSize: 11.5, height: 26 }} />
-                  <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>From {trade.toUser.username}:</label>
+                  <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>Tix from {trade.toUser.username}:</label>
                   <input className="rb-input" type="number" min={0} value={counterTixTo} onChange={(e) => setCounterTixTo(e.target.value)} style={{ width: 96, fontSize: 11.5, height: 26 }} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>Robux from {trade.fromUser.username}:</label>
+                  <input className="rb-input" type="number" min={0} value={counterRobuxFrom} onChange={(e) => setCounterRobuxFrom(e.target.value)} style={{ width: 96, fontSize: 11.5, height: 26 }} />
+                  <label style={{ fontSize: 10.5, color: '#5a6b7b' }}>Robux from {trade.toUser.username}:</label>
+                  <input className="rb-input" type="number" min={0} value={counterRobuxTo} onChange={(e) => setCounterRobuxTo(e.target.value)} style={{ width: 96, fontSize: 11.5, height: 26 }} />
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button
@@ -248,6 +271,8 @@ function TradeCard({
                           takeItemIds: trade.takeItemIds,
                           tixFrom: Math.max(0, Math.floor(Number(counterTixFrom) || 0)),
                           tixTo: Math.max(0, Math.floor(Number(counterTixTo) || 0)),
+                          robuxFrom: Math.max(0, Math.floor(Number(counterRobuxFrom) || 0)),
+                          robuxTo: Math.max(0, Math.floor(Number(counterRobuxTo) || 0)),
                         },
                         'Counter sent.'
                       ).then((ok) => { if (ok) { setCounterOpen(false); onChanged() } })
@@ -289,13 +314,13 @@ interface ListingRow {
   status: string
   soldPrice?: number | null
   item: ItemPreview & { price: number; stock: number | null }
-  offers: { id: string; amount: number; offerItemIdsJson?: string; status: string; createdAt: string; buyer: { id: string; username: string; avatarUrl: string | null } }[]
+  offers: { id: string; amount: number; robux?: number; offerItemIdsJson?: string; status: string; createdAt: string; buyer: { id: string; username: string; avatarUrl: string | null } }[]
 }
 
 function MarketTab({ onChanged }: { onChanged: () => void }) {
   const { setToast } = useRetro()
   const [listings, setListings] = useState<ListingRow[]>([])
-  const [offersSent, setOffersSent] = useState<{ id: string; amount: number; offerItemIdsJson?: string; status: string; createdAt: string; listing: { id: string; price: number; item: ItemPreview; seller: { id: string; username: string; avatarUrl: string | null } } }[]>([])
+  const [offersSent, setOffersSent] = useState<{ id: string; amount: number; robux?: number; offerItemIdsJson?: string; status: string; createdAt: string; listing: { id: string; price: number; item: ItemPreview; seller: { id: string; username: string; avatarUrl: string | null } } }[]>([])
   const [offerItemMap, setOfferItemMap] = useState<Record<string, OfferItemPreview>>({})
   const [busy, setBusy] = useState(false)
 
@@ -363,6 +388,7 @@ function MarketTab({ onChanged }: { onChanged: () => void }) {
                         <Avatar user={o.buyer} size={20} rounded={3} />
                         <Link href={`/users/${o.buyer.id}`} className="rb-link" style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.buyer.username}</Link>
                         {o.amount > 0 && <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>{fmt(o.amount)}</span>}
+                        {(o.robux ?? 0) > 0 && <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>R$ {(o.robux ?? 0).toLocaleString('en-US')}</span>}
                         <OfferItemChips ids={parseIdsJson(o.offerItemIdsJson)} itemMap={offerItemMap} />
                         <span style={{ fontSize: 9.5, color: '#8ba0b3' }}>{timeAgo(o.createdAt)}</span>
                         <span style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
@@ -394,6 +420,7 @@ function MarketTab({ onChanged }: { onChanged: () => void }) {
                 <Link href={`/catalog/${o.listing.item.id}`} className="rb-link" style={{ fontSize: 11.5, fontWeight: 'bold' }}>{o.listing.item.name}</Link>
                 <span style={{ fontSize: 10.5, color: '#5a6b7b' }}>asking {fmt(o.listing.price)}</span>
                 {o.amount > 0 && <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>your offer {fmt(o.amount)}</span>}
+                {(o.robux ?? 0) > 0 && <span style={{ fontSize: 11.5, fontFamily: 'monospace', fontWeight: 'bold', color: '#1c4e7c' }}>+ R$ {(o.robux ?? 0).toLocaleString('en-US')}</span>}
                 <OfferItemChips ids={parseIdsJson(o.offerItemIdsJson)} itemMap={offerItemMap} />
                 <span
                   style={{
