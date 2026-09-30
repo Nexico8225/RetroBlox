@@ -67,209 +67,13 @@ export function OnlineDot({ online }: { online: boolean }) {
   return <span className={online ? 'rb-online-dot' : 'rb-offline-dot'} title={online ? 'Online now' : 'Offline'} />
 }
 
-/* ---------------- Notifications bell ---------------- */
-
-interface NotifRow {
-  id: string
-  type: string
-  title: string
-  body: string
-  linkUrl: string | null
-  createdAt: string
-  read: boolean
-  actor: { id: string; username: string; avatarUrl: string | null } | null
-}
-
-function NotifIcon({ type }: { type: string }) {
-  const common = { width: 20, height: 20, viewBox: '0 0 20 20', 'aria-hidden': true } as const
-  if (type === 'new_player') {
-    // shiny new blockhead walked in
-    return (
-      <svg {...common}>
-        <circle cx="8" cy="6" r="3" fill="#2c6e31" />
-        <path d="M2 17c0-3.4 2.7-5.4 6-5.4s6 2 6 5.4z" fill="#2c6e31" />
-        <path d="M14.5 5.5v5M12 8h5" stroke="#ffd34e" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    )
-  }
-  if (type === 'friend_accepted') {
-    return (
-      <svg {...common}>
-        <circle cx="10" cy="10" r="8" fill="#4c9e34" />
-        <path d="M6 10.2 9 13l5-5.6" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  }
-  if (type === 'nudge') {
-    // a friendly shoulder-tap: bell with motion lines
-    return (
-      <svg {...common}>
-        <path
-          d="M10 3a5 5 0 0 1 5 5v3l1.6 2.6a.8.8 0 0 1-.7 1.2H4.1a.8.8 0 0 1-.7-1.2L5 11V8a5 5 0 0 1 5-5z"
-          fill="#0d69ac"
-        />
-        <path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0z" fill="#0d69ac" />
-        <path d="M2.2 6.2 4 7.8M17.8 6.2 16 7.8M10 1v1.6" stroke="#ffd34e" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-    )
-  }
-  // friend_request
-  return (
-    <svg {...common}>
-      <circle cx="7.5" cy="6.5" r="2.8" fill="#b8860b" />
-      <path d="M2 16.5c0-3 2.4-4.8 5.5-4.8s5.5 1.8 5.5 4.8z" fill="#b8860b" />
-      <path d="M14.5 6.5v5M12 9h5" stroke="#0d69ac" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function NotificationsBell() {
-  const { unreadNotifications, setUnreadNotifications } = useRetro()
-  const router = useRouter()
-  const pathname = usePathname()
-  // derived: only open for the pathname it was opened on — navigating
-  // anywhere closes it automatically (same pattern as MobileDrawer)
-  const [openPath, setOpenPath] = useState<string | null>(null)
-  const open = openPath !== null && openPath === pathname
-  const close = () => setOpenPath(null)
-  const [rows, setRows] = useState<NotifRow[]>([])
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenPath(null)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
-
-  async function toggle() {
-    const next = !open
-    setOpenPath(next ? pathname : null)
-    if (!next) return
-    try {
-      const res = await api<{ notifications: NotifRow[] }>('/api/notifications')
-      setRows(res.notifications)
-      setLoaded(true)
-      if ((res.notifications || []).some((n) => !n.read)) {
-        // clear the badge, keep the fetched flags for the highlight
-        await api('/api/notifications', { method: 'POST', body: JSON.stringify({ action: 'read-all' }) })
-      }
-      setUnreadNotifications(0)
-    } catch {
-      setLoaded(true)
-    }
-  }
-
-  return (
-    <span style={{ position: 'relative', display: 'inline-flex' }}>
-      <button
-        type="button"
-        onClick={toggle}
-        title="Notifications"
-        aria-label={`Notifications${unreadNotifications ? ` (${unreadNotifications} unread)` : ''}`}
-        aria-expanded={open}
-        style={{ position: 'relative', display: 'inline-flex', padding: 6, background: 'none', border: 'none', cursor: 'pointer' }}
-      >
-        <BellIcon />
-        {unreadNotifications > 0 && (
-          <span className="rb-badge" style={{ position: 'absolute', top: -4, right: -7 }}>{unreadNotifications}</span>
-        )}
-      </button>
-
-      {open && <div style={{ position: 'fixed', inset: 0, zIndex: 58 }} onClick={close} aria-hidden="true" />}
-
-      {open && (
-        <div
-          className="rb-box"
-          role="dialog"
-          aria-label="Notifications"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            right: 0,
-            width: 320,
-            maxWidth: 'calc(100vw - 24px)',
-            maxHeight: 400,
-            overflowY: 'auto',
-            zIndex: 59,
-            boxShadow: '0 6px 18px rgba(9,32,52,.35)',
-          }}
-        >
-          <div className="rb-panel-head" style={{ position: 'sticky', top: 0 }}>
-            <span>Notifications</span>
-            <Link
-              className="rb-link"
-              style={{ fontSize: 10 }}
-              href="/people"
-              onClick={close}
-            >
-              Find People &rarr;
-            </Link>
-          </div>
-          {!loaded && <div style={{ padding: 18, textAlign: 'center', fontSize: 11, color: '#5a6b7b' }}>Loading...</div>}
-          {loaded && rows.length === 0 && (
-            <div style={{ padding: 18, textAlign: 'center', fontSize: 11, color: '#5a6b7b', lineHeight: 1.6 }}>
-              Nothing yet! When someone joins RetroBlox or<br />sends you a friend request, it shows up here.
-            </div>
-          )}
-          {loaded &&
-            rows.map((n) => (
-              <button
-                key={n.id}
-                type="button"
-                onClick={() => {
-                  close()
-                  if (n.linkUrl) router.push(n.linkUrl)
-                }}
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  width: '100%',
-                  textAlign: 'left',
-                  alignItems: 'flex-start',
-                  padding: '8px 10px',
-                  background: n.read ? 'transparent' : '#e1f2fb',
-                  border: 'none',
-                  borderBottom: '1px solid #eef2f6',
-                  cursor: 'pointer',
-                }}
-              >
-                <NotifIcon type={n.type} />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 11, color: '#24425f', fontWeight: n.read ? 400 : 700 }}>{n.title}</span>
-                  {n.body && <span style={{ display: 'block', fontSize: 10, color: '#5a6b7b', marginTop: 1 }}>{n.body}</span>}
-                  <span style={{ display: 'block', fontSize: 9, color: '#8ba0b3', marginTop: 2 }}>{timeAgo(n.createdAt)}</span>
-                </span>
-              </button>
-            ))}
-        </div>
-      )}
-    </span>
-  )
-}
-
-function BellIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true">
-      <path
-        d="M11 2.2a1.6 1.6 0 0 1 1.6 1.6v.5c2.9.7 4.9 3 4.9 6.2v3.2l1.6 2.4c.3.5 0 1.2-.7 1.2H3.6c-.7 0-1-.7-.7-1.2l1.6-2.4v-3.2c0-3.2 2-5.5 4.9-6.2v-.5A1.6 1.6 0 0 1 11 2.2z"
-        fill="#e8eef4"
-        stroke="#0d3054"
-        strokeWidth="1.3"
-      />
-      <path d="M8.8 18.6a2.3 2.3 0 0 0 4.4 0z" fill="#e8eef4" stroke="#0d3054" strokeWidth="1.2" />
-    </svg>
-  )
-}
-
 /* ---------------- Header ---------------- */
 
 const NAV = [
   { label: 'Home', href: '/' },
   { label: 'Games', href: '/games' },
   { label: 'Catalog', href: '/catalog' },
+  { label: 'Trades', href: '/trades' },
   { label: 'Avatar', href: '/avatar' },
   { label: 'Groups', href: '/groups' },
   { label: 'Music', href: '/music' },
@@ -286,7 +90,7 @@ export function Header() {
   const [q, setQ] = useState('')
 
   useEffect(() => {
-    // refresh pending friend-request + chat badges + the Tix wallet chip occasionally
+    // refresh pending friend-request + chat + notification badges + the Tix wallet chip occasionally
     const tick = async () => {
       try {
         const res = await api<{ pendingFriendRequests: number; unreadChats: number; unreadNotifications?: number; user: { rbxBalance?: number } | null }>('/api/me')
@@ -393,8 +197,6 @@ export function Header() {
                 <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#cfe8f8' }}>+ Buy</span>
               </Link>
 
-              <NotificationsBell />
-
               <Link
                 href="/chat"
                 title="Chat with friends"
@@ -407,6 +209,8 @@ export function Header() {
                   <span className="rb-badge" style={{ position: 'absolute', top: -4, right: -7 }}>{unreadChats}</span>
                 )}
               </Link>
+
+              {user && <NotificationsBell />}
 
               <Link
                 href={`/users/${user.id}`}
@@ -482,6 +286,143 @@ function ChatIcon() {
       <circle cx="13" cy="7" r="1.2" fill="#2a6cad" />
       <circle cx="18.5" cy="13" r="2.6" fill="#cfe0ef" stroke="#0d3054" strokeWidth="1.2" />
     </svg>
+  )
+}
+
+/* ---------------- Notifications bell ----------------
+   The classic gold bell: trade offers, listing offers, sales and friend
+   requests land here. Everyone sees WHO wants to deal with them. */
+
+interface NotificationRow {
+  id: string
+  type: string
+  title: string
+  body: string
+  link: string
+  readAt: string | null
+  createdAt: string
+}
+
+const NOTIF_ICONS: Record<string, string> = {
+  trade_offer: '🔁',
+  trade_message: '💬',
+  trade_accepted: '✅',
+  trade_declined: '🚫',
+  trade_cancelled: '↩️',
+  friend_request: '👋',
+  friend_accepted: '🤝',
+  listing_offer: '💰',
+  listing_sold: '🎉',
+  offer_accepted: '📦',
+  offer_declined: '🚫',
+}
+
+export function NotificationsBell() {
+  const { unreadNotifications, setUnreadNotifications } = useRetro()
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<NotificationRow[]>([])
+
+  async function toggle() {
+    const next = !open
+    setOpen(next)
+    if (next) {
+      try {
+        const res = await api<{ items: NotificationRow[] }>('/api/notifications')
+        setItems(res.items || [])
+      } catch { /* ignore */ }
+    }
+  }
+
+  async function openItem(n: NotificationRow) {
+    setOpen(false)
+    try {
+      await api('/api/notifications', { method: 'POST', body: JSON.stringify({ action: 'read', id: n.id }) })
+      setUnreadNotifications(Math.max(0, useRetro.getState().unreadNotifications - 1))
+    } catch { /* ignore */ }
+    if (n.link) router.push(n.link)
+  }
+
+  async function markAll() {
+    try {
+      await api('/api/notifications', { method: 'POST', body: JSON.stringify({ action: 'read_all' }) })
+      setUnreadNotifications(0)
+      setItems((rows) => rows.map((r) => ({ ...r, readAt: r.readAt || new Date().toISOString() })))
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        type="button"
+        onClick={toggle}
+        title="Notifications — trades, offers, sales and friends"
+        aria-label="Notifications"
+        className="rb-header-chat"
+        style={{ position: 'relative', display: 'inline-flex', padding: 6, background: 'none', border: 'none', cursor: 'pointer' }}
+      >
+        <svg width="18" height="20" viewBox="0 0 18 20" aria-hidden="true">
+          <path d="M9 1.5c-3.2 0-5.5 2.4-5.5 5.6v3.4L1.8 14a1 1 0 0 0 .9 1.5h12.6a1 1 0 0 0 .9-1.5l-1.7-3.5V7.1C14.5 3.9 12.2 1.5 9 1.5z" fill="#ffd34e" stroke="#0d3054" strokeWidth="1.3" strokeLinejoin="round" />
+          <path d="M7 17.2a2 2 0 0 0 4 0" fill="none" stroke="#0d3054" strokeWidth="1.3" strokeLinecap="round" />
+        </svg>
+        {unreadNotifications > 0 && (
+          <span className="rb-badge" style={{ position: 'absolute', top: -4, right: -7 }}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          {/* click-away shield */}
+          <span style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setOpen(false)} />
+          <span
+            style={{
+              position: 'absolute', top: 30, right: -6, width: 320, maxHeight: 380, overflowY: 'auto',
+              background: '#fff', border: '1px solid #0d3054', boxShadow: '3px 3px 0 rgba(13,48,84,.35)',
+              zIndex: 95, display: 'block', textAlign: 'left',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0d69ac', color: '#fff', padding: '6px 10px', fontSize: 12, fontWeight: 'bold' }}>
+              Notifications
+              <button type="button" onClick={markAll} className="rb-link" style={{ color: '#cfe8f8', fontSize: 10, background: 'none', border: 'none', cursor: 'pointer' }}>
+                Mark all read
+              </button>
+            </span>
+            {items.length === 0 ? (
+              <span style={{ display: 'block', padding: 18, fontSize: 11.5, color: '#5a6b7b', textAlign: 'center' }}>
+                Nothing yet — trade offers, sales and friend requests land here.
+              </span>
+            ) : (
+              items.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => openItem(n)}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px',
+                    background: n.readAt ? '#fff' : '#eaf4fc', border: 'none', borderBottom: '1px solid #e8eef4',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: 14, lineHeight: '18px' }}>{NOTIF_ICONS[n.type] || '🔔'}</span>
+                    <span>
+                      <span style={{ display: 'block', fontSize: 11.5, fontWeight: n.readAt ? 'normal' : 'bold', color: '#1c2733' }}>{n.title}</span>
+                      {n.body && <span style={{ display: 'block', fontSize: 10.5, color: '#5a6b7b', marginTop: 1 }}>{n.body}</span>}
+                      <span style={{ display: 'block', fontSize: 9.5, color: '#8ba0b3', marginTop: 2 }}>{timeAgo(n.createdAt)}</span>
+                    </span>
+                  </span>
+                </button>
+              ))
+            )}
+            <span style={{ display: 'block', padding: 6, textAlign: 'center', borderTop: '1px solid #e8eef4' }}>
+              <Link href="/notifications" className="rb-link" style={{ fontSize: 10.5 }} onClick={() => setOpen(false)}>
+                See everything
+              </Link>
+            </span>
+          </span>
+        </>
+      )}
+    </span>
   )
 }
 
@@ -586,7 +527,7 @@ export function Sidebar() {
         {item('My Games', '/my')}
         {item('Create a Game', '/create')}
         {item('RetroLabs', '/labs')}
-        {item('Player System', '/sdk')}
+        {item('RetroBlox SDK', '/sdk')}
 
         {sec('Avatar & Shop')}
         {item('Avatar Editor', '/avatar')}
@@ -595,7 +536,6 @@ export function Sidebar() {
 
         {sec('Social')}
         {item('My Profile', `/users/${user.id}`)}
-        {item('People', '/people')}
         {item('Friends', '/friends', pendingRequests || undefined)}
         {item('Chat', '/chat', unreadChats || undefined)}
         {item('Groups', '/groups')}
@@ -793,7 +733,6 @@ function MobileDrawer() {
 
         <div className="rb-drawer-sec">Browse</div>
         {link('Games', '/games')}
-        {link('People', '/people')}
         {link('Catalog', '/catalog')}
         {link('Groups', '/groups')}
         {link('RetroLabs', '/labs')}
@@ -807,7 +746,7 @@ function MobileDrawer() {
         {link('Tix Store', '/store')}
         {user.role === 'admin' && link('Tix Admin', '/admin')}
         {link('Analytics', '/analytics')}
-        {link('Player System', '/sdk')}
+        {link('RetroBlox SDK', '/sdk')}
         {link('Settings', '/settings')}
 
         <div className="rb-drawer-logout">
@@ -904,7 +843,7 @@ export function BootScreen() {
  * could wander games and the catalog before signing up. Everything else
  * (create, chat, wallet, settings...) bounces to /login.
  */
-const PUBLIC_ROOTS = ['/', '/games', '/catalog', '/labs', '/community', '/groups', '/music', '/videos', '/users', '/sdk', '/people']
+const PUBLIC_ROOTS = ['/', '/games', '/catalog', '/labs', '/community', '/groups', '/music', '/videos', '/users', '/sdk']
 function isPublicPath(p: string) {
   return PUBLIC_ROOTS.some((r) => (r === '/' ? p === '/' : p === r || p.startsWith(r + '/')))
 }
@@ -958,12 +897,11 @@ export function Page({ children }: { children: React.ReactNode }) {
         </div>
         <div>
           <Link href="/" className="rb-link">Home</Link> · <Link href="/games" className="rb-link">Games</Link> ·{' '}
-          <Link href="/people" className="rb-link">People</Link> ·{' '}
           <Link href="/videos" className="rb-link">Videos</Link> · <Link href="/groups" className="rb-link">Groups</Link> ·{' '}
           <Link href="/labs" className="rb-link">RetroLabs</Link> · <Link href="/community" className="rb-link">Communities</Link> ·{' '}
           <Link href="/catalog" className="rb-link">Catalog</Link> ·{' '}
           <Link href="/store" className="rb-link">Tix Store</Link> ·{' '}
-          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">Player System</Link> ·{' '}
+          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> ·{' '}
           <Link href="/create" className="rb-link">Create</Link> ·{' '}
           {new Date().getFullYear()} RetroBlox Corporation
         </div>
