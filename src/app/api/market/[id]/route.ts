@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { notify } from '@/lib/market'
+import { notify, parseIdArray } from '@/lib/market'
 
 /**
  * GET  /api/market/[id] — one listing: item, seller, offers and the haggle chat.
@@ -29,6 +29,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     take: 30,
     include: { buyer: { select: { id: true, username: true, avatarUrl: true } } },
   })
+  // previews for the UGC sitting on buyers' tables (chips next to the Tix)
+  const offerItemIds = new Set<string>()
+  for (const o of offers) for (const itId of parseIdArray(o.offerItemIdsJson)) offerItemIds.add(itId)
+  const offerItemMap = offerItemIds.size
+    ? Object.fromEntries(
+        (await db.avatarItem.findMany({
+          where: { id: { in: [...offerItemIds] } },
+          select: { id: true, name: true, type: true, imageFileId: true, isLimited: true },
+        })).map((i) => [i.id, i])
+      )
+    : {}
   const messages = await db.ugcListingMessage.findMany({
     where: { listingId: id },
     orderBy: { createdAt: 'asc' },
@@ -40,6 +51,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     listing: {
       id: listing.id,
       price: listing.price,
+      title: listing.title,
+      description: listing.description,
       status: listing.status,
       soldPrice: listing.soldPrice,
       soldAt: listing.soldAt,
@@ -51,6 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     isSeller,
     myPendingOffer: viewer ? (offers.find((o) => o.buyerId === viewer.id && o.status === 'pending') ?? null) : null,
     offers: isSeller ? offers : [],
+    offerItemMap,
     messages,
   })
 }
