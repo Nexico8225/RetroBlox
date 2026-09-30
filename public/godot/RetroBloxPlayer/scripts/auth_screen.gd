@@ -51,9 +51,13 @@ func _ready() -> void:
         # ACCOUNTS ONLY + LOCKED SERVER: the guest door is gone and the server
         # field stays hidden — the game talks to exactly one web, the official
         # RetroBlox platform, and players cannot redirect it.
-        %GuestBtn.visible = false
-        %ServerLabel.visible = false
-        %ServerEdit.visible = false
+        # (guarded: these nodes are optional in the card scene)
+        if has_node("%GuestBtn"):
+                %GuestBtn.visible = false
+        if has_node("%ServerLabel"):
+                %ServerLabel.visible = false
+        if has_node("%ServerEdit"):
+                %ServerEdit.visible = false
         _set_mode(false)
 
 
