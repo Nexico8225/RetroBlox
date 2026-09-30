@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { MarketError, moveTix, transferItem, pricePoint, notify, paidByOwner, resaleValue, parseIdArray, assertOwnsAll } from '@/lib/market'
+import { MarketError, moveTix, moveRobux, transferItem, pricePoint, notify, paidByOwner, resaleValue, parseIdArray, assertOwnsAll } from '@/lib/market'
 
 /**
  * GET /api/market                — everything active on the resale market
@@ -13,10 +13,10 @@ import { MarketError, moveTix, transferItem, pricePoint, notify, paidByOwner, re
  *   set_price     {listingId, price}                 lower the asking price while haggling
  *   cancel        {listingId}                        take the listing down
  *   buy           {listingId}                        buy NOW at the asking price
- *   offer         {listingId, amount, offerItemIds?, message?}
- *                                                    send Tix and/or UGC — the seller takes a guess to keep
+ *   offer         {listingId, amount, robux?, offerItemIds?, message?}
+ *                                                    send Tix and/or Robux and/or UGC — the seller takes a guess to keep
  *                                                    the item or hand it over (accept = everything swaps)
- *   accept_offer  {offerId}                          seller accepts: they get the Tix + offered UGC, the buyer gets the item
+ *   accept_offer  {offerId}                          seller accepts: they get the Tix + Robux + offered UGC, the buyer gets the item
  *   decline_offer {offerId}                          seller declines
  */
 
@@ -244,20 +244,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, message: `"${result.itemName}" is yours! T$ ${result.cost.toLocaleString('en-US')} paid.` })
     }
 
-    // ---------------- send an offer (Tix and/or UGC — the seller decides) ----------------
+    // ---------------- send an offer (Tix and/or Robux and/or UGC — the seller decides) ----------------
     if (action === 'offer') {
       const listingId = String(body.listingId || '')
       const amount = Math.max(0, Math.floor(Number(body.amount) || 0))
+      const robux = Math.max(0, Math.floor(Number(body.robux) || 0))
       const offerItemIds = [...new Set(parseIdArray(JSON.stringify(body.offerItemIds ?? [])))]
       const message = String(body.message || '').trim().slice(0, 300)
-      if (amount > 1_000_000) {
-        return NextResponse.json({ error: 'Offers must be between T$ 1 and T$ 1,000,000.' }, { status: 400 })
+      if (amount > 1_000_000 || robux > 1_000_000) {
+        return NextResponse.json({ error: 'Offers must be between 1 and 1,000,000.' }, { status: 400 })
       }
       if (offerItemIds.length > MAX_OFFER_ITEMS) {
         return NextResponse.json({ error: `Keep it to ${MAX_OFFER_ITEMS} items on the table.` }, { status: 400 })
       }
-      if (amount < 1 && offerItemIds.length === 0) {
-        return NextResponse.json({ error: 'Offer some Tix or some UGC — an empty offer is just a wave.' }, { status: 400 })
+      if (amount < 1 && robux < 1 && offerItemIds.length === 0) {
+        return NextResponse.json({ error: 'Offer some Tix, some Robux or some UGC — an empty offer is just a wave.' }, { status: 400 })
       }
       const listing = await db.ugcListing.findUnique({ where: { id: listingId } })
       if (!listing) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
@@ -289,15 +290,22 @@ export async function POST(req: NextRequest) {
               throw new MarketError('NO_FUNDS', `You only have T$ ${(u?.rbxBalance ?? 0).toLocaleString('en-US')} — not enough for this offer.`)
             }
           }
+          if (robux > 0) {
+            const u = await tx.user.findUnique({ where: { id: user.id }, select: { robuxBalance: true } })
+            if (!u || u.robuxBalance < robux) {
+              throw new MarketError('NO_ROBUX', `You only have R$ ${(u?.robuxBalance ?? 0).toLocaleString('en-US')} — not enough Robux for this offer.`)
+            }
+          }
         })
       }
-      const offer = await db.ugcOffer.create({ data: { listingId, buyerId: user.id, amount, offerItemIdsJson: JSON.stringify(offerItemIds) } })
+      const offer = await db.ugcOffer.create({ data: { listingId, buyerId: user.id, amount, robux, offerItemIdsJson: JSON.stringify(offerItemIds) } })
       if (message) {
         await db.ugcListingMessage.create({ data: { listingId, senderId: user.id, text: message } })
       }
       const item = await db.avatarItem.findUnique({ where: { id: listing.itemId }, select: { name: true } })
       const offerBits = [
         amount > 0 ? `T$ ${amount.toLocaleString('en-US')}` : '',
+        robux > 0 ? `R$ ${robux.toLocaleString('en-US')}` : '',
         `${offerItemIds.length} item${offerItemIds.length === 1 ? '' : 's'}`,
       ].filter(Boolean).join(' + ')
       await notify(listing.sellerId, {
@@ -333,6 +341,7 @@ export async function POST(req: NextRequest) {
         await assertOwnsAll(tx, offer.buyerId, offerItemIds)
 
         await moveTix(tx, offer.buyerId, user.id, offer.amount, `Offer accepted on "${offer.listing.item.name}"`)
+        if (offer.robux > 0) await moveRobux(tx, offer.buyerId, user.id, offer.robux, `Offer accepted on "${offer.listing.item.name}"`)
         await transferItem(tx, offer.listing.itemId, user.id, offer.buyerId)
         // offered UGC crosses to the seller — the listed item already moved,
         // so a seller-side copy clash can only come from the offered items
@@ -354,10 +363,10 @@ export async function POST(req: NextRequest) {
       await notify(result.buyerId, {
         type: 'offer_accepted',
         title: 'Offer accepted!',
-        body: `"${result.listing.item.name}" is in your inventory — T$ ${result.amount.toLocaleString('en-US')} was taken from your wallet${parseIdArray(result.offerItemIdsJson).length ? ' and the UGC you offered went to the seller' : ''}.`,
+        body: `"${result.listing.item.name}" is in your inventory — T$ ${result.amount.toLocaleString('en-US')}${result.robux > 0 ? ` + R$ ${result.robux.toLocaleString('en-US')}` : ''} was taken from your wallet${parseIdArray(result.offerItemIdsJson).length ? ' and the UGC you offered went to the seller' : ''}.`,
         link: `/catalog/${result.listing.itemId}`,
       })
-      return NextResponse.json({ ok: true, message: `Sold for T$ ${result.amount.toLocaleString('en-US')} — the Tix are in your wallet.` })
+      return NextResponse.json({ ok: true, message: `Sold for T$ ${result.amount.toLocaleString('en-US')}${result.robux > 0 ? ` + R$ ${result.robux.toLocaleString('en-US')}` : ''} — the money is in your wallet.` })
     }
 
     // ---------------- seller declines an offer ----------------
