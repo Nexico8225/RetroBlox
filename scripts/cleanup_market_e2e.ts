@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client'
 const db = new PrismaClient()
 
 async function main() {
-  const patterns = ['mkt_e2e%', 't_dbg%', 'dbg%', 'mx_', 'm3_', 'e2x', 'd_%', 'probe']
+  const patterns = ['mkt_e2e%', 't_dbg%', 'dbg%', 'mx_', 'm3_', 'e2x', 'd_%', 'probe', 'e2ea', 'e2eb', 'bt']
   const users = await db.user.findMany({
     where: { OR: patterns.map((p) => ({ username: { startsWith: p.replace('%', '') } })) },
     select: { id: true, username: true },
