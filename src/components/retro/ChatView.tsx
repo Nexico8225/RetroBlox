@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, timeAgo, flash, type RetroUser } from '@/lib/store'
+import { FxToolbar, FxText } from '@/lib/textfx'
 import { Avatar, OnlineDot } from './Shell'
 
-/* Chat — private Discord-flavored DMs. Open to ALL members: friends,
-   people you've messaged before, and pending friend-request partners
-   (that's how you nudge someone to accept!). Text, images, videos and
-   audio supported. Polls lightly. */
+/* Chat — private Discord-flavored DMs between accepted friends.
+   Supports text (with the website's Text FX!), images, videos and audio,
+   plus a pack of classic pixel stickers. Polls lightly. */
 
 interface ChatMsg {
   id: string
@@ -21,13 +21,15 @@ interface ChatMsg {
   createdAt: string
 }
 
-interface Conversation {
-  friend: RetroUser
-  pending?: boolean
-  friendshipId?: string | null
-  lastMessage: { text: string; fileId: string | null; fileType: string | null; fromMe: boolean; createdAt: string } | null
-  unread: number
-}
+/* the classic pixel sticker pack — public/retro/stickers/*.png */
+const STICKERS = [
+  { name: 'smile', label: 'Smile' },
+  { name: 'heart', label: 'Heart' },
+  { name: 'tix', label: 'Tickets!' },
+  { name: 'stud', label: 'Stud' },
+  { name: 'bloxy', label: 'Bloxy' },
+  { name: 'noob', label: 'Noob' },
+]
 
 export function mediaRender(fileId: string | null, fileType: string | null, name?: string | null) {
   if (!fileId || !fileType) return null
@@ -52,70 +54,16 @@ const EMOJIS = [':)', ':D', ':P', ';)', '<3', '^_^', ':o', 'XD', ':(', 'o7']
 
 /* ================= Chat conversation list (/chat) ================= */
 
-/* NUDGE — a tiny shoulder-tap on a pending friend request. Sits right
-   inside the conversation row; the row is a Link, so the click must
-   preventDefault to stay put. Rate-limited server-side (1 / 10 min). */
-function NudgeChip({ friendshipId }: { friendshipId?: string | null }) {
-  const { setToast } = useRetro()
-  const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle')
-
-  // invisible when there is no pending row to nudge
-  if (!friendshipId) {
-    return (
-      <span style={{ fontSize: 8, color: '#6b5413', background: '#fdf6e4', border: '1px solid #e0d3a6', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>
-        request pending
-      </span>
-    )
-  }
-
-  if (state === 'done') {
-    return (
-      <span style={{ fontSize: 8, color: '#2c6e31', background: '#eaf6ea', border: '1px solid #bcdcbc', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>
-        nudged ✓
-      </span>
-    )
-  }
-
-  async function nudge(e: React.MouseEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    if (state !== 'idle') return
-    setState('busy')
-    try {
-      await api(`/api/friends/${friendshipId}`, { method: 'POST', body: JSON.stringify({ action: 'nudge' }) })
-      setState('done')
-      flash(setToast, 'Nudge sent — it will pop up in their bell!', 2400)
-    } catch (err) {
-      flash(setToast, err instanceof Error ? err.message : 'Failed to nudge', 2600)
-      setState('idle')
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={nudge}
-      disabled={state === 'busy'}
-      title="Remind them about your pending friend request"
-      style={{
-        fontSize: 8, color: '#fff', background: '#0d69ac', border: '1px solid #084a7c',
-        borderRadius: 3, padding: '1px 6px', flexShrink: 0, cursor: 'pointer',
-        fontFamily: 'inherit', fontWeight: 700,
-      }}
-    >
-      {state === 'busy' ? '...' : 'Nudge'}
-    </button>
-  )
-}
-
 export function ChatListView() {
   const { user, setUnreadChats } = useRetro()
-  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [conversations, setConversations] = useState<
+    { friend: RetroUser; lastMessage: { text: string; fileId: string | null; fileType: string | null; fromMe: boolean; createdAt: string } | null; unread: number }[]
+  >([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res = await api<{ conversations: Conversation[] }>('/api/chat')
+      const res = await api<{ conversations: typeof conversations }>('/api/chat')
       setConversations(res.conversations)
       const total = res.conversations.reduce((s, c) => s + c.unread, 0)
       setUnreadChats(total)
@@ -148,19 +96,14 @@ export function ChatListView() {
         {loading && <div style={{ padding: 24, textAlign: 'center', color: '#5a6b7b', fontSize: 11 }}>Loading chats...</div>}
         {!loading && conversations.length === 0 && (
           <div style={{ padding: '30px 16px', textAlign: 'center', color: '#5a6b7b' }}>
-            <div style={{ fontSize: 14, marginBottom: 6 }}>No conversations yet</div>
+            <div style={{ fontSize: 14, marginBottom: 6 }}>No friends to chat with yet</div>
             <div style={{ fontSize: 11, marginBottom: 12, lineHeight: 1.6 }}>
-              You can message ANY player on RetroBlox —<br />
-              even before they accept your friend request.
+              Add friends first — once they accept, you can DM them here<br />
+              with text, pictures, videos and even audio.
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link className="rb-btn rb-btn-green" href="/people" style={{ textDecoration: 'none', display: 'inline-block' }}>
-                Browse People
-              </Link>
-              <Link className="rb-btn" href="/friends" style={{ textDecoration: 'none', display: 'inline-block' }}>
-                Go to Friends
-              </Link>
-            </div>
+            <Link className="rb-btn rb-btn-green" href="/friends" style={{ textDecoration: 'none', display: 'inline-block' }}>
+              Go to Friends
+            </Link>
           </div>
         )}
         {conversations.map((c) => (
@@ -177,10 +120,7 @@ export function ChatListView() {
               </span>
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 12, color: '#1c4e7c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.friend.username}</span>
-                {c.pending && <NudgeChip friendshipId={c.friendshipId} />}
-              </span>
+              <span style={{ display: 'block', fontSize: 12, color: '#1c4e7c' }}>{c.friend.username}</span>
               <span
                 style={{
                   display: 'block',
@@ -219,15 +159,17 @@ export function ChatThreadView({ userId }: { userId: string }) {
   const { user, setUnreadChats, setToast } = useRetro()
   const router = useRouter()
   const [friend, setFriend] = useState<RetroUser | null>(null)
-  const [contacts, setContacts] = useState<Conversation[]>([])
+  const [friends, setFriends] = useState<(RetroUser & { friendshipId: string })[]>([])
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [emojiOpen, setEmojiOpen] = useState(false)
+  const [stickerOpen, setStickerOpen] = useState(false)
   const msgsRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const lastCountRef = useRef(-1)
 
   /* open the file picker with a specific accept filter (images vs media) */
@@ -240,13 +182,13 @@ export function ChatThreadView({ userId }: { userId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [thread, convs] = await Promise.all([
+      const [thread, fl] = await Promise.all([
         api<{ friend: RetroUser; messages: ChatMsg[] }>(`/api/chat/${userId}`),
-        api<{ conversations: Conversation[] }>('/api/chat'),
+        api<{ friends: (RetroUser & { friendshipId: string })[] }>('/api/friends'),
       ])
       setFriend(thread.friend)
       setMessages(thread.messages)
-      setContacts(convs.conversations)
+      setFriends(fl.friends)
       setUnreadChats(0)
       if (thread.messages.length !== lastCountRef.current) {
         lastCountRef.current = thread.messages.length
@@ -293,6 +235,29 @@ export function ChatThreadView({ userId }: { userId: string }) {
     }
   }
 
+  async function sendSticker(name: string) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const blob = await (await fetch(`/retro/stickers/${name}.png`)).blob()
+      const stickerFile = new File([blob], `${name}-sticker.png`, { type: 'image/png' })
+      const fd = new FormData()
+      fd.append('text', '')
+      fd.append('file', stickerFile)
+      const res = await api<{ message: ChatMsg }>(`/api/chat/${userId}`, { method: 'POST', body: fd })
+      setMessages((ms) => [...ms, res.message])
+      setStickerOpen(false)
+      requestAnimationFrame(() => {
+        const el = msgsRef.current
+        if (el) el.scrollTop = el.scrollHeight
+      })
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Failed to send', 2400)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (!user) return null
 
   if (error) {
@@ -310,33 +275,31 @@ export function ChatThreadView({ userId }: { userId: string }) {
 
   return (
     <div className="rb-chat-wrap">
-      {/* conversations sidebar — switch chats like Discord */}
+      {/* friends sidebar — switch conversations like Discord */}
       <div className="rb-box rb-chat-side">
-        <div className="rb-panel-head"><span>Conversations</span></div>
+        <div className="rb-panel-head"><span>Friends</span></div>
         <div style={{ maxHeight: 460, overflowY: 'auto' }}>
-          {contacts.length === 0 && (
+          {friends.length === 0 && (
             <div style={{ padding: 12, fontSize: 10, color: '#7b8896' }}>
-              Message anyone from the People page!
+              Add friends to chat with them!
             </div>
           )}
-          {contacts.map((c) => (
+          {friends.map((f) => (
             <Link
-              key={c.friend.id}
-              href={`/chat/${c.friend.id}`}
-              className={`rb-chat-friend${c.friend.id === userId ? ' rb-active' : ''}`}
+              key={f.id}
+              href={`/chat/${f.id}`}
+              className={`rb-chat-friend${f.id === userId ? ' rb-active' : ''}`}
               style={{ textDecoration: 'none' }}
             >
               <span style={{ position: 'relative', display: 'inline-block' }}>
-                <Avatar user={c.friend} size={30} rounded="50%" />
+                <Avatar user={f} size={30} rounded="50%" />
                 <span style={{ position: 'absolute', right: -1, bottom: 0 }}>
-                  <OnlineDot online={c.friend.online} />
+                  <OnlineDot online={f.online} />
                 </span>
               </span>
               <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: '#1c4e7c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {c.friend.username}
-                {c.pending ? ' ·' : ''}
+                {f.username}
               </span>
-              {c.unread > 0 && c.friend.id !== userId && <span className="rb-badge">{c.unread}</span>}
             </Link>
           ))}
         </div>
@@ -365,8 +328,16 @@ export function ChatThreadView({ userId }: { userId: string }) {
         <div className="rb-chat-msgs" ref={msgsRef}>
           {messages.length === 0 && (
             <div style={{ textAlign: 'center', color: '#7b8896', fontSize: 11, margin: 'auto' }}>
-              This is the beginning of your conversation with{' '}
-              <span style={{ color: '#24425f' }}>{friend?.username || 'them'}</span>. Say hi!
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 10 }}>
+                {STICKERS.map((s) => (
+                  <img key={s.name} src={`/retro/stickers/${s.name}.png`} alt={s.label} width={30} height={30} style={{ imageRendering: 'pixelated' }} />
+                ))}
+              </div>
+              This is the beginning of your friendship with{' '}
+              <span style={{ color: '#24425f' }}>{friend?.username || 'them'}</span>. Say hi!<br />
+              <span style={{ fontSize: 10 }}>
+                Shake, wiggle or rainbow your words with the FX Menu — or drop a classic sticker.
+              </span>
             </div>
           )}
           {messages.map((m) => (
@@ -377,7 +348,7 @@ export function ChatThreadView({ userId }: { userId: string }) {
                 <div className="rb-chat-meta">
                   {m.fromMe ? 'You' : friend?.username || ''} · {timeAgo(m.createdAt)}
                 </div>
-                {m.text && <div className="rb-chat-text">{m.text}</div>}
+                {m.text && <div className="rb-chat-text"><FxText text={m.text} /></div>}
                 {mediaRender(m.fileId, m.fileType, m.fileName)}
               </div>
             </div>
@@ -385,6 +356,16 @@ export function ChatThreadView({ userId }: { userId: string }) {
         </div>
 
         <div className="rb-chat-inputbar">
+          <FxToolbar taRef={inputRef} value={text} onChange={setText} />
+          {stickerOpen && (
+            <div className="rb-chat-emojirow" role="toolbar" aria-label="Stickers">
+              {STICKERS.map((s) => (
+                <button key={s.name} type="button" title={s.label} aria-label={`Send ${s.label} sticker`} onClick={() => sendSticker(s.name)} disabled={busy}>
+                  <img src={`/retro/stickers/${s.name}.png`} alt="" width={22} height={22} style={{ imageRendering: 'pixelated', display: 'block' }} />
+                </button>
+              ))}
+            </div>
+          )}
           {emojiOpen && (
             <div className="rb-chat-emojirow">
               {EMOJIS.map((e) => (
@@ -448,7 +429,17 @@ export function ChatThreadView({ userId }: { userId: string }) {
                 e.target.value = ''
               }}
             />
+            <button
+              type="button"
+              className="rb-btn"
+              style={{ fontSize: 10, padding: '5px 8px' }}
+              title="Stickers"
+              onClick={() => setStickerOpen((o) => !o)}
+            >
+              ★
+            </button>
             <input
+              ref={inputRef}
               className="rb-input"
               type="text"
               placeholder={`Message ${friend?.username || ''}...`}
