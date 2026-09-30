@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { MarketError, assertOwnsAll, moveTix, transferItem, notify, parseIdArray } from '@/lib/market'
+import { MarketError, assertOwnsAll, moveTix, moveRobux, transferItem, notify, parseIdArray } from '@/lib/market'
 
 /**
  * GET  /api/trades/[id] — the trade, item details and the negotiation chat (both parties only)
@@ -59,6 +59,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       takeItemIds: parseIdArray(trade.takeItemIds),
       tixFrom: trade.tixFrom,
       tixTo: trade.tixTo,
+      robuxFrom: trade.robuxFrom,
+      robuxTo: trade.robuxTo,
       createdAt: trade.createdAt,
       updatedAt: trade.updatedAt,
     },
@@ -92,7 +94,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         type: 'trade_message',
         title: `${me.username} replied to the trade`,
         body: text.slice(0, 140),
-        link: '/trades',
+        link: `/trades/${id}`,
         data: { tradeId: id },
       })
     }
@@ -106,28 +108,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const takeItemIds = [...new Set(parseIdArray(JSON.stringify(body.takeItemIds ?? [])))]
     const tixFrom = Math.max(0, Math.floor(Number(body.tixFrom) || 0))
     const tixTo = Math.max(0, Math.floor(Number(body.tixTo) || 0))
-    if (!giveItemIds.length && !takeItemIds.length && !tixFrom && !tixTo) {
+    const robuxFrom = Math.max(0, Math.floor(Number(body.robuxFrom) || 0))
+    const robuxTo = Math.max(0, Math.floor(Number(body.robuxTo) || 0))
+    if (!giveItemIds.length && !takeItemIds.length && !tixFrom && !tixTo && !robuxFrom && !robuxTo) {
       return NextResponse.json({ error: 'A counter still needs something on the table.' }, { status: 400 })
     }
     if (giveItemIds.length > 8 || takeItemIds.length > 8) {
       return NextResponse.json({ error: 'Keep it to 8 items per side.' }, { status: 400 })
     }
-    await db.$transaction(async (tx) => {
-      // the counter's terms keep the ORIGINAL directions: give = from the
-      // trade's sender, take = from its recipient — whoever counters just
-      // reshuffles what sits on each side
-      await assertOwnsAll(tx, trade.fromUserId, giveItemIds)
-      await assertOwnsAll(tx, trade.toUserId, takeItemIds)
-    })
+    try {
+      await db.$transaction(async (tx) => {
+        // the counter's terms keep the ORIGINAL directions: give = from the
+        // trade's sender, take = from its recipient — whoever counters just
+        // reshuffles what sits on each side
+        await assertOwnsAll(tx, trade.fromUserId, giveItemIds)
+        await assertOwnsAll(tx, trade.toUserId, takeItemIds)
+      })
+    } catch (e) {
+      if (e instanceof MarketError) return NextResponse.json({ error: e.message }, { status: 400 })
+      throw e
+    }
     await db.ugcTrade.update({
       where: { id },
-      data: { giveItemIds: JSON.stringify(giveItemIds), takeItemIds: JSON.stringify(takeItemIds), tixFrom, tixTo },
+      data: { giveItemIds: JSON.stringify(giveItemIds), takeItemIds: JSON.stringify(takeItemIds), tixFrom, tixTo, robuxFrom, robuxTo },
     })
     await notify(otherId, {
       type: 'trade_offer',
       title: `${me.username} countered the trade`,
       body: 'The terms changed — look again before you accept.',
-      link: '/trades',
+      link: `/trades/${id}`,
       data: { tradeId: id },
     })
     return NextResponse.json({ ok: true, message: 'Counter sent.' })
@@ -138,24 +147,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (trade.status !== 'pending') return NextResponse.json({ error: 'This trade is already settled.' }, { status: 400 })
     const giveItemIds = parseIdArray(trade.giveItemIds)
     const takeItemIds = parseIdArray(trade.takeItemIds)
-    const result = await db.$transaction(async (tx) => {
-      // fresh ownership checks — stale offers can never teleport items
-      await assertOwnsAll(tx, trade.fromUserId, giveItemIds)
-      await assertOwnsAll(tx, trade.toUserId, takeItemIds)
-      // Tix both ways (moveTix throws a friendly error on insufficient funds)
-      if (trade.tixFrom > 0) await moveTix(tx, trade.fromUserId, trade.toUserId, trade.tixFrom, 'Trade')
-      if (trade.tixTo > 0) await moveTix(tx, trade.toUserId, trade.fromUserId, trade.tixTo, 'Trade')
-      // items cross — give: fromUser -> toUser, take: toUser -> fromUser
-      for (const itemId of giveItemIds) await transferItem(tx, itemId, trade.fromUserId, trade.toUserId)
-      for (const itemId of takeItemIds) await transferItem(tx, itemId, trade.toUserId, trade.fromUserId)
-      await tx.ugcTrade.update({ where: { id }, data: { status: 'accepted' } })
-      return { giveCount: giveItemIds.length, takeCount: takeItemIds.length }
-    })
+    let result
+    try {
+      result = await db.$transaction(async (tx) => {
+        // fresh ownership checks — stale offers can never teleport items
+        await assertOwnsAll(tx, trade.fromUserId, giveItemIds)
+        await assertOwnsAll(tx, trade.toUserId, takeItemIds)
+        // Tix AND Robux both ways (the movers throw friendly errors on short wallets)
+        if (trade.tixFrom > 0) await moveTix(tx, trade.fromUserId, trade.toUserId, trade.tixFrom, 'Trade')
+        if (trade.tixTo > 0) await moveTix(tx, trade.toUserId, trade.fromUserId, trade.tixTo, 'Trade')
+        if (trade.robuxFrom > 0) await moveRobux(tx, trade.fromUserId, trade.toUserId, trade.robuxFrom, 'Trade')
+        if (trade.robuxTo > 0) await moveRobux(tx, trade.toUserId, trade.fromUserId, trade.robuxTo, 'Trade')
+        // items cross — give: fromUser -> toUser, take: toUser -> fromUser
+        for (const itemId of giveItemIds) await transferItem(tx, itemId, trade.fromUserId, trade.toUserId)
+        for (const itemId of takeItemIds) await transferItem(tx, itemId, trade.toUserId, trade.fromUserId)
+        await tx.ugcTrade.update({ where: { id }, data: { status: 'accepted' } })
+        return { giveCount: giveItemIds.length, takeCount: takeItemIds.length }
+      })
+    } catch (e) {
+      if (e instanceof MarketError) return NextResponse.json({ error: e.message }, { status: 400 })
+      throw e
+    }
     await notify(otherId, {
       type: 'trade_accepted',
       title: 'Trade accepted!',
-      body: `${me.username} accepted — check your inventory, the items and Tix have moved.`,
-      link: '/trades',
+      body: `${me.username} accepted — check your inventory, the items and currency have moved.`,
+      link: `/trades/${id}`,
       data: { tradeId: id },
     })
     return NextResponse.json({ ok: true, message: `Trade complete — ${result.giveCount + result.takeCount} item(s) changed hands!` })
@@ -170,7 +187,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       type: action === 'decline' ? 'trade_declined' : 'trade_cancelled',
       title: action === 'decline' ? `${me.username} declined the trade` : `${me.username} cancelled the trade`,
       body: 'Nothing moved — the offer is off the table.',
-      link: '/trades',
+      link: `/trades/${id}`,
       data: { tradeId: id },
     })
     return NextResponse.json({ ok: true, message: action === 'decline' ? 'Trade declined.' : 'Trade cancelled.' })
