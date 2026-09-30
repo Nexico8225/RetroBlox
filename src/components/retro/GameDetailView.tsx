@@ -458,7 +458,7 @@ export function GameDetailView({ id }: { id: string }) {
           {game.genre}
         </button>
         {' › '}
-        <span style={{ color: '#24425f' }}>{game.name}</span>
+        <span style={{ color: '#24425f' }}><FxText text={game.name} /></span>
         {game.gem && (
           <span title="An admin marked this game as a Hidden Gem" style={{ marginLeft: 8, fontSize: 10, color: '#8a6d1a', background: '#fdf3d7', border: '1px solid #d9c26a', borderRadius: 8, padding: '1px 8px' }}>
             💎 Hidden Gem
@@ -474,7 +474,7 @@ export function GameDetailView({ id }: { id: string }) {
             <div style={{ aspectRatio: '16/9', background: '#dde5ec', border: '1px solid #c3cdd7', overflow: 'hidden' }}>
               {!active ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7b8896', font: 'bold 20px Verdana' }}>
-                  {game.name}
+                  <FxText text={game.name} />
                 </div>
               ) : active.type === 'video' ? (
                 <RetroVideoPlayer src={active.src} title={active.name} />
@@ -900,7 +900,7 @@ export function GameDetailView({ id }: { id: string }) {
         {/* RIGHT: title + actions + info */}
         <div style={{ flex: '1 1 300px', minWidth: 280 }}>
           <div className="rb-box" style={{ padding: 14 }}>
-            <h1 style={{ font: 'bold 22px Verdana', color: '#1c2733', margin: 0, lineHeight: 1.25 }}>{game.name}</h1>
+            <h1 style={{ font: 'bold 22px Verdana', color: '#1c2733', margin: 0, lineHeight: 1.25 }}><FxText text={game.name} /></h1>
             {game.group && (
               <div style={{ marginTop: 6 }}>
                 <Link
