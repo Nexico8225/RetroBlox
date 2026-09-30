@@ -66,3 +66,4 @@ worklog.md            the project's memory — every task logs here
 - The Godot folder is another AI's domain. `.git` is never deleted.
 - The platform API contract (`/api/platform/*`, `/api/gamedata/*`,
   `/api/playtime`, ...) is consumed by the game player — extend, never break.
+# deploy retrigger
