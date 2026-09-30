@@ -1745,6 +1745,51 @@ body.rb-konami .rb-header-inner::after {
   50% { transform: rotate(6deg); }
 }
 
+/* --- spin: every letter twirls on its own axis, staggered --- */
+.fx-char.fx-spin {
+  animation: fx-spin 1.7s linear infinite;
+  animation-delay: calc(var(--i) * -0.11s);
+  display: inline-block;
+}
+@keyframes fx-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --- flash: sharp on/off blink, like a broken sign --- */
+.fx-flash {
+  animation: fx-flash 0.9s steps(1, end) infinite;
+}
+@keyframes fx-flash {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.15; }
+}
+
+/* --- shadow: hard 3D block shadow, retro wordart style --- */
+.fx-shadow {
+  text-shadow: 1px 1px 0 #2b3945, 2px 2px 0 #2b3945, 3px 3px 0 #2b3945, 4px 4px 6px rgba(0, 0, 0, 0.35);
+  animation: fx-shadow 1.8s ease-in-out infinite;
+  display: inline-block;
+}
+@keyframes fx-shadow {
+  0%, 100% { text-shadow: 1px 1px 0 #2b3945, 2px 2px 0 #2b3945, 3px 3px 0 #2b3945, 4px 4px 6px rgba(0, 0, 0, 0.35); }
+  50% { text-shadow: 2px 2px 0 #2b3945, 4px 4px 0 #2b3945, 6px 6px 0 #2b3945, 8px 8px 8px rgba(0, 0, 0, 0.35); }
+}
+
+/* --- orbit: letters circle around their spot, staggered --- */
+.fx-char.fx-orbit {
+  animation: fx-orbit 2.1s linear infinite;
+  animation-delay: calc(var(--i) * -0.17s);
+  display: inline-block;
+}
+@keyframes fx-orbit {
+  0% { transform: translate(2px, 0); }
+  25% { transform: translate(0, -2px); }
+  50% { transform: translate(-2px, 0); }
+  75% { transform: translate(0, 2px); }
+  100% { transform: translate(2px, 0); }
+}
+
 /* --- plain color tags --- */
 .fx-red { color: #e53935; }
 .fx-blue { color: #1e88e5; }
