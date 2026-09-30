@@ -21,11 +21,9 @@ export type Tx = Prisma.TransactionClient
 /** The resale multiplier — the profit loop the market runs on. */
 export const RESALE_MULTIPLIER = 1.5
 
-/** The old-school currency exchange rate: 10 Tix trade for 1 Robux
- *  (and the reverse desk pays 1 Robux for 9 Tix — the house keeps a
- *  slice, exactly like the 2008 Trade Currency window did). */
-export const TIX_PER_ROBUX = 10
-export const ROBUX_TO_TIX_RATE = 9
+/* Robux has left the economy: Tix is the only money on RetroBlox. The old
+   moveRobux / exchangeCurrency helpers and the exchange rates were removed
+   with it (the exchange desk answers 410 Gone via /api/rbx/balance POST). */
 
 /** Suggested resale value for a copy: 1.5x what the owner paid
  *  (rounded up). `paid` 0 = the creator's own master copy — the site
@@ -102,84 +100,6 @@ export async function moveTix(
   await tx.rbxTransaction.create({
     data: { userId: toId, amount, currency: 'tix', type: 'transfer_received', balanceBefore: to.rbxBalance, balanceAfter: toAfter, note },
   })
-}
-
-/** Move Robux between two wallets inside a transaction — the premium
- *  money. Same atomic pattern as moveTix, separate wallet column. */
-export async function moveRobux(
-  tx: Tx,
-  fromId: string,
-  toId: string,
-  amount: number,
-  note: string
-) {
-  if (amount <= 0) return
-  const from = await tx.user.findUnique({ where: { id: fromId }, select: { username: true, robuxBalance: true } })
-  if (!from) throw new MarketError('NO_USER', 'That account does not exist.')
-  if (from.robuxBalance < amount) {
-    throw new MarketError(
-      'NO_ROBUX',
-      `${from.username} only has R$ ${from.robuxBalance.toLocaleString('en-US')} — not enough Robux for this trade.`
-    )
-  }
-  const to = await tx.user.findUnique({ where: { id: toId }, select: { robuxBalance: true } })
-  if (!to) throw new MarketError('NO_USER', 'That account does not exist.')
-
-  const fromAfter = from.robuxBalance - amount
-  const toAfter = to.robuxBalance + amount
-  await tx.user.update({ where: { id: fromId }, data: { robuxBalance: fromAfter } })
-  await tx.user.update({ where: { id: toId }, data: { robuxBalance: toAfter } })
-  await tx.rbxTransaction.create({
-    data: { userId: fromId, amount: -amount, currency: 'robux', type: 'transfer_sent', balanceBefore: from.robuxBalance, balanceAfter: fromAfter, note },
-  })
-  await tx.rbxTransaction.create({
-    data: { userId: toId, amount, currency: 'robux', type: 'transfer_received', balanceBefore: to.robuxBalance, balanceAfter: toAfter, note },
-  })
-}
-
-/** The currency exchange desk — atomically turn Tix into Robux (or the
- *  other way). There is no "bank" player: the desk debits one wallet,
- *  credits the other, and writes both ledger rows under one type. */
-export async function exchangeCurrency(
-  tx: Tx,
-  userId: string,
-  direction: 'tix_to_robux' | 'robux_to_tix',
-  amount: number
-) {
-  if (direction === 'tix_to_robux') {
-    const user = await tx.user.findUnique({ where: { id: userId }, select: { rbxBalance: true, robuxBalance: true } })
-    if (!user) throw new MarketError('NO_USER', 'That account does not exist.')
-    if (user.rbxBalance < amount) {
-      throw new MarketError('NO_FUNDS', `You only have T$ ${user.rbxBalance.toLocaleString('en-US')} — not enough for that exchange.`)
-    }
-    const robux = Math.floor(amount / TIX_PER_ROBUX)
-    if (robux < 1) throw new MarketError('TOO_SMALL', `The exchange trades T$ ${TIX_PER_ROBUX} for R$ 1 — bring at least that much.`)
-    const tixAfter = user.rbxBalance - robux * TIX_PER_ROBUX // only whole R$ 1 worth of Tix is taken
-    await tx.user.update({ where: { id: userId }, data: { rbxBalance: tixAfter, robuxBalance: user.robuxBalance + robux } })
-    await tx.rbxTransaction.create({
-      data: { userId, amount: -(robux * TIX_PER_ROBUX), currency: 'tix', type: 'exchange', balanceBefore: user.rbxBalance, balanceAfter: tixAfter, note: `Exchanged T$ ${robux * TIX_PER_ROBUX} → R$ ${robux} (rate ${TIX_PER_ROBUX}:1)` },
-    })
-    await tx.rbxTransaction.create({
-      data: { userId, amount: robux, currency: 'robux', type: 'exchange', balanceBefore: user.robuxBalance, balanceAfter: user.robuxBalance + robux, note: `Exchanged T$ ${robux * TIX_PER_ROBUX} → R$ ${robux}` },
-    })
-    return { robux, tix: robux * TIX_PER_ROBUX, tixChange: tixAfter, robuxAfter: user.robuxBalance + robux }
-  }
-  // robux → tix at the reverse-desk rate (9 Tix per R$ 1)
-  const user = await tx.user.findUnique({ where: { id: userId }, select: { rbxBalance: true, robuxBalance: true } })
-  if (!user) throw new MarketError('NO_USER', 'That account does not exist.')
-  if (user.robuxBalance < amount) {
-    throw new MarketError('NO_ROBUX', `You only have R$ ${user.robuxBalance.toLocaleString('en-US')} — not enough for that exchange.`)
-  }
-  const tix = amount * ROBUX_TO_TIX_RATE
-  const robuxAfter = user.robuxBalance - amount
-  await tx.user.update({ where: { id: userId }, data: { robuxBalance: robuxAfter, rbxBalance: user.rbxBalance + tix } })
-  await tx.rbxTransaction.create({
-    data: { userId, amount: -amount, currency: 'robux', type: 'exchange', balanceBefore: user.robuxBalance, balanceAfter: robuxAfter, note: `Exchanged R$ ${amount} → T$ ${tix} (rate 1:${ROBUX_TO_TIX_RATE})` },
-  })
-  await tx.rbxTransaction.create({
-    data: { userId, amount: tix, currency: 'tix', type: 'exchange', balanceBefore: user.rbxBalance, balanceAfter: user.rbxBalance + tix, note: `Exchanged R$ ${amount} → T$ ${tix}` },
-  })
-  return { robux: amount, tix, tixChange: user.rbxBalance + tix, robuxAfter }
 }
 
 /** Hand ONE item copy from one player to another inside a transaction.
