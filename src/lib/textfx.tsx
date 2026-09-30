@@ -29,6 +29,11 @@ export const FX_LIST: FxDef[] = [
   { tag: 'neon', label: 'Neon', cls: 'fx-neon', hint: 'flickering neon tube', group: 'fx' },
   { tag: 'fire', label: 'Fire', cls: 'fx-fire', hint: 'burning gradient', group: 'fx' },
   { tag: 'ice', label: 'Ice', cls: 'fx-ice', hint: 'frozen shimmer', group: 'fx' },
+  { tag: 'sparkle', label: 'Sparkle', cls: 'fx-sparkle', hint: 'twinkling stars', group: 'fx' },
+  { tag: 'pulse', label: 'Pulse', cls: 'fx-pulse', hint: 'breathing size', group: 'fx' },
+  { tag: 'flip', label: 'Flip', cls: 'fx-flip', hint: 'flips upside down', group: 'fx' },
+  { tag: 'ghost', label: 'Ghost', cls: 'fx-ghost', hint: 'fades in and out', group: 'fx' },
+  { tag: 'tilt', label: 'Tilt', cls: 'fx-tilt', hint: 'tips side to side', group: 'fx' },
   { tag: 'big', label: 'Big', cls: 'fx-big', hint: 'jumbo size', group: 'fx' },
   { tag: 'red', label: 'Red', cls: 'fx-red', hint: 'red text', group: 'color' },
   { tag: 'blue', label: 'Blue', cls: 'fx-blue', hint: 'blue text', group: 'color' },
@@ -211,6 +216,42 @@ export function FxIcon({ tag, size = 13 }: { tag: string; size?: number }) {
           <circle cx="8" cy="8" r="1.5" fill="#b3e5fc" stroke="#4fc3f7" strokeWidth="0.8" />
         </svg>
       )
+    case 'sparkle':
+      return (
+        <svg {...p}>
+          <path d="M8 1.5l1.1 4.1 4.1 1.1-4.1 1.1L8 12l-1.1-4.2-4.1-1.1 4.1-1.1z" fill="#ffd54d" stroke="#e6a817" strokeWidth="0.7" />
+          <path d="M12.8 10.2l.55 2 2 .55-2 .55-.55 2-.55-2-2-.55 2-.55z" fill="#fff176" />
+        </svg>
+      )
+    case 'pulse':
+      return (
+        <svg {...p}>
+          <path d="M1.5 8h2.2l1.6-4 2.6 8 2.2-6 1.4 2h3" fill="none" stroke="#ab47bc" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'flip':
+      return (
+        <svg {...p}>
+          <path d="M5.5 3.5h5v9h-5z" fill="none" stroke="#4a6fa5" strokeWidth="1.6" />
+          <path d="M13.5 3.5v9" stroke="#9db8d4" strokeWidth="1.4" strokeDasharray="2 1.6" strokeLinecap="round" />
+          <path d="M2.5 3.5v9" stroke="#9db8d4" strokeWidth="1.4" strokeDasharray="2 1.6" strokeLinecap="round" />
+        </svg>
+      )
+    case 'ghost':
+      return (
+        <svg {...p}>
+          <path d="M3.5 13.5V7a4.5 4.5 0 0 1 9 0v6.5l-1.5-1.2-1.5 1.2-1.5-1.2-1.5 1.2-1.5-1.2z" fill="#e8eaf6" stroke="#7986cb" strokeWidth="1.2" />
+          <circle cx="6.6" cy="7.4" r="0.9" fill="#5c6bc0" />
+          <circle cx="9.8" cy="7.4" r="0.9" fill="#5c6bc0" />
+        </svg>
+      )
+    case 'tilt':
+      return (
+        <svg {...p}>
+          <path d="M4 12.5L8 3.5l4 9" fill="none" stroke="#ef6c00" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M2.5 14.5h11" stroke="#ffb74d" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      )
     case 'big':
       return (
         <svg {...p}>
@@ -295,8 +336,8 @@ export function FxToolbar({
 
   const apply = (tag: string) => {
     const ta = taRef.current
-    let start = ta && ta.selectionStart !== undefined ? ta.selectionStart : value.length
-    let end = ta && ta.selectionEnd !== undefined ? ta.selectionEnd : value.length
+    let start: number = ta?.selectionStart ?? value.length
+    let end: number = ta?.selectionEnd ?? value.length
     // nothing selected? wrap the WHOLE text so the effect is always visible —
     // "the selected text becomes the fx": selection wins, full text is the fallback
     if (end <= start) {
