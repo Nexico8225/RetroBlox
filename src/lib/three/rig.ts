@@ -224,7 +224,7 @@ export interface AvatarLook3D {
   /** 3D UGC to attach. url may be '' for legacy image-only items (rendered as a decal instead).
    *  animClips: names of clips inside the model's own GLB to loop while worn
    *  ("a pet flying around you") — the item carries its own animation. */
-  models?: { url: string; imageUrl?: string; placement: Placement | null; textureUrl?: string; color?: string; animClips?: string[] }[]
+  models?: { url: string; imageUrl?: string; placement: Placement | null; textureUrl?: string; color?: string; metallic?: number | null; roughness?: number | null; animClips?: string[] }[]
   /** worn bundle — a rigged body model that REPLACES the matching body parts.
    *  Normalized to the rig's exact height + footprint, painted with the
    *  Body Colors where its part names match. */
@@ -257,6 +257,8 @@ export function buildLook3D(cfg: AvatarConfigT, resolve: (id: string) => AssetIn
         placement: a.placement || null,
         textureUrl: a.textureUrl,
         color: a.color,
+        metallic: a.metallic,
+        roughness: a.roughness,
         animClips: a.animClips?.clips,
       })),
     bundle: bundleInfo?.modelUrl ? { url: bundleInfo.modelUrl } : null,
@@ -443,6 +445,12 @@ export interface ModelSurface {
   textureUrl?: string
   /** optional tint painted on the model when it has no texture (#RRGGBB) */
   color?: string
+  /** PBR material overrides (the creator's metallic / roughness sliders).
+   *  null/absent = render exactly what the model file carries; a number
+   *  0..1 = the creator's value, applied to every surface. Creator intent
+   *  beats file data here — this is the ONE place the sliders win. */
+  metallic?: number | null
+  roughness?: number | null
 }
 
 /** linear-space threshold for "this surface arrived with no real paint"
@@ -467,14 +475,17 @@ function isUnpainted(std: THREE.MeshStandardMaterial): boolean {
  * exactly how Roblox treats SurfaceAppearance vs MeshPart color.
  */
 export async function applyModelSurface(root: THREE.Object3D, surface: ModelSurface | null | undefined): Promise<void> {
-  if (!surface || (!surface.textureUrl && !surface.color)) return
-  root.traverse((o) => {
-    const mesh = o as THREE.Mesh
-    if (!mesh.isMesh) return
-    const mat = mesh.material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[]
-    if (Array.isArray(mat)) mesh.material = mat.map((m) => m.clone())
-    else if (mat) mesh.material = mat.clone()
-  })
+  if (!surface || (!surface.textureUrl && !surface.color && surface.metallic == null && surface.roughness == null)) return
+  const wantsClone = !!surface.textureUrl || !!surface.color || surface.metallic != null || surface.roughness != null
+  if (wantsClone) {
+    root.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      const mat = mesh.material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[]
+      if (Array.isArray(mat)) mesh.material = mat.map((m) => m.clone())
+      else if (mat) mesh.material = mat.clone()
+    })
+  }
   const jobs: Promise<unknown>[] = []
   root.traverse((o) => {
     const mesh = o as THREE.Mesh
@@ -505,6 +516,24 @@ export async function applyModelSurface(root: THREE.Object3D, surface: ModelSurf
       }
     })
   })
+  // PBR overrides LAST — they always apply (every surface), no matter what
+  // the file carried. This is how "make it metallic in Blender" (or the
+  // sliders afterwards) shows up identically on the site and in Godot.
+  if (surface.metallic != null || surface.roughness != null) {
+    root.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      const mat = mesh.material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[]
+      const mats = Array.isArray(mat) ? mat : [mat]
+      mats.forEach((m) => {
+        if (!m || !('metalness' in m)) return
+        const std = m as THREE.MeshStandardMaterial
+        if (surface.metallic != null) std.metalness = Math.min(1, Math.max(0, surface.metallic))
+        if (surface.roughness != null) std.roughness = Math.min(1, Math.max(0, surface.roughness))
+        std.needsUpdate = true
+      })
+    })
+  }
   await Promise.all(jobs)
 }
 
@@ -879,7 +908,7 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
       jobs.push(
         loadGltfWithClips(m.url).then(async ({ scene: model, clips }) => {
           const inst = skeletonClone(model) // clone so many views can wear one item
-          await applyModelSurface(inst, { textureUrl: m.textureUrl, color: m.color })
+          await applyModelSurface(inst, { textureUrl: m.textureUrl, color: m.color, metallic: m.metallic, roughness: m.roughness })
           const holder = attachPlacedModel(inst, m.placement)
           if (m.animClips && m.animClips.length > 0) playOwnClips(inst, clips, m.animClips)
           worn.add(holder)
