@@ -8,10 +8,8 @@
 #   - shirt texture: 300x190 template -> zone-cropped onto torso + arms
 #   - pants texture: 220x190 template -> zone-cropped onto both legs
 #   - face: decal quad on the FRONT of the head (62% of the head at scale 1)
-#   - t-shirt: image decal on the FRONT of the torso (site rule)
-#   - 3D UGC: loaded from GLB, normalized to 1.6 site units, placed EXACTLY
-#     where its creator left it — through a 180° yaw bridge, because the
-#     site rig faces +Z and this rig faces -Z
+#   - 3D UGC: loaded from GLB, normalized to 1.6, placed EXACTLY where its
+#     creator left it, scaled from the site's 5-stud rig down to this avatar
 class_name AvatarPlatform
 extends RefCounted
 
@@ -20,13 +18,10 @@ extends RefCounted
 # and when other devs copy these scripts into their own project.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
-# This avatar IS the site rig: both normalize the body to 5.0 units tall,
-# feet on y=0, centered on x/z (measured from R6IK.fbx — the helper meshes
-# stay inside the body bounds, so the site's all-mesh normalize and this
-# body-only normalize land on the SAME space, scale factor 1.0).
-const RIG_HEIGHT := 5.0
+const RIG_HEIGHT := 2.9          # this avatar's height (site rig = 5.0 studs)
 const SITE_RIG_HEIGHT := 5.0
-const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies (site units)
+const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies
+const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT
 
 # "this surface arrived with no real paint" threshold (raw sRGB ~0.97+),
 # matching the site converter's linear-space 0.93 rule
@@ -115,35 +110,13 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                         avatar_node.call("set_face", ImageTexture.create_from_image(face_img),
                                 float(avatar_data.get("faceScale", 1.0)))
 
-        # ---- 6) 3D UGC + t-shirt decals ----
-        # The SITE (src/lib/three/rig.ts) is the ground truth:
-        #   tshirt accessories -> image decal on the FRONT of the torso
-        #   everything else with a model -> GLB, normalized to 1.6 site
-        #   units, then the creator's placement p/r/s applied VERBATIM.
-        # A 180° yaw bridge converts site space (rig faces +Z) into this
-        # avatar's space (rig faces -Z): (x,y,z) -> (-x,y,-z), exactly the
-        # flip a viewer sees between the two renderers. No extra scale —
-        # both rigs are 5.0 tall in their own space (measured k = 1.0).
+        # ---- 6) 3D UGC accessories — GLB, normalized, placed EXACTLY ----
         var accessories: Array = avatar_data.get("accessories", [])
         for acc_id in accessories:
                 var asset := await api.get_asset(String(acc_id))
                 if not asset.get("ok", false):
                         continue
                 var surface_asset: Dictionary = asset.get("asset", {})
-                var kind := String(surface_asset.get("kind", ""))
-                var image_url := String(surface_asset.get("imageUrl", ""))
-                var tex_url := String(surface_asset.get("textureUrl", ""))
-                var tint := String(surface_asset.get("color", ""))
-
-                # T-SHIRTS: always a torso-front decal, never a placed model
-                # ("RetroBlox Logo" t-shirt belongs ON the torso).
-                if kind == "tshirt":
-                        if image_url != "":
-                                var t_img := await api.load_image(image_url)
-                                if t_img != null and is_instance_valid(avatar_node):
-                                        avatar_node.call("set_tshirt", ImageTexture.create_from_image(t_img))
-                        continue
-
                 var model_url := String(surface_asset.get("modelUrl", ""))
                 if model_url == "":
                         continue  # legacy image-only item — nothing 3D to wear
@@ -162,20 +135,21 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                         continue
                 _enable_vertex_colors(scene)
                 _normalize(scene, UGC_IMPORT_SIZE)
-                # the site's scene graph, replicated 1:1:
-                #   worn (rig root) -> holder (placement p/r/s verbatim) -> model
+                var inner := Node3D.new()
+                inner.name = "UGC_" + String(acc_id)
+                inner.add_child(scene)
+                _apply_placement(inner, surface_asset.get("placement", null))
+                # site placements are authored against the 5-stud rig — scale down
                 var holder := Node3D.new()
-                holder.name = "UGC_" + String(acc_id)
-                holder.add_child(scene)
-                _apply_placement(holder, surface_asset.get("placement", null))
-                var bridge := Node3D.new()
-                bridge.name = "UGCBridge_" + String(acc_id)
-                bridge.rotation_degrees = Vector3(0.0, 180.0, 0.0)
-                bridge.add_child(holder)
-                avatar_node.add_child(bridge)
+                holder.name = "UGCScaled_" + String(acc_id)
+                holder.scale = Vector3.ONE * UGC_SCALE
+                holder.add_child(inner)
+                avatar_node.add_child(holder)
                 # creator texture / tint — THE ROBLOX RULE, DATA WINS: the
                 # model's own materials always show; the site's paint only
                 # fills surfaces that arrived with no real color
+                var tex_url := String(surface_asset.get("textureUrl", ""))
+                var tint := String(surface_asset.get("color", ""))
                 if tex_url != "":
                         var img := await api.load_image(tex_url)
                         if img != null:
@@ -184,6 +158,13 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                         var paint := Color.from_string(tint, Color.TRANSPARENT)
                         if paint != Color.TRANSPARENT:
                                 _surface_texture(scene, null, paint)
+                # creator PBR sliders — the site's per-item Metallic / Roughness
+                # have the FINAL say (they fix FBX uploads, which lose metallic,
+                # and let creators tune the Blender look without re-exporting)
+                var metallic: Variant = surface_asset.get("metallic", null)
+                var roughness: Variant = surface_asset.get("roughness", null)
+                if metallic != null or roughness != null:
+                        _surface_pbr(scene, metallic, roughness)
 
 
 # ---------------------------------------------------------------- helpers
@@ -231,11 +212,11 @@ static func zone_box(size: Vector3, zone: Rect2, tw: int, th: int) -> ArrayMesh:
                 var hu := absf(u_axis.x) * half.x + absf(u_axis.y) * half.y + absf(u_axis.z) * half.z
                 var hv := absf(v_axis.x) * half.x + absf(v_axis.y) * half.y + absf(v_axis.z) * half.z
                 var tl := center - u_axis * hu - v_axis * hv
-                var tr_v := center + u_axis * hu - v_axis * hv
+                var tr := center + u_axis * hu - v_axis * hv
                 var br := center + u_axis * hu + v_axis * hv
                 var bl := center - u_axis * hu + v_axis * hv
                 var base := verts.size()
-                for corner in [tl, tr_v, br, bl]:
+                for corner in [tl, tr, br, bl]:
                         verts.push_back(corner)
                 for _i in range(4):
                         norms.push_back(normal)
@@ -390,4 +371,25 @@ static func _surface_texture(root: Node, tex: Texture2D, tint := Color.TRANSPARE
                                 m.albedo_color = tint
                         else:
                                 continue
+                        mi.set_surface_override_material(surface, m)
+
+
+## Per-item Metallic / Roughness from the site's UGC editor — applied on top
+## of EVERYTHING (the model's own materials, creator texture/tint). Values
+## arrive as 0.0-1.0; null means "leave that channel exactly as imported".
+static func _surface_pbr(root: Node, metallic: Variant, roughness: Variant) -> void:
+        for mi in _all_mesh_instances(root):
+                if mi.mesh == null:
+                        continue
+                for surface: int in range(mi.mesh.get_surface_count()):
+                        var mat: Material = mi.get_active_material(surface)
+                        var m: BaseMaterial3D
+                        if mat is BaseMaterial3D:
+                                m = (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
+                        else:
+                                m = StandardMaterial3D.new()
+                        if metallic != null:
+                                m.metallic = clampf(float(metallic), 0.0, 1.0)
+                        if roughness != null:
+                                m.roughness = clampf(float(roughness), 0.0, 1.0)
                         mi.set_surface_override_material(surface, m)
