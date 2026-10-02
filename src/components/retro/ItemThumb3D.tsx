@@ -21,8 +21,8 @@ import type { Placement } from '@/lib/avatarAssets'
 const thumbCache = new Map<string, string>()
 const inflight = new Map<string, Promise<string>>()
 
-function cacheKey(modelUrl: string, placement: Placement | null, zoom: number, textureUrl?: string, color?: string) {
-  return `${modelUrl}|${placement ? JSON.stringify(placement) : 'none'}|${zoom}|${textureUrl || ''}|${color || ''}`
+function cacheKey(modelUrl: string, placement: Placement | null, zoom: number, textureUrl?: string, color?: string, metallic?: number | null, roughness?: number | null) {
+  return `${modelUrl}|${placement ? JSON.stringify(placement) : 'none'}|${zoom}|${textureUrl || ''}|${color || ''}|${metallic ?? ''}|${roughness ?? ''}`
 }
 
 /** Render the placed item alone onto a white square, return a PNG data-url. */
@@ -31,7 +31,9 @@ async function renderItemThumb(
   placement: Placement | null,
   zoom: number,
   textureUrl?: string,
-  color?: string
+  color?: string,
+  metallic?: number | null,
+  roughness?: number | null
 ): Promise<string> {
   const SIZE = 512
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
@@ -53,8 +55,8 @@ async function renderItemThumb(
   // normalized model — never overrides the model's own scale)
   const src = await loadGltfModel(modelUrl)
   const inst = skeletonClone(src)
-  // the creator's texture / color, exactly as published
-  await applyModelSurface(inst, { textureUrl, color })
+  // the creator's texture / color / material sliders, exactly as published
+  await applyModelSurface(inst, { textureUrl, color, metallic, roughness })
   const holder = attachPlacedModel(inst, placement)
   scene.add(holder)
   scene.updateMatrixWorld(true)
@@ -100,13 +102,13 @@ async function renderItemThumb(
   return out.toDataURL('image/png')
 }
 
-function getThumb(modelUrl: string, placement: Placement | null, zoom: number, textureUrl?: string, color?: string): Promise<string> {
-  const key = cacheKey(modelUrl, placement, zoom, textureUrl, color)
+function getThumb(modelUrl: string, placement: Placement | null, zoom: number, textureUrl?: string, color?: string, metallic?: number | null, roughness?: number | null): Promise<string> {
+  const key = cacheKey(modelUrl, placement, zoom, textureUrl, color, metallic, roughness)
   const hit = thumbCache.get(key)
   if (hit) return Promise.resolve(hit)
   let p = inflight.get(key)
   if (!p) {
-    p = renderItemThumb(modelUrl, placement, zoom, textureUrl, color)
+    p = renderItemThumb(modelUrl, placement, zoom, textureUrl, color, metallic, roughness)
       .then((url) => {
         thumbCache.set(key, url)
         inflight.delete(key)
@@ -130,6 +132,8 @@ export default function ItemThumb3D({
   fallbackSrc,
   textureUrl,
   color,
+  metallic,
+  roughness,
 }: {
   modelUrl: string
   placement?: Placement | null
@@ -144,8 +148,11 @@ export default function ItemThumb3D({
   textureUrl?: string
   /** optional tint when the model has no texture */
   color?: string
+  /** PBR material sliders (metallic / roughness overrides, 0..1) */
+  metallic?: number | null
+  roughness?: number | null
 }) {
-  const [src, setSrc] = useState<string | null>(() => thumbCache.get(cacheKey(modelUrl, placement || null, zoom, textureUrl, color)) || null)
+  const [src, setSrc] = useState<string | null>(() => thumbCache.get(cacheKey(modelUrl, placement || null, zoom, textureUrl, color, metallic, roughness)) || null)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
@@ -153,11 +160,11 @@ export default function ItemThumb3D({
     // async 3D render -> can only resolve client-side after mount, so the
     // result legitimately lands in state from this effect. `failed` is only
     // ever set asynchronously — never synchronously in the effect body.
-    getThumb(modelUrl, placement || null, zoom, textureUrl, color)
+    getThumb(modelUrl, placement || null, zoom, textureUrl, color, metallic, roughness)
       .then((url) => { if (alive) { setSrc(url); setFailed(false) } })
       .catch(() => { if (alive) setFailed(true) })
     return () => { alive = false }
-  }, [modelUrl, placement, zoom, textureUrl, color])
+  }, [modelUrl, placement, zoom, textureUrl, color, metallic, roughness])
 
   if (failed || !src) {
     // rendering, or the live render failed — the saved thumbnail stands in
