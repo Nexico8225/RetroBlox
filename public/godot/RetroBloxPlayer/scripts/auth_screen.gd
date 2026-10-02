@@ -16,7 +16,7 @@ extends CanvasLayer
 # very first open, even before Godot registers global class_names.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
-signal completed(api, username: String, user_id: String, avatar: Dictionary, password: String)
+signal completed(api, username: String, user_id: String, avatar: Dictionary)
 signal guest_requested
 
 const RED := Color("e2231a")
@@ -26,7 +26,6 @@ const MUTED := Color("6b7c86")
 const LINK := Color("0d69ac")
 
 # unique names inside scenes/auth_screen.tscn
-@onready var _server_edit: LineEdit = %ServerEdit
 @onready var _user_edit: LineEdit = %UserEdit
 @onready var _pass_edit: LineEdit = %PassEdit
 @onready var _confirm_edit: LineEdit = %ConfirmEdit
@@ -39,21 +38,16 @@ const LINK := Color("0d69ac")
 var _signup_mode := false
 var _busy := false
 
+# The one and only server this build signs in to. Players cannot change it
+# from the login card (self-hosts use RETROBLOX_API or --api= instead).
+var _api_url := "https://retro-blox.vercel.app"
+
 
 func _ready() -> void:
         _login_tab_btn.pressed.connect(_set_mode.bind(false))
         _signup_tab_btn.pressed.connect(_set_mode.bind(true))
         _submit_btn.pressed.connect(_submit)
-        # Sign-in ONLY: accounts are made on the website, the game just logs
-        # you in (no in-game sign up) — exactly like the classic client.
-        _signup_tab_btn.visible = false
-        # accounts-only RetroBlox: no guest play — every player signs in so
-        # they always wear their account avatar
-        if has_node("%GuestBtn"):
-                %GuestBtn.visible = false
-        # the website is locked: the login card shows it, nobody edits it
-        _server_edit.editable = false
-        _server_edit.tooltip_text = "The official RetroBlox server — this cannot be changed."
+        %GuestBtn.pressed.connect(_guest_pressed)
         for edit: LineEdit in [_user_edit, _pass_edit, _confirm_edit]:
                 edit.text_submitted.connect(_on_field_submitted)
         _set_mode(false)
@@ -91,27 +85,14 @@ func _style_tab(button: Button, active: bool) -> void:
         button.add_theme_color_override("font_color", Color.WHITE if active else INK)
 
 
-## Pre-fill from config / a previous session. The field is READ-ONLY:
-## the game always talks to the official RetroBlox website.
+## The fixed server this card signs in to (set by main.gd from network.cfg).
 func set_api_url(url: String) -> void:
-        if _server_edit != null:
-                _server_edit.text = url
+        if not url.is_empty():
+                _api_url = url
 
 func set_saved_username(username: String) -> void:
         if _user_edit != null:
                 _user_edit.text = username
-
-## Pre-fill BOTH fields from the last session so returning players just
-## press "Log In". (The silent token auto-sign-in was removed on purpose:
-## the login card always shows, filled in and one click away.)
-func set_saved_credentials(username: String, password: String) -> void:
-        if _user_edit != null:
-                _user_edit.text = username
-        if _pass_edit != null:
-                _pass_edit.text = password
-        if not username.is_empty() and not password.is_empty():
-                _status.add_theme_color_override("font_color", Color(0.35, 0.45, 0.55))
-                _status.text = "Welcome back, %s — press Log In." % username
 
 ## Neutral status line (used by the silent saved-token sign-in).
 func set_status_text(text: String) -> void:
@@ -128,13 +109,9 @@ func _error(text: String) -> void:
 func _submit() -> void:
         if _busy:
                 return
-        var server := _server_edit.text.strip_edges()
+        var server := _api_url
         var user := _user_edit.text.strip_edges()
         var passw := _pass_edit.text
-        if server == "":
-                server = "https://retro-blox.vercel.app"
-        if not server.begins_with("http"):
-                server = "http://" + server
         if user.is_empty() or passw.is_empty():
                 _error("Fill in your username and password.")
                 return
@@ -166,7 +143,7 @@ func _submit() -> void:
                 # help with the two most common stalls — a 401 usually means
                 # "no account yet" or "typo in the password"
                 if msg.contains("Incorrect username or password"):
-                        msg += "\nNo account yet? Create one free on the RetroBlox website, then sign in here."
+                        msg += "\nNo account yet? Use the Sign Up tab — accounts made on the website work here too."
                 _error(msg)
                 return
 
@@ -178,4 +155,4 @@ func _submit() -> void:
 
         _status.text = "Ready!"
         var av = me.get("avatar", {})
-        completed.emit(api, String(me.get("username", api.username)), String(me.get("userId", api.user_id)), av if av is Dictionary else {}, passw)
+        completed.emit(api, String(me.get("username", api.username)), String(me.get("userId", api.user_id)), av if av is Dictionary else {})
