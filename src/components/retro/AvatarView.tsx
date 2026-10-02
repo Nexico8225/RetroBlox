@@ -46,6 +46,8 @@ interface InvEntry {
   modelFileId: string | null
   textureFileId?: string | null
   baseColor?: string | null
+  metallic?: number | null
+  roughness?: number | null
   placement: Placement | null
   animClips?: AnimClipsT | null
   bundleParts?: string[] | null
@@ -106,6 +108,8 @@ export function AvatarView() {
         modelUrl: e.modelFileId ? `/api/files/${e.modelFileId}` : undefined,
         textureUrl: e.textureFileId ? `/api/files/${e.textureFileId}` : undefined,
         color: e.baseColor || undefined,
+        metallic: e.metallic,
+        roughness: e.roughness,
         placement: e.placement,
         animClips: e.animClips || undefined,
         bundleParts: e.bundleParts || undefined,
@@ -312,6 +316,8 @@ export function AvatarView() {
             alt={e.name}
             textureUrl={e.textureFileId ? `/api/files/${e.textureFileId}` : undefined}
             color={e.baseColor || undefined}
+            metallic={e.metallic}
+            roughness={e.roughness}
             style={{ position: 'absolute', inset: 3, width: 'calc(100% - 6px)', height: 'calc(100% - 6px)', objectFit: 'contain', background: '#fff' }}
           />
         )}
@@ -360,7 +366,7 @@ export function AvatarView() {
         <div className="rb-panel-head"><span>Avatar Editor</span></div>
         <div style={{ padding: 12, fontSize: 11, color: '#41586c' }}>
           Your look belongs to your RetroBlox account, not to one game. Dress up here and every
-          RetroBlox game spawns you like this — the player fetches it from the platform the moment you press play.
+          RetroBlox game spawns you like this — the SDK fetches it from the platform the moment you press play.
         </div>
       </div>
 
@@ -525,7 +531,7 @@ export function AvatarView() {
               )}
             </div>
             <div style={{ fontSize: 9, color: '#8ba0b3', marginBottom: 14 }}>
-              Custom colors save with your avatar and show up in every game through the player system.
+              Custom colors save with your avatar and show up in every game through the SDK.
             </div>
 
             {/* the classic body presets live here too — they ARE body colors */}
