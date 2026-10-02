@@ -81,6 +81,8 @@ export interface EnrichedAvatar {
     imageUrl: string
     textureUrl: string | null
     color: string | null
+    metallic: number | null
+    roughness: number | null
     parts: string[] | null
   } | null
   animPack: {
@@ -124,6 +126,8 @@ export async function enrichAvatarPayload(userId: string, cfg: AvatarConfigT): P
             imageUrl: `/api/files/${item.imageFileId}`,
             textureUrl: item.textureFileId ? `/api/files/${item.textureFileId}` : null,
             color: item.baseColor || null,
+            metallic: item.metallic,
+            roughness: item.roughness,
             parts: parseBundlePartsJson(item.bundlePartsJson),
           }
         }
@@ -192,6 +196,8 @@ export async function resolveAsset(assetId: string): Promise<AssetInfo | null> {
     modelUrl: item.modelFileId ? `/api/files/${item.modelFileId}` : undefined,
     textureUrl: item.textureFileId ? `/api/files/${item.textureFileId}` : undefined,
     color: item.baseColor || undefined,
+    metallic: item.metallic,
+    roughness: item.roughness,
     placement: parsePlacement(item.placementJson),
     animClips: parseAnimClipsJson(item.animClipsJson),
     animTarget: parseAnimTargetJson(item.animTargetJson),
