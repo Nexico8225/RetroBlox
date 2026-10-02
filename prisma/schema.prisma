@@ -9,7 +9,6 @@ datasource db {
 
 model User {
   id            String       @id @default(cuid())
-  playerNo      Int          @default(0) @unique // short PUBLIC id: Nexico8225 is #1, the next signup is #2 — display-only, cuid stays internal
   username      String       @unique
   usernameLower String?      @unique // case-insensitive uniqueness ("people can't have the same username")
   passwordHash  String
@@ -50,18 +49,7 @@ model User {
   avatarConfig  AvatarConfig?
   inventory     InventoryEntry[]
   ugcItems      AvatarItem[]
-  // ---- UGC market & trades ----
-  ugcListings    UgcListing[]        @relation("ugcListings") // copies this user put up for sale
-  ugcListingsBought UgcListing[]     @relation("ugcListingsBought") // listings this user bought
-  ugcOffers      UgcOffer[]          @relation("ugcOffers") // offers this user sent on listings
-  ugcListingMsgs UgcListingMessage[] @relation("ugcListingMessages") // haggle chat on listings
-  tradesSent     UgcTrade[]          @relation("tradesSent")
-  tradesRecv     UgcTrade[]          @relation("tradesRecv")
-  ugcTradeMsgs   UgcTradeMessage[]   @relation("ugcTradeMessages")
-  ugcComments    UgcComment[]        @relation("ugcComments") // comments this player left on UGC
-  notifications  Notification[]
-  rbxBalance    Int           @default(0) // server-side Tix wallet — only the ledger moves it
-  robuxBalance  Int           @default(0) // server-side Robux wallet — the premium money (10 Tix traded for 1 Robux at the exchange)
+  rbxBalance    Int           @default(0) // server-side RBX wallet — only the ledger moves it
   rbxTransactions RbxTransaction[]
   payments      Payment[]
 }
@@ -485,6 +473,12 @@ model AvatarItem {
   placementJson String? // 3D UGC only: creator-placed transform {p:[x,y,z], r:[x,y,z] deg, s:[x,y,z]} — rendered EXACTLY as placed, never auto-corrected
   textureFileId String? // 3D UGC only: optional texture image wrapped around the model (creator uploads it at publish)
   baseColor String? // 3D UGC only: optional tint painted on the model when it has no texture (#RRGGBB)
+  // ---- PBR material overrides (the Blender metallic/roughness sliders) ----
+  // null = "from file": render exactly what the GLB carries. A number (0-1)
+  // = the creator's slider value, applied to EVERY surface by the site
+  // renderer AND the Godot player, so the item looks the same everywhere.
+  metallic  Float? // 0 = matte plastic, 1 = full mirror metal
+  roughness Float? // 0 = polished gloss, 1 = fully rough/matte
   // ---- rigged UGC (emotes / bundles / animation packs) ----
   animClipsJson   String? // emote/anim: {"clips":["Wave"],"map":{"idle":"Idle","walk":"Walk"}} — clip names inside the GLB
   animTargetJson  String? // emote/anim: {"kind":"avatar"|"bundle"|"ugc","assetId":"..."} — the creator's suggested preview context
@@ -500,9 +494,6 @@ model AvatarItem {
   createdAt   DateTime @default(now())
   deletedAt   DateTime? // soft delete — UGC is NEVER hard-deleted, an admin can always restore it
   ownedBy     InventoryEntry[]
-  listings    UgcListing[] // active resale listings for this item
-  pricePoints UgcPricePoint[] // every real sale — powers the market history graph
-  ugcComments UgcComment[] @relation("ugcComments") // the item page comment section
 }
 
 // Who owns which UGC item (publishers get their item automatically; "Get" grants it too)
@@ -512,10 +503,6 @@ model InventoryEntry {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   itemId     String
   item       AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  // LIMITED copies only: the copy's serial number (copy #3 of a 25-print run
-  // carries serial 3 forever — trading or reselling moves the SAME serial).
-  // null = the creator's own master copy or a non-limited item.
-  serial     Int?
   acquiredAt DateTime   @default(now())
 
   @@unique([userId, itemId])
@@ -546,8 +533,7 @@ model RbxTransaction {
   userId                String
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount                Int // signed: positive = credit, negative = debit/reversal
-  currency              String @default("tix") // tix | robux — which wallet this ledger row moved
-  type                  String // purchase | admin_grant | spend | refund | reversal | transfer_sent | transfer_received | exchange
+  type                  String // purchase | admin_grant | spend | refund | reversal
   balanceBefore         Int
   balanceAfter          Int
   note                  String   @default("")
@@ -604,138 +590,4 @@ model GameData {
   updatedAt DateTime @updatedAt
 
   @@unique([gameId, userId, key])
-}
-
-// ================= UGC MARKET & TRADES (player-to-player economy) =================
-// The classic limited resale loop: buy a limited from its creator, then resell
-// it (or trade it) to other players. The suggested resale value is 1.5x what
-// you paid — buyers haggle in the listing chat, send offers, or trade.
-
-// A player puts one of their UGC copies up for Tix. One ACTIVE listing per
-// (seller, item) — the copy is spoken for until it sells or is cancelled.
-model UgcListing {
-  id        String     @id @default(cuid())
-  itemId    String
-  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  sellerId  String
-  seller    User       @relation("ugcListings", fields: [sellerId], references: [id], onDelete: Cascade)
-  price     Int // asking price in Tix — the seller can lower it while haggling
-  title       String   @default("") // the seller's sales pitch on the market ("CHEAP Dominus, taking offers!")
-  description String   @default("") // longer pitch — what they accept, why they're selling
-  status    String     @default("active") // active | sold | cancelled
-  buyerId   String?
-  buyer     User?      @relation("ugcListingsBought", fields: [buyerId], references: [id], onDelete: SetNull)
-  soldPrice Int? // final amount paid (the asking price, or an accepted offer)
-  soldAt    DateTime?
-  createdAt DateTime   @default(now())
-  offers    UgcOffer[]
-  messages  UgcListingMessage[]
-
-  @@index([itemId, status])
-  @@index([sellerId, status])
-}
-
-// A buyer sends some Tix on a listing — the seller then takes a guess to keep
-// the item or hand it over: accept (they get the Tix, the buyer gets the UGC)
-// or decline. Exactly the "it depends if they want" step.
-model UgcOffer {
-  id          String     @id @default(cuid())
-  listingId   String
-  listing     UgcListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  buyerId     String
-  buyer       User       @relation("ugcOffers", fields: [buyerId], references: [id], onDelete: Cascade)
-  amount      Int // offered Tix
-  robux       Int  @default(0) // offered Robux on top of (or instead of) the Tix
-  offerItemIdsJson String @default("[]") // JSON array — UGC the buyer puts on the table alongside (or instead of) the Tix
-  status      String     @default("pending") // pending | accepted | declined | cancelled
-  createdAt   DateTime   @default(now())
-  respondedAt DateTime?
-}
-
-// Haggle chat on a listing — this is where the price gets talked down.
-model UgcListingMessage {
-  id        String     @id @default(cuid())
-  listingId String
-  listing   UgcListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  senderId  String
-  sender    User       @relation("ugcListingMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  text      String
-  createdAt DateTime   @default(now())
-}
-
-// Direct player-to-player trade: items (+ optional Tix both ways) for items.
-// Both sides confirm by accepting; either side can counter before that.
-model UgcTrade {
-  id          String            @id @default(cuid())
-  fromUserId  String
-  fromUser    User              @relation("tradesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
-  toUserId    String
-  toUser      User              @relation("tradesRecv", fields: [toUserId], references: [id], onDelete: Cascade)
-  status      String            @default("pending") // pending | accepted | declined | cancelled
-  giveItemIds String            @default("[]") // JSON array — items the SENDER hands over
-  takeItemIds String            @default("[]") // JSON array — items the sender wants FROM the recipient
-  tixFrom     Int               @default(0) // Tix the sender adds on top
-  tixTo       Int               @default(0) // Tix the recipient adds (set by countering)
-  robuxFrom   Int               @default(0) // Robux the sender adds on top (the premium money)
-  robuxTo     Int               @default(0) // Robux the recipient adds (set by countering)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  messages    UgcTradeMessage[]
-}
-
-// Negotiation chat inside a trade ("throw in the Dominus and it's a deal").
-model UgcTradeMessage {
-  id        String   @id @default(cuid())
-  tradeId   String
-  trade     UgcTrade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
-  senderId  String
-  sender    User     @relation("ugcTradeMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  text      String
-  createdAt DateTime @default(now())
-}
-
-// Site-wide notifications: trade offers, listing offers, sales, friend
-// requests — the bell in the header. Everyone sees who wants to trade.
-model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String // trade_offer | trade_message | trade_accepted | trade_declined | trade_cancelled | friend_request | friend_accepted | listing_offer | listing_sold | offer_accepted | offer_declined
-  title     String
-  body      String    @default("")
-  link      String    @default("") // where the click sends the player (/trades, /catalog/x, ...)
-  dataJson  String    @default("{}")
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId, readAt])
-}
-
-// Every REAL sale of a UGC item — creator sale (mint), player resale, or an
-// accepted listing offer. This is the market history the item page graphs.
-model UgcPricePoint {
-  id        String     @id @default(cuid())
-  itemId    String
-  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  price     Int
-  kind      String // mint | resale | trade
-  buyerId   String
-  sellerId  String?
-  createdAt DateTime   @default(now())
-
-  @@index([itemId, createdAt])
-}
-
-// Player comments on a UGC item's page ("this hat is fire [fire]") —
-// a flat list like the classic catalog, newest first.
-model UgcComment {
-  id        String     @id @default(cuid())
-  itemId    String
-  item      AvatarItem @relation("ugcComments", fields: [itemId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User       @relation("ugcComments", fields: [userId], references: [id], onDelete: Cascade)
-  text      String
-  createdAt DateTime   @default(now())
-
-  @@index([itemId, createdAt])
 }
