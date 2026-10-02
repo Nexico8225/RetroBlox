@@ -27,6 +27,10 @@ interface PlacementEditorProps {
   textureUrl?: string
   /** optional tint the creator picked — shown live while placing */
   color?: string
+  /** PBR material feel (metallic / roughness, 0..1) — shown live while placing
+   *  so the creator previews exactly what players will see */
+  metallic?: number | null
+  roughness?: number | null
   onSave: (result: { placement: Placement; thumb: Blob }) => void
   onCancel: () => void
 }
@@ -78,7 +82,7 @@ function round(n: number): number {
   return Math.round(n * 1000) / 1000
 }
 
-export default function PlacementEditor({ glb, textureUrl, color, onSave, onCancel }: PlacementEditorProps) {
+export default function PlacementEditor({ glb, textureUrl, color, metallic, roughness, onSave, onCancel }: PlacementEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const holderRef = useRef<THREE.Group | null>(null)
   const wrapRef = useRef<THREE.Group | null>(null)
@@ -338,9 +342,10 @@ export default function PlacementEditor({ glb, textureUrl, color, onSave, onCanc
         const importSize = UGC_IMPORT_SIZE
         model.scale.setScalar(importSize / maxDim)
 
-        // the creator's texture / color — visible WHILE placing, so what
-        // they save is exactly what the catalog and every player will see
-        applyModelSurface(model, { textureUrl, color })
+        // the creator's texture / color / material feel — visible WHILE
+        // placing, so what they save is exactly what the catalog and every
+        // player will see
+        applyModelSurface(model, { textureUrl, color, metallic, roughness })
 
         const wrap = new THREE.Group()
         wrap.name = 'ugc-model'
