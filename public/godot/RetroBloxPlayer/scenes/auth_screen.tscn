@@ -77,7 +77,7 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
 theme_override_font_sizes/font_size = 12
-text = "Sign in with your RetroBlox account"
+text = "Sign in to wear your account avatar"
 horizontal_alignment = 1
 
 [node name="SpacerTop" type="Control" parent="Root/Center/Card/Box"]
@@ -109,12 +109,8 @@ layout_mode = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
 theme_override_font_sizes/font_size = 11
-text = "RetroBlox website"
-
-[node name="ServerEdit" type="LineEdit" parent="Root/Center/Card/Box"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 30)
-layout_mode = 2
+text = "Official server  ·  retro-blox.vercel.app"
+horizontal_alignment = 1
 
 [node name="UserLabel" type="Label" parent="Root/Center/Card/Box"]
 layout_mode = 2
@@ -178,7 +174,6 @@ text = "Play as Guest instead"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
 theme_override_font_sizes/font_size = 10
-text = "No account yet? Create one free on the website —
-retro-blox.vercel.app — then sign in here. Your avatar follows
-you into every game."
+text = "Your avatar is saved to your RetroBlox account —
+it follows you into every game."
 horizontal_alignment = 1
