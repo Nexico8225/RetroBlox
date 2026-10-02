@@ -80,6 +80,11 @@ export interface AssetInfo {
   modelUrl?: string
   /** 3D UGC only: optional texture image wrapped around the model */
   textureUrl?: string
+  /** 3D UGC only: PBR material overrides from the creator's sliders.
+   *  null/absent = render exactly what the GLB carries; a number 0..1 =
+   *  apply to every surface (the site renderer AND the Godot player). */
+  metallic?: number | null
+  roughness?: number | null
   /** 3D UGC only: where the creator left it in the placement editor */
   placement?: Placement | null
   /** emote / anim only: the GLB's clips (+ the idle/walk/jump/climb/fall map for anim packs) */
