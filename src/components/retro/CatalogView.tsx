@@ -13,8 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRetro, api, flash, refreshBalance, attachUpload } from '@/lib/store'
-import { tixFull } from '@/lib/tix'
-import { FxText } from '@/lib/textfx'
 import { Avatar } from './Shell'
 import {
   UGC_TYPES,
@@ -168,6 +166,9 @@ interface CatalogItem {
   modelFileId: string | null
   textureFileId: string | null
   baseColor: string | null
+  // PBR material sliders (null = render exactly what the GLB carries)
+  metallic: number | null
+  roughness: number | null
   placement: Placement | null
   animClips?: AnimClipsT | null
   animTarget?: AnimTargetT | null
@@ -185,16 +186,9 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   const { user, setToast } = useRetro()
   const [items, setItems] = useState<CatalogItem[]>([])
   const [ownedIds, setOwnedIds] = useState<string[]>([])
-  const [forSale, setForSale] = useState<Record<string, number>>({})
   const [type, setType] = useState(initialType)
   const [q, setQ] = useState(initialQ)
   const [onlyLimited, setOnlyLimited] = useState(false)
-  // the finder: sort, price range, ownership and "popular in <year>"
-  const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'price_desc' | 'price_asc'>('newest')
-  const [priceMin, setPriceMin] = useState('')
-  const [priceMax, setPriceMax] = useState('')
-  const [onlyMine, setOnlyMine] = useState(false)
-  const [year, setYear] = useState('')
   const [loading, setLoading] = useState(true)
   const [showPublish, setShowPublish] = useState(false)
   const [myGroups, setMyGroups] = useState<GroupOpt[]>([])
@@ -231,43 +225,15 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
       if (type) params.set('type', type)
       if (q.trim()) params.set('q', q.trim())
       if (onlyLimited) params.set('limited', '1')
-      const res = await api<{ items: CatalogItem[]; ownedItemIds: string[]; forSale?: Record<string, number> }>(`/api/catalog?${params}`)
+      const res = await api<{ items: CatalogItem[]; ownedItemIds: string[] }>(`/api/catalog?${params}`)
       setItems(res.items)
       setOwnedIds(res.ownedItemIds)
-      setForSale(res.forSale || {})
     } catch { /* ignore */ } finally {
       setLoading(false)
     }
   }, [type, q, onlyLimited])
 
   useEffect(() => { load() }, [load])
-
-  // the finder runs client-side — everything the API returned (200 newest)
-  // is already in memory, so sorting/ranging is instant and the API stays stable
-  const years = useMemo(() => {
-    const set = new Set(items.map((i) => new Date(i.createdAt).getFullYear()))
-    return [...set].sort((a, b) => b - a)
-  }, [items])
-
-  const effPrice = (i: CatalogItem) => (i.buyPrice > 0 ? i.buyPrice : i.price)
-
-  const filtered = useMemo(() => {
-    let list = [...items]
-    if (onlyMine) list = list.filter((i) => ownedIds.includes(i.id))
-    if (year) list = list.filter((i) => String(new Date(i.createdAt).getFullYear()) === year)
-    const min = Number(priceMin)
-    const max = Number(priceMax)
-    if (Number.isFinite(min) && priceMin !== '') list = list.filter((i) => effPrice(i) >= min)
-    if (Number.isFinite(max) && priceMax !== '') list = list.filter((i) => effPrice(i) <= max)
-    switch (sortBy) {
-      case 'popular': list.sort((a, b) => b.owners - a.owners || b.sold - a.sold); break
-      case 'price_desc': list.sort((a, b) => effPrice(b) - effPrice(a)); break
-      case 'price_asc': list.sort((a, b) => effPrice(a) - effPrice(b)); break
-      default: list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    }
-    return list
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, ownedIds, onlyMine, year, priceMin, priceMax, sortBy])
 
   // group memberships drive both the publish-as-group dropdown and group-owner delete rights
   useEffect(() => {
@@ -344,94 +310,6 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
             aria-label="Search catalog"
           />
         </div>
-        {/* the finder row — sort, price range, year, your shelf */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: '#5a6b7b' }}>
-            Sort
-            <select
-              className="rb-input"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              style={{ fontSize: 11, height: 28, width: 150 }}
-              aria-label="Sort the catalog"
-            >
-              <option value="newest">Newest</option>
-              <option value="popular">Most popular</option>
-              <option value="price_desc">Price: high to low</option>
-              <option value="price_asc">Price: low to high</option>
-            </select>
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: '#5a6b7b' }}>
-            Price
-            <input
-              className="rb-input"
-              type="number"
-              min={0}
-              placeholder="from"
-              value={priceMin}
-              onChange={(e) => setPriceMin(e.target.value)}
-              style={{ fontSize: 11, height: 28, width: 72 }}
-              aria-label="Minimum price"
-            />
-            <span style={{ color: '#8ba0b3' }}>–</span>
-            <input
-              className="rb-input"
-              type="number"
-              min={0}
-              placeholder="to"
-              value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value)}
-              style={{ fontSize: 11, height: 28, width: 72 }}
-              aria-label="Maximum price"
-            />
-          </label>
-          {years.length > 0 && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: '#5a6b7b' }}>
-              From
-              <select
-                className="rb-input"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                style={{ fontSize: 11, height: 28, width: 140 }}
-                aria-label="Filter by year"
-              >
-                <option value="">All years</option>
-                {years.map((y) => (
-                  <option key={y} value={String(y)}>Popular in {y}</option>
-                ))}
-              </select>
-            </label>
-          )}
-          {user && (
-            <button
-              type="button"
-              onClick={() => setOnlyMine(!onlyMine)}
-              aria-pressed={onlyMine}
-              style={{
-                fontSize: 11,
-                padding: '4px 12px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                border: onlyMine ? '1px solid #1c4e7c' : '1px solid #b7c6d4',
-                background: onlyMine ? 'linear-gradient(180deg,#3d7dbd,#2a5f96)' : '#fff',
-                color: onlyMine ? '#fff' : '#1c4e7c',
-              }}
-              title="Show only the UGC sitting in your inventory"
-            >
-              My UGC
-            </button>
-          )}
-          {(onlyMine || year || priceMin || priceMax || sortBy !== 'newest') && (
-            <button
-              type="button"
-              className="rb-link"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10.5 }}
-              onClick={() => { setOnlyMine(false); setYear(''); setPriceMin(''); setPriceMax(''); setSortBy('newest') }}
-            >
-              Reset
-            </button>
-          )}
-        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
           <button
             key="limiteds"
@@ -500,17 +378,14 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
       {/* item grid */}
       {loading ? (
         <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Loading the catalog...</div>
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b', fontSize: 12 }}>
-          {items.length === 0 ? (
-            <>Nothing here yet — the catalog is a blank canvas.{user && <> Be the first: hit + Publish UGC and give RetroBlox its first hat.</>}</>
-          ) : (
-            <>No matches for those filters — widen the price range or clear a filter or two.</>
-          )}
+          Nothing here yet — the catalog is a blank canvas.
+          {user && <> Be the first: hit + Publish UGC and give RetroBlox its first hat.</>}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(205px, 1fr))', gap: 10 }}>
-          {filtered.map((item) => {
+          {items.map((item) => {
             const owned = ownedIds.includes(item.id)
             return (
               <div key={item.id} className="rb-box rb-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -537,6 +412,8 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       fallbackSrc={`/api/files/${item.imageFileId}`}
                       textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
                       color={item.baseColor || undefined}
+                      metallic={item.metallic}
+                      roughness={item.roughness}
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#fff' }}
                     />
                   )}
@@ -559,18 +436,6 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       }}
                     >
                       ★ Limited
-                    </span>
-                  )}
-                  {(forSale[item.id] ?? null) !== null && (
-                    <span
-                      title={`A player is reselling a copy from ${tixFull(forSale[item.id])} on the resale market`}
-                      style={{
-                        position: 'absolute', top: 30, right: 6, fontSize: 9, fontWeight: 'bold', padding: '2px 7px',
-                        background: '#fffdf4', color: '#8a6d1a', border: '1px solid #e0c98a', borderRadius: 3,
-                        boxShadow: '1px 1px 3px rgba(0,0,0,.25)',
-                      }}
-                    >
-                      FOR SALE {tixFull(forSale[item.id])}
                     </span>
                   )}
                   {item.isLimited && item.remaining != null && (
@@ -608,7 +473,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                 </div>
                 <div style={{ padding: 8 }}>
                   <Link href={`/catalog/${item.id}`} className="rb-link" style={{ display: 'block', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <FxText text={item.name} />
+                    {item.name}
                   </Link>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '3px 0 6px', fontSize: 10, color: '#5a6b7b' }}>
                     <Avatar user={item.creator} size={14} rounded={3} />
@@ -683,18 +548,6 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                             ? `Buy T$ ${item.buyPrice.toLocaleString('en-US')}`
                             : 'Get'}
                       </button>
-                    )}
-                    {/* TRADE — beside every UGC, free items too: buyers open the
-                        trade window, the owner gets the give-away window */}
-                    {user && (
-                      <Link
-                        href={owned ? `/trades/new?give=${item.id}` : `/trades/new?item=${item.id}`}
-                        className="rb-btn"
-                        style={{ fontSize: 10, textDecoration: 'none', padding: '3px 8px' }}
-                        title={owned ? 'Give this away / trade it to another player — even if it is free' : 'Offer your own UGC / Tix for this item — even if it is free'}
-                      >
-                        🔁 Trade
-                      </Link>
                     )}
                     {canManage(item) && (
                       <button className="rb-btn" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setEditing(item)}>
@@ -791,7 +644,7 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
     >
       <div className="rb-box" style={{ width: 'min(640px, 100%)', background: '#fff' }}>
         <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Trying on: <FxText text={item.name} /></span>
+          <span>Trying on: {item.name}</span>
           <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
         </div>
         <div style={{ padding: 12 }}>
@@ -811,7 +664,7 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginTop: 10 }}>
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 12, color: '#1c2733' }}>{item.description ? <FxText text={item.description} /> : 'No description.'}</div>
+              <div style={{ fontSize: 12, color: '#1c2733' }}>{item.description || 'No description.'}</div>
               <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#7b8896', marginTop: 2 }}>
                 {item.assetId} · drag to spin the camera
               </div>
@@ -862,6 +715,16 @@ function EditItemModal({
   const [clearTexture, setClearTexture] = useState(false)
   const [tintOn, setTintOn] = useState(!!item.baseColor)
   const [tint, setTint] = useState(item.baseColor || '#b8663a')
+  // PBR material sliders — 'file' = use whatever the GLB carries, 'custom' =
+  // the creator's values (applied by the site renderer AND the Godot player)
+  const hasPbr = item.metallic != null || item.roughness != null
+  const [metMode, setMetMode] = useState<'file' | 'custom'>(hasPbr ? 'custom' : 'file')
+  const [rghMode, setRghMode] = useState<'file' | 'custom'>(hasPbr ? 'custom' : 'file')
+  const [metVal, setMetVal] = useState(item.metallic ?? 0)
+  const [rghVal, setRghVal] = useState(item.roughness ?? 0.85)
+  // what the live 3D thumbnail in THIS modal should show right now
+  const metPreview = metMode === 'custom' ? metVal : null
+  const rghPreview = rghMode === 'custom' ? rghVal : null
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const imageRef = useRef<HTMLInputElement>(null)
@@ -922,6 +785,9 @@ function EditItemModal({
         if (clearTexture) fd.append('clearTexture', '1')
         if (tintOn) fd.append('color', tint)
         else if (item.baseColor) fd.append('clearColor', '1')
+        // PBR material sliders — 'file' resets to whatever the GLB carries
+        fd.append('metallic', metMode === 'custom' ? String(metVal) : 'file')
+        fd.append('roughness', rghMode === 'custom' ? String(rghVal) : 'file')
       }
       await api(`/api/catalog/${item.id}`, {
         method: 'PATCH',
@@ -970,6 +836,8 @@ function EditItemModal({
                   placement={item.placement}
                   alt={item.name}
                   fallbackSrc={`/api/files/${item.imageFileId}`}
+                  metallic={metPreview}
+                  roughness={rghPreview}
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
                 />
               ) : (
@@ -1072,6 +940,59 @@ function EditItemModal({
               <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
                 A texture wraps every surface that has no texture of its own. The tint only paints the parts that arrived plain white —
                 the model&rsquo;s own Blender colors always show.
+              </div>
+              {/* PBR material — the Blender metallic / roughness sliders */}
+              <div style={{ borderTop: '1px dashed #c9d6e2', marginTop: 10, paddingTop: 8 }}>
+                <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 2 }}>Material — metallic &amp; roughness</div>
+                <div style={{ fontSize: 10, color: '#8ba0b3', marginBottom: 6 }}>
+                  Set the metal feel of your model — what you see here is what every player gets, on the site and in game.
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#1c2733' }}>
+                    <input
+                      type="checkbox"
+                      checked={metMode === 'custom'}
+                      onChange={(e) => {
+                        setMetMode(e.target.checked ? 'custom' : 'file')
+                        if (e.target.checked && item.metallic != null) setMetVal(item.metallic)
+                      }}
+                    />
+                    <span style={{ color: '#5a6b7b', width: 56 }}>Metallic</span>
+                    <input
+                      type="range" min={0} max={100} step={1} value={Math.round((metMode === 'custom' ? metVal : (item.metallic ?? 0)) * 100)}
+                      onChange={(e) => { setMetMode('custom'); setMetVal(Number(e.target.value) / 100) }}
+                      style={{ width: 120 }}
+                      aria-label="Metallic"
+                    />
+                    <span style={{ fontFamily: 'monospace', width: 34, textAlign: 'right' }}>
+                      {Math.round((metMode === 'custom' ? metVal : (item.metallic ?? 0)) * 100)}%
+                    </span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#1c2733' }}>
+                    <input
+                      type="checkbox"
+                      checked={rghMode === 'custom'}
+                      onChange={(e) => {
+                        setRghMode(e.target.checked ? 'custom' : 'file')
+                        if (e.target.checked && item.roughness != null) setRghVal(item.roughness)
+                      }}
+                    />
+                    <span style={{ color: '#5a6b7b', width: 56 }}>Roughness</span>
+                    <input
+                      type="range" min={0} max={100} step={1} value={Math.round((rghMode === 'custom' ? rghVal : (item.roughness ?? 0.85)) * 100)}
+                      onChange={(e) => { setRghMode('custom'); setRghVal(Number(e.target.value) / 100) }}
+                      style={{ width: 120 }}
+                      aria-label="Roughness"
+                    />
+                    <span style={{ fontFamily: 'monospace', width: 34, textAlign: 'right' }}>
+                      {Math.round((rghMode === 'custom' ? rghVal : (item.roughness ?? 0.85)) * 100)}%
+                    </span>
+                  </label>
+                </div>
+                <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
+                  Unticked = use whatever the model file carries. Ticked = this value is applied everywhere.
+                  {' '}{metMode === 'custom' && metVal >= 0.7 ? 'Shiny metal! 0% roughness is a mirror, 30-50% is brushed steel.' : rghMode === 'custom' && rghVal <= 0.25 ? 'Glossy — strong highlights.' : 'Classic matte plastic is 0% metallic / 85% roughness.'}
+                </div>
               </div>
               <input
                 ref={textureRef}
@@ -1223,6 +1144,12 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [textureUrl, setTextureUrl] = useState<string | null>(null)
   const [colorOn, setColorOn] = useState(false)
   const [itemColor, setItemColor] = useState('#4da6ff')
+  // PBR material sliders (metallic / roughness) — 3D UGC only. They START
+  // from what the converter detected in the model (a Blender .glb keeps the
+  // creator's real metallic; FBX/OBJ lands on the matte plastic defaults)
+  // and can be tuned before publishing.
+  const [pbrMetallic, setPbrMetallic] = useState(0)
+  const [pbrRoughness, setPbrRoughness] = useState(0.85)
   const textureRef = useRef<HTMLInputElement>(null)
   const textureUrlRef = useRef<string | null>(null)
   const is3D = is3DType(type)
@@ -1511,9 +1438,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       if (tooBig) { setError(tooBig); return }
       setConverting(true)
       fileToGlbWithCheck(f)
-        .then(({ glb, colorWarning }) => {
+        .then(({ glb, colorWarning, metallic, roughness }) => {
           setModelBlob(glb)
           setModelNotice(colorWarning || '')
+          setPbrMetallic(metallic)
+          setPbrRoughness(roughness)
           setEditorOpen(true)
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Could not read that model.'))
@@ -1631,6 +1560,10 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         // the creator's surface: texture first, flat color when there is none
         if (texture) await attachUpload(fd, 'texture', texture, texture.name || 'texture.png', texture.type || 'image/png', setUploadNote)
         else if (colorOn) fd.append('color', itemColor)
+        // PBR material feel (metallic / roughness), saved on the item so the
+        // site AND the Godot player render it identically
+        fd.append('metallic', String(pbrMetallic))
+        fd.append('roughness', String(pbrRoughness))
       } else if (image) {
         await attachUpload(fd, 'image', image, image.name || 'image.png', image.type || 'image/png', setUploadNote)
       }
@@ -1704,6 +1637,8 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   fallbackSrc={thumbUrl || undefined}
                   textureUrl={textureUrl || undefined}
                   color={textureUrl ? undefined : colorOn ? itemColor : undefined}
+                  metallic={pbrMetallic}
+                  roughness={pbrRoughness}
                   style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#fff' }}
                 />
               ) : thumbUrl ? (
@@ -2040,6 +1975,43 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   ? 'A texture wraps every surface that has no texture of its own — your model\'s own colors and textures always show.'
                   : 'No texture? A flat color only paints the parts that arrived plain white — your model\'s own Blender colors always show. You can also just drop an image anywhere on this form.'}
               </div>
+              {/* PBR material — the Blender metallic / roughness sliders */}
+              <div style={{ borderTop: '1px dashed #c9d6e2', marginTop: 10, paddingTop: 8 }}>
+                <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 2 }}>Material — metallic &amp; roughness</div>
+                <div style={{ fontSize: 10, color: '#8ba0b3', marginBottom: 6 }}>
+                  Detected in your model. A Principled BSDF .glb from Blender keeps its real metal feel; FBX starts matte. Tune it here —
+                  what you see is what every player gets, on the site and in game.
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#1c2733' }}>
+                    <span style={{ color: '#5a6b7b', width: 64 }}>Metallic</span>
+                    <input
+                      type="range" min={0} max={100} step={1} value={Math.round(pbrMetallic * 100)}
+                      onChange={(e) => setPbrMetallic(Number(e.target.value) / 100)}
+                      style={{ width: 130 }}
+                      aria-label="Metallic"
+                    />
+                    <span style={{ fontFamily: 'monospace', width: 34, textAlign: 'right' }}>{Math.round(pbrMetallic * 100)}%</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#1c2733' }}>
+                    <span style={{ color: '#5a6b7b', width: 64 }}>Roughness</span>
+                    <input
+                      type="range" min={0} max={100} step={1} value={Math.round(pbrRoughness * 100)}
+                      onChange={(e) => setPbrRoughness(Number(e.target.value) / 100)}
+                      style={{ width: 130 }}
+                      aria-label="Roughness"
+                    />
+                    <span style={{ fontFamily: 'monospace', width: 34, textAlign: 'right' }}>{Math.round(pbrRoughness * 100)}%</span>
+                  </label>
+                </div>
+                <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
+                  {pbrMetallic >= 0.7
+                    ? 'Shiny metal — 0% roughness is a mirror, 30-50% is brushed steel.'
+                    : pbrRoughness <= 0.25
+                      ? 'Glossy plastic — low roughness gives strong highlights.'
+                      : 'Classic matte plastic sits around 0% metallic / 85% roughness.'}
+                </div>
+              </div>
               <input
                 ref={textureRef}
                 type="file"
@@ -2140,6 +2112,8 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           glb={modelBlob}
           textureUrl={textureUrl || undefined}
           color={textureUrl ? undefined : colorOn ? itemColor : undefined}
+          metallic={pbrMetallic}
+          roughness={pbrRoughness}
           onCancel={() => setEditorOpen(false)}
           onSave={onPlaced}
         />
