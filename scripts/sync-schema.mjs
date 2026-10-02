@@ -1,25 +1,28 @@
 /**
- * BUILD-TIME SCHEMA SYNC — creates all database tables automatically.
+ * BUILD-TIME SCHEMA SYNC — creates all database tables automatically AND
+ * adds any MISSING COLUMNS to an already-populated database.
  *
  * WHY THIS EXISTS:
  * Vercel/Netlify servers cannot write to their own disk, so RetroBlox
  * uses a free Turso (libSQL) cloud database when DATABASE_URL starts
  * with "libsql://". But the Prisma 6 CLI only accepts "file:" URLs for
- * `prisma db push`, so it cannot create tables in Turso by itself.
- * This script bridges that gap with @libsql/client (already installed):
+ * `prisma db push`, so it cannot create tables or columns in Turso by
+ * itself. This script bridges that gap with @libsql/client (already
+ * installed):
  *
  *   1. Ask `prisma migrate diff` to turn prisma/schema.prisma into a
  *      plain CREATE TABLE script (purely offline, no DB connection).
- *   2. Connect to the cloud database and apply what is MISSING:
- *      - fresh/empty database  -> every table + index is created
- *      - existing database     -> only NEW tables and NEW indexes are
- *        added (CREATE ... IF NOT EXISTS), plus the hand-listed new
- *        columns below (COLUMN_PATCHES) are ALTERed in. Existing data
- *        is NEVER touched, so redeploying is always safe.
+ *   2. Connect to the cloud database.
+ *   3. Fresh database -> run the whole script (all tables appear).
+ *      Populated database -> NEVER touch data. Instead, compare every
+ *      expected column with the live `PRAGMA table_info` and run a
+ *      safe `ALTER TABLE ... ADD COLUMN` for each missing one, so new
+ *      schema fields (metallic, roughness, ...) ship with the deploy.
  *
- * The existing-DB path is what ships new features: any table added to
- * schema.prisma appears on the live Turso automatically on the next
- * deploy — no terminal, no manual import, no data loss.
+ * - Fresh Turso database  -> all tables get created during the build.
+ * - Already-populated DB  -> only additive column patches, data is safe.
+ * - Local "file:" dev DB  -> no-op, nothing happens (prisma db push
+ *   handles files natively).
  *
  * Token sources: ?authToken= inside DATABASE_URL, or LIBSQL_AUTH_TOKEN /
  * TURSO_AUTH_TOKEN env vars. Set for testing: SYNC_SCHEMA_URL overrides
@@ -27,88 +30,6 @@
  */
 import { createClient } from '@libsql/client'
 import { execSync } from 'node:child_process'
-
-// ---------------------------------------------------------------------------
-// COLUMN PATCHES — hand-written escape hatch for anything the auto-healer
-// can't express (renames, backfills). The AUTO-HEALER below now covers the
-// common case by itself: every column that exists in schema.prisma but is
-// missing from the live table is ALTERed in automatically — no manual list
-// to forget, which is exactly how a "missing column" 500 slips into prod.
-// ---------------------------------------------------------------------------
-const COLUMN_PATCHES = [
-  { table: 'InventoryEntry', column: 'serial', ddl: 'ALTER TABLE InventoryEntry ADD COLUMN serial INTEGER' },
-  // market pitches + UGC-on-offers (web-market-2)
-  { table: 'UgcListing', column: 'title', ddl: "ALTER TABLE UgcListing ADD COLUMN title TEXT NOT NULL DEFAULT ''" },
-  { table: 'UgcListing', column: 'description', ddl: "ALTER TABLE UgcListing ADD COLUMN description TEXT NOT NULL DEFAULT ''" },
-  { table: 'UgcOffer', column: 'offerItemIdsJson', ddl: "ALTER TABLE UgcOffer ADD COLUMN offerItemIdsJson TEXT NOT NULL DEFAULT '[]'" },
-]
-
-// ---------------------------------------------------------------------------
-// DATA PATCHES — one-off data migrations that must run BEFORE the unique
-// indexes build (a fresh unique column needs its rows numbered first).
-// Each patch is guarded and idempotent: it checks, fixes, and never touches
-// rows that already carry real values.
-// ---------------------------------------------------------------------------
-const DATA_PATCHES = [
-  {
-    name: 'User.playerNo backfill (short public ids in join order)',
-    async run(client) {
-      // does the column exist yet? (step 2 should have added it)
-      const info = await client.execute('PRAGMA table_info(User)')
-      if (!info.rows.some((r) => String(r.name) === 'playerNo')) return 'skipped (no column)'
-      const stragglers = await client.execute(
-        'SELECT id FROM User WHERE playerNo = 0 ORDER BY createdAt ASC, id ASC'
-      )
-      if (stragglers.rows.length === 0) return 'already numbered'
-      const maxRow = await client.execute('SELECT COALESCE(MAX(playerNo), 0) AS m FROM User')
-      let n = Number(maxRow.rows[0]?.m ?? 0)
-      for (const row of stragglers.rows) {
-        n += 1
-        await client.execute({ sql: 'UPDATE User SET playerNo = ? WHERE id = ?', args: [n, String(row.id)] })
-      }
-      return `numbered ${stragglers.rows.length} player(s), highest is now #${n}`
-    },
-  },
-]
-
-// ---------------------------------------------------------------------------
-// AUTO-HEALER — turn each CREATE TABLE from the prisma diff into
-//   { table: "Notification", columns: [{ name: "id", def: '"id" TEXT NOT NULL PRIMARY KEY' }, ...] }
-// so any column the live database is missing can be ALTERed in on its own.
-// ---------------------------------------------------------------------------
-const DEFAULT_FOR_TYPE = (ddl) => {
-  const up = ddl.toUpperCase()
-  if (/\bTEXT\b/.test(up)) return "DEFAULT ''"
-  if (/\bDATETIME\b/.test(up)) return 'DEFAULT CURRENT_TIMESTAMP'
-  return 'DEFAULT 0' // INTEGER / BOOLEAN / REAL — zero is a sane start for all of them
-}
-
-function parseCreateTable(ddl) {
-  const name = ddl.match(/^CREATE TABLE (?:IF NOT EXISTS )?"?(\w+)"?/i)?.[1]
-  if (!name) return null
-  const open = ddl.indexOf('(')
-  const body = ddl.slice(open + 1, ddl.lastIndexOf(')'))
-  // split on top-level commas only (DEFAULT ('a','b') style values keep their commas)
-  const parts = []
-  let depth = 0, cur = ''
-  for (const ch of body) {
-    if (ch === '(') depth++
-    if (ch === ')') depth--
-    if (ch === ',' && depth === 0) { parts.push(cur); cur = '' } else cur += ch
-  }
-  if (cur.trim()) parts.push(cur)
-  const columns = []
-  for (const raw of parts) {
-    const def = raw.trim().replace(/,+$/, '')
-    if (!def) continue
-    const first = def.toUpperCase()
-    if (first.startsWith('CONSTRAINT') || first.startsWith('PRIMARY KEY') || first.startsWith('FOREIGN KEY') || first.startsWith('UNIQUE (') || first.startsWith('UNIQUE(') || first.startsWith('CHECK')) continue
-    const colName = def.match(/^"([^"]+)"/)?.[1] || def.match(/^\s*(\w+)/)?.[1]
-    if (!colName) continue
-    columns.push({ name: colName, def })
-  }
-  return { name, columns }
-}
 
 const envUrl = process.env.DATABASE_URL || ''
 const url = process.env.SYNC_SCHEMA_URL || envUrl
@@ -136,149 +57,104 @@ try {
     ...(authToken ? { authToken } : {}),
   })
 
+  // already deployed before? NEVER touch existing data
   const existing = await client.execute(
     "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'"
   )
   const tableCount = Number(existing.rows[0]?.n ?? 0)
 
-  // pure offline operation: schema.prisma -> CREATE TABLE script
-  // (diff never connects anywhere, but schema validation wants a
-  // file: URL when DATABASE_URL is a libsql:// one — give it a dummy)
+  // pure offline operation: schema.prisma -> CREATE TABLE script (needed for
+  // BOTH paths — fresh installs run it whole, existing ones get parsed)
   const raw = execSync(
     'npx --no-install prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script',
     {
       encoding: 'utf8',
+      // diff never connects anywhere, but schema validation wants a
+      // file: URL when DATABASE_URL is a libsql:// one — give it a dummy
       env: { ...process.env, DATABASE_URL: 'file:./.schema-diff-dummy.db' },
     }
   )
 
-  // statement-level split (migrate diff emits one statement per ';',
-  // each prefixed by a `-- CreateTable` style comment line)
-  const statements = raw
-    .split(';')
-    .map((s) =>
-      s
-        .split('\n')
-        .filter((line) => {
-          const up = line.trim().toUpperCase()
-          return !up.startsWith('PRAGMA') && !up.startsWith('--')
-        })
-        .join('\n')
-        .trim()
-    )
-    .filter(Boolean)
+  // make every CREATE idempotent (extra safety for parallel deploys)
+  // and drop PRAGMA lines (cloud libSQL ignores some of them)
+  const ddl = raw
+    .split('\n')
+    .filter((line) => !line.trim().toUpperCase().startsWith('PRAGMA'))
+    .join('\n')
+    .replace(/CREATE TABLE /g, 'CREATE TABLE IF NOT EXISTS ')
+    .replace(/CREATE UNIQUE INDEX /g, 'CREATE UNIQUE INDEX IF NOT EXISTS ')
+    .replace(/CREATE INDEX /g, 'CREATE INDEX IF NOT EXISTS ')
 
-  // keep ONLY the additive DDL — never DROP, never INSERT, never SET
-  const creates = statements
-    .filter((s) => /^CREATE TABLE\b/i.test(s))
-    .map((s) => s.replace(/CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS '))
-  const indexes = statements
-    .filter((s) => /^CREATE (UNIQUE )?INDEX\b/i.test(s))
-    .map((s) => s.replace(/CREATE (UNIQUE )?INDEX /i, 'CREATE $1INDEX IF NOT EXISTS '))
-
-  if (tableCount === 0) {
-    console.log('[sync-schema] fresh cloud database — creating all tables…')
-    await client.executeMultiple(
-      [...creates, ...indexes]
-        .join(';\n')
-        .replace(/CREATE TABLE /g, 'CREATE TABLE ') + ';\n'
+  if (tableCount > 0) {
+    console.log(
+      `[sync-schema] database already has ${tableCount} tables — adding any missing columns…`
     )
-    const after = await client.execute(
-      "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'"
-    )
-    console.log(`[sync-schema] done! ${Number(after.rows[0]?.n ?? 0)} tables are ready. 🎉`)
+    let patched = 0
+    try {
+      // parse the DDL into { table: [(name, declType)] } so each expected
+      // column can be checked against the live table. CREATE TABLE blocks
+      // end at a line that is exactly ");" (or ");") — the parser below
+      // handles both the quoted-name and plain-name styles Prisma emits.
+      const expected = new Map()
+      let curTable = null
+      for (const line of raw.split('\n')) {
+        const t = line.match(/^\s*CREATE TABLE\s+"?(\w+)"?\s*\(/i)
+        if (t) {
+          curTable = t[1]
+          expected.set(curTable, [])
+          continue
+        }
+        if (curTable) {
+          if (/^\s*\);?\s*$/.test(line)) {
+            curTable = null
+            continue
+          }
+          const col = line.match(/^\s*"(\w+)"\s+([A-Za-z]+(?:\(\d+\))?)/)
+          if (col) expected.get(curTable).push([col[1], col[2]])
+        }
+      }
+      // every table the live DB actually has
+      const liveTables = new Set(
+        (
+          await client.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%' AND name NOT LIKE '_cf_%'"
+          )
+        ).rows.map((r) => r.name)
+      )
+      for (const [table, cols] of expected) {
+        if (!liveTables.has(table) || cols.length === 0) continue
+        const have = new Set(
+          (await client.execute(`PRAGMA table_info("${table}")`)).rows.map((r) => r.name)
+        )
+        for (const [col, decl] of cols) {
+          if (have.has(col)) continue
+          // ADD COLUMN is always safe: new columns are NULL for existing rows
+          await client.execute(`ALTER TABLE "${table}" ADD COLUMN "${col}" ${decl}`)
+          console.log(`[sync-schema]   + ${table}.${col} ${decl}`)
+          patched++
+        }
+      }
+      if (patched === 0) console.log('[sync-schema]   schema is up to date — nothing to add.')
+      else console.log(`[sync-schema]   ${patched} column(s) added. Data untouched.`)
+    } catch (err) {
+      // the deploy must NEVER fail because of the sync; the app tolerates
+      // older schemas worse than a hard stop, so log loudly and continue
+      console.error('[sync-schema] column sync warning:', err?.message || err)
+    }
+    console.log('[sync-schema] done.')
     process.exit(0)
   }
 
-  // ---- existing database: apply ONLY what is missing ---------------------
-  console.log(`[sync-schema] existing database (${tableCount} tables) — checking for missing tables, indexes and columns…`)
+  console.log('[sync-schema] fresh cloud database — creating all tables…')
 
-  let applied = 0
-  // 1. missing TABLES first (columns and indexes both need their home)
-  for (const ddl of creates) {
-    try {
-      await client.execute(ddl)
-      applied++
-      const name = ddl.match(/^CREATE (?:TABLE IF NOT EXISTS |TABLE )"?(\w+)"?/i)?.[1] || ddl.slice(0, 60)
-      console.log(`[sync-schema]   + ensured: ${name}`)
-    } catch (e) {
-      console.error(`[sync-schema]   ! skipped a statement: ${e?.message || e}`)
-    }
-  }
+  await client.executeMultiple(ddl)
 
-  // 2. missing COLUMNS — the auto-healer: compare every table's live columns
-  //    (PRAGMA table_info) against the schema.prisma CREATE TABLE bodies and
-  //    ALTER in anything absent. This is what makes "added a field, forgot to
-  //    list it here" bugs impossible: the schema file itself is the checklist.
-  const parsed = creates.map(parseCreateTable).filter(Boolean)
-  for (const t of parsed) {
-    let liveCols = []
-    try {
-      const info = await client.execute(`PRAGMA table_info("${t.name}")`)
-      liveCols = info.rows.map((r) => String(r.name))
-    } catch { continue /* table vanished mid-run — next deploy will retry */ }
-    const missing = t.columns.filter((c) => !liveCols.includes(c.name))
-    for (const col of missing) {
-      // try the exact schema definition first; fall back to a defaulted,
-      // constraint-free version when SQLite refuses (NOT NULL on a table
-      // that already has rows, or inline PRIMARY KEY / UNIQUE which ALTER
-      // cannot add)
-      const attempts = [col.def, `${col.def} ${DEFAULT_FOR_TYPE(col.def)}`, `"${col.name}" ${DEFAULT_FOR_TYPE(col.def)}`]
-      let ok = false
-      for (const attempt of [...new Set(attempts)]) {
-        try {
-          await client.execute(`ALTER TABLE "${t.name}" ADD COLUMN ${attempt}`)
-          applied++
-          console.log(`[sync-schema]   + column: ${t.name}.${col.name}`)
-          ok = true
-          break
-        } catch { /* next attempt */ }
-      }
-      if (!ok) console.error(`[sync-schema]   ! could not add column ${t.name}.${col.name} — will retry next deploy`)
-    }
-  }
-
-  // 2b. the hand-listed patches (kept for cases the heuristic can't express)
-  for (const patch of COLUMN_PATCHES) {
-    try {
-      const info = await client.execute(`PRAGMA table_info(${patch.table})`)
-      const has = info.rows.some((r) => String(r.name) === patch.column)
-      if (has) continue
-      await client.execute(patch.ddl)
-      applied++
-      console.log(`[sync-schema]   + column: ${patch.table}.${patch.column}`)
-    } catch (e) {
-      console.error(`[sync-schema]   ! column patch ${patch.table}.${patch.column} failed: ${e?.message || e}`)
-    }
-  }
-
-  // 2c. DATA PATCHES — guarded, idempotent, before indexes (a unique index
-  //     on a just-added column needs its data fixed up first)
-  for (const patch of DATA_PATCHES) {
-    try {
-      const result = await patch.run(client)
-      console.log(`[sync-schema]   + data patch: ${patch.name} — ${result}`)
-    } catch (e) {
-      console.error(`[sync-schema]   ! data patch ${patch.name} failed: ${e?.message || e}`)
-    }
-  }
-
-  // 3. missing INDEXES last — a fresh unique index may target a column that
-  //    step 2 just added
-  for (const ddl of indexes) {
-    try {
-      await client.execute(ddl)
-      applied++
-      const name = ddl.match(/^CREATE (?:UNIQUE )?(?:INDEX IF NOT EXISTS |INDEX )"?(\w+)"?/i)?.[1] || ddl.slice(0, 60)
-      console.log(`[sync-schema]   + ensured: ${name}`)
-    } catch (e) {
-      console.error(`[sync-schema]   ! skipped a statement: ${e?.message || e}`)
-    }
-  }
-
-  console.log(applied > 0
-    ? `[sync-schema] applied ${applied} schema addition(s). Your data is safe. ✅`
-    : '[sync-schema] schema already up to date — nothing to do. ✅')
+  const after = await client.execute(
+    "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'"
+  )
+  console.log(
+    `[sync-schema] done! ${Number(after.rows[0]?.n ?? 0)} tables are ready. 🎉`
+  )
   process.exit(0)
 } catch (err) {
   console.error('[sync-schema] FAILED:', err?.message || err)
