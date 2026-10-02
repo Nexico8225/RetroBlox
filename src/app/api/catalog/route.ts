@@ -19,6 +19,15 @@ async function safeFormJson(v: FormDataEntryValue | null): Promise<unknown> {
   }
 }
 
+/** PBR slider value (metallic / roughness): a number clamped to 0..1.
+ *  Anything else (empty string, junk) = null = "use whatever the GLB carries". */
+function parsePbr(v: FormDataEntryValue | null): number | null {
+  if (typeof v !== 'string' || v.trim() === '') return null
+  const n = Number(v)
+  if (!Number.isFinite(n)) return null
+  return Math.min(1, Math.max(0, n))
+}
+
 /** who can publish UGC in the name of a group: owner, site admin, or a role with the `ugc` permission */
 async function canPublishForGroup(groupId: string, userId: string, siteAdmin: boolean): Promise<boolean> {
   const group = await db.group.findUnique({ where: { id: groupId }, select: { ownerId: true } })
@@ -90,17 +99,9 @@ export async function GET(req: NextRequest) {
     ? await db.inventoryEntry.findMany({ where: { userId: viewer.id }, select: { itemId: true } })
     : []
 
-  // cheapest ACTIVE resale listing per item — powers the "FOR SALE" chips
+  // sold = REAL BUYERS — the creator's own auto-granted copy is NOT a sale
+  // (stock means sellable copies). One grouped query with a join excludes it.
   const itemIds = items.map((i) => i.id)
-  const forSale: Record<string, number> = {}
-  if (itemIds.length > 0) {
-    const saleRows = await db.ugcListing.groupBy({
-      by: ['itemId'],
-      where: { itemId: { in: itemIds }, status: 'active' },
-      _min: { price: true },
-    })
-    for (const r of saleRows) forSale[r.itemId] = r._min.price ?? 0
-  }
   const soldMap = new Map<string, number>()
   if (itemIds.length > 0) {
     const soldRows = await db.$queryRaw<{ itemId: string; n: bigint }[]>`
@@ -133,6 +134,8 @@ export async function GET(req: NextRequest) {
         modelFileId: i.modelFileId,
         textureFileId: i.textureFileId,
         baseColor: i.baseColor,
+        metallic: i.metallic,
+        roughness: i.roughness,
         placement: parsePlacement(i.placementJson),
         animClips: parseAnimClipsJson(i.animClipsJson),
         animTarget: parseAnimTargetJson(i.animTargetJson),
@@ -145,7 +148,6 @@ export async function GET(req: NextRequest) {
       }
     }),
     ownedItemIds: owned.map((o) => o.itemId),
-    forSale,
   })
 }
 
@@ -173,6 +175,12 @@ export async function POST(req: NextRequest) {
   const texture = await resolveUpload(form.get('texture'), form.get('textureUploadId'))
   const colorRaw = String(form.get('color') || '').trim()
   const placementRaw = String(form.get('placement') || '').trim()
+  // PBR material sliders (3D UGC): the publish form sends the values it
+  // detected in the converted model (Blender .glb = the creator's real
+  // metallic/roughness; FBX/OBJ = the classic matte defaults). The creator
+  // can tweak them on the sliders before publishing; empty = from file.
+  const metallic = parsePbr(form.get('metallic'))
+  const roughness = parsePbr(form.get('roughness'))
   // pricing: 0 = free item; limiteds are collectibles — the price is the price
   const price = Math.floor(Number(form.get('price') || 0))
   const isLimited = String(form.get('limited') || '') === '1'
@@ -222,6 +230,13 @@ export async function POST(req: NextRequest) {
   let placementJsonStr: string | null = null
   let textureFileId: string | null = null
   let baseColor: string | null = null
+  // the PBR overrides only ever apply to 3D-worn UGC
+  let itemMetallic: number | null = null
+  let itemRoughness: number | null = null
+  if (is3DType(type)) {
+    itemMetallic = metallic
+    itemRoughness = roughness
+  }
 
   // creator surface for 3D UGC: an optional texture image wrapped around the
   // model, or a tint color when there is no texture (texture wins at render)
@@ -327,6 +342,8 @@ export async function POST(req: NextRequest) {
     placementJson: placementJsonStr,
     textureFileId,
     baseColor,
+    metallic: itemMetallic,
+    roughness: itemRoughness,
     animClipsJson: animClipsJsonStr,
     animTargetJson: animTargetJsonStr,
     bundlePartsJson: bundlePartsJsonStr,
