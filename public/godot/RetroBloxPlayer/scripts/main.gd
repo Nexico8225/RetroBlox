@@ -40,13 +40,6 @@ var sequence: int = 0
 var hud: CanvasLayer
 var auth: CanvasLayer
 
-# --- avatar-viewer load state ---
-# On your first spawn the game shows YOUR avatar: the character stays put,
-# the camera + shift lock are fully live, and a gentle orbit shows the look
-# off. The first walk key / jump hands you control.
-var viewer_mode: bool = false
-var _viewer_seen: bool = false
-
 # the world lives in main.tscn — Arena, Players, Debris and the CameraRig
 @onready var arena: Node3D = $Arena
 @onready var player_root: Node3D = $Players
@@ -62,8 +55,9 @@ var quitting: bool = false
 var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
 
 # --- platform account ---
-# The production RetroBlox site — sign-in, avatars, catalog. Override with
-# the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
+# The production RetroBlox site — sign-in, avatars, catalog. The login card
+# does NOT offer a Server field (players cannot change it); self-hosts use
+# network.cfg, RETROBLOX_API, or --api= instead.
 var api_url: String = "https://retro-blox.vercel.app"
 var api_ref: RetrobloxApiScript
 var platform_user_id: String = ""
@@ -107,10 +101,8 @@ func _ready() -> void:
                 auth.completed.connect(_on_auth_completed)
                 auth.guest_requested.connect(_on_guest_requested)
                 auth.set_api_url(api_url)
-                auth.set_saved_credentials(
-                        str(profile.get_value("platform", "username", "")),
-                        str(profile.get_value("platform", "password", ""))
-                )
+                auth.set_saved_username(str(profile.get_value("platform", "username", "")))
+                _try_saved_token()
         multiplayer.peer_connected.connect(_peer_connected)
         multiplayer.peer_disconnected.connect(_peer_disconnected)
         multiplayer.connected_to_server.connect(_connected_to_server)
@@ -181,11 +173,34 @@ func _bind_key(action: String, key: Key) -> void:
 
 # ---------------------------------------------------------------- auth flow
 
-func _on_auth_completed(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary, password: String) -> void:
-        _finish_auth(api, username, user_id, avatar, password)
+func _try_saved_token() -> void:
+        var saved_token := str(profile.get_value("platform", "token", ""))
+        if saved_token.is_empty() or auth == null:
+                return
+        auth.set_status_text("Signing you in…")
+        var probe := RetrobloxApiScript.new(api_url)
+        probe.token = saved_token
+        var me: Dictionary = await probe.get_me()
+        if quitting or auth == null:
+                return
+        if me.get("ok", false) and not _auth_done and not str(me.get("username", "")).is_empty():
+                var av = me.get("avatar", {})
+                auth.visible = false
+                _finish_auth(probe, String(me.get("username", "")), String(me.get("userId", "")), av if av is Dictionary else {})
+        else:
+                # token expired or the site moved on — back to the form
+                auth.set_status_text("")
+
+func _on_auth_completed(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
+        _finish_auth(api, username, user_id, avatar)
 
 func _on_guest_requested() -> void:
         if _auth_done:
+                # already through the door (e.g. a saved-token sign-in finished
+                # while the card was still up) — never leave the player stuck:
+                # reveal the game that is already running behind the card
+                if auth != null:
+                        auth.visible = false
                 return
         _auth_done = true
         api_ref = RetrobloxApiScript.new(api_url)  # token-less: still fetches PUBLIC avatars
@@ -196,7 +211,7 @@ func _on_guest_requested() -> void:
                 auth.visible = false
         _begin_online()
 
-func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary, password: String = "") -> void:
+func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
         if _auth_done:
                 return
         _auth_done = true
@@ -206,18 +221,14 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         player_name = username if not username.is_empty() else player_name
         profile.set_value("platform", "token", api.token)
         profile.set_value("platform", "username", username)
-        # remembered so the login card comes up pre-filled — one click to play
-        if not password.is_empty():
-                profile.set_value("platform", "password", password)
         profile.save("user://profile.cfg")
-        if hud != null:
-                hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
-        # CRITICAL: put the login card away. Every loop in this script sits
-        # still while the card is visible (_process/_physics_process/_input),
-        # so leaving it up froze the whole game behind the UI — the player
-        # never spawned and the screen looked stuck.
+        # THE classic trap: leave the card up and the whole game stays frozen
+        # behind it (_process/_physics_process/_input all wait on auth.visible).
+        # Hide it BEFORE the world starts, exactly like the guest path does.
         if auth != null:
                 auth.visible = false
+        if hud != null:
+                hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
         _begin_online()
 
 func _begin_online() -> void:
@@ -324,7 +335,7 @@ func _process(delta: float) -> void:
         var local = players.get(local_id)
         var busy: bool = hud.input_busy()
         var capture: bool = not busy and (shiftlock or camera_distance < 1.0 or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
-        var wanted_mode: Input.MouseMode = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
+        var wanted_mode: int = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
         if Input.mouse_mode != wanted_mode:
                 Input.mouse_mode = wanted_mode
         hud.crosshair.visible = not busy and (shiftlock or camera_distance < 1.0)
@@ -359,15 +370,8 @@ func _physics_process(delta: float) -> void:
                 var direction := Vector2.ZERO
                 if not hud.input_busy():
                         direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-                if viewer_mode:
-                        # the avatar viewer: camera + shift lock are live, feet
-                        # planted. The first walk key / jump hands you the keys.
-                        camera_yaw += delta * 0.45
-                        if not hud.input_busy() and (direction != Vector2.ZERO or Input.is_action_just_pressed("jump")):
-                                _set_viewer(false)
-                        direction = Vector2.ZERO
-                elif not hud.input_busy() and Input.is_action_just_pressed("jump"):
-                        jump_serial += 1
+                        if Input.is_action_just_pressed("jump"):
+                                jump_serial += 1
                 sequence += 1
                 if server_mode:
                         _store_input(local_id, direction, camera_yaw, jump_serial, sequence, local.life_epoch, shiftlock)
@@ -597,14 +601,14 @@ func _register_player(requested_name: String, version: String, user_id: String) 
                 if p.display_name == safe_name:
                         safe_name = safe_name.left(12) + "-%04d" % (id % 10000)
                         break
-        var spawn_pos: Vector3 = arena.spawn_point(players.size())
-        _spawn_player(id, safe_name, spawn_pos, true, 0, user_id)
+        var position: Vector3 = arena.spawn_point(players.size())
+        _spawn_player(id, safe_name, position, true, 0, user_id)
         var roster: Array = []
         for other_id in players:
                 var p = players[other_id]
                 roster.append([int(other_id), p.display_name, p.global_position, p.alive, p.life_epoch, p.platform_user_id])
         _roster.rpc_id(id, roster, room_name)
-        _spawn_player.rpc(id, safe_name, spawn_pos, true, 0, user_id)
+        _spawn_player.rpc(id, safe_name, position, true, 0, user_id)
         _system_notice(safe_name + " joined the game.")
         _system_notice.rpc(safe_name + " joined the game.")
         print("PLAYER_JOINED id=%d name=%s user=%s players=%d" % [id, safe_name, user_id, players.size()])
@@ -650,10 +654,6 @@ func _spawn_player(id: int, safe_name: String, pos: Vector3, live: bool, epoch: 
                         p.health_changed.connect(hud.set_health)
                         p.health_depleted.connect(_on_local_health_depleted)
                         hud.set_health(p.health, p.MAX_HEALTH)
-                if not dedicated and not _viewer_seen:
-                        # first spawn of the session — show the avatar off
-                        _viewer_seen = true
-                        _set_viewer(true)
         _update_roster()
         # fetch + paint the account avatar (async; guests keep noob colors)
         _dress_player(p)
@@ -746,11 +746,6 @@ func request_reset() -> void:
         else:
                 _request_reset.rpc_id(1)
 
-func _set_viewer(on: bool) -> void:
-        viewer_mode = on
-        if hud != null:
-                hud.set_viewer_mode(on, player_name)
-
 @rpc("any_peer", "call_remote", "reliable", 0)
 func _request_reset() -> void:
         if server_mode:
@@ -834,8 +829,7 @@ func _chat_event(id: int, sender_name: String, message: String) -> void:
         if hud != null:
                 hud.add_chat(sender_name, message)
         if players.has(id):
-                # the bubble is a plain label — wear the FX in the log, not here
-                players[id].show_message(hud.strip_fx(message) if hud != null else message)
+                players[id].show_message(message)
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _system_notice(message: String) -> void:
