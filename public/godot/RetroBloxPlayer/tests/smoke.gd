@@ -46,7 +46,7 @@ func _run_all() -> void:
         check(avatar._part_sizes.size() == 6, "avatar collected 6 part sizes")
         if avatar.is_r6ik():
                 var head_size: Vector3 = avatar._part_sizes[0]
-                check(head_size.x > 1.0 and head_size.x < 1.35, "R6IK head normalized to classic scale (~1.2 studs)")
+                check(head_size.x > 1.0 and head_size.x < 1.3, "R6IK head at classic size (got %.2f)" % head_size.x)
                 check(avatar.get_node_or_null("R6IKModel") != null, "R6IK model mounted")
                 check(avatar.get_node("HeadPivot").visible == false, "box fallback hidden in R6IK mode")
         else:
@@ -80,9 +80,9 @@ func _run_all() -> void:
         var auth = auth_scene.instantiate()
         root.add_child(auth)
         check(auth.get_node_or_null("%SubmitBtn") != null, "auth scene has SubmitBtn")
-        check(auth.get_node_or_null("%ServerEdit") == null, "auth card has NO editable Server field (URL is locked)")
-        auth.set_api_url("http://localhost:3000")
-        check(auth._api_url == "http://localhost:3000", "auth set_api_url works")
+        check(auth.get_node_or_null("%ServerEdit") == null, "auth card has NO server URL field (locked)")
+        auth.set_api_url("http://localhost:3000/")
+        check(auth._api_url == "http://localhost:3000", "auth set_api_url locks the platform url")
         auth._set_mode(true)
         check(auth._submit_btn.text == "Create Account", "auth signup mode toggles")
         auth.queue_free()
@@ -90,19 +90,24 @@ func _run_all() -> void:
         var hud_scene: PackedScene = load("res://scenes/hud.tscn")
         var hud = hud_scene.instantiate()
         root.add_child(hud)
-        # ChatButton/PeopleButton are REPARENTED into the top-left toolbar by
-        # _build_toolbar — after remove_child(), %-unique-name lookups no
-        # longer resolve, so verify via the wired member refs + toolbar path
         check(hud.get_node_or_null("%ChatLog") != null, "hud scene has ChatLog")
         check(hud.get_node_or_null("%Menu") != null, "hud scene has Menu")
-        check(hud.chat_button != null and hud.chat_button.is_inside_tree(), "hud scene has ChatButton (wired + in tree)")
-        check(hud.people_button != null and hud.people_button.is_inside_tree(), "hud scene has PeopleButton (wired + in tree)")
-        check(hud.get_node_or_null("Root/Toolbar/Buttons/ChatButton") == hud.chat_button, "chat button lives in the toolbar")
+        # the toolbar move must NOT crash _ready: buttons land in the toolbar
+        var toolbar: Node = hud.root.get_node_or_null("Toolbar")
+        check(toolbar != null, "hud toolbar was built without errors")
+        var chat_btn: Node = hud.root.get_node_or_null("Toolbar/Buttons/ChatButton")
+        var people_btn: Node = hud.root.get_node_or_null("Toolbar/Buttons/PeopleButton")
+        var menu_btn: Node = hud.root.get_node_or_null("Toolbar/Buttons/MenuButton")
+        check(chat_btn != null, "toolbar has ChatButton")
+        check(people_btn != null, "toolbar has PeopleButton")
+        check(menu_btn != null, "toolbar has MenuButton")
+        var classic_style: StyleBox = hud.chat_panel.get_theme_stylebox("panel")
+        check(classic_style != null and classic_style.bg_color == Color("d9dde0"), "classic style applied (ready not aborted)")
         check(hud.chat_panel.visible == false, "chat panel starts hidden")
         check(hud.roster_panel.visible == false, "roster panel starts hidden")
         hud.add_chat("Ann", "hello")
         check(hud.chat_log.text.contains("Ann: hello"), "hud add_chat renders")
-        check(hud.chat_button.text.contains("1"), "unread badge counts hidden chat")
+        check(hud.chat_button.text == "1", "unread badge counts hidden chat")
         hud.toggle_chat(true)
         check(hud.chat_panel.visible and hud.chat_open, "chat button opens the panel")
         check(hud.chat_button.text == "", "opening chat clears the badge")
