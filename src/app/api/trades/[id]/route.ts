@@ -1,190 +1,203 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { MarketError, assertOwnsAll, moveTix, transferItem, notify, parseIdArray } from '@/lib/market'
 
 /**
- * GET  /api/trades/[id] — the trade, item details and the negotiation chat (both parties only)
- * POST /api/trades/[id] — { action, ... }
- *   message {text}                                chat ("throw in the Dominus and it's a deal")
- *   counter {giveItemIds, takeItemIds, tixFrom, tixTo}   edit the terms and send it back
- *   accept  {}                                    BOTH sides confirm here: items + Tix swap atomically
- *   decline {}                                    no deal
- *   cancel  {}                                    the sender takes it back
+ * GET  /api/trades/[id] — one trade (participants only)
+ * POST /api/trades/[id] — { action: 'accept' | 'decline' | 'cancel' | 'message', text? }
+ *
+ * accept — EVERYTHING moves inside ONE transaction: every offered item
+ *          changes owner, the Tix move through the wallet + ledger. Any
+ *          missing copy (traded away elsewhere in the meantime) fails the
+ *          whole trade — half-trades can never happen.
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const me = await getUserFromReq(req)
-  if (!me) return NextResponse.json({ error: 'Login required' }, { status: 401 })
-
-  const trade = await db.ugcTrade.findUnique({
+  const user = await getUserFromReq(req)
+  if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
+  const t = await db.trade.findUnique({
     where: { id },
     include: {
       fromUser: { select: { id: true, username: true, avatarUrl: true } },
       toUser: { select: { id: true, username: true, avatarUrl: true } },
     },
   })
-  if (!trade) return NextResponse.json({ error: 'Trade not found' }, { status: 404 })
-  if (trade.fromUserId !== me.id && trade.toUserId !== me.id) {
+  if (!t) return NextResponse.json({ error: 'Trade not found' }, { status: 404 })
+  if (t.fromUserId !== user.id && t.toUserId !== user.id) {
     return NextResponse.json({ error: 'This trade is not yours.' }, { status: 403 })
   }
-
-  const messages = await db.ugcTradeMessage.findMany({
-    where: { tradeId: id },
-    orderBy: { createdAt: 'asc' },
-    take: 100,
-    include: { sender: { select: { id: true, username: true, avatarUrl: true } } },
-  })
-
-  const ids = [...new Set([...parseIdArray(trade.giveItemIds), ...parseIdArray(trade.takeItemIds)])]
-  const items = await db.avatarItem.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, name: true, type: true, imageFileId: true, isLimited: true, price: true, stock: true },
-  })
-  const itemMap = Object.fromEntries(items.map((i) => [i.id, i]))
-
-  // live ownership flags — the UI shows exactly what still makes sense
-  const mineEntries = await db.inventoryEntry.findMany({ where: { userId: me.id, itemId: { in: ids } }, select: { itemId: true } })
-  const iStillOwn = new Set(mineEntries.map((e) => e.itemId))
-
   return NextResponse.json({
     trade: {
-      id: trade.id,
-      status: trade.status,
-      fromUserId: trade.fromUserId,
-      toUserId: trade.toUserId,
-      fromUser: trade.fromUser,
-      toUser: trade.toUser,
-      giveItemIds: parseIdArray(trade.giveItemIds),
-      takeItemIds: parseIdArray(trade.takeItemIds),
-      tixFrom: trade.tixFrom,
-      tixTo: trade.tixTo,
-      createdAt: trade.createdAt,
-      updatedAt: trade.updatedAt,
+      id: t.id,
+      status: t.status,
+      tix: t.tix,
+      message: t.message,
+      notes: JSON.parse(t.notesJson || '[]'),
+      createdAt: t.createdAt,
+      respondedAt: t.respondedAt,
+      from: t.fromUser,
+      to: t.toUser,
+      give: JSON.parse(t.giveItemIds || '[]'),
+      take: JSON.parse(t.takeItemIds || '[]'),
+      isIncoming: t.toUserId === user.id,
     },
-    itemMap,
-    iStillOwn: [...iStillOwn],
-    messages,
   })
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const me = await getUserFromReq(req)
-  if (!me) return NextResponse.json({ error: 'Login required' }, { status: 401 })
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
-  const action = String(body.action || '')
+  const user = await getUserFromReq(req)
+  if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
+  const body = (await req.json().catch(() => ({}))) as { action?: string; text?: string }
 
-  const trade = await db.ugcTrade.findUnique({ where: { id } })
-  if (!trade) return NextResponse.json({ error: 'Trade not found' }, { status: 404 })
-  const isSender = trade.fromUserId === me.id
-  const isRecipient = trade.toUserId === me.id
-  if (!isSender && !isRecipient) return NextResponse.json({ error: 'This trade is not yours.' }, { status: 403 })
-  const otherId = isSender ? trade.toUserId : trade.fromUserId
+  const t = await db.trade.findUnique({ where: { id } })
+  if (!t) return NextResponse.json({ error: 'Trade not found' }, { status: 404 })
+  const isIncoming = t.toUserId === user.id
+  const isSender = t.fromUserId === user.id
+  if (!isIncoming && !isSender) {
+    return NextResponse.json({ error: 'This trade is not yours.' }, { status: 403 })
+  }
+  if (t.status !== 'pending' && body.action !== 'message') {
+    return NextResponse.json({ error: `This trade was already ${t.status}.` }, { status: 400 })
+  }
 
-  // ---------------- chat ----------------
-  if (action === 'message') {
+  const giveIds = JSON.parse(t.giveItemIds || '[]') as string[]
+  const takeIds = JSON.parse(t.takeItemIds || '[]') as string[]
+
+  // ---------------- message (both sides, while pending) ----------------
+  if (body.action === 'message') {
     const text = String(body.text || '').trim().slice(0, 300)
     if (!text) return NextResponse.json({ error: 'Type a message first.' }, { status: 400 })
-    await db.ugcTradeMessage.create({ data: { tradeId: id, senderId: me.id, text } })
-    if (trade.status === 'pending') {
-      await notify(otherId, {
-        type: 'trade_message',
-        title: `${me.username} replied to the trade`,
-        body: text.slice(0, 140),
-        link: `/trades/${id}`,
-        data: { tradeId: id },
-      })
+    if (t.status !== 'pending') {
+      return NextResponse.json({ error: 'The trade is closed — no more messages.' }, { status: 400 })
     }
+    const notes = JSON.parse(t.notesJson || '[]') as { userId: string; text: string; at: string }[]
+    notes.push({ userId: user.id, text, at: new Date().toISOString() })
+    await db.trade.update({ where: { id }, data: { notesJson: JSON.stringify(notes.slice(-30)) } })
+    // notify the other side
+    const otherId = isIncoming ? t.fromUserId : t.toUserId
+    await db.notification.create({
+      data: {
+        userId: otherId,
+        type: 'trade_message',
+        dataJson: JSON.stringify({ tradeId: id, fromName: user.username }),
+      },
+    })
     return NextResponse.json({ ok: true })
   }
 
-  // ---------------- counter (edit the terms) ----------------
-  if (action === 'counter') {
-    if (trade.status !== 'pending') return NextResponse.json({ error: 'This trade is already settled.' }, { status: 400 })
-    const giveItemIds = [...new Set(parseIdArray(JSON.stringify(body.giveItemIds ?? [])))]
-    const takeItemIds = [...new Set(parseIdArray(JSON.stringify(body.takeItemIds ?? [])))]
-    const tixFrom = Math.max(0, Math.floor(Number(body.tixFrom) || 0))
-    const tixTo = Math.max(0, Math.floor(Number(body.tixTo) || 0))
-    if (!giveItemIds.length && !takeItemIds.length && !tixFrom && !tixTo) {
-      return NextResponse.json({ error: 'A counter still needs something on the table.' }, { status: 400 })
-    }
-    if (giveItemIds.length > 8 || takeItemIds.length > 8) {
-      return NextResponse.json({ error: 'Keep it to 8 items per side.' }, { status: 400 })
-    }
-    try {
-      await db.$transaction(async (tx) => {
-        // the counter's terms keep the ORIGINAL directions: give = from the
-        // trade's sender, take = from its recipient — whoever counters just
-        // reshuffles what sits on each side
-        await assertOwnsAll(tx, trade.fromUserId, giveItemIds)
-        await assertOwnsAll(tx, trade.toUserId, takeItemIds)
-      })
-    } catch (e) {
-      if (e instanceof MarketError) return NextResponse.json({ error: e.message }, { status: 400 })
-      throw e
-    }
-    await db.ugcTrade.update({
-      where: { id },
-      data: { giveItemIds: JSON.stringify(giveItemIds), takeItemIds: JSON.stringify(takeItemIds), tixFrom, tixTo },
+  // ---------------- cancel (sender only) ----------------
+  if (body.action === 'cancel') {
+    if (!isSender) return NextResponse.json({ error: 'Only the sender can cancel.' }, { status: 403 })
+    await db.trade.update({ where: { id }, data: { status: 'cancelled', respondedAt: new Date() } })
+    await db.notification.create({
+      data: {
+        userId: t.toUserId,
+        type: 'trade_cancelled',
+        dataJson: JSON.stringify({ tradeId: id, fromName: user.username }),
+      },
     })
-    await notify(otherId, {
-      type: 'trade_offer',
-      title: `${me.username} countered the trade`,
-      body: 'The terms changed — look again before you accept.',
-      link: `/trades/${id}`,
-      data: { tradeId: id },
-    })
-    return NextResponse.json({ ok: true, message: 'Counter sent.' })
+    return NextResponse.json({ ok: true, message: 'Trade cancelled.' })
   }
 
-  // ---------------- ACCEPT — the swap ----------------
-  if (action === 'accept') {
-    if (trade.status !== 'pending') return NextResponse.json({ error: 'This trade is already settled.' }, { status: 400 })
-    const giveItemIds = parseIdArray(trade.giveItemIds)
-    const takeItemIds = parseIdArray(trade.takeItemIds)
-    let result
-    try {
-      result = await db.$transaction(async (tx) => {
-        // fresh ownership checks — stale offers can never teleport items
-        await assertOwnsAll(tx, trade.fromUserId, giveItemIds)
-        await assertOwnsAll(tx, trade.toUserId, takeItemIds)
-        // Tix both ways (the movers throw friendly errors on short wallets)
-        if (trade.tixFrom > 0) await moveTix(tx, trade.fromUserId, trade.toUserId, trade.tixFrom, 'Trade')
-        if (trade.tixTo > 0) await moveTix(tx, trade.toUserId, trade.fromUserId, trade.tixTo, 'Trade')
-        // items cross — give: fromUser -> toUser, take: toUser -> fromUser
-        for (const itemId of giveItemIds) await transferItem(tx, itemId, trade.fromUserId, trade.toUserId)
-        for (const itemId of takeItemIds) await transferItem(tx, itemId, trade.toUserId, trade.fromUserId)
-        await tx.ugcTrade.update({ where: { id }, data: { status: 'accepted' } })
-        return { giveCount: giveItemIds.length, takeCount: takeItemIds.length }
-      })
-    } catch (e) {
-      if (e instanceof MarketError) return NextResponse.json({ error: e.message }, { status: 400 })
-      throw e
-    }
-    await notify(otherId, {
-      type: 'trade_accepted',
-      title: 'Trade accepted!',
-      body: `${me.username} accepted — check your inventory, the items and currency have moved.`,
-      link: `/trades/${id}`,
-      data: { tradeId: id },
+  // ---------------- decline (recipient only) ----------------
+  if (body.action === 'decline') {
+    if (!isIncoming) return NextResponse.json({ error: 'Only the recipient can decline.' }, { status: 403 })
+    await db.trade.update({ where: { id }, data: { status: 'declined', respondedAt: new Date() } })
+    await db.notification.create({
+      data: {
+        userId: t.fromUserId,
+        type: 'trade_declined',
+        dataJson: JSON.stringify({ tradeId: id, fromName: user.username }),
+      },
     })
-    return NextResponse.json({ ok: true, message: `Trade complete — ${result.giveCount + result.takeCount} item(s) changed hands!` })
+    return NextResponse.json({ ok: true, message: 'Offer declined.' })
   }
 
-  // ---------------- decline / cancel ----------------
-  if (action === 'decline' || action === 'cancel') {
-    if (trade.status !== 'pending') return NextResponse.json({ error: 'This trade is already settled.' }, { status: 400 })
-    if (action === 'decline' && !isRecipient && !isSender) return NextResponse.json({ error: 'Not your trade.' }, { status: 403 })
-    await db.ugcTrade.update({ where: { id }, data: { status: action === 'decline' ? 'declined' : 'cancelled' } })
-    await notify(otherId, {
-      type: action === 'decline' ? 'trade_declined' : 'trade_cancelled',
-      title: action === 'decline' ? `${me.username} declined the trade` : `${me.username} cancelled the trade`,
-      body: 'Nothing moved — the offer is off the table.',
-      link: `/trades/${id}`,
-      data: { tradeId: id },
-    })
-    return NextResponse.json({ ok: true, message: action === 'decline' ? 'Trade declined.' : 'Trade cancelled.' })
+  // ---------------- accept (recipient only) — the atomic swap ----------------
+  if (body.action === 'accept') {
+    if (!isIncoming) return NextResponse.json({ error: 'Only the recipient can accept.' }, { status: 403 })
+    try {
+      const result = await db.$transaction(async (tx) => {
+        // re-read inside the transaction — no racing accepts
+        const fresh = await tx.trade.findUnique({ where: { id } })
+        if (!fresh || fresh.status !== 'pending') throw new Error('This trade is no longer pending.')
+
+        const missing: string[] = []
+        // every offered item must still be owned by the right side
+        if (giveIds.length > 0) {
+          const rows = await tx.inventoryEntry.findMany({ where: { itemId: { in: giveIds } }, select: { itemId: true, userId: true } })
+          for (const gid of giveIds) {
+            const row = rows.find((r) => r.itemId === gid)
+            if (!row || row.userId !== fresh.fromUserId) missing.push(gid)
+          }
+        }
+        if (takeIds.length > 0) {
+          const rows = await tx.inventoryEntry.findMany({ where: { itemId: { in: takeIds } }, select: { itemId: true, userId: true } })
+          for (const tid of takeIds) {
+            const row = rows.find((r) => r.itemId === tid)
+            if (!row || row.userId !== fresh.toUserId) missing.push(tid)
+          }
+        }
+        if (missing.length > 0) {
+          throw new Error('Those items are not available anymore — the other side traded them away.')
+        }
+
+        // move the items: give -> recipient, take -> sender
+        for (const gid of giveIds) {
+          await tx.inventoryEntry.update({ where: { userId_itemId: { userId: fresh.fromUserId, itemId: gid } }, data: { userId: fresh.toUserId, acquiredAt: new Date() } })
+        }
+        for (const tid of takeIds) {
+          await tx.inventoryEntry.update({ where: { userId_itemId: { userId: fresh.toUserId, itemId: tid } }, data: { userId: fresh.fromUserId, acquiredAt: new Date() } })
+        }
+
+        // move the Tix through the wallet + ledger
+        if (fresh.tix > 0) {
+          const sender = await tx.user.findUnique({ where: { id: fresh.fromUserId }, select: { rbxBalance: true, username: true } })
+          const recipient = await tx.user.findUnique({ where: { id: fresh.toUserId }, select: { rbxBalance: true, username: true } })
+          if (!sender || !recipient) throw new Error('Account missing.')
+          if (sender.rbxBalance < fresh.tix) throw new Error('The sender no longer has enough Tix.')
+          const senderAfter = sender.rbxBalance - fresh.tix
+          const recipAfter = recipient.rbxBalance + fresh.tix
+          await tx.user.update({ where: { id: fresh.fromUserId }, data: { rbxBalance: senderAfter } })
+          await tx.user.update({ where: { id: fresh.toUserId }, data: { rbxBalance: recipAfter } })
+          await tx.rbxTransaction.create({
+            data: {
+              userId: fresh.fromUserId,
+              amount: -fresh.tix,
+              type: 'trade_out',
+              balanceBefore: sender.rbxBalance,
+              balanceAfter: senderAfter,
+              note: `Trade with ${recipient.username} — sent an offer`,
+            },
+          })
+          await tx.rbxTransaction.create({
+            data: {
+              userId: fresh.toUserId,
+              amount: fresh.tix,
+              type: 'trade_in',
+              balanceBefore: recipient.rbxBalance,
+              balanceAfter: recipAfter,
+              note: `Trade with ${sender.username} — offer accepted`,
+            },
+          })
+        }
+
+        await tx.trade.update({ where: { id }, data: { status: 'accepted', respondedAt: new Date() } })
+        return { give: giveIds.length, take: takeIds.length, tix: fresh.tix }
+      })
+
+      await db.notification.create({
+        data: {
+          userId: t.fromUserId,
+          type: 'trade_accepted',
+          dataJson: JSON.stringify({ tradeId: id, fromName: user.username }),
+        },
+      })
+      return NextResponse.json({ ok: true, message: `Trade accepted — ${result.give + result.take} item(s) swapped${result.tix > 0 ? ` + T$ ${result.tix}` : ''}!` })
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : 'The trade could not be accepted.' }, { status: 400 })
+    }
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
