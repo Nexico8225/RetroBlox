@@ -4,23 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, fmtDate, fmtCount, timeAgo, letterAvatar, flash, clearAuthToken, type RetroUser } from '@/lib/store'
-import { FxText } from '@/lib/textfx'
+import { FxText, FxToolbar } from '@/lib/textfx'
 import { Avatar, OnlineDot } from './Shell'
 import { GameCard, GameSummary, SuggestedStrip, type SuggestedUser } from './HomeView'
 import { VideoCard } from './VideosView'
-import { ProfileTradeModal } from './MarketPanel'
-
-/* their UGC shelf — returned by /api/users/[id] as `inventory` */
-interface ProfileUGCItem {
-  id: string
-  name: string
-  type: string
-  imageFileId: string
-  isLimited: boolean
-  price: number
-  stock: number | null
-  serial: number | null
-}
 
 /* lightweight video shape returned by /api/users/[id] */
 interface ProfileVideo {
@@ -103,16 +90,13 @@ export function ProfileView({ id }: { id: string }) {
     friendState: 'none' | 'friends' | 'request_sent' | 'request_received'
     friendshipId: string | null
     isMe: boolean
-    inventory?: ProfileUGCItem[]
-    ugcWorth?: number
-    creations?: { id: string; name: string; type: string; imageFileId: string; isLimited: boolean; price: number; stock: number | null; owners: number; createdAt: string }[]
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [bio, setBio] = useState('')
-  // profile content lives in tabs — Creations (games + videos), UGC (tradeable shelf), Favorites, Groups
-  const [contentTab, setContentTab] = useState<'creations' | 'favorites' | 'groups' | 'ugc'>('creations')
-  const [tradeOpen, setTradeOpen] = useState(false)
+  // profile content lives in tabs — Creations (games + videos), Favorites, Groups
+  const [contentTab, setContentTab] = useState<'creations' | 'favorites' | 'groups'>('creations')
+  const bioRef = useRef<HTMLTextAreaElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -289,21 +273,6 @@ export function ProfileView({ id }: { id: string }) {
     )
   }
 
-  /* the trade window — open their UGC shelf and put an offer on the table */
-  const tradeButton = () => {
-    if (profile.isMe || !user) return null
-    return (
-      <button
-        className="rb-btn"
-        style={{ background: 'linear-gradient(180deg,#a4e2a8,#4c9f53)', borderColor: '#2e6b34', color: '#fff', fontWeight: 'bold', textShadow: '1px 1px 0 rgba(0,0,0,.3)' }}
-        title={`See what UGC ${p.username} owns and send them a trade — Tix, items, or both`}
-        onClick={() => setTradeOpen(true)}
-      >
-        🔁 Trade
-      </button>
-    )
-  }
-
   return (
     <div>
       <div className="rb-box" style={{ overflow: 'hidden' }}>
@@ -341,13 +310,7 @@ export function ProfileView({ id }: { id: string }) {
 
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: 24, color: '#1c2733', margin: 0 }}><FxText text={p.username} /></h1>
-              <span
-                style={{ fontSize: 10, fontFamily: 'monospace', color: '#7b8896', background: '#f4f8fb', border: '1px solid #dbe4ec', padding: '2px 7px', borderRadius: 3 }}
-                title="Every player gets a number in join order — this is theirs"
-              >
-                ID: #{p.playerNo || '?'}
-              </span>
+              <h1 style={{ fontSize: 24, color: '#1c2733', margin: 0 }}>{p.username}</h1>
               {p.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
               {stats && (
                 <span
@@ -389,8 +352,16 @@ export function ProfileView({ id }: { id: string }) {
             </div>
             {/* every member has an ID — copyable, like the classic profile pages */}
             <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {typeof p.seqId === 'number' && (
+                <span
+                  title={`Player #${p.seqId} — join order on the site`}
+                  style={{ fontSize: 11, fontFamily: 'monospace', color: '#0d69ac', background: '#eaf2fa', border: '1px solid #b7cfe4', padding: '1px 7px', borderRadius: 3 }}
+                >
+                  Player #{p.seqId}
+                </span>
+              )}
               <span>
-                ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>#{p.playerNo || '?'}</span>
+                ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>{p.id}</span>
               </span>
               <button
                 type="button"
@@ -413,7 +384,6 @@ export function ProfileView({ id }: { id: string }) {
               {friendButton()}
               {followButton()}
               {messageButton()}
-              {tradeButton()}
               {profile.isMe && (
                 <>
                   <input
@@ -448,7 +418,6 @@ export function ProfileView({ id }: { id: string }) {
             ['🛠 Games Created', profile.games.length, 'games published'],
             ['⭐ Favorites', profile.favoriteGames.length, 'games favorited'],
             ['👥 Followers', profile.followersCount, 'players following them'],
-            ['💰 UGC Worth', profile.ugcWorth != null ? `T$ ${profile.ugcWorth.toLocaleString('en-US')}` : '—', 'what their UGC collection is worth on the market (asks + 1.5x resale)'],
           ].map(([label, value, title]) => (
             <div
               key={String(label)}
@@ -474,12 +443,13 @@ export function ProfileView({ id }: { id: string }) {
           <div style={{ fontSize: 11, color: '#24425f', marginBottom: 5 }}>About</div>
           {profile.isMe ? (
             <div>
-              <textarea className="rb-textarea" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} style={{ width: '100%' }} placeholder="Tell everyone about yourself..." aria-label="Bio" />
+              <textarea ref={bioRef} className="rb-textarea" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} style={{ width: '100%' }} placeholder="Tell everyone about yourself... ([rainbow]text[/rainbow] works!)" aria-label="Bio" />
+              <FxToolbar taRef={bioRef} value={bio} onChange={setBio} />
               <button className="rb-btn" style={{ marginTop: 6 }} onClick={saveBio}>Save Bio</button>
             </div>
           ) : (
             <div style={{ fontSize: 12, color: '#2c3e50', lineHeight: 1.6 }}>
-              {p.bio ? <FxText text={p.bio} /> : 'This blockhead has not written anything yet.'}
+              <FxText text={p.bio || 'This blockhead has not written anything yet.'} />
             </div>
           )}
         </div>
@@ -703,7 +673,6 @@ export function ProfileView({ id }: { id: string }) {
           <span style={{ display: 'flex', gap: 3 }} role="tablist" aria-label="Profile sections">
             {([
               ['creations', `Creations (${profile.games.length + profile.videos.length})`],
-              ['ugc', `UGC (${(profile.inventory || []).length})`],
               ['favorites', `Favorites (${profile.favoriteGames.length})`],
               ['groups', `Groups (${profile.groups.length})`],
             ] as const).map(([t, label]) => (
@@ -726,49 +695,18 @@ export function ProfileView({ id }: { id: string }) {
           </span>
         </div>
 
-        {/* CREATIONS tab — their games + videos + UGC */}
+        {/* CREATIONS tab — their games + videos */}
         {contentTab === 'creations' && (
         <div style={{ padding: 12 }}>
-          {profile.games.length === 0 && profile.videos.length === 0 && (profile.creations || []).length === 0 && (
+          {profile.games.length === 0 && profile.videos.length === 0 && (
             <div style={{ color: '#7b8896', fontSize: 11, padding: 8 }}>
               Nothing published yet.
               {profile.isMe && (
                 <>
                   <Link className="rb-btn" style={{ marginLeft: 8, textDecoration: 'none', display: 'inline-block' }} href="/create">Publish a game!</Link>
-                  <Link className="rb-btn" style={{ marginLeft: 8, textDecoration: 'none', display: 'inline-block' }} href="/catalog">Make UGC!</Link>
                   <Link className="rb-btn" style={{ marginLeft: 8, textDecoration: 'none', display: 'inline-block' }} href="/videos">Upload a video!</Link>
                 </>
               )}
-            </div>
-          )}
-          {(profile.creations || []).length > 0 && (
-            <div style={{ marginBottom: profile.games.length > 0 || profile.videos.length > 0 ? 14 : 0 }}>
-              <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>UGC they made ({(profile.creations || []).length})</span>
-                <Link className="rb-link" style={{ fontSize: 10 }} href="/catalog">Browse Catalog &rarr;</Link>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
-                {(profile.creations || []).map((it) => (
-                  <Link
-                    key={it.id}
-                    href={`/catalog/${it.id}`}
-                    className="rb-clickable"
-                    style={{ display: 'block', border: '1px solid #c3cdd7', borderRadius: 4, padding: 7, background: '#fff', textDecoration: 'none', textAlign: 'center' }}
-                    title={`${it.name} — view item page`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/files/${it.imageFileId}`}
-                      alt={it.name}
-                      style={{ width: 72, height: 72, objectFit: 'cover', border: '1px solid #dbe4ec', display: 'block', margin: '0 auto 5px', background: '#f3f6f9' }}
-                    />
-                    <span style={{ fontSize: 10, fontWeight: 'bold', color: '#1c2733', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
-                    <span style={{ fontSize: 9, color: '#7b8896' }}>
-                      {it.isLimited ? '★ LIMITED · ' : ''}{it.owners} owner{it.owners === 1 ? '' : 's'}
-                    </span>
-                  </Link>
-                ))}
-              </div>
             </div>
           )}
           {profile.videos.length > 0 && (
@@ -827,48 +765,6 @@ export function ProfileView({ id }: { id: string }) {
         </div>
         )}
 
-        {/* UGC tab — the tradeable shelf: what they own, serials included */}
-        {contentTab === 'ugc' && (
-        <div style={{ padding: 12 }}>
-          {(profile.inventory || []).length === 0 ? (
-            <div style={{ color: '#7b8896', fontSize: 11, padding: 8 }}>
-              No UGC yet — rare limiteds and catalog finds show up here once they own them.
-            </div>
-          ) : (
-            <>
-              {!profile.isMe && (
-                <div style={{ fontSize: 11, color: '#5a6b7b', marginBottom: 9, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span>See something you like? Press <b>Trade</b> to put Tix, your own UGC, or both on the table — they accept or haggle.</span>
-                  <button type="button" className="rb-btn rb-btn-green" style={{ fontSize: 10.5, padding: '2px 10px', fontWeight: 'bold' }} onClick={() => setTradeOpen(true)}>
-                    🔁 Trade with {p.username}
-                  </button>
-                </div>
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
-                {(profile.inventory || []).map((it) => (
-                  <Link
-                    key={it.id}
-                    href={`/catalog/${it.id}`}
-                    className="rb-clickable"
-                    style={{ display: 'block', border: '1px solid #c3cdd7', borderRadius: 4, padding: 7, background: '#fff', textDecoration: 'none', position: 'relative', textAlign: 'center' }}
-                    title={`${it.name} — view item page${it.isLimited ? ' (LIMITED)' : ''}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/files/${it.imageFileId}`}
-                      alt={it.name}
-                      style={{ width: 72, height: 72, objectFit: 'cover', border: '1px solid #dbe4ec', display: 'block', margin: '0 auto 5px', background: '#f3f6f9' }}
-                    />
-                    <span style={{ fontSize: 10, fontWeight: 'bold', color: '#1c2733', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
-                    <span style={{ fontSize: 9, color: '#7b8896' }}>{it.isLimited ? `★ LIMITED${it.serial ? ` #${it.serial}${it.stock ? `/${it.stock}` : ''}` : ''}` : it.type}</span>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
         {/* GROUPS tab */}
         {contentTab === 'groups' && (
         <div style={{ padding: 12 }}>
@@ -899,17 +795,6 @@ export function ProfileView({ id }: { id: string }) {
         </div>
         )}
       </div>
-
-      {/* the trade window — pick from their shelf + yours, add Tix, send */}
-      {tradeOpen && profile && !profile.isMe && (
-        <ProfileTradeModal
-          toUserId={profile.user.id}
-          toUsername={profile.user.username}
-          theirItems={profile.inventory || []}
-          onClose={() => setTradeOpen(false)}
-          onSent={load}
-        />
-      )}
     </div>
   )
 }
@@ -1033,14 +918,6 @@ export function FollowListView({ id, type }: { id: string; type: 'followers' | '
 
 /* ================= Friends (/friends) ================= */
 
-interface SearchHit {
-  id: string
-  username: string
-  playerNo?: number
-  avatarUrl: string | null
-  bio?: string
-}
-
 export function FriendsView() {
   const { user, setToast, setPendingRequests } = useRetro()
   const router = useRouter()
@@ -1049,13 +926,44 @@ export function FriendsView() {
   const [outgoing, setOutgoing] = useState<{ id: string; user: RetroUser }[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])
   const [addName, setAddName] = useState('')
-  // find-people search — look anyone up, land on their profile, trade from there
-  const [searchQ, setSearchQ] = useState('')
-  const [searchResults, setSearchResults] = useState<SearchHit[]>([])
-  const [searching, setSearching] = useState(false)
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
   const [sessionError, setSessionError] = useState(false)
+  // people search — find ANY player by name or bio, add them as a friend
+  const [peopleQ, setPeopleQ] = useState('')
+  const [people, setPeople] = useState<(RetroUser & { friendState: string })[] | null>(null)
+  const [peopleBusy, setPeopleBusy] = useState(false)
+
+  // debounce the search a little so typing does not hammer the API
+  useEffect(() => {
+    const q = peopleQ.trim()
+    if (!q) {
+      setPeople(null)
+      return
+    }
+    setPeopleBusy(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await api<{ users: (RetroUser & { friendState: string })[] }>(`/api/users?q=${encodeURIComponent(q)}&limit=12`)
+        setPeople(res.users || [])
+      } catch {
+        setPeople([])
+      } finally {
+        setPeopleBusy(false)
+      }
+    }, 280)
+    return () => clearTimeout(t)
+  }, [peopleQ])
+
+  async function peopleAct(u: RetroUser & { friendState: string }) {
+    try {
+      await api('/api/friends', { method: 'POST', body: JSON.stringify({ username: u.username }) })
+      flash(setToast, `Friend request sent to ${u.username}!`, 2200)
+      setPeople((ps) => (ps || []).map((p) => (p.id === u.id ? { ...p, friendState: 'request_sent' } : p)))
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Failed.', 2400)
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1098,24 +1006,6 @@ export function FriendsView() {
     }
   }
 
-  // live people search — debounced, hits /api/users?q=
-  useEffect(() => {
-    if (!user) return
-    const q = searchQ.trim()
-    const t = setTimeout(async () => {
-      setSearching(true)
-      try {
-        const res = await api<{ users: SearchHit[] }>(`/api/users?q=${encodeURIComponent(q)}`)
-        setSearchResults(res.users || [])
-      } catch {
-        setSearchResults([])
-      } finally {
-        setSearching(false)
-      }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [searchQ, user])
-
   async function act(friendshipId: string, action: 'accept' | 'decline' | 'remove' | 'cancel') {
     try {
       await api(`/api/friends/${friendshipId}`, { method: 'POST', body: JSON.stringify({ action }) })
@@ -1157,48 +1047,51 @@ export function FriendsView() {
           <button className="rb-btn rb-btn-green" onClick={addFriend}>Send Friend Request</button>
         </div>
         {msg && <div style={{ padding: '0 12px 10px', color: '#a81a13', fontSize: 11 }}>{msg}</div>}
-      </div>
 
-      {/* find people — search every player, open their profile, trade from there */}
-      <div className="rb-box" style={{ marginBottom: 12 }}>
-        <div className="rb-panel-head"><span>Find People</span></div>
-        <div style={{ padding: 12 }}>
+        {/* people search — the whole site's members, live as you type */}
+        <div style={{ borderTop: '1px solid #e4eaf0', padding: 12 }}>
+          <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 6 }}>Search people</div>
           <input
             className="rb-input"
-            placeholder="Search players by name..."
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
+            placeholder="Search by username or bio..."
+            value={peopleQ}
+            onChange={(e) => setPeopleQ(e.target.value)}
             style={{ width: '100%' }}
-            aria-label="Search players"
+            aria-label="Search people"
           />
-          <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
-            {searching ? 'Searching…' : searchQ.trim() ? `${searchResults.length} player${searchResults.length === 1 ? '' : 's'} found` : 'Type to search everyone on RetroBlox — or scroll the newest members.'}
-          </div>
-          {searchResults.length > 0 && (
-            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-              {searchResults.map((u) => (
-                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#fbfdfe', border: '1px solid #e8eef4', padding: '6px 9px', flexWrap: 'wrap' }}>
-                  <Link href={`/users/${u.id}`} style={{ display: 'inline-flex' }} aria-label={`View ${u.username}'s profile`}>
-                    <Avatar user={u} size={34} rounded={4} />
-                  </Link>
-                  <div style={{ flex: 1, minWidth: 130 }}>
-                    <Link href={`/users/${u.id}`} className="rb-link" style={{ fontSize: 12, fontWeight: 'bold' }}>
-                      {u.username}
-                    </Link>
-                    <span style={{ fontSize: 9.5, fontFamily: 'monospace', color: '#9aa7b4', marginLeft: 6 }}>#{u.playerNo || '?'}</span>
-                    <div style={{ fontSize: 10, color: '#7b8896', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
-                      {u.bio ? u.bio : 'no bio yet'}
+          {peopleBusy && <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 6 }}>Searching...</div>}
+          {people && !peopleBusy && (
+            people.length === 0 ? (
+              <div style={{ fontSize: 11, color: '#8ba0b3', marginTop: 6 }}>No players match “{peopleQ}”.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                {people.map((p) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1px solid #e8eef4', background: '#fbfdff', padding: '6px 8px' }}>
+                    <Avatar user={p} size={30} rounded={4} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Link href={`/users/${p.id}`} className="rb-link" style={{ fontSize: 12, fontWeight: 'bold' }}>
+                        {p.username}
+                      </Link>
+                      {typeof p.seqId === 'number' && (
+                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#0d69ac', marginLeft: 4 }}>#{p.seqId}</span>
+                      )}
+                      <div style={{ fontSize: 10, color: '#7b8896', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.bio ? p.bio.slice(0, 70) : p.online ? 'Online now' : 'Offline'}
+                      </div>
                     </div>
+                    {p.friendState === 'friends' ? (
+                      <span style={{ fontSize: 10, color: '#2c6e31' }}>✓ Friends</span>
+                    ) : p.friendState === 'request_sent' ? (
+                      <span style={{ fontSize: 10, color: '#8a6d1a' }}>Request sent</span>
+                    ) : (
+                      <button className="rb-btn rb-btn-blue" style={{ fontSize: 10, padding: '3px 10px' }} onClick={() => peopleAct(p)}>
+                        + Add
+                      </button>
+                    )}
                   </div>
-                  <Link href={`/users/${u.id}`} className="rb-btn" style={{ fontSize: 10, textDecoration: 'none', padding: '3px 10px' }}>
-                    Profile
-                  </Link>
-                  <Link href={`/trades/new?with=${u.id}`} className="rb-btn" style={{ fontSize: 10, textDecoration: 'none', padding: '3px 10px' }} title="Open the trade window with this player">
-                    🔁 Trade
-                  </Link>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>
