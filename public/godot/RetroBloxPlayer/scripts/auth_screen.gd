@@ -9,6 +9,8 @@
 #              the fresh account's avatar loads immediately via /api/platform/me
 #   GUEST    — play without an account (classic noob colors, "Guest-1234")
 # Remembers the last username; a saved token auto-signs-in instantly.
+# The server URL is LOCKED to the RetroBlox website — players only sign in;
+# the card has no URL field (self-hosters use network.cfg / RETROBLOX_API).
 class_name RetrobloxAuthScreen
 extends CanvasLayer
 
@@ -18,6 +20,8 @@ const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
 signal completed(api, username: String, user_id: String, avatar: Dictionary)
 signal guest_requested
+
+const DEFAULT_URL := "https://retro-blox.vercel.app"
 
 const RED := Color("e2231a")
 const GREEN := Color("02b757")
@@ -35,12 +39,9 @@ const LINK := Color("0d69ac")
 @onready var _login_tab_btn: Button = %LoginTabBtn
 @onready var _signup_tab_btn: Button = %SignupTabBtn
 
+var _api_url: String = DEFAULT_URL
 var _signup_mode := false
 var _busy := false
-
-# The one and only server this build signs in to. Players cannot change it
-# from the login card (self-hosts use RETROBLOX_API or --api= instead).
-var _api_url := "https://retro-blox.vercel.app"
 
 
 func _ready() -> void:
@@ -54,8 +55,10 @@ func _ready() -> void:
 
 
 func _guest_pressed() -> void:
-        if not _busy:
-                guest_requested.emit()
+        # always allowed — main.gd one-shot guards (_auth_done) the rest.
+        # (the old `_busy` gate made the guest button DEAD after a successful
+        # form login, because _submit leaves _busy = true on the success path)
+        guest_requested.emit()
 
 
 func _on_field_submitted(_text: String) -> void:
@@ -85,10 +88,12 @@ func _style_tab(button: Button, active: bool) -> void:
         button.add_theme_color_override("font_color", Color.WHITE if active else INK)
 
 
-## The fixed server this card signs in to (set by main.gd from network.cfg).
+## Lock the platform URL from main.gd (network.cfg / RETROBLOX_API / --api=).
+## There is deliberately NO editable URL field on the card.
 func set_api_url(url: String) -> void:
-        if not url.is_empty():
-                _api_url = url
+        var clean := url.strip_edges().trim_suffix("/")
+        if not clean.is_empty():
+                _api_url = clean
 
 func set_saved_username(username: String) -> void:
         if _user_edit != null:
@@ -155,4 +160,8 @@ func _submit() -> void:
 
         _status.text = "Ready!"
         var av = me.get("avatar", {})
+        # one-shot: the form is spent — further clicks (guest included) are
+        # ignored here; main.gd hides this card the moment it gets this signal.
+        _busy = true
+        _submit_btn.disabled = true
         completed.emit(api, String(me.get("username", api.username)), String(me.get("userId", api.user_id)), av if av is Dictionary else {})
