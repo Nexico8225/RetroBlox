@@ -158,13 +158,13 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                         var paint := Color.from_string(tint, Color.TRANSPARENT)
                         if paint != Color.TRANSPARENT:
                                 _surface_texture(scene, null, paint)
-                # creator PBR sliders — the site's per-item Metallic / Roughness
-                # have the FINAL say (they fix FBX uploads, which lose metallic,
-                # and let creators tune the Blender look without re-exporting)
-                var metallic: Variant = surface_asset.get("metallic", null)
-                var roughness: Variant = surface_asset.get("roughness", null)
-                if metallic != null or roughness != null:
-                        _surface_pbr(scene, metallic, roughness)
+                # creator surface finish — the site's Metallic / Roughness
+                # sliders. An explicit creator choice beats what the GLB
+                # carries, on every surface, exactly like the website renders.
+                var rough_v: Variant = surface_asset.get("roughness", null)
+                var metal_v: Variant = surface_asset.get("metallic", null)
+                if rough_v != null or metal_v != null:
+                        _surface_finish(scene, rough_v, metal_v)
 
 
 # ---------------------------------------------------------------- helpers
@@ -374,22 +374,20 @@ static func _surface_texture(root: Node, tex: Texture2D, tint := Color.TRANSPARE
                         mi.set_surface_override_material(surface, m)
 
 
-## Per-item Metallic / Roughness from the site's UGC editor — applied on top
-## of EVERYTHING (the model's own materials, creator texture/tint). Values
-## arrive as 0.0-1.0; null means "leave that channel exactly as imported".
-static func _surface_pbr(root: Node, metallic: Variant, roughness: Variant) -> void:
+## Creator surface finish (the site's Metallic / Roughness sliders, 0..1).
+## An explicit override beats whatever the GLB carries — applied to EVERY
+## surface, matching how the website and ItemThumb3D render the same item.
+static func _surface_finish(root: Node, roughness_v: Variant, metallic_v: Variant) -> void:
         for mi in _all_mesh_instances(root):
                 if mi.mesh == null:
                         continue
                 for surface: int in range(mi.mesh.get_surface_count()):
                         var mat: Material = mi.get_active_material(surface)
-                        var m: BaseMaterial3D
-                        if mat is BaseMaterial3D:
-                                m = (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
-                        else:
-                                m = StandardMaterial3D.new()
-                        if metallic != null:
-                                m.metallic = clampf(float(metallic), 0.0, 1.0)
-                        if roughness != null:
-                                m.roughness = clampf(float(roughness), 0.0, 1.0)
+                        if mat == null or not (mat is BaseMaterial3D):
+                                continue
+                        var m: BaseMaterial3D = (mat as BaseMaterial3D).duplicate()
+                        if roughness_v != null:
+                                m.roughness = clampf(float(roughness_v), 0.0, 1.0)
+                        if metallic_v != null:
+                                m.metallic = clampf(float(metallic_v), 0.0, 1.0)
                         mi.set_surface_override_material(surface, m)
