@@ -6,7 +6,6 @@ import { saveSessionToken, clearSessionToken, getStoredToken } from '@/lib/sessi
 export interface RetroUser {
   id: string
   username: string
-  playerNo?: number
   avatarUrl: string | null
   role: string
   gender: string | null
@@ -15,6 +14,8 @@ export interface RetroUser {
   lastSeen: string
   online: boolean
   rbxBalance?: number
+  /** sequential player number (#1 = the oldest account) */
+  seqId?: number | null
 }
 
 interface RetroState {
@@ -22,13 +23,11 @@ interface RetroState {
   user: RetroUser | null
   pendingRequests: number
   unreadChats: number
-  unreadNotifications: number
   toast: string | null
   setToast: (t: string | null) => void
   setUser: (u: RetroUser | null) => void
   setPendingRequests: (n: number) => void
   setUnreadChats: (n: number) => void
-  setUnreadNotifications: (n: number) => void
   setBooted: (b: boolean) => void
 }
 
@@ -37,13 +36,11 @@ export const useRetro = create<RetroState>((set) => ({
   user: null,
   pendingRequests: 0,
   unreadChats: 0,
-  unreadNotifications: 0,
   toast: null,
   setToast: (t) => set({ toast: t }),
   setUser: (u) => set({ user: u }),
   setPendingRequests: (n) => set({ pendingRequests: n }),
   setUnreadChats: (n) => set({ unreadChats: n }),
-  setUnreadNotifications: (n) => set({ unreadNotifications: n }),
   setBooted: (b) => set({ booted: b }),
 }))
 
