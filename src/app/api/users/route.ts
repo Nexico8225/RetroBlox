@@ -1,41 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
+import { getUserFromReq, publicUser, isOnline } from '@/lib/auth'
 
 /**
- * GET /api/users?q=<name|number> — find players by name (case-insensitive
- * "contains") or by their short numeric ID (typing "1" finds player #1).
- * Short, public fields only: exactly what the Friends page search and the
- * Players directory need to link you through to a profile (where the Trade
- * button lives).
+ * GET /api/users?q=wizard&limit=20 — PEOPLE SEARCH (site-wide).
+ * Matches usernames (case-insensitive contains) and bios; returns the
+ * classic card shape + online + seqId. Powers the Friends page search box.
  */
 export async function GET(req: NextRequest) {
-  const q = (new URL(req.url).searchParams.get('q') || '').trim().slice(0, 40)
+  const url = new URL(req.url)
+  const q = (url.searchParams.get('q') || '').trim()
+  const limit = Math.min(40, Math.max(1, Number(url.searchParams.get('limit')) || 20))
+  const viewer = await getUserFromReq(req)
+
   if (!q) {
-    // no query: suggest the newest members instead of an empty wall
-    const newest = await db.user.findMany({
+    // no query: the freshest faces (newest accounts first)
+    const rows = await db.user.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 12,
-      select: { id: true, username: true, playerNo: true, avatarUrl: true, bio: true, createdAt: true, lastSeen: true },
+      take: limit,
     })
-    return NextResponse.json({ users: newest })
+    return NextResponse.json({
+      users: rows.map((u) => ({ ...publicUser(u), friendState: 'none' as const })),
+      query: '',
+    })
   }
-  // "#12" / "#12" / "12" — a bare number (or #number) also matches player IDs
-  const numberQuery = q.replace(/^#/, '')
-  const asNumber = /^\d{1,9}$/.test(numberQuery) ? Number(numberQuery) : null
-  const users = await db.user.findMany({
+
+  const rows = await db.user.findMany({
     where: {
       OR: [
         { username: { contains: q } },
         { usernameLower: { contains: q.toLowerCase() } },
-        ...(asNumber != null
-          ? [{ playerNo: asNumber } as Prisma.UserWhereInput]
-          : []),
+        { bio: { contains: q } },
       ],
     },
-    orderBy: { createdAt: 'asc' },
-    take: 20,
-    select: { id: true, username: true, playerNo: true, avatarUrl: true, bio: true, createdAt: true, lastSeen: true },
+    orderBy: { lastSeen: 'desc' },
+    take: limit,
   })
-  return NextResponse.json({ users })
+
+  // friendship state between the viewer and every hit (for Add Friend buttons)
+  let viewerFriendRows: { requesterId: string; addresseeId: string; status: string }[] = []
+  if (viewer && rows.length > 0) {
+    const ids = rows.map((r) => r.id)
+    const [sent, recv] = await Promise.all([
+      db.friendship.findMany({ where: { requesterId: viewer.id, addresseeId: { in: ids } } }),
+      db.friendship.findMany({ where: { addresseeId: viewer.id, requesterId: { in: ids } } }),
+    ])
+    viewerFriendRows = [...sent, ...recv]
+  }
+
+  const users = rows
+    .map((u) => {
+      const base = publicUser(u)
+      let friendState: 'none' | 'friends' | 'request_sent' | 'request_received' = 'none'
+      if (viewer && u.id !== viewer.id) {
+        const a = viewerFriendRows.find((f) => f.requesterId === viewer.id && f.addresseeId === u.id)
+        const b = viewerFriendRows.find((f) => f.requesterId === u.id && f.addresseeId === viewer.id)
+        if (a) friendState = a.status === 'accepted' ? 'friends' : 'request_sent'
+        else if (b) friendState = b.status === 'accepted' ? 'friends' : 'request_received'
+      }
+      return { ...base, friendState, online: isOnline(u.lastSeen) }
+    })
+    // the searcher themselves never appears in their own results
+    .filter((u) => u.id !== viewer?.id)
+
+  return NextResponse.json({ users, query: q })
 }
