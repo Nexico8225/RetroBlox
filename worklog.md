@@ -1048,3 +1048,32 @@ Stage Summary:
 - All three player-reported client bugs fixed and verified headless: URL locked, login enters the world, guest plays
 - Server URL is now locked by design: in-game card has NO URL field
 - Zip is the live download; users must re-download the zip to get the fixes
+
+---
+Task ID: web-social-1
+Agent: main
+Task: P1.5 + retro UI + P2 web batch — UGC metallic/roughness, 2006 Steel UI, trades, comments, people search, seqId, Text FX
+
+Work Log:
+- SCHEMA: AvatarItem.roughness/metallic (Float?, null = model's own), User.seqId (Int? unique), new models Trade + Notification + ItemComment; prisma generate + dev db push
+- DEPLOY AUTO-FIXER (scripts/sync-schema.mjs): additive column sync on existing cloud DBs (prisma migrate diff DDL vs PRAGMA table_info -> ALTER TABLE ADD COLUMN), missing-table creation (CREATE TABLE IF NOT EXISTS), unique index sync (User.seqId), seqId backfill (signup order: Nexico8225=#1, retroblox=#2, verified on /tmp sim + LIVE)
+- CONVERT (src/lib/three/convert.ts): isPbrSource guard — .glb/.gltf keep Blender's real metallic/roughness (steel/gold/chrome survive), FBX/OBJ (Phong/Lambert, no finish data) keep the classic matte 0/0.85 default
+- RENDER: AssetInfo + ModelSurface + AvatarLook3D.models + enrichAvatarPayload.bundle + resolveAsset carry roughness/metallic; applyModelSurface applies explicit overrides on EVERY surface (creator choice beats file data); ItemThumb3D threads finish through cache key + render (catalog thumbs, AvatarView chips, GroupsView)
+- GODOT KIT (avatar_platform.gd): _surface_finish() applies /api/assets payload roughness/metallic to StandardMaterial3D per surface; zip rebuilt (73 files incl .uid, probe_login.gd excluded) + fresh-unzip SMOKE_OK + PROBE_OK
+- UI: publish form + EditItemModal get "Auto finish" checkbox + Metallic/Roughness % sliders with live ItemThumb3D preview; PATCH clearFinish/roughness/metallic; POST roughness/metallic (3D types only, sanitizeFinish: empty = auto, clamp 0..1)
+- RETRO UI: globals.css "2016 Classic" -> "2006 Steel" — steel-blue header (inset highlight + CRT scanlines), grey beveled rb-box/buttons (pressed inset state), 2px panel-head borders + blue accent bar, inset-well inputs, beveled navbar tabs + sidebar + footer, steel scrollbars
+- TRADES: models Trade (give/take JSON ids + tix + message + notesJson thread + status); POST /api/trades (ownership/dupes/wallet validation, 8/side cap), /api/trades/[id] accept|decline|cancel|message — accept moves items + Tix inside ONE transaction with re-read (no half-trades); ledger types trade_out/trade_in; TradeModal.tsx (pick inventory + Tix + note), TradesView.tsx (/trades: Incoming/Sent/History tabs, accept/decline/cancel, thread), nav + sidebar links
+- NOTIFICATIONS: model + /api/notifications (list+unread, read/read_all); header BELL (gold, 30s poll, unread badge, click-to-open panel, auto mark-read); events: trade_offer/accepted/declined/cancelled/message + item_comment
+- UGC COMMENTS: ItemComment model + /api/catalog/[id]/comments GET/POST (+creator bell) + comment wall on ItemDetailView with FX toolbar
+- PEOPLE SEARCH: GET /api/users?q= (username/bio, viewer's friendState per hit) + "Search people" box on /friends (debounced, #seqId, online, Add button)
+- SEQ IDS: publicUser.seqId, signup assigns max+1, "Player #N" chip on profile + item creator + comments + search
+- TEXT FX EVERYWHERE: FxText on item names/descriptions/comments (detail + catalog), chat messages, profile bio + trade notes; FxToolbar added to bio editor + item comment box
+- Validated: tsc clean on all touched files (only pre-existing archive/stripe/videos errors remain), npm run build OK (/trades routed), pushed 37 files (commits 7a6ce3fada..0ea9282411 + kit sync 03bed09b15..4a4e8ecec7)
+- LIVE: site 200; /api/users?q=nexico -> Nexico8225 seqId=1 (backfill ran on Turso during deploy); /api/trades + /api/notifications -> 401 (auth-gated, tables exist)
+
+Stage Summary:
+- Creators can now show off metal: .glb metallic passes through untouched, and every 3D UGC has Metallic/Roughness sliders (site + catalog thumbs + avatar + Godot player all match)
+- Site re-skinned to the 2006 steel-bevel look; all views transformed via the shared design system
+- Full trade economy live: offer UGC + Tix for UGC, free to send, atomic accept, bell notifications
+- Sequential player IDs live (Nexico8225 = #1); UGC comment walls live; people search on Friends page; Text FX renders across items/chat/bios/trades
+- Robux removal confirmed complete (Tix-only economy, zero "Robux" strings in src)
