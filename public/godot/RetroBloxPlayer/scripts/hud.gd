@@ -31,7 +31,6 @@ const CLASSIC_BLUE := Color("0d69ac")
 
 # unique names inside scenes/hud.tscn
 @onready var root: Control = $Root
-@onready var menu_button: Button = %MenuButton
 @onready var status_label: Label = %StatusLabel
 @onready var count_label: Label = %CountLabel
 @onready var names_label: Label = %NamesLabel
@@ -74,7 +73,7 @@ const HEALTH_BAR_H := 12.0
 
 
 func _ready() -> void:
-        menu_button.pressed.connect(set_menu.bind(true))
+        %MenuButton.pressed.connect(set_menu.bind(true))
         %ResumeBtn.pressed.connect(_on_resume_pressed)
         %ResetButton.pressed.connect(_on_reset_pressed)
         %ShiftlockButton.pressed.connect(_on_shiftlock_pressed)
@@ -110,10 +109,10 @@ func _build_toolbar() -> void:
         root.add_child(toolbar)
 
         # move the three real buttons into the toolbar (signals stay wired).
-        # RESOLVE THEM BEFORE THE REPARENT: after remove_child() Godot's
-        # %-unique-name lookups stop resolving, so everything below must use
-        # the cached references — a %MenuButton here would be null.
-        var menu_btn: Button = menu_button
+        # Grab direct references FIRST — after remove_child the %Name unique
+        # lookups stop resolving and the old code crashed right here, which
+        # aborted _ready() and silently skipped the classic restyle below.
+        var menu_btn: Button = %MenuButton
         for button: Button in [menu_btn, chat_button, people_button]:
                 button.get_parent().remove_child(button)
                 row.add_child(button)
