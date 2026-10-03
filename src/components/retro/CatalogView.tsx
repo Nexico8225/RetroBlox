@@ -32,6 +32,7 @@ import {
 } from '@/lib/avatarAssets'
 import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig } from '@/lib/three/convert'
 import { captureRiggedThumb } from '@/lib/three/animCapture'
+import { FxText } from '@/lib/textfx'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
 
@@ -166,9 +167,8 @@ interface CatalogItem {
   modelFileId: string | null
   textureFileId: string | null
   baseColor: string | null
-  // PBR material sliders (null = render exactly what the GLB carries)
-  metallic: number | null
   roughness: number | null
+  metallic: number | null
   placement: Placement | null
   animClips?: AnimClipsT | null
   animTarget?: AnimTargetT | null
@@ -412,8 +412,8 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       fallbackSrc={`/api/files/${item.imageFileId}`}
                       textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
                       color={item.baseColor || undefined}
-                      metallic={item.metallic}
                       roughness={item.roughness}
+                      metallic={item.metallic}
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#fff' }}
                     />
                   )}
@@ -473,7 +473,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                 </div>
                 <div style={{ padding: 8 }}>
                   <Link href={`/catalog/${item.id}`} className="rb-link" style={{ display: 'block', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.name}
+                    <FxText text={item.name} />
                   </Link>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '3px 0 6px', fontSize: 10, color: '#5a6b7b' }}>
                     <Avatar user={item.creator} size={14} rounded={3} />
@@ -715,16 +715,11 @@ function EditItemModal({
   const [clearTexture, setClearTexture] = useState(false)
   const [tintOn, setTintOn] = useState(!!item.baseColor)
   const [tint, setTint] = useState(item.baseColor || '#b8663a')
-  // PBR material sliders — 'file' = use whatever the GLB carries, 'custom' =
-  // the creator's values (applied by the site renderer AND the Godot player)
-  const hasPbr = item.metallic != null || item.roughness != null
-  const [metMode, setMetMode] = useState<'file' | 'custom'>(hasPbr ? 'custom' : 'file')
-  const [rghMode, setRghMode] = useState<'file' | 'custom'>(hasPbr ? 'custom' : 'file')
-  const [metVal, setMetVal] = useState(item.metallic ?? 0)
-  const [rghVal, setRghVal] = useState(item.roughness ?? 0.85)
-  // what the live 3D thumbnail in THIS modal should show right now
-  const metPreview = metMode === 'custom' ? metVal : null
-  const rghPreview = rghMode === 'custom' ? rghVal : null
+  // surface finish (3D items): roughness/metallic sliders, null = "auto — the
+  // model's own materials" (what Blender exported)
+  const [finishAuto, setFinishAuto] = useState(item.roughness == null && item.metallic == null)
+  const [finishRough, setFinishRough] = useState(item.roughness ?? 0.85)
+  const [finishMetal, setFinishMetal] = useState(item.metallic ?? 0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const imageRef = useRef<HTMLInputElement>(null)
@@ -785,9 +780,12 @@ function EditItemModal({
         if (clearTexture) fd.append('clearTexture', '1')
         if (tintOn) fd.append('color', tint)
         else if (item.baseColor) fd.append('clearColor', '1')
-        // PBR material sliders — 'file' resets to whatever the GLB carries
-        fd.append('metallic', metMode === 'custom' ? String(metVal) : 'file')
-        fd.append('roughness', rghMode === 'custom' ? String(rghVal) : 'file')
+        // surface finish — auto clears the override, sliders send 0..1 values
+        if (finishAuto) fd.append('clearFinish', '1')
+        else {
+          fd.append('roughness', String(Math.round(finishRough * 100) / 100))
+          fd.append('metallic', String(Math.round(finishMetal * 100) / 100))
+        }
       }
       await api(`/api/catalog/${item.id}`, {
         method: 'PATCH',
@@ -836,8 +834,8 @@ function EditItemModal({
                   placement={item.placement}
                   alt={item.name}
                   fallbackSrc={`/api/files/${item.imageFileId}`}
-                  metallic={metPreview}
-                  roughness={rghPreview}
+                  roughness={finishAuto ? item.roughness : finishRough}
+                  metallic={finishAuto ? item.metallic : finishMetal}
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
                 />
               ) : (
@@ -941,59 +939,6 @@ function EditItemModal({
                 A texture wraps every surface that has no texture of its own. The tint only paints the parts that arrived plain white —
                 the model&rsquo;s own Blender colors always show.
               </div>
-              {/* PBR material — the Blender metallic / roughness sliders */}
-              <div style={{ borderTop: '1px dashed #c9d6e2', marginTop: 10, paddingTop: 8 }}>
-                <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 2 }}>Material — metallic &amp; roughness</div>
-                <div style={{ fontSize: 10, color: '#8ba0b3', marginBottom: 6 }}>
-                  Set the metal feel of your model — what you see here is what every player gets, on the site and in game.
-                </div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#1c2733' }}>
-                    <input
-                      type="checkbox"
-                      checked={metMode === 'custom'}
-                      onChange={(e) => {
-                        setMetMode(e.target.checked ? 'custom' : 'file')
-                        if (e.target.checked && item.metallic != null) setMetVal(item.metallic)
-                      }}
-                    />
-                    <span style={{ color: '#5a6b7b', width: 56 }}>Metallic</span>
-                    <input
-                      type="range" min={0} max={100} step={1} value={Math.round((metMode === 'custom' ? metVal : (item.metallic ?? 0)) * 100)}
-                      onChange={(e) => { setMetMode('custom'); setMetVal(Number(e.target.value) / 100) }}
-                      style={{ width: 120 }}
-                      aria-label="Metallic"
-                    />
-                    <span style={{ fontFamily: 'monospace', width: 34, textAlign: 'right' }}>
-                      {Math.round((metMode === 'custom' ? metVal : (item.metallic ?? 0)) * 100)}%
-                    </span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#1c2733' }}>
-                    <input
-                      type="checkbox"
-                      checked={rghMode === 'custom'}
-                      onChange={(e) => {
-                        setRghMode(e.target.checked ? 'custom' : 'file')
-                        if (e.target.checked && item.roughness != null) setRghVal(item.roughness)
-                      }}
-                    />
-                    <span style={{ color: '#5a6b7b', width: 56 }}>Roughness</span>
-                    <input
-                      type="range" min={0} max={100} step={1} value={Math.round((rghMode === 'custom' ? rghVal : (item.roughness ?? 0.85)) * 100)}
-                      onChange={(e) => { setRghMode('custom'); setRghVal(Number(e.target.value) / 100) }}
-                      style={{ width: 120 }}
-                      aria-label="Roughness"
-                    />
-                    <span style={{ fontFamily: 'monospace', width: 34, textAlign: 'right' }}>
-                      {Math.round((rghMode === 'custom' ? rghVal : (item.roughness ?? 0.85)) * 100)}%
-                    </span>
-                  </label>
-                </div>
-                <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
-                  Unticked = use whatever the model file carries. Ticked = this value is applied everywhere.
-                  {' '}{metMode === 'custom' && metVal >= 0.7 ? 'Shiny metal! 0% roughness is a mirror, 30-50% is brushed steel.' : rghMode === 'custom' && rghVal <= 0.25 ? 'Glossy — strong highlights.' : 'Classic matte plastic is 0% metallic / 85% roughness.'}
-                </div>
-              </div>
               <input
                 ref={textureRef}
                 type="file"
@@ -1004,6 +949,47 @@ function EditItemModal({
                   e.target.value = ''
                 }}
               />
+              {/* surface finish — the metallic / roughness sliders */}
+              <div style={{ borderTop: '1px dashed #cfdce8', marginTop: 8, paddingTop: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#1c4e7c', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={finishAuto}
+                    onChange={(e) => setFinishAuto(e.target.checked)}
+                  />
+                  Auto finish (use the model&rsquo;s own Blender materials)
+                </label>
+                {!finishAuto && (
+                  <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5a6b7b' }}>
+                      <span style={{ width: 62 }}>Metallic</span>
+                      <input
+                        type="range" min={0} max={100} step={1}
+                        value={Math.round(finishMetal * 100)}
+                        onChange={(e) => setFinishMetal(Number(e.target.value) / 100)}
+                        style={{ flex: 1 }}
+                        aria-label="Metallic override"
+                      />
+                      <span style={{ width: 34, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(finishMetal * 100)}%</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5a6b7b' }}>
+                      <span style={{ width: 62 }}>Roughness</span>
+                      <input
+                        type="range" min={0} max={100} step={1}
+                        value={Math.round(finishRough * 100)}
+                        onChange={(e) => setFinishRough(Number(e.target.value) / 100)}
+                        style={{ flex: 1 }}
+                        aria-label="Roughness override"
+                      />
+                      <span style={{ width: 34, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(finishRough * 100)}%</span>
+                    </label>
+                    <div style={{ fontSize: 10, color: '#8ba0b3' }}>
+                      0% roughness + high metallic = shiny chrome · 100% roughness = matte plastic. Overrides every surface of the model,
+                      in games too.
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <label style={{ display: 'block', fontSize: 11, color: '#1c4e7c', marginBottom: 8 }}>
@@ -1144,12 +1130,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [textureUrl, setTextureUrl] = useState<string | null>(null)
   const [colorOn, setColorOn] = useState(false)
   const [itemColor, setItemColor] = useState('#4da6ff')
-  // PBR material sliders (metallic / roughness) — 3D UGC only. They START
-  // from what the converter detected in the model (a Blender .glb keeps the
-  // creator's real metallic; FBX/OBJ lands on the matte plastic defaults)
-  // and can be tuned before publishing.
-  const [pbrMetallic, setPbrMetallic] = useState(0)
-  const [pbrRoughness, setPbrRoughness] = useState(0.85)
+  // surface finish: metallic / roughness sliders (0..1). finishAuto = send
+  // nothing — the model's own Blender materials win
+  const [finishAuto, setFinishAuto] = useState(true)
+  const [finishRough, setFinishRough] = useState(0.85)
+  const [finishMetal, setFinishMetal] = useState(0)
   const textureRef = useRef<HTMLInputElement>(null)
   const textureUrlRef = useRef<string | null>(null)
   const is3D = is3DType(type)
@@ -1438,11 +1423,9 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       if (tooBig) { setError(tooBig); return }
       setConverting(true)
       fileToGlbWithCheck(f)
-        .then(({ glb, colorWarning, metallic, roughness }) => {
+        .then(({ glb, colorWarning }) => {
           setModelBlob(glb)
           setModelNotice(colorWarning || '')
-          setPbrMetallic(metallic)
-          setPbrRoughness(roughness)
           setEditorOpen(true)
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Could not read that model.'))
@@ -1560,10 +1543,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         // the creator's surface: texture first, flat color when there is none
         if (texture) await attachUpload(fd, 'texture', texture, texture.name || 'texture.png', texture.type || 'image/png', setUploadNote)
         else if (colorOn) fd.append('color', itemColor)
-        // PBR material feel (metallic / roughness), saved on the item so the
-        // site AND the Godot player render it identically
-        fd.append('metallic', String(pbrMetallic))
-        fd.append('roughness', String(pbrRoughness))
+        // surface finish — auto sends nothing (the model's own materials win)
+        if (!finishAuto) {
+          fd.append('roughness', String(Math.round(finishRough * 100) / 100))
+          fd.append('metallic', String(Math.round(finishMetal * 100) / 100))
+        }
       } else if (image) {
         await attachUpload(fd, 'image', image, image.name || 'image.png', image.type || 'image/png', setUploadNote)
       }
@@ -1637,8 +1621,8 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   fallbackSrc={thumbUrl || undefined}
                   textureUrl={textureUrl || undefined}
                   color={textureUrl ? undefined : colorOn ? itemColor : undefined}
-                  metallic={pbrMetallic}
-                  roughness={pbrRoughness}
+                  roughness={finishAuto ? undefined : finishRough}
+                  metallic={finishAuto ? undefined : finishMetal}
                   style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#fff' }}
                 />
               ) : thumbUrl ? (
@@ -1975,42 +1959,45 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   ? 'A texture wraps every surface that has no texture of its own — your model\'s own colors and textures always show.'
                   : 'No texture? A flat color only paints the parts that arrived plain white — your model\'s own Blender colors always show. You can also just drop an image anywhere on this form.'}
               </div>
-              {/* PBR material — the Blender metallic / roughness sliders */}
-              <div style={{ borderTop: '1px dashed #c9d6e2', marginTop: 10, paddingTop: 8 }}>
-                <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 2 }}>Material — metallic &amp; roughness</div>
-                <div style={{ fontSize: 10, color: '#8ba0b3', marginBottom: 6 }}>
-                  Detected in your model. A Principled BSDF .glb from Blender keeps its real metal feel; FBX starts matte. Tune it here —
-                  what you see is what every player gets, on the site and in game.
-                </div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#1c2733' }}>
-                    <span style={{ color: '#5a6b7b', width: 64 }}>Metallic</span>
-                    <input
-                      type="range" min={0} max={100} step={1} value={Math.round(pbrMetallic * 100)}
-                      onChange={(e) => setPbrMetallic(Number(e.target.value) / 100)}
-                      style={{ width: 130 }}
-                      aria-label="Metallic"
-                    />
-                    <span style={{ fontFamily: 'monospace', width: 34, textAlign: 'right' }}>{Math.round(pbrMetallic * 100)}%</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#1c2733' }}>
-                    <span style={{ color: '#5a6b7b', width: 64 }}>Roughness</span>
-                    <input
-                      type="range" min={0} max={100} step={1} value={Math.round(pbrRoughness * 100)}
-                      onChange={(e) => setPbrRoughness(Number(e.target.value) / 100)}
-                      style={{ width: 130 }}
-                      aria-label="Roughness"
-                    />
-                    <span style={{ fontFamily: 'monospace', width: 34, textAlign: 'right' }}>{Math.round(pbrRoughness * 100)}%</span>
-                  </label>
-                </div>
-                <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
-                  {pbrMetallic >= 0.7
-                    ? 'Shiny metal — 0% roughness is a mirror, 30-50% is brushed steel.'
-                    : pbrRoughness <= 0.25
-                      ? 'Glossy plastic — low roughness gives strong highlights.'
-                      : 'Classic matte plastic sits around 0% metallic / 85% roughness.'}
-                </div>
+              {/* surface finish — metallic / roughness, the Blender sliders */}
+              <div style={{ borderTop: '1px dashed #cfdce8', marginTop: 8, paddingTop: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#1c4e7c', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={finishAuto}
+                    onChange={(e) => setFinishAuto(e.target.checked)}
+                  />
+                  Auto finish (use the model&rsquo;s own materials — .glb keeps your Blender metallic)
+                </label>
+                {!finishAuto && (
+                  <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5a6b7b' }}>
+                      <span style={{ width: 62 }}>Metallic</span>
+                      <input
+                        type="range" min={0} max={100} step={1}
+                        value={Math.round(finishMetal * 100)}
+                        onChange={(e) => setFinishMetal(Number(e.target.value) / 100)}
+                        style={{ flex: 1 }}
+                        aria-label="Metallic override"
+                      />
+                      <span style={{ width: 34, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(finishMetal * 100)}%</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5a6b7b' }}>
+                      <span style={{ width: 62 }}>Roughness</span>
+                      <input
+                        type="range" min={0} max={100} step={1}
+                        value={Math.round(finishRough * 100)}
+                        onChange={(e) => setFinishRough(Number(e.target.value) / 100)}
+                        style={{ flex: 1 }}
+                        aria-label="Roughness override"
+                      />
+                      <span style={{ width: 34, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(finishRough * 100)}%</span>
+                    </label>
+                    <div style={{ fontSize: 10, color: '#8ba0b3' }}>
+                      High metallic + 0% roughness = chrome · low metallic + high roughness = the classic matte plastic.
+                    </div>
+                  </div>
+                )}
               </div>
               <input
                 ref={textureRef}
@@ -2112,8 +2099,6 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           glb={modelBlob}
           textureUrl={textureUrl || undefined}
           color={textureUrl ? undefined : colorOn ? itemColor : undefined}
-          metallic={pbrMetallic}
-          roughness={pbrRoughness}
           onCancel={() => setEditorOpen(false)}
           onSave={onPlaced}
         />
