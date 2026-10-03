@@ -46,8 +46,8 @@ interface InvEntry {
   modelFileId: string | null
   textureFileId?: string | null
   baseColor?: string | null
-  metallic?: number | null
   roughness?: number | null
+  metallic?: number | null
   placement: Placement | null
   animClips?: AnimClipsT | null
   bundleParts?: string[] | null
@@ -108,8 +108,8 @@ export function AvatarView() {
         modelUrl: e.modelFileId ? `/api/files/${e.modelFileId}` : undefined,
         textureUrl: e.textureFileId ? `/api/files/${e.textureFileId}` : undefined,
         color: e.baseColor || undefined,
-        metallic: e.metallic,
         roughness: e.roughness,
+        metallic: e.metallic,
         placement: e.placement,
         animClips: e.animClips || undefined,
         bundleParts: e.bundleParts || undefined,
@@ -316,8 +316,6 @@ export function AvatarView() {
             alt={e.name}
             textureUrl={e.textureFileId ? `/api/files/${e.textureFileId}` : undefined}
             color={e.baseColor || undefined}
-            metallic={e.metallic}
-            roughness={e.roughness}
             style={{ position: 'absolute', inset: 3, width: 'calc(100% - 6px)', height: 'calc(100% - 6px)', objectFit: 'contain', background: '#fff' }}
           />
         )}
