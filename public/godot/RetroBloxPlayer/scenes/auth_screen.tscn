@@ -105,13 +105,6 @@ text = "Sign Up"
 custom_minimum_size = Vector2(0, 4)
 layout_mode = 2
 
-[node name="ServerLabel" type="Label" parent="Root/Center/Card/Box"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
-theme_override_font_sizes/font_size = 11
-text = "Official server  ·  retro-blox.vercel.app"
-horizontal_alignment = 1
-
 [node name="UserLabel" type="Label" parent="Root/Center/Card/Box"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.419608, 0.486275, 0.525490, 1)
