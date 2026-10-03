@@ -9,6 +9,7 @@ datasource db {
 
 model User {
   id            String       @id @default(cuid())
+  seqId         Int?         @unique // sequential player number (#1, #2 ...) assigned in signup order
   username      String       @unique
   usernameLower String?      @unique // case-insensitive uniqueness ("people can't have the same username")
   passwordHash  String
@@ -46,6 +47,10 @@ model User {
   videoComments VideoComment[]
   createdSubs   Sub[]
   musicTracks  MusicTrack[]
+  tradesSent    Trade[] @relation("tradesSent")
+  tradesRecv    Trade[] @relation("tradesRecv")
+  notifications Notification[]
+  itemComments  ItemComment[]
   avatarConfig  AvatarConfig?
   inventory     InventoryEntry[]
   ugcItems      AvatarItem[]
@@ -473,12 +478,8 @@ model AvatarItem {
   placementJson String? // 3D UGC only: creator-placed transform {p:[x,y,z], r:[x,y,z] deg, s:[x,y,z]} — rendered EXACTLY as placed, never auto-corrected
   textureFileId String? // 3D UGC only: optional texture image wrapped around the model (creator uploads it at publish)
   baseColor String? // 3D UGC only: optional tint painted on the model when it has no texture (#RRGGBB)
-  // ---- PBR material overrides (the Blender metallic/roughness sliders) ----
-  // null = "from file": render exactly what the GLB carries. A number (0-1)
-  // = the creator's slider value, applied to EVERY surface by the site
-  // renderer AND the Godot player, so the item looks the same everywhere.
-  metallic  Float? // 0 = matte plastic, 1 = full mirror metal
-  roughness Float? // 0 = polished gloss, 1 = fully rough/matte
+  roughness Float? // 3D UGC only: creator surface finish override 0..1 (null = the model's own materials)
+  metallic  Float? // 3D UGC only: creator metalness override 0..1 (null = the model's own materials)
   // ---- rigged UGC (emotes / bundles / animation packs) ----
   animClipsJson   String? // emote/anim: {"clips":["Wave"],"map":{"idle":"Idle","walk":"Walk"}} — clip names inside the GLB
   animTargetJson  String? // emote/anim: {"kind":"avatar"|"bundle"|"ugc","assetId":"..."} — the creator's suggested preview context
@@ -493,7 +494,63 @@ model AvatarItem {
   group       Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   deletedAt   DateTime? // soft delete — UGC is NEVER hard-deleted, an admin can always restore it
+  comments    ItemComment[]
   ownedBy     InventoryEntry[]
+}
+
+// ---------------- UGC comments (the classic item page comment wall) ----------------
+
+model ItemComment {
+  id        String     @id @default(cuid())
+  text      String
+  itemId    String
+  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@index([itemId, createdAt])
+}
+
+// ---------------- Trades (swap UGC + Tix with other players) ----------------
+// A trade is an OFFER: the sender gives giveItemIds (+ optional Tix) and asks
+// for takeItemIds. The recipient accepts (ownership + Tix move atomically),
+// declines, or the sender cancels. Replies ride in notesJson (oldest first).
+
+model Trade {
+  id           String   @id @default(cuid())
+  fromUserId   String
+  fromUser     User     @relation("tradesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId     String
+  toUser       User     @relation("tradesRecv", fields: [toUserId], references: [id], onDelete: Cascade)
+  giveItemIds  String   @default("[]") // JSON array of AvatarItem ids the SENDER gives
+  takeItemIds  String   @default("[]") // JSON array of AvatarItem ids the sender WANTS
+  tix          Int      @default(0) // optional Tix attached to the offer (from the sender's wallet)
+  message      String   @default("") // the offer note
+  notesJson    String   @default("[]") // thread after creation: [{userId, text, at}]
+  status       String   @default("pending") // pending | accepted | declined | cancelled
+  createdAt    DateTime @default(now())
+  respondedAt  DateTime?
+
+  @@index([toUserId, status])
+  @@index([fromUserId, status])
+}
+
+// ---------------- Notifications (the classic bell) ----------------
+// One row per event for one user: trades, comments, friend requests.
+// dataJson carries the payload the UI needs (names, ids) so the list never
+// needs joins.
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // trade_offer | trade_accepted | trade_declined | trade_cancelled | item_comment
+  dataJson  String    @default("{}")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
 }
 
 // Who owns which UGC item (publishers get their item automatically; "Get" grants it too)
