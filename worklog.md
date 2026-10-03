@@ -1030,95 +1030,21 @@ Stage Summary:
 - Login errors are now self-explanatory for players (401 guidance + network-failure reason)
 
 ---
-Task ID: godot-player-8
-Agent: Super Z (main)
-Task: BATCH 1+2 - avatar fixes (Dominus Z offset, T-shirt on torso), avatar-viewer load state, accounts-only prefill login, in-game chat Text FX, ESC menu polish, UI sounds + animations, web chat FX/stickers, web FX animation fix. Player movement (player.gd) untouched - owned by another AI.
+Task ID: godot-player-9
+Agent: main
+Task: PRIORITY 1 — fix the three reported Godot client bugs (URL not locked, login stuck at page, guest broken)
 
 Work Log:
-- Diagnosed UGC placement from live data (owner wears tshirt_1 "RetroBlox Logo" + hat_1 "Golden Dominus" p=(0.2,3.4,0.1) s=2):
-  (1) avatar_platform.gd assumed a 2.9-tall avatar and scaled UGC by 0.58, but avatar.gd normalizes the rig to 5.0 - measured scripts/measure_rig.mjs: site and game rig spaces are IDENTICAL (k=1.0, helpers inside body bounds). UGC_SCALE removed.
-  (2) site rig faces +Z (FBX yaw-wrapped in rig.ts), game rig faces -Z -> all placements mirrored. Fixed with a 180-deg yaw bridge node (site graph replicated 1:1: avatar -> bridge(Y180) -> holder(p/r/s verbatim) -> GLB).
-  (3) T-shirts: site renders kind=tshirt as a torso FRONT decal (rig.ts tshirtUrls->frontDecal) and the game skipped them entirely. avatar_platform now routes kind=tshirt to new avatar.gd set_tshirt(): 92%-of-torso quad on the torso mount, alpha-scissor, follows limb swings. clear_tshirt() added.
-- Avatar-viewer load state (main.gd + hud.gd): on first spawn the character stays put, camera auto-orbits (0.45 rad/s), shiftlock + zoom fully live, bottom-center banner "Welcome, X! ... Press a move key or SPACE to start playing". First move key/jump exits smoothly. Only first spawn per session.
-- Accounts-only + prefill login: GuestBtn hidden (has_node-guarded); silent token auto-sign-in REMOVED on purpose; auth_screen.set_saved_credentials prefills username+password from user://profile.cfg with "Welcome back" status; password saved via completed signal (now carries it) -> main._finish_auth writes platform/password. Returning players just press Log In.
-- In-game chat Text FX: 10 custom RichTextEffects in scripts/fx/ (shake, wiggle, swirl/whirly, wave, bounce, rainbow, glow, neon, fire, ice) mirroring src/lib/textfx.tsx keyframes; hud.gd fx_to_bbcode() parses the SAME [tag]...[/tag] markup with the web's stacking/close semantics, escapes everything else ([lb]/[rb]) so no injection; aliases whirly->swirl, wiggly->wiggle; colors + [big]->font_size supported; chat bubbles get strip_fx() (plain text, main.gd). chat_log.bbcode_enabled + custom_effects wired in _ready.
-- UI sounds: zero new assets - synthesized retro blips at startup (hover tick 920Hz, click thock 540Hz square, open/close sweeps), routed through Master bus so the volume slider shapes them.
-- UI animations: ESC menu card back-eased pop-in, chat/roster panels fade+swell in and fade out on close, unread badge pop, hover scale 1.07 on every Button (recursive wiring, tween-per-button via meta).
-- Web FX fix: the CSS was already deployed; the real killers were (1) @media prefers-reduced-motion killing .fx/.fx-char animations (owner's OS animation setting) - removed on purpose with an explanatory comment; (2) web chat never rendered FX. ChatView.tsx now renders messages through FxText and has the FxToolbar on the input + a 6-sticker pixel pack (scripts/make_stickers.py -> public/retro/stickers/*.png) sent through the existing image pipeline; chat empty state got sticker strip + tip text.
-- Smoke test repaired (was silently stale, 8 failures): _build_toolbar broke %UniqueName lookups by re-parenting mid-_ready and looking up via % after the move - now captures refs first + re-registers owner (verified via probes; reproduced with scripts-scene-state repro). Stale expectations updated: head 1.17 classic scale (was capsule 0.6-0.75), badge "1" (was "(1)"), empty badge "" (was "CHAT"), fade-aware close check, camera_distance 14.5 + spring easing range. add_chat check is BBCode-aware.
-- Validation: --import clean, ALL scripts --check-only clean (incl. 10 fx + tests), smoke ALL PASSED, validate_map ALL PASSED. tsc: only pre-existing archive/route errors (ChatView/globals clean). Zip rebuilt (95 files, 407KB incl. fx scripts + uids) and pushed with all sources.
+- Unzipped public/godot/retroblox-godot-player.zip to scripts/godot-src; read auth_screen.gd, main.gd, hud.gd, retroblox_api.gd, smoke.gd; player.gd movement code NOT touched
+- Built headless e2e probe (tests/probe_bugs.gd) reproducing guest + login flows; reproduced all reported failures
+- ROOT CAUSE login-stuck: main.gd _finish_auth() never hid the auth card; _process/_physics_process gate on auth.visible -> whole game frozen behind the login page, player never spawns. Guest + saved-token paths hid it, manual login path did not
+- ROOT CAUSE guest-dead: auth_screen.gd _guest_pressed() gated on _busy; _submit() leaves _busy=true on the SUCCESS path, so after logging in once (stuck at page) the guest button did nothing. Plus hud.gd _build_toolbar() crashed (%MenuButton lookup after remove_child breaks unique-name registry), aborting HUD _ready and skipping the classic restyle; plus _start_server port-collision looped forever connecting to 127.0.0.1 against a zombie local instance
+- FIXES: (1) auth_screen.tscn ServerLabel+ServerEdit removed — URL locked to https://retro-blox.vercel.app via set_api_url() (network.cfg / RETROBLOX_API / --api= still work for self-hosts); (2) _finish_auth hides the card before _begin_online(); (3) _guest_pressed no longer gated on _busy (main.gd _auth_done one-shot guards it); (4) hud.gd grabs direct button refs before moving them into the toolbar; (5) _start_server scans ports 42420-42424 on collision before falling back to 127.0.0.1 join
+- Updated tests/smoke.gd (no-URL-field check, toolbar paths, badge=text number, classic-style-applied check, R6IK head 1.0-1.3, spring 14.0) + README troubleshooting
+- Validated: smoke ALL PASS, probe_bugs PROBE_OK (guest plays + spawns + avatar visible; login hides card + spawns; port fallback demonstrably hosted on 42421 after collision), validate_map + validate_actions PASS, 13 scripts --check-only ok; fresh-unzip of rebuilt zip re-validated SMOKE_OK
+- Rebuilt + pushed public/godot/retroblox-godot-player.zip (73 files) -> commit c9b88fb794 -> Vercel auto-deploy; copy in download/
 
 Stage Summary:
-- UGC now lands EXACTLY where the site shows it (Dominus at the head, correct facing; RetroBlox-logo T-shirt ON the torso)
-- Login card always shows pre-filled - one click to play, no guest path
-- First spawn is an avatar-viewer moment: look around, then walk to play
-- Game chat speaks the website's Text FX language; web chat gained FX rendering + toolbar + stickers; FX animations can no longer be silently disabled by the OS
-- Zip: re-download retroblox-godot-player.zip from the site; player.gd movement untouched for the other AI's work
-
----
-Task ID: web-market-1
-Agent: Super Z (main)
-Task: UGC trading economy - trade UGC between players, sell/resell with Tix offers the seller can take or leave, haggle chat to lower prices, 1.5x resale loop ("infinite Tix"), market graph on the UGC page, limiteds rare like Roblox (serials), notifications for trade offers AND friend requests. Then report and resume the Godot batches.
-
-Work Log:
-- Schema: 7 new tables (UgcListing, UgcOffer, UgcListingMessage, UgcTrade, UgcTradeMessage, Notification, UgcPricePoint) + InventoryEntry.serial (permanent limited copy numbers). prisma db push + generate locally, validate clean.
-- scripts/sync-schema.mjs UPGRADED: non-empty cloud DBs now get missing CREATE TABLE/INDEX (IF NOT EXISTS) + COLUMN_PATCHES (ALTERs checked via table_info) on EVERY build - new schema reaches live Turso with zero owner action, data never touched. Verified 3 ways: fresh DB (41 tables), old-DB simulation (7 tables + serial added, data preserved), idempotent re-run (no-op). Fixed statement split (comment lines broke the CREATE filter).
-- src/lib/market.ts: RESALE_MULTIPLIER 1.5 + resaleValue(), notify() (never throws), pricePoint(), moveTix() (atomic wallet move + ledger rows), transferItem() (fresh ownership check, one-copy-per-member rule, serial travels with the copy, seller's active listings auto-cancel), assertOwnsAll(), parseIdArray(), paidByOwner().
-- APIs: /api/market (GET market/item/mine; POST list/set_price/cancel/buy/offer/accept_offer/decline_offer), /api/market/[id] (listing detail + haggle chat, seller pings offerers), /api/trades (GET incoming/outgoing+itemMap; POST create with items+tix+message), /api/trades/[id] (chat/counter/accept/decline/cancel - accept swaps items AND Tix atomically), /api/notifications (GET+read/read_all). Friends request/accept + catalog buy now ring the bell; /api/me returns unreadNotifications.
-- Catalog: buy now assigns LIMITED serials (sold+1), writes mint price points, notifies the creator; GET returns market{} (active listings w/ top offers, real price history, my serial + 1.5x suggested resale).
-- UI: ItemDetailView gained Resale Market panel (sell w/ 1.5x hint, buy now, send offer, haggle chat, offers accept/decline, lower price, take down), Market History graph (real prices over time: mint/resale/trade dots), serial badge (copy #N/stock), Offer-a-Trade modal (inventory picker + tix + message, targets creator OR any listing seller, works on SOLD OUT items); new TradesView + /trades (tabs: Trades w/ chat + counter + accept; Market w/ my listings + offers received/sent); NotificationsBell in header + /notifications page; Trades nav entry; CatalogView FOR SALE chips (min listing price).
-- E2E (scripts/e2e_market.cjs, 32 checks): 3 players - publish limited -> mint buy (serial 1) -> 1.5x suggestion -> list -> offer(1100) w/ haggle msg -> duplicate-offer block -> price drop to 1300 -> accept offer -> serial stays 1 -> suggestion 1650 -> history mint+resale -> wallet math exact -> trade offer -> counter -> chat -> accept -> serial still 1 -> wallets exact -> notifications all sides -> read_all -> friend request/accept notifications. FINAL: 32/32 PASS.
-- BUG FOUND BY E2E: trade accept used db.ugcTrade.update INSIDE $transaction -> second connection blocked on SQLite write lock -> P2028 timeout (5000ms). Fixed to tx. (probe_tx_timing.cjs + debug_trade.cjs left for reference). Also documented: a creator can never re-acquire their own item (one copy per member - their master copy blocks it); e2e uses a 3rd player as resale buyer.
-- Local test rows cleaned (scripts/cleanup_market_e2e.ts, 18 users); test artifact: /api/playtime/leaderboard 500s on live (PlaySession table missing on Turso) - the new sync-schema will create it on this deploy too.
-- Pushed 21 files (4bd2814c1e..b27291f5e6) -> Vercel auto-deploy; sync-schema creates the 7 tables + serial column on live Turso during the build.
-
-Stage Summary:
-- The UGC economy is live-worthy: trades (items +/- Tix, chat, counter, atomic accept), resale market (buy now / Tix offers the seller takes or leaves / haggle chat to lower prices), 1.5x resale loop by design, limited serials that travel with copies forever, real market-history graphs, and a notification bell for trades/offers/sales/friend requests
-- Godot batches from godot-player-8 remain COMPLETE (avatar fixes, avatar-viewer load state, accounts-only prefill login, chat Text FX, ESC menu, UI sounds/anims, web FX fix + stickers); no pending Godot work
-- BONUS FIX (same deploy round): /api/playtime/leaderboard was 500ing IN PRODUCTION since it was written - decorate() returned {window,...} without window in scope (browser global -> ReferenceError in Node) AND groupBy+orderBy(_sum) is unsafe on libSQL. Rewrote both leaderboard route and users/[id]/stats route with JS aggregation + passed window explicitly. Verified locally 200 both windows, live 200. Also confirmed live /api/catalog untouched (Iron Bucket intact - zero data loss from the schema sync).
-
----
-Task ID: web-market-2
-Agent: Super Z (main)
-Task: Refine the UGC economy per user feedback - (1) trade from PROFILES (see their UGC shelf + press Trade), (2) market listing offers can be paid with UGC or Tix (or both), (3) listings get a title + description pitch, plus keep the 2x price ladder / 1.5x resale loop intact.
-
-Work Log:
-- Schema: UgcListing.title (80ch) + UgcListing.description (300ch), UgcOffer.offerItemIdsJson (buyer's UGC on the table). db push + generate locally.
-- scripts/sync-schema.mjs: appended 3 COLUMN_PATCHES (UgcListing.title/description, UgcOffer.offerItemIdsJson). Verified with an old-DB simulation (db/sync-test.db with pre-change tables + rows): columns added, existing rows survived with defaults ('' / '[]'), idempotent.
-- /api/market: list accepts title/description; offer accepts offerItemIds (max 4) with early validation (empty offer rejected, offering the listed item rejected, offering an item the seller already owns rejected, Tix funds checked); accept_offer moves Tix + listed item + offered items atomically (fresh ownership checks, one-copy-per-member enforced, seller-side clash bounces the whole tx); pure-UGC accepts (T$ 0) add NO price point so the graph stays honest; GETs now return offerItemMap + listing title.
-- /api/market/[id]: offers carry offerItemIdsJson + offerItemMap for chips; listing returns title/description.
-- /api/users/[id]: new `inventory` field (their UGC shelf: item + isLimited + serial, soft-deleted hidden) - profiles are now trade windows. (Note: User's back-relation is named `inventory`, not ownedBy.)
-- MarketPanel.tsx: NEW ProfileTradeModal (two-sided picker: request from THEIR shelf + give from YOUR inventory + any Tix amount + message; auto-filters copies you/they already own); buyer offer UI gained a +UGC item picker (Tix, UGC, or both); offer rows render OfferItemChips (thumb + name + limited star); sell form gained title + description; listing rows show the seller's pitch. OfferItemChips/parseIds exported.
-- ProfileFriends.tsx (ProfileView): green "Trade" button next to Message; new UGC content tab = their tradeable shelf with limited serial badges + catalog links + "Trade with X" shortcut; modal wired with load() refresh.
-- TradesView.tsx: pending offers + offers-sent rows show the offered UGC chips; header text updated.
-- E2E: scripts/e2e_market2.cjs (37 checks) - mint -> pitch listing -> validations -> mixed offer (Tix+UGC) -> accept (serial travels, both wallets exact, hat crosses) -> pure-UGC offer (T$0, no price point) -> profile inventory + serial -> profile trade (charm + T$6000 for the gem) -> accept -> wallets exact -> notifications. 37/37 PASS. Original e2e_market.cjs still 32/32 PASS (had to restart the stale local dev server - it was running a pre-market Prisma client in memory, db.ugcListing undefined -> 500s).
-- Fixed own e2e bugs: wallet math forgot the 10-Tix second item; /api/notifications returns {items} not {notifications}.
-- Local test users cleaned via cleanup_market_e2e.ts (patterns += mx_, 15 users removed). tsc: 0 errors in touched files (13 pre-existing elsewhere unchanged). npm run build passed.
-
-Stage Summary:
-- The full flow the user described now exists end to end: profile -> see their UGC -> Trade (items +/- any Tix, chat, counter, accept/decline, notification); market listing with title + description -> buyers offer Tix and/or UGC -> seller accepts/declines -> everything swaps atomically; haggle chat on every listing; limiteds keep serials forever, price doubles per copy sold (buyPrice ladder), suggested resale 1.5x what you paid.
-- Pushed 10 files -> Vercel deployed; live /api/market confirms new offerItemMap code; sync-schema patched live Turso during the build.
-- All Godot batches remain COMPLETE (godot-player-8); nothing pending there.
-
----
-Task ID: web-market-3
-Agent: Super Z (main)
-Task: (1) FIX the live bug the user reported - trade/UGC offers produced NO notification for the recipient. (2) Trade detail PAGE (/trades/[id]): their side vs your side + chat panel on the right, Text FX in trade chat. (3) Robux as a second tradeable currency everywhere (trades, market offers, store exchange, header). (4) Profile: UGC worth + creations. (5) Catalog finder: sort, price range, year, My UGC.
-
-Work Log:
-- DIAGNOSED THE NOTIFICATION BUG: /api/notifications GET was 500ing IN PRODUCTION (reproduced with a probe account; /api/me worked because count() survives, findMany() fails). Root cause: schema drift on live Turso - a table created by an older sync-schema run is missing later columns, and CREATE TABLE IF NOT EXISTS never adds columns. The hand-listed COLUMN_PATCHES didn't cover Notification (link/dataJson) - exactly the "sometimes you don't do your todos" class of bug the user called out.
-- FIXED FOR REAL: scripts/sync-schema.mjs now has an AUTO-HEALER - it parses every CREATE TABLE from `prisma migrate diff`, compares against live PRAGMA table_info, and ALTERs in ANY missing column (with fallbacks: inline PK stripped, NOT NULL gets a type-appropriate DEFAULT). Order: tables -> columns -> indexes. Verified with scripts/test_sync_drift.cjs (drifted fixture DB: Notification without link/dataJson, User without robuxBalance etc.) - all columns healed, rows intact, second run a no-op.
-- /api/notifications GET now returns {error, detail} on failure (a 500 with the real DB message instead of a blind wall); /api/me wraps each badge count defensively so a broken counter can never blank the shell.
-- ROBUX: User.robuxBalance, UgcTrade.robuxFrom/robuxTo, UgcOffer.robux, RbxTransaction.currency. moveRobux + exchangeCurrency in src/lib/market.ts (10 Tix = R$ 1, reverse desk 1:9). POST /api/rbx/balance = the exchange desk. /api/me + publicUser return robuxBalance. Header got an R$ chip next to the Tix chip; Tix Store got the Currency Exchange panel (#exchange) + both balances + robux-aware ledger rows.
-- TRADES carry Robux: create + counter + accept (atomic, both currencies both directions). Market offers carry Robux: offer + accept_offer move Tix + R$ + UGC in one transaction. Notification links now point INTO the trade room /trades/<id>.
-- TRADE ROOM: new /trades/[id] page + TradeDetailView - "They give" vs "You give" panels (item cards, T$ and R$ chips, missing-item warnings), counter editor for both currencies, and the CHAT PANEL ON THE RIGHT with FxText rendering + FxToolbar composer, polling every 4s (chat) / 8s (terms). TradesView cards now link to the room; inline chat renders FxText too.
-- Text FX also wired into the listing haggle chat (MarketPanel ListingChat) with the FX toolbar; FxText renders in trade message previews.
-- PROFILE: /api/users/[id] returns ugcWorth (per copy: active ask if listed, else 1.5x what they paid / 1.5x mint for creators) + creations (their published UGC with owner counts). Profile stat chips gained "UGC Worth"; Creations tab gained "UGC they made".
-- CATALOG FINDER: sort (Newest / Most popular / Price high-low / low-high), price range min-max, year filter ("Popular in 2026"), My UGC toggle, Reset - all client-side over the API payload, no API change.
-- FIXED REAL BUGS FOUND BY E2E: POST /api/trades + /api/trades/[id] leaked MarketErrors (NO_FUNDS/NO_ROBUX/NOT_OWNED) as 500s - now friendly 400s (counter + accept + create paths).
-- E2E: scripts/e2e_market3.cjs (30 checks): exchange 10:1 and back, too-small bounce, robux trade create/room GET/counter/accept with exact wallet math, triple offer (Tix+R$+UGC) accept, serial persistence, ugcWorth + creations, notification links. 30/30 PASS. Regression: e2e_market.cjs 32/32, e2e_market2.cjs 37/37 (against :3000). npm run build clean. Local test users cleaned (23 removed).
-- NOTE: e2e_market.cjs defaults to :3100 - pass http://localhost:3000.
-
-Stage Summary:
-- The user-reported notification bug is fixed at the ROOT (schema auto-healer) - every current and future column lands on live Turso automatically on deploy.
-- Trading is now two-currency (Tix + Robux), the trade room page exists exactly as described (their stuff vs yours, chat on the right, FX text), profiles show worth + creations, and the catalog has a real finder. Pushed to Vercel; sync-schema heals live during the build.
+- All three player-reported client bugs fixed and verified headless: URL locked, login enters the world, guest plays
+- Server URL is now locked by design: in-game card has NO URL field
+- Zip is the live download; users must re-download the zip to get the fixes
