@@ -4,12 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, timeAgo, flash, type RetroUser } from '@/lib/store'
-import { FxToolbar, FxText } from '@/lib/textfx'
+import { FxText } from '@/lib/textfx'
 import { Avatar, OnlineDot } from './Shell'
 
 /* Chat — private Discord-flavored DMs between accepted friends.
-   Supports text (with the website's Text FX!), images, videos and audio,
-   plus a pack of classic pixel stickers. Polls lightly. */
+   Supports text, images, videos and audio (images replaced GIFs). Polls lightly. */
 
 interface ChatMsg {
   id: string
@@ -20,16 +19,6 @@ interface ChatMsg {
   fromMe: boolean
   createdAt: string
 }
-
-/* the classic pixel sticker pack — public/retro/stickers/*.png */
-const STICKERS = [
-  { name: 'smile', label: 'Smile' },
-  { name: 'heart', label: 'Heart' },
-  { name: 'tix', label: 'Tickets!' },
-  { name: 'stud', label: 'Stud' },
-  { name: 'bloxy', label: 'Bloxy' },
-  { name: 'noob', label: 'Noob' },
-]
 
 export function mediaRender(fileId: string | null, fileType: string | null, name?: string | null) {
   if (!fileId || !fileType) return null
@@ -166,10 +155,8 @@ export function ChatThreadView({ userId }: { userId: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [emojiOpen, setEmojiOpen] = useState(false)
-  const [stickerOpen, setStickerOpen] = useState(false)
   const msgsRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const lastCountRef = useRef(-1)
 
   /* open the file picker with a specific accept filter (images vs media) */
@@ -224,29 +211,6 @@ export function ChatThreadView({ userId }: { userId: string }) {
       setText('')
       setFile(null)
       setEmojiOpen(false)
-      requestAnimationFrame(() => {
-        const el = msgsRef.current
-        if (el) el.scrollTop = el.scrollHeight
-      })
-    } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Failed to send', 2400)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function sendSticker(name: string) {
-    if (busy) return
-    setBusy(true)
-    try {
-      const blob = await (await fetch(`/retro/stickers/${name}.png`)).blob()
-      const stickerFile = new File([blob], `${name}-sticker.png`, { type: 'image/png' })
-      const fd = new FormData()
-      fd.append('text', '')
-      fd.append('file', stickerFile)
-      const res = await api<{ message: ChatMsg }>(`/api/chat/${userId}`, { method: 'POST', body: fd })
-      setMessages((ms) => [...ms, res.message])
-      setStickerOpen(false)
       requestAnimationFrame(() => {
         const el = msgsRef.current
         if (el) el.scrollTop = el.scrollHeight
@@ -328,16 +292,8 @@ export function ChatThreadView({ userId }: { userId: string }) {
         <div className="rb-chat-msgs" ref={msgsRef}>
           {messages.length === 0 && (
             <div style={{ textAlign: 'center', color: '#7b8896', fontSize: 11, margin: 'auto' }}>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 10 }}>
-                {STICKERS.map((s) => (
-                  <img key={s.name} src={`/retro/stickers/${s.name}.png`} alt={s.label} width={30} height={30} style={{ imageRendering: 'pixelated' }} />
-                ))}
-              </div>
               This is the beginning of your friendship with{' '}
-              <span style={{ color: '#24425f' }}>{friend?.username || 'them'}</span>. Say hi!<br />
-              <span style={{ fontSize: 10 }}>
-                Shake, wiggle or rainbow your words with the FX Menu — or drop a classic sticker.
-              </span>
+              <span style={{ color: '#24425f' }}>{friend?.username || 'them'}</span>. Say hi!
             </div>
           )}
           {messages.map((m) => (
@@ -356,16 +312,6 @@ export function ChatThreadView({ userId }: { userId: string }) {
         </div>
 
         <div className="rb-chat-inputbar">
-          <FxToolbar taRef={inputRef} value={text} onChange={setText} />
-          {stickerOpen && (
-            <div className="rb-chat-emojirow" role="toolbar" aria-label="Stickers">
-              {STICKERS.map((s) => (
-                <button key={s.name} type="button" title={s.label} aria-label={`Send ${s.label} sticker`} onClick={() => sendSticker(s.name)} disabled={busy}>
-                  <img src={`/retro/stickers/${s.name}.png`} alt="" width={22} height={22} style={{ imageRendering: 'pixelated', display: 'block' }} />
-                </button>
-              ))}
-            </div>
-          )}
           {emojiOpen && (
             <div className="rb-chat-emojirow">
               {EMOJIS.map((e) => (
@@ -429,17 +375,7 @@ export function ChatThreadView({ userId }: { userId: string }) {
                 e.target.value = ''
               }}
             />
-            <button
-              type="button"
-              className="rb-btn"
-              style={{ fontSize: 10, padding: '5px 8px' }}
-              title="Stickers"
-              onClick={() => setStickerOpen((o) => !o)}
-            >
-              ★
-            </button>
             <input
-              ref={inputRef}
               className="rb-input"
               type="text"
               placeholder={`Message ${friend?.username || ''}...`}
