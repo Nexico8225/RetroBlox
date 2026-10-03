@@ -133,7 +133,6 @@ export function isOnline(lastSeen: Date | string): boolean {
 export function publicUser(u: {
   id: string
   username: string
-  playerNo?: number
   avatarUrl: string | null
   role?: string
   gender?: string | null
@@ -141,11 +140,11 @@ export function publicUser(u: {
   createdAt: Date | string
   lastSeen: Date | string
   rbxBalance?: number
+  seqId?: number | null
 }) {
   return {
     id: u.id,
     username: u.username,
-    playerNo: typeof u.playerNo === 'number' ? u.playerNo : 0,
     avatarUrl: u.avatarUrl,
     role: u.role ?? 'user',
     gender: u.gender ?? null,
@@ -154,5 +153,7 @@ export function publicUser(u: {
     lastSeen: u.lastSeen,
     online: isOnline(u.lastSeen),
     rbxBalance: typeof u.rbxBalance === 'number' ? u.rbxBalance : 0,
+    // sequential player number (#1 = the oldest account)
+    seqId: typeof u.seqId === 'number' ? u.seqId : null,
   }
 }
