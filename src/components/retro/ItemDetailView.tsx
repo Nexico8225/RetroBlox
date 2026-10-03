@@ -10,10 +10,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { useRetro, api, flash, refreshBalance, attachUpload } from '@/lib/store'
-import { Avatar } from './Shell'
+import { useRetro, api, flash, refreshBalance } from '@/lib/store'
 import { FxText, FxToolbar } from '@/lib/textfx'
-import { MarketPanel, MarketHistoryChart, TradeOfferModal, type MarketData } from './MarketPanel'
+import { Avatar } from './Shell'
 import {
   UGC_TYPE_LABELS,
   DEFAULT_AVATAR,
@@ -27,6 +26,7 @@ import {
 import type { AvatarLook3D } from '@/lib/three/rig'
 
 const Player3DView = dynamic(() => import('./Player3DView'), { ssr: false })
+const TradeModal = dynamic(() => import('./TradeModal'), { ssr: false })
 
 interface SaleRow {
   username: string
@@ -54,12 +54,14 @@ interface DetailItem {
   modelFileId: string | null
   textureFileId: string | null
   baseColor: string | null
+  roughness: number | null
+  metallic: number | null
   placement: Placement | null
   animClips: AnimClipsT | null
   animTarget: AnimTargetT | null
   bundleParts: string[] | null
   hasRig: boolean
-  creator: { id: string; username: string; avatarUrl: string | null; playerNo?: number }
+  creator: { id: string; username: string; avatarUrl: string | null }
   group: { id: string; name: string } | null
   createdAt: string
 }
@@ -67,19 +69,9 @@ interface DetailItem {
 interface DetailData {
   item: DetailItem
   owned: boolean
-  market: MarketData
   priceLadder: { soldAfter: number; price: number }[] | null
   sales: SaleRow[]
   canDelete: boolean
-  tradeTarget: { id: string; username: string } | null
-  incomingTrades: { id: string; tixFrom: number; giveItemIds: string[]; fromUser: { id: string; username: string; avatarUrl: string | null } }[]
-}
-
-interface UgcCommentRow {
-  id: string
-  text: string
-  createdAt: string
-  user: { id: string; username: string; avatarUrl: string | null; playerNo?: number }
 }
 
 /** compact Tix formatting for chart labels (1,234 / 12.5K / 4M) */
@@ -185,14 +177,6 @@ export function ItemDetailView({ id }: { id: string }) {
   // emotes: which clip the preview performs
   const [clip, setClip] = useState('')
   const [reload, setReload] = useState(0)
-  const [tradeOpen, setTradeOpen] = useState(false)
-  // owner thumbnail editor (the picture everyone sees on catalog cards)
-  const [thumbOpen, setThumbOpen] = useState(false)
-  // the item page comment section
-  const [comments, setComments] = useState<UgcCommentRow[]>([])
-  const [commentText, setCommentText] = useState('')
-  const [commentBusy, setCommentBusy] = useState(false)
-  const commentRef = useRef<HTMLTextAreaElement>(null)
 
   const load = useCallback(async () => {
     try {
@@ -200,9 +184,6 @@ export function ItemDetailView({ id }: { id: string }) {
       setData(res)
       setErr('')
       setClip((c) => c || (res.item.animClips?.clips?.[0] ?? ''))
-      api<{ comments: UgcCommentRow[] }>(`/api/catalog/${id}/comments`)
-        .then((cc) => setComments(cc.comments || []))
-        .catch(() => {})
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'This item could not be loaded.')
     }
@@ -211,9 +192,37 @@ export function ItemDetailView({ id }: { id: string }) {
   useEffect(() => { load() }, [load, reload])
 
   const item = data?.item
+  const [tradeOpen, setTradeOpen] = useState(false)
 
-  /** creator / admin can retouch this item's listing picture */
-  const isOwner = !!user && !!item && (user.id === item.creator.id || user.role === 'admin')
+  // the comment wall under the item
+  const [comments, setComments] = useState<{ id: string; text: string; createdAt: string; user: { id: string; username: string; avatarUrl: string | null; seqId: number | null } }[]>([])
+  const [commentText, setCommentText] = useState('')
+  const [commentBusy, setCommentBusy] = useState(false)
+  const commentRef = useRef<HTMLInputElement>(null)
+
+  const loadComments = useCallback(async () => {
+    try {
+      const res = await api<{ comments: { id: string; text: string; createdAt: string; user: { id: string; username: string; avatarUrl: string | null; seqId: number | null } }[] }>(`/api/catalog/${id}/comments`)
+      setComments(res.comments || [])
+    } catch { /* the wall is optional */ }
+  }, [id])
+
+  useEffect(() => { loadComments() }, [loadComments])
+
+  async function postComment() {
+    const text = commentText.trim()
+    if (!text || !item) return
+    setCommentBusy(true)
+    try {
+      await api(`/api/catalog/${item.id}/comments`, { method: 'POST', body: JSON.stringify({ text }) })
+      setCommentText('')
+      await loadComments()
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Comment failed.')
+    } finally {
+      setCommentBusy(false)
+    }
+  }
 
   /** the default blockhead wearing THIS item — the try-on lives on the page now */
   const look: AvatarLook3D | null = useMemo(() => {
@@ -242,6 +251,8 @@ export function ItemDetailView({ id }: { id: string }) {
         placement: item.placement,
         textureUrl: item.textureFileId ? f(item.textureFileId) : undefined,
         color: item.baseColor || undefined,
+        roughness: item.roughness,
+        metallic: item.metallic,
       }]
     else l.models = [{ url: '', imageUrl: f(item.imageFileId), placement: null }]
     return l
@@ -278,22 +289,6 @@ export function ItemDetailView({ id }: { id: string }) {
     }
   }
 
-  async function postComment() {
-    const t = commentText.trim()
-    if (!t || !item) return
-    setCommentBusy(true)
-    try {
-      await api(`/api/catalog/${item.id}/comments`, { method: 'POST', body: JSON.stringify({ text: t }) })
-      setCommentText('')
-      const cc = await api<{ comments: UgcCommentRow[] }>(`/api/catalog/${item.id}/comments`)
-      setComments(cc.comments || [])
-    } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Could not post that.', 3200)
-    } finally {
-      setCommentBusy(false)
-    }
-  }
-
   if (err) {
     return (
       <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>
@@ -320,7 +315,7 @@ export function ItemDetailView({ id }: { id: string }) {
         <span>/</span>
         <Link href={`/catalog?type=${encodeURIComponent(item.type)}`} className="rb-link">{typeLabel}</Link>
         <span>/</span>
-        <span style={{ color: '#1c2733', fontWeight: 'bold' }}><FxText text={item.name} /></span>
+        <span style={{ color: '#1c2733', fontWeight: 'bold' }}>{item.name}</span>
       </div>
 
       {/* main card — preview left, purchase panel right (the classic layout) */}
@@ -363,22 +358,17 @@ export function ItemDetailView({ id }: { id: string }) {
                 Replaces your: {item.bundleParts.join(', ')} — the classic body steps aside.
               </div>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#9aa7b4' }}>
-                {item.assetId} · drag to spin
-              </div>
-              {isOwner && (
-                <button type="button" className="rb-btn" style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => setThumbOpen(true)} title="Swap the picture players see in the catalog">
-                  ✎ Change Thumbnail
-                </button>
-              )}
+            <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#9aa7b4', marginTop: 8 }}>
+              {item.assetId} · drag to spin
             </div>
           </div>
 
           {/* RIGHT: the purchase panel */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: 24, color: '#1c2733', margin: 0, lineHeight: 1.15 }}><FxText text={item.name} /></h1>
+              <h1 style={{ fontSize: 24, color: '#1c2733', margin: 0, lineHeight: 1.15 }}>
+              <FxText text={item.name} />
+            </h1>
               {item.isLimited && (
                 <span
                   style={{
@@ -405,9 +395,14 @@ export function ItemDetailView({ id }: { id: string }) {
               <Link href={`/users/${item.creator.id}`} className="rb-link" style={{ fontSize: 12, fontWeight: 'bold' }}>
                 {createdBy}
               </Link>
-              <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#9aa7b4' }} title="Every player gets a number in join order">
-                ID: #{item.creator.playerNo || '?'}
-              </span>
+              {typeof (item.creator as { seqId?: number | null }).seqId === 'number' && (
+                <span
+                  style={{ fontSize: 10, fontFamily: 'monospace', color: '#0d69ac', background: '#eaf2fa', border: '1px solid #b7cfe4', padding: '1px 6px', borderRadius: 3 }}
+                  title={`Player #${(item.creator as { seqId?: number | null }).seqId} — join order on the site`}
+                >
+                  #{(item.creator as { seqId?: number | null }).seqId}
+                </span>
+              )}
             </div>
 
             {/* PRICE BLOCK */}
@@ -451,14 +446,6 @@ export function ItemDetailView({ id }: { id: string }) {
             <div style={{ fontSize: 11, color: '#5a6b7b', marginBottom: 12 }}>
               {item.owners.toLocaleString('en-US')} {item.owners === 1 ? 'member owns' : 'members own'} this
               {item.isLimited && item.stock != null && <> · {item.sold.toLocaleString('en-US')}/{item.stock.toLocaleString('en-US')} copies sold</>}
-              {data.market?.mySerial != null && item.isLimited && item.stock != null && (
-                <span
-                  title="Limited copies carry a permanent serial number — it travels with every trade and resale"
-                  style={{ marginLeft: 6, fontSize: 10, fontWeight: 'bold', color: '#8a6d1a', background: '#fffdf4', border: '1px solid #e0c98a', padding: '1px 7px', borderRadius: 3 }}
-                >
-                  ★ You own copy #{data.market.mySerial}/{item.stock}
-                </span>
-              )}
             </div>
 
             {/* ACTIONS */}
@@ -471,50 +458,27 @@ export function ItemDetailView({ id }: { id: string }) {
                   <span style={{ fontSize: 12, color: '#2c6e31', fontWeight: 'bold' }}>✓ In your inventory</span>
                 </>
               ) : soldOut ? (
-                <>
-                  <button className="rb-btn" style={{ fontSize: 13, padding: '8px 22px' }} disabled>
-                    Sold out forever
-                  </button>
-                  {user && (
-                    <button type="button" className="rb-btn" style={{ fontSize: 12, padding: '7px 14px' }} onClick={() => setTradeOpen(true)} title="It sold out — but another player may trade or resell theirs">
-                      🔁 Offer a Trade
-                    </button>
-                  )}
-                </>
+                <button className="rb-btn" style={{ fontSize: 13, padding: '8px 22px' }} disabled>
+                  Sold out forever
+                </button>
               ) : !user ? (
                 <Link href="/login" className="rb-btn rb-btn-green" style={{ fontSize: 13, padding: '8px 22px', textDecoration: 'none' }}>
                   Log in to {item.buyPrice > 0 ? 'buy' : 'get'} this
                 </Link>
               ) : (
-                <>
-                  <button
-                    className={item.buyPrice > 0 ? 'rb-btn rb-btn-green' : 'rb-btn'}
-                    style={{ fontSize: 13, padding: '8px 22px', fontWeight: 'bold' }}
-                    disabled={busy}
-                    onClick={buyOrGet}
-                  >
-                    {busy ? 'Working...' : item.buyPrice > 0 ? `Buy for T$ ${item.buyPrice.toLocaleString('en-US')}` : 'Get it — free'}
-                  </button>
-                  {!data.owned && (
-                    <button type="button" className="rb-btn" style={{ fontSize: 12, padding: '7px 14px' }} onClick={() => setTradeOpen(true)} title="Offer items from your inventory instead of Tix">
-                      🔁 Offer a Trade
-                    </button>
-                  )}
-                </>
-              )}
-              {/* TRADE — beside the Buy button on every item, free ones too.
-                  Buyers open the trade window; the owner gets the give-away
-                  window (hand your UGC to any player, even a free item) —
-                  incoming offers wait right below on this page. */}
-              {user && (
-                <Link
-                  href={data.owned || isOwner ? '/trades/new?give=' + item.id : '/trades/new?item=' + item.id}
-                  className="rb-btn"
-                  style={{ fontSize: 12, padding: '7px 14px', textDecoration: 'none' }}
-                  title={data.owned || isOwner ? 'Give this away / trade it to another player — even if it is free' : 'Offer your UGC and/or Tix for this — even if it is free'}
+                <button
+                  className={item.buyPrice > 0 ? 'rb-btn rb-btn-green' : 'rb-btn'}
+                  style={{ fontSize: 13, padding: '8px 22px', fontWeight: 'bold' }}
+                  disabled={busy}
+                  onClick={buyOrGet}
                 >
-                  🔁 Trade
-                </Link>
+                  {busy ? 'Working...' : item.buyPrice > 0 ? `Buy for T$ ${item.buyPrice.toLocaleString('en-US')}` : 'Get it — free'}
+                </button>
+              )}
+              {user && !data.owned && item.creator.id !== user.id && (
+                <button className="rb-btn" style={{ fontSize: 13, padding: '8px 18px' }} onClick={() => setTradeOpen(true)}>
+                  ⇄ Trade for this
+                </button>
               )}
               {user?.role === 'admin' && (
                 <span style={{ fontSize: 10, color: '#8ba0b3' }} title="Manage stock, owners boost and the locked price from the catalog card's Edit panel">
@@ -541,31 +505,13 @@ export function ItemDetailView({ id }: { id: string }) {
               <div style={{ padding: '9px 0', fontSize: 12 }}>
                 <div style={{ color: '#5a6b7b', marginBottom: 3 }}>Description</div>
                 <div style={{ color: '#1c2733', whiteSpace: 'pre-wrap' }}>
-                  {item.description ? <FxText text={item.description} /> : 'No description.'}
+                  <FxText text={item.description || 'No description.'} />
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* RESALE MARKET — listings, offers, haggle chat, trade offers */}
-      {data.market && (
-        <div className="rb-box" style={{ padding: 0 }}>
-          <div className="rb-panel-head">
-            <span>Resale Market — trade it, sell it, haggle for it</span>
-          </div>
-          <div style={{ padding: 12 }}>
-            <MarketPanel
-              itemId={item.id}
-              itemName={item.name}
-              owned={data.owned}
-              market={data.market}
-              onChanged={() => setReload((r) => r + 1)}
-            />
-          </div>
-        </div>
-      )}
 
       {/* LIMITED: the doubling price chart */}
       {item.isLimited && data.priceLadder && data.priceLadder.length > 1 && (
@@ -579,21 +525,6 @@ export function ItemDetailView({ id }: { id: string }) {
               Copies sold on the X axis, the buyer&apos;s price on the Y. {soldOut
                 ? 'Every copy is gone — the chart is history now.'
                 : <>The next buyer pays <b>T$ {item.buyPrice.toLocaleString('en-US')}</b>; after that sale the price jumps to <b>T$ {(item.buyPrice * 2).toLocaleString('en-US')}</b>.</>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* the REAL market history — actual sale prices over time */}
-      {data.market && data.market.history.length >= 2 && (
-        <div className="rb-box" style={{ padding: 0 }}>
-          <div className="rb-panel-head">
-            <span>Market History — what buyers ACTUALLY paid</span>
-          </div>
-          <div style={{ padding: 12 }}>
-            <MarketHistoryChart history={data.market.history} />
-            <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 6 }}>
-              Every real transaction on this item: creator sales, player resales and trades. The resale market runs at 1.5x — buy low, sell at 1.5x, and the value climbs with every hand-off.
             </div>
           </div>
         </div>
@@ -636,97 +567,55 @@ export function ItemDetailView({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* OFFERS WAITING — the owner's side of the flow: someone pressed Trade
-          on your item, so their offer sits here until you answer it */}
-      {isOwner && (data.incomingTrades?.length || 0) > 0 && (
-        <div className="rb-box" style={{ padding: 0 }} id="offers">
-          <div className="rb-panel-head">
-            <span>Trade Offers Waiting — {data.incomingTrades.length} player{data.incomingTrades.length === 1 ? '' : 's'} want{data.incomingTrades.length === 1 ? 's' : ''} this</span>
-          </div>
-          <div style={{ padding: 12, display: 'grid', gap: 7 }}>
-            <div style={{ fontSize: 11, color: '#5a6b7b' }}>
-              Open a trade to look it over, haggle in the chat, counter the terms — or hand your item over by accepting.
-            </div>
-            {data.incomingTrades.map((t) => (
-              <Link
-                key={t.id}
-                href={`/trades/${t.id}`}
-                className="rb-btn"
-                style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', padding: '7px 10px', textAlign: 'left' }}
-              >
-                <Avatar user={t.fromUser} size={26} rounded={4} />
-                <span style={{ fontSize: 12, fontWeight: 'bold', color: '#1c2733' }}>{t.fromUser.username}</span>
-                <span style={{ fontSize: 11, color: '#5a6b7b' }}>
-                  offers {t.giveItemIds.length > 0 ? `${t.giveItemIds.length} item${t.giveItemIds.length === 1 ? '' : 's'}` : 'nothing'}{t.tixFrom > 0 ? `${t.giveItemIds.length > 0 ? ' + ' : ''}T$ ${t.tixFrom.toLocaleString('en-US')}` : ''} for this
-                </span>
-                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 'bold', color: '#1c4e7c' }}>Open the trade →</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* COMMENTS — the classic catalog comment section, Text FX welcome */}
+      {/* the comment wall — the classic item page comments */}
       <div className="rb-box" style={{ padding: 0 }}>
         <div className="rb-panel-head">
-          <span>Comments — {comments.length} {comments.length === 1 ? 'reply' : 'replies'}</span>
+          <span>Comments — {comments.length}</span>
         </div>
-        <div style={{ padding: 12, display: 'grid', gap: 10 }}>
+        <div style={{ padding: 12 }}>
           {user ? (
-            <div style={{ display: 'grid', gap: 6 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                <Avatar user={user} size={28} rounded={4} />
-                <div style={{ flex: 1, display: 'grid', gap: 6 }}>
-                  <textarea
-                    ref={commentRef}
-                    className="rb-input"
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    rows={2}
-                    maxLength={300}
-                    placeholder="Say something about this item — try [fire]it's fire[/fire]"
-                    style={{ fontSize: 12, resize: 'vertical', width: '100%' }}
-                    aria-label="Write a comment"
-                  />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <FxToolbar taRef={commentRef} value={commentText} onChange={setCommentText} />
-                    <button
-                      type="button"
-                      className="rb-btn rb-btn-green"
-                      disabled={commentBusy || !commentText.trim()}
-                      onClick={postComment}
-                      style={{ marginLeft: 'auto', fontSize: 11.5, padding: '5px 16px', fontWeight: 'bold' }}
-                    >
-                      {commentBusy ? 'Posting…' : 'Post Comment'}
-                    </button>
-                  </div>
-                </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  ref={commentRef}
+                  className="rb-input"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) postComment() }}
+                  placeholder={`Say something about ${item.name}...`}
+                  maxLength={500}
+                  style={{ flex: 1, fontSize: 12 }}
+                  aria-label="Write a comment"
+                />
+                <button className="rb-btn rb-btn-blue" style={{ fontSize: 11 }} disabled={commentBusy || !commentText.trim()} onClick={postComment}>
+                  {commentBusy ? '...' : 'Post'}
+                </button>
               </div>
+              <FxToolbar taRef={commentRef} value={commentText} onChange={setCommentText} />
             </div>
           ) : (
-            <div style={{ fontSize: 11.5, color: '#7b8896' }}>
-              <Link href="/login" className="rb-link">Log in</Link> to leave a comment.
+            <div style={{ fontSize: 11, color: '#5a6b7b', marginBottom: 12 }}>
+              <Link href="/login" className="rb-link">Log in</Link> to comment.
             </div>
           )}
-
           {comments.length === 0 ? (
-            <div style={{ fontSize: 11.5, color: '#8ba0b3', fontStyle: 'italic' }}>
-              No comments yet — be the first to say something.
-            </div>
+            <div style={{ fontSize: 12, color: '#8ba0b3' }}>No comments yet — be the first!</div>
           ) : (
-            <div style={{ display: 'grid', gap: 7 }}>
+            <div style={{ display: 'grid', gap: 8 }}>
               {comments.map((c) => (
-                <div key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#fbfdfe', border: '1px solid #e8eef4', padding: '7px 9px' }}>
-                  <Avatar user={c.user} size={26} rounded={4} />
+                <div key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <Avatar user={c.user} size={28} rounded={4} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Link href={`/users/${c.user.id}`} className="rb-link" style={{ fontSize: 11.5, fontWeight: 'bold' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                      <Link href={`/users/${c.user.id}`} className="rb-link" style={{ fontSize: 12, fontWeight: 'bold' }}>
                         {c.user.username}
                       </Link>
-                      <span style={{ fontSize: 9.5, fontFamily: 'monospace', color: '#9aa7b4' }}>#{c.user.playerNo || '?'}</span>
-                      <span style={{ fontSize: 9.5, color: '#a8b8c6' }}>{fmtDate(c.createdAt)}</span>
+                      {typeof c.user.seqId === 'number' && (
+                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#0d69ac' }}>#{c.user.seqId}</span>
+                      )}
+                      <span style={{ fontSize: 10, color: '#9aa7b4' }}>{fmtDate(c.createdAt)}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: '#2c3e50', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    <div style={{ fontSize: 12, color: '#1c2733', overflowWrap: 'anywhere' }}>
                       <FxText text={c.text} />
                     </div>
                   </div>
@@ -737,176 +626,14 @@ export function ItemDetailView({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* trade-with-creator modal (the "Offer a Trade" button) */}
-      {tradeOpen && item && (
-        <TradeOfferModal
-          itemId={item.id}
-          itemName={item.name}
-          toUserId={item.creator.id}
-          toLabel={item.creator.username}
+      {tradeOpen && user && item && (
+        <TradeModal
+          target={{ id: item.id, name: item.name, imageFileId: item.imageFileId }}
+          targetOwnerId={item.creator.id}
           onClose={() => setTradeOpen(false)}
-          onSent={() => setReload((r) => r + 1)}
+          onSent={() => flash(setToast, 'Offer sent — watch the bell!')}
         />
       )}
-      {/* 3D try-on — the same scene every game renders through the SDK */}
-      {thumbOpen && item && (
-        <ChangeThumbModal
-          item={item}
-          onClose={() => setThumbOpen(false)}
-          onSaved={() => {
-            setThumbOpen(false)
-            setReload((r) => r + 1)
-          }}
-        />
-      )}
-    </div>
-  )
-}
-
-/* ---------------- owner: swap the catalog thumbnail ----------------
-   The picture on catalog cards / search rows is a separate file from the
-   3D model — creators often want a nicer shot than the auto one, so this
-   little editor swaps JUST that image without touching the item itself. */
-function ChangeThumbModal({
-  item,
-  onClose,
-  onSaved,
-}: {
-  item: DetailItem
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const { setToast } = useRetro()
-  const [file, setFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  function pick(f: File | null) {
-    setFile(f)
-    setError('')
-    if (!f) {
-      setPreview(null)
-      return
-    }
-    const r = new FileReader()
-    r.onload = () => setPreview(String(r.result))
-    r.readAsDataURL(f)
-  }
-
-  async function save() {
-    if (!file) {
-      setError('Pick a picture first — or just close this if you changed your mind.')
-      return
-    }
-    setBusy(true)
-    setError('')
-    try {
-      const fd = new FormData()
-      await attachUpload(fd, 'image', file, file.name || 'thumbnail.png', file.type || 'image/png')
-      await api(`/api/catalog/${item.id}`, { method: 'PATCH', body: fd })
-      flash(setToast, 'Thumbnail updated — the catalog shows the new look right away!', 3400)
-      onSaved()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save the new thumbnail.')
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(20,32,44,0.72)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14,
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Change the thumbnail of ${item.name}`}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="rb-box" style={{ width: 'min(440px, 100%)', background: '#fff' }}>
-        <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Change Thumbnail — {item.name}</span>
-          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
-        </div>
-        <div style={{ padding: 12 }}>
-          <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 3 }}>The picture players see</div>
-          <div style={{ fontSize: 10, color: '#5a6b7b', lineHeight: 1.45, marginBottom: 10 }}>
-            This is the shot on catalog cards, search rows and your profile shelf.
-            {item.modelFileId
-              ? ' Your 3D model stays exactly the same — this only swaps the flat picture.'
-              : ' Your item itself stays exactly the same — this only swaps the artwork.'}
-          </div>
-
-          {/* before / after */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 84, height: 84, border: '1px solid #b7c6d4', background: '#fff', overflow: 'hidden',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <img src={`/api/files/${item.imageFileId}`} alt="Current thumbnail" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
-              </div>
-              <div style={{ fontSize: 9, color: '#7b8896', marginTop: 3 }}>now</div>
-            </div>
-            <div style={{ fontSize: 16, color: '#9aa7b4' }}>→</div>
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 84, height: 84, border: preview ? '1px solid #2c8e31' : '1px dashed #b7c6d4', background: '#fff', overflow: 'hidden',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#8ba0b3', textAlign: 'center', padding: 4,
-                }}
-              >
-                {preview ? (
-                  <img src={preview} alt="New thumbnail preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
-                ) : (
-                  'pick a picture'
-                )}
-              </div>
-              <div style={{ fontSize: 9, color: preview ? '#2c8e31' : '#7b8896', marginTop: 3 }}>new</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
-            <button type="button" className="rb-btn" style={{ fontSize: 11, padding: '5px 12px' }} disabled={busy} onClick={() => fileRef.current?.click()}>
-              {file ? '↺ Choose a different picture' : '📁 Pick a picture (PNG / JPG)'}
-            </button>
-            {file && !busy && (
-              <button type="button" className="rb-link" style={{ background: 'none', border: 'none', padding: 0, fontSize: 10 }} onClick={() => pick(null)}>
-                undo
-              </button>
-            )}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                pick(e.target.files?.[0] || null)
-                e.target.value = ''
-              }}
-            />
-          </div>
-
-          {error && (
-            <div style={{ fontSize: 10, color: '#a81a13', background: '#fdf3f2', border: '1px solid #eecac7', padding: '6px 9px', marginBottom: 8 }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button type="button" className="rb-btn" style={{ fontSize: 11, padding: '5px 12px' }} disabled={busy} onClick={onClose}>
-              {file ? 'Cancel' : 'Close'}
-            </button>
-            <button type="button" className="rb-btn rb-btn-green" style={{ fontSize: 11, padding: '5px 14px', fontWeight: 'bold' }} disabled={busy || !file} onClick={save}>
-              {busy ? 'Saving...' : 'Save New Thumbnail'}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
