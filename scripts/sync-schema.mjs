@@ -52,22 +52,50 @@ try {
 
   // already deployed before? NEVER touch existing data — but DO bring the
   // schema up to date when the prisma model gained NEW COLUMNS (additive
-  // evolution: roughness/metallic, future fields). Old deploys otherwise
-  // 500 forever because the Prisma client queries columns SQLite never got.
+  // evolution: roughness/metallic, future fields) or NEW TABLES (the place
+  // chat/presence models). Old deploys otherwise 500 forever because the
+  // Prisma client queries tables/columns SQLite never got.
   const existing = await client.execute(
     "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'"
   )
   const tableCount = Number(existing.rows[0]?.n ?? 0)
   if (tableCount > 0) {
     console.log(
-      `[sync-schema] database already has ${tableCount} tables — checking for missing columns…`
+      `[sync-schema] database already has ${tableCount} tables — checking for missing tables + columns…`
     )
+    // COLUMNS/tables go first (addMissingColumns adds per-statement with its
+    // own try/catch), then the full idempotent DDL statement-by-statement —
+    // a new unique index can reference a new column (User.seqId), so this
+    // order guarantees the column exists before the index is created.
     await addMissingColumns(client)
+    await runIdempotentDdl(client)
+    const after = await client.execute(
+      "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'"
+    )
+    console.log(
+      `[sync-schema] done! ${Number(after.rows[0]?.n ?? 0)} tables are ready. 🎉`
+    )
     process.exit(0)
   }
 
   console.log('[sync-schema] fresh cloud database — creating all tables…')
+  await client.executeMultiple(buildIdempotentDdl())
 
+  const after = await client.execute(
+    "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'"
+  )
+  console.log(
+    `[sync-schema] done! ${Number(after.rows[0]?.n ?? 0)} tables are ready. 🎉`
+  )
+  process.exit(0)
+} catch (err) {
+  console.error('[sync-schema] FAILED:', err?.message || err)
+  process.exit(1)
+}
+
+/** schema.prisma -> one idempotent CREATE script (offline, no DB connection).
+ *  Every CREATE gets IF NOT EXISTS so it is always safe to run. */
+function buildIdempotentDdl() {
   // pure offline operation: schema.prisma -> CREATE TABLE script
   const raw = execSync(
     'npx --no-install prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script',
@@ -81,26 +109,31 @@ try {
 
   // make every CREATE idempotent (extra safety for parallel deploys)
   // and drop PRAGMA lines (cloud libSQL ignores some of them)
-  const ddl = raw
+  return raw
     .split('\n')
     .filter((line) => !line.trim().toUpperCase().startsWith('PRAGMA'))
     .join('\n')
     .replace(/CREATE TABLE /g, 'CREATE TABLE IF NOT EXISTS ')
     .replace(/CREATE UNIQUE INDEX /g, 'CREATE UNIQUE INDEX IF NOT EXISTS ')
     .replace(/CREATE INDEX /g, 'CREATE INDEX IF NOT EXISTS ')
+}
 
-  await client.executeMultiple(ddl)
-
-  const after = await client.execute(
-    "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'"
-  )
-  console.log(
-    `[sync-schema] done! ${Number(after.rows[0]?.n ?? 0)} tables are ready. 🎉`
-  )
-  process.exit(0)
-} catch (err) {
-  console.error('[sync-schema] FAILED:', err?.message || err)
-  process.exit(1)
+/** Run the idempotent DDL on an EXISTING database — one statement at a time,
+ *  each with its own try/catch. A single drifted index must never abort the
+ *  whole batch (executeMultiple would stop at the first error). */
+async function runIdempotentDdl(client) {
+  const script = buildIdempotentDdl()
+  const statements = script
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  for (const stmt of statements) {
+    try {
+      await client.execute(stmt + ';')
+    } catch (err) {
+      console.warn(`[sync-schema] ddl statement skipped: ${err?.message || err}`)
+    }
+  }
 }
 
 /* ------------------------------------------------------------------
