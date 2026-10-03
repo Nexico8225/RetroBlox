@@ -1,43 +1,49 @@
 'use client'
 
 /* ================= RetroBlox SDK page (/sdk) =================
-   The developer door into the platform — now the RETROBLOX PLAYER
-   SYSTEM: a downloadable classic multiplayer player (Godot 4.5+)
-   that signs in — or signs up — INSIDE the game, pulls the account
-   avatar from the API and plays on a shared baseplate. */
+   The developer door into the platform — now the completely NEW
+   RETROBLOX PLAYER SYSTEM (v2): load your avatar, play built-in
+   places with classic studs physics, and CHAT with everyone online
+   across the internet through the platform API (Godot 4.5+). */
 
 import Link from 'next/link'
 
 const FILES = [
-  ['scripts/auth_screen.gd', 'The in-game login card — signs you into your RetroBlox account'],
-  ['scripts/retroblox_api.gd', 'The one HTTP door to the platform (signup / login / me / avatars / assets / files)'],
-  ['scripts/main.gd', 'Multiplayer, auth flow, camera, Shift Lock and settings'],
-  ['scripts/player.gd', 'Classic character controller + prediction + shift-lock heading'],
-  ['scripts/avatar.gd', 'The six-part block avatar — painted by your account'],
-  ['scripts/avatar_platform.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC'],
-  ['scripts/hud.gd', 'Chat, roster, status and the Esc game menu'],
-  ['scripts/arena.gd', 'The classic baseplate world'],
+  ['scripts/core/api.gd', 'The one HTTP door to the platform — auth, avatars, assets, place chat + presence'],
+  ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache'],
+  ['scripts/ui/login.gd', 'The in-game login / SIGN UP card — server URL locked, guests welcome'],
+  ['scripts/ui/hub.gd', 'Place browser with a live 3D avatar preview + online counts'],
+  ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: beveled panels, chunky buttons'],
+  ['scripts/player/avatar_rig.gd', 'The six-part block avatar (R6IK catalog rig + box fallback)'],
+  ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
+  ['scripts/player/local_player.gd', 'Brand-new classic controller: WalkSpeed 16, steps, ladders, trampolines, oof'],
+  ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
+  ['scripts/world/world_builder.gd', 'Builds places from parts, with the procedural stud texture'],
+  ['scripts/world/places.gd', 'The three built-in places: Baseplate, Classic Obby, Skylands'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat loop, presence loop, respawn flow'],
+  ['scripts/game/chat_box.gd', 'The classic chat log + bubbles, injection-proof'],
 ]
 
 const ENDPOINTS = [
-  ['POST /api/platform/signup', 'create an account from inside the game'],
+  ['POST /api/platform/signup', 'create an account from inside the game (with a #seqId)'],
   ['POST /api/platform/login', 'username + password → session token'],
   ['GET /api/platform/me', 'current player + avatar (Bearer token)'],
   ['GET /api/users/{userId}/avatar', "any player's avatar config (public)"],
-  ['GET /api/assets/{assetId}', 'asset service: color / image / 3D model for an id'],
+  ['GET /api/assets/{assetId}', 'asset service: color / image / 3D model + finish for an id'],
   ['GET /api/files/{fileId}', 'the actual bytes (images, GLB, audio)'],
+  ['GET /api/placechat/{placeId}', 'latest chat lines + who is online in the place'],
+  ['POST /api/placechat/{placeId}', 'send a chat line / presence heartbeat (Bearer token)'],
   ['GET / PUT /api/gamedata/{gameId}/{key}', 'per-player save data'],
 ]
 
 const CONTROLS: [string, string][] = [
   ['W A S D / arrows', 'Move (camera-relative, classic)'],
-  ['Space (hold)', 'Jump — keep it held to hop the moment you land'],
-  ['Right-mouse drag', 'Orbit the camera (cursor captured, classic)'],
-  ['Hold E + move mouse', 'Orbit the camera too — the cursor stays visible'],
-  ['Mouse wheel', 'Zoom between 2 and 24 studs'],
-  ['Shift', 'SHIFT LOCK — mouse locks, camera sits on your right shoulder'],
-  ['Enter or /', 'Chat — your character keeps walking the way you were headed while you type'],
-  ['Esc', 'Game menu'],
+  ['Space', 'Jump — hold to bunny-hop'],
+  ['Mouse', 'Look (captured while playing) · wheel zooms'],
+  ['Shift', 'SHIFT LOCK — camera parks on your right shoulder, you turn with it'],
+  ['Enter', 'Open chat · Enter again sends · Esc closes'],
+  ['P', 'Player list — who is in the place right now'],
+  ['Esc', 'Game menu — resume / respawn / leave place'],
 ]
 
 const PRE: React.CSSProperties = {
@@ -57,16 +63,16 @@ export function SdkView() {
     <div>
       {/* hero */}
       <div className="rb-box" style={{ marginBottom: 12 }}>
-        <div className="rb-panel-head"><span>RetroBlox Player System</span></div>
+        <div className="rb-panel-head"><span>RetroBlox SDK — the RetroBlox Player System</span></div>
         <div style={{ padding: 14 }}>
-          <div style={{ fontSize: 17, color: '#1c2733' }}>Download the player. Sign in. You&apos;re in.</div>
+          <div style={{ fontSize: 17, color: '#1c2733' }}>Load your avatar. Play. Chat with everyone online.</div>
           <div style={{ fontSize: 11, color: '#41586c', marginTop: 4, maxWidth: 660 }}>
-            The <b style={{ fontWeight: 400 }}>RetroBlox Player System</b> is the official classic
-            multiplayer player — a classic multiplayer world you download and run on your machine.
-            Sign in with your RetroBlox account <b style={{ fontWeight: 400 }}>right inside the game</b> and your
-            account avatar loads from the platform API: body colors, shirts, pants, face and 3D UGC
-            placed exactly where their creators left them. Everyone in the room sees your real look.
-            Shift Lock, the Esc game menu, chat with speech bubbles and LAN auto-join included.
+            The RetroBlox SDK is the completely new <b style={{ fontWeight: 400 }}>RetroBlox Player system (v2)</b> —
+            sign in (or create an account, or play as a guest) <b style={{ fontWeight: 400 }}>right inside the game</b> and
+            your account avatar loads from the platform: body colors, shirts, pants, face and every 3D UGC accessory
+            placed exactly where its creator left it. Play three built-in places with the classic studs physics — and
+            chat with anyone in the same place <b style={{ fontWeight: 400 }}>across the internet</b>, with live
+            presence so you see other players walking around. No LAN needed, ever.
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             <a className="rb-btn rb-btn-green" href="/godot/retroblox-godot-player.zip" download style={{ textDecoration: 'none' }}>
@@ -76,8 +82,7 @@ export function SdkView() {
             <Link className="rb-btn" href="/create" style={{ textDecoration: 'none' }}>Publish a game</Link>
           </div>
           <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 8 }}>
-            Requires <b style={{ fontWeight: 400 }}>Godot 4.5+</b> (free). Unzip, open the folder in Godot, press Play —
-            a second copy on the same network joins your game automatically.
+            Requires <b style={{ fontWeight: 400 }}>Godot 4.5+</b> (free). Unzip, open the RetroBloxPlayer folder in Godot, press Play.
           </div>
         </div>
       </div>
@@ -95,16 +100,18 @@ export function SdkView() {
 2. Open the RetroBloxPlayer folder in Godot 4.5+
 3. Press Play (F5)
 4. On the login card:
-     Log In — your RetroBlox account
-     (no account? make one on retro-blox.vercel.app,
-      or play as a guest, classic noob style)
+     Log In  — your RetroBlox account
+     Sign Up — create an account RIGHT HERE (you get #seqId too)
+     (or play as a guest, classic noob style)
 
 The game remembers you — next launch signs you in automatically.
-LAN: a second copy of the game on your network joins you by itself.`}</pre>
+Then pick a place in the hub: Happy Baseplate, Classic Obby or
+Skylands. Chat with ENTER — everyone in that place sees it, anywhere
+on the internet.`}</pre>
               <div style={{ fontSize: 11, color: '#41586c', marginTop: 8 }}>
-                You spawn wearing your account avatar — change it on the website and every login
-                after that wears the new look. Press SHIFT for Shift Lock:
-                the camera locks on your right shoulder and your character turns with it.
+                You spawn wearing your account avatar — change it on the website and every place wears the
+                new look. Press SHIFT for Shift Lock: the camera parks on your right shoulder and your
+                character turns with it. Kill bricks, checkpoints, trampolines and the original oof included.
               </div>
             </div>
           </div>
@@ -132,10 +139,14 @@ LAN: a second copy of the game on your network joins you by itself.`}</pre>
    POST /api/platform/login     username + password -> session token
    GET  /api/platform/me        token -> your account-wide avatar
    GET  /api/users/{id}/avatar  every player fetches EVERYONE's look
-   GET  /api/assets/{assetId}   asset ids -> color / image / 3D model
+   GET  /api/assets/{assetId}   asset ids -> color / image / 3D model + finish
    GET  /api/files/{fileId}     the actual bytes (images, GLB, audio)
               |
-   The player paints every avatar in the room with the website render.`}</pre>
+   GET  /api/placechat/{placeId}   chat lines + who is online right now
+   POST /api/placechat/{placeId}   send a line / "I am here at x,y,z" heartbeat
+              |
+   The player paints every avatar in the place with the website render,
+   and the platform relays chat + presence so places feel multiplayer.`}</pre>
               <div style={{ fontSize: 11, color: '#41586c', marginTop: 8 }}>
                 <b style={{ fontWeight: 400 }}>Security rule:</b> the player never talks to the database —
                 only to the RetroBlox API, which validates the session before returning anything.
