@@ -55,9 +55,8 @@ var quitting: bool = false
 var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
 
 # --- platform account ---
-# The production RetroBlox site — sign-in, avatars, catalog. The login card
-# does NOT offer a Server field (players cannot change it); self-hosts use
-# network.cfg, RETROBLOX_API, or --api= instead.
+# The production RetroBlox site — sign-in, avatars, catalog. Override with
+# the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
 var api_url: String = "https://retro-blox.vercel.app"
 var api_ref: RetrobloxApiScript
 var platform_user_id: String = ""
@@ -183,7 +182,7 @@ func _try_saved_token() -> void:
         var me: Dictionary = await probe.get_me()
         if quitting or auth == null:
                 return
-        if me.get("ok", false) and not _auth_done and not str(me.get("username", "")).is_empty():
+        if me.get("ok", false) and not str(me.get("username", "")).is_empty():
                 var av = me.get("avatar", {})
                 auth.visible = false
                 _finish_auth(probe, String(me.get("username", "")), String(me.get("userId", "")), av if av is Dictionary else {})
@@ -196,11 +195,6 @@ func _on_auth_completed(api: RetrobloxApiScript, username: String, user_id: Stri
 
 func _on_guest_requested() -> void:
         if _auth_done:
-                # already through the door (e.g. a saved-token sign-in finished
-                # while the card was still up) — never leave the player stuck:
-                # reveal the game that is already running behind the card
-                if auth != null:
-                        auth.visible = false
                 return
         _auth_done = true
         api_ref = RetrobloxApiScript.new(api_url)  # token-less: still fetches PUBLIC avatars
@@ -222,9 +216,9 @@ func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, av
         profile.set_value("platform", "token", api.token)
         profile.set_value("platform", "username", username)
         profile.save("user://profile.cfg")
-        # THE classic trap: leave the card up and the whole game stays frozen
-        # behind it (_process/_physics_process/_input all wait on auth.visible).
-        # Hide it BEFORE the world starts, exactly like the guest path does.
+        # OFF the login card NOW — main.gd gates _process/_physics_process on
+        # auth.visible, so leaving it up froze the whole game on this screen
+        # (the "stuck at the page after logging in" bug).
         if auth != null:
                 auth.visible = false
         if hud != null:
@@ -471,7 +465,16 @@ func _pump_discovery(delta: float) -> void:
 func _start_server() -> void:
         _close_network()
         peer = ENetMultiplayerPeer.new()
-        var error := peer.create_server(port, max_players if dedicated else max_players - 1, 3)
+        # Try a few ports in order — a zombie/stuck instance may hold the
+        # default one. Hosting on the next free port beats looping forever
+        # against a local "server" that can never accept us.
+        var error: int = peer.create_server(port, max_players if dedicated else max_players - 1, 3)
+        if error != OK and not dedicated and not force_host:
+                for extra in range(1, 5):
+                        port += 1
+                        error = peer.create_server(port, max_players - 1, 3)
+                        if error == OK:
+                                break
         if error != OK:
                 peer = null
                 if dedicated or force_host:
