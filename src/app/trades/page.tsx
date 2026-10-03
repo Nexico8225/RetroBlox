@@ -6,7 +6,7 @@ import { TradesView } from '@/components/retro/TradesView'
 export default function TradesPage() {
   return (
     <Page>
-      <Title t="Trades & Market" />
+      <Title t="Trades" />
       <TradesView />
     </Page>
   )
