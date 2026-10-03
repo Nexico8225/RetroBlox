@@ -76,18 +76,16 @@ filmic tonemapping.
 - **"Incorrect username or password"** — accounts are shared with the
   website, so the same name + password work. No account yet? Use the
   **Sign Up** tab right on the card.
-- **"Could not reach …"** — the game signs in to the official site
-  (`https://retro-blox.vercel.app`) and the address is locked — it cannot
-  be changed on the card. Check your internet connection, then try again.
-  Self-hosting? Launch with `--api=<your-url>` or the `RETROBLOX_API`
-  environment variable instead.
+- **"Could not reach …"** — this player is locked to the official site
+  `https://retro-blox.vercel.app` (the card has no URL field by design).
+  Check your internet, then try again.
 - **Signing in works but the error comes back** — delete
   `user://profile.cfg` (Godot's *Project → Open User Data Folder*) to
   clear a stale saved token, then sign in again.
 - **Still stuck on an older kit?** Re-download this zip — versions before
-  October 2, 2026 had an editable Server field (and a login bug that left
-  you stuck on the card). This build locks the official site and jumps
-  straight into the game after signing in.
+  September 27, 2026 defaulted the Server field to `localhost:3000`, which
+  always fails. This build is locked to the official site and no longer has
+  a URL field at all.
 
 ---
 
@@ -117,7 +115,7 @@ func _ready() -> void:
         var auth := $AuthScreen
         auth.completed.connect(_on_signed_in)
         auth.guest_requested.connect(_on_guest)
-        auth.set_api_url("https://your-retroblox-site.example")  # or leave default
+        auth.set_api_url("https://your-retroblox-site.example")  # optional; default = official site
 
 func _on_signed_in(_api, username: String, _user_id: String, _avatar: Dictionary) -> void:
         _spawn_player(username)
