@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson } from '@/lib/avatarAssets'
+import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson, sanitizeFinish } from '@/lib/avatarAssets'
 import { buyPrice, RbxError } from '@/lib/rbx'
 import { saveUpload, resolveUpload } from '@/lib/uploads'
 
@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const item = await db.avatarItem.findUnique({
     where: { id },
     include: {
-      creator: { select: { id: true, username: true, avatarUrl: true } },
+      creator: { select: { id: true, username: true, avatarUrl: true, seqId: true } },
       group: { select: { id: true, name: true } },
       _count: { select: { ownedBy: true } },
     },
@@ -38,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     take: 14,
     select: {
       acquiredAt: true,
-      user: { select: { id: true, username: true, avatarUrl: true } },
+      user: { select: { id: true, username: true, avatarUrl: true, seqId: true } },
     },
   })
   return NextResponse.json({
@@ -60,8 +60,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       modelFileId: item.modelFileId,
       textureFileId: item.textureFileId,
       baseColor: item.baseColor,
-      metallic: item.metallic,
       roughness: item.roughness,
+      metallic: item.metallic,
       placement: parsePlacement(item.placementJson),
       animClips: parseAnimClipsJson(item.animClipsJson),
       animTarget: parseAnimTargetJson(item.animTargetJson),
@@ -116,19 +116,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   let newImageFileId: string | null = null
   let newTextureFileId: string | null = null
 
-  /** PBR slider payload (metallic / roughness). Accepts:
-   *  - a number 0..1  -> the override value
-   *  - '' / 'file'    -> null = "use whatever the GLB carries"
-   *  - undefined      -> field untouched */
-  function pbrUpdate(raw: unknown): number | null | undefined {
-    if (raw === undefined) return undefined
-    const s = String(raw).trim()
-    if (s === '' || s === 'file') return null
-    const n = Number(s)
-    if (!Number.isFinite(n)) return undefined // junk -> untouched
-    return Math.min(1, Math.max(0, n))
-  }
-
   if (contentType.includes('multipart/form-data')) {
     const form = await req.formData()
     body = {
@@ -141,8 +128,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       color: form.get('color') ?? undefined,
       clearColor: form.get('clearColor') ?? undefined,
       clearTexture: form.get('clearTexture') ?? undefined,
-      metallic: form.get('metallic') ?? undefined,
       roughness: form.get('roughness') ?? undefined,
+      metallic: form.get('metallic') ?? undefined,
+      clearFinish: form.get('clearFinish') ?? undefined,
     }
     const file = await resolveUpload(form.get('image'), form.get('imageUploadId'))
     if (file instanceof File && file.size > 0) {
@@ -170,7 +158,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   }
 
-  const data: { name?: string; description?: string; price?: number; isLimited?: boolean; imageFileId?: string; textureFileId?: string | null; baseColor?: string | null; stock?: number | null; ownersBoost?: number; metallic?: number | null; roughness?: number | null } = {}
+  const data: { name?: string; description?: string; price?: number; isLimited?: boolean; imageFileId?: string; textureFileId?: string | null; baseColor?: string | null; roughness?: number | null; metallic?: number | null; stock?: number | null; ownersBoost?: number } = {}
 
   if (body.name !== undefined) {
     const name = String(body.name).trim()
@@ -233,11 +221,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   // texture / tint — only meaningful on 3D UGC; owners can swap or clear them
   if (item.modelFileId) {
-    // PBR material sliders — the Blender metallic / roughness overrides
-    const met = pbrUpdate(body.metallic)
-    const rgh = pbrUpdate(body.roughness)
-    if (met !== undefined) data.metallic = met
-    if (rgh !== undefined) data.roughness = rgh
     if (newTextureFileId) {
       data.textureFileId = newTextureFileId
       data.baseColor = null // a texture replaces the tint
@@ -255,6 +238,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     if (body.clearColor === '1' || body.clearColor === 1 || body.clearColor === true) {
       data.baseColor = null
+    }
+    // surface finish overrides — 0..1 sliders, empty/null = back to auto
+    if (body.clearFinish === '1' || body.clearFinish === 1 || body.clearFinish === true) {
+      data.roughness = null
+      data.metallic = null
+    } else {
+      if (body.roughness !== undefined) data.roughness = sanitizeFinish(body.roughness)
+      if (body.metallic !== undefined) data.metallic = sanitizeFinish(body.metallic)
     }
   }
 
@@ -280,8 +271,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       remaining: updated.isLimited && updated.stock != null ? Math.max(0, updated.stock - updatedSold) : null,
       owners: updatedSold + updated.ownersBoost,
       buyPrice: buyPrice(updated, updatedSold),
-      metallic: updated.metallic,
-      roughness: updated.roughness,
     },
   })
 }
