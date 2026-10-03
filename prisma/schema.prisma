@@ -51,6 +51,8 @@ model User {
   tradesRecv    Trade[] @relation("tradesRecv")
   notifications Notification[]
   itemComments  ItemComment[]
+  placeChats    PlaceChatMessage[]
+  placePresence PlacePresence?
   avatarConfig  AvatarConfig?
   inventory     InventoryEntry[]
   ugcItems      AvatarItem[]
@@ -496,6 +498,38 @@ model AvatarItem {
   deletedAt   DateTime? // soft delete — UGC is NEVER hard-deleted, an admin can always restore it
   comments    ItemComment[]
   ownedBy     InventoryEntry[]
+}
+
+// ---------------- In-game place chat + presence (the RetroBlox Player) ----------------
+// The Godot player polls GET /api/placechat/{placeId} every couple of seconds:
+// it returns the latest chat lines AND who is in the place right now (presence
+// rows updated in the last 30s). Places are the client's built-in maps, so
+// placeId is a slug ("baseplate", "obby", "skylands"), not a Game row id.
+
+model PlaceChatMessage {
+  id        String   @id @default(cuid())
+  placeId   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([placeId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model PlacePresence {
+  id        String   @id @default(cuid())
+  userId    String   @unique // a player is in exactly one place at a time
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  placeId   String
+  x         Float    @default(0)
+  y         Float    @default(0)
+  z         Float    @default(0)
+  heading   Float    @default(0) // radians, the avatar's facing
+  updatedAt DateTime @updatedAt
+
+  @@index([placeId, updatedAt])
 }
 
 // ---------------- UGC comments (the classic item page comment wall) ----------------
