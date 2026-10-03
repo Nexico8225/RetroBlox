@@ -80,11 +80,9 @@ export interface AssetInfo {
   modelUrl?: string
   /** 3D UGC only: optional texture image wrapped around the model */
   textureUrl?: string
-  /** 3D UGC only: PBR material overrides from the creator's sliders.
-   *  null/absent = render exactly what the GLB carries; a number 0..1 =
-   *  apply to every surface (the site renderer AND the Godot player). */
-  metallic?: number | null
+  /** 3D UGC only: creator surface finish overrides 0..1 (null/undefined = the model's own) */
   roughness?: number | null
+  metallic?: number | null
   /** 3D UGC only: where the creator left it in the placement editor */
   placement?: Placement | null
   /** emote / anim only: the GLB's clips (+ the idle/walk/jump/climb/fall map for anim packs) */
@@ -131,6 +129,16 @@ export function sanitizeFaceScale(raw: unknown): number {
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (!Number.isFinite(n)) return FACE_SCALE_DEFAULT
   return Math.min(FACE_SCALE_MAX, Math.max(FACE_SCALE_MIN, Math.round(n * 100) / 100))
+}
+
+/** Surface finish overrides (roughness / metallic, 0..1). null = "auto — the
+ *  model's own materials". Empty / missing / invalid = null (never 0 — an
+ *  empty form field means "leave it automatic"). */
+export function sanitizeFinish(raw: unknown): number | null {
+  if (raw === '' || raw === null || raw === undefined) return null
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(n)) return null
+  return Math.min(1, Math.max(0, Math.round(n * 100) / 100))
 }
 
 /** Custom colors per body part (the classic "Body Colors" panel).
