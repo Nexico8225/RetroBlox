@@ -53,17 +53,16 @@ export async function POST(req: NextRequest) {
     // the owner-admin (this is what happens right after you deploy to
     // a brand-new Turso cloud database — register FIRST, before sharing!)
     const userCount = await db.user.count()
-
-    // short public player number — join order (Nexico8225 is #1, you get the idea).
-    // max+1 inside the create; the unique index keeps two same-moment signups honest.
-    const topNo = await db.user.aggregate({ _max: { playerNo: true } })
-    const playerNo = (topNo._max.playerNo ?? 0) + 1
+    // sequential player number — the next free #N (the deploy-time backfill
+    // numbers the existing accounts in signup order; new signups continue it)
+    const maxSeq = await db.user.aggregate({ _max: { seqId: true } })
+    const nextSeq = (maxSeq._max.seqId ?? 0) + 1
 
     const user = await db.user.create({
       data: {
         username,
         usernameLower: lower,
-        playerNo,
+        seqId: nextSeq,
         passwordHash: hashPassword(password),
         gender,
         birthday,
