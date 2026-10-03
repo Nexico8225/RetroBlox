@@ -6,6 +6,7 @@ import { saveUpload, resolveUpload } from '@/lib/uploads'
 import {
   UGC_TYPES, UGC_TYPE_LABELS, is3DType, isRiggedType, parseAssetId, parsePlacement, placementJson,
   sanitizeAnimClips, sanitizeAnimTarget, sanitizeBundleParts, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson,
+  sanitizeFinish,
 } from '@/lib/avatarAssets'
 import { buyPrice } from '@/lib/rbx'
 
@@ -17,15 +18,6 @@ async function safeFormJson(v: FormDataEntryValue | null): Promise<unknown> {
   } catch {
     return null
   }
-}
-
-/** PBR slider value (metallic / roughness): a number clamped to 0..1.
- *  Anything else (empty string, junk) = null = "use whatever the GLB carries". */
-function parsePbr(v: FormDataEntryValue | null): number | null {
-  if (typeof v !== 'string' || v.trim() === '') return null
-  const n = Number(v)
-  if (!Number.isFinite(n)) return null
-  return Math.min(1, Math.max(0, n))
 }
 
 /** who can publish UGC in the name of a group: owner, site admin, or a role with the `ugc` permission */
@@ -134,8 +126,8 @@ export async function GET(req: NextRequest) {
         modelFileId: i.modelFileId,
         textureFileId: i.textureFileId,
         baseColor: i.baseColor,
-        metallic: i.metallic,
         roughness: i.roughness,
+        metallic: i.metallic,
         placement: parsePlacement(i.placementJson),
         animClips: parseAnimClipsJson(i.animClipsJson),
         animTarget: parseAnimTargetJson(i.animTargetJson),
@@ -175,12 +167,6 @@ export async function POST(req: NextRequest) {
   const texture = await resolveUpload(form.get('texture'), form.get('textureUploadId'))
   const colorRaw = String(form.get('color') || '').trim()
   const placementRaw = String(form.get('placement') || '').trim()
-  // PBR material sliders (3D UGC): the publish form sends the values it
-  // detected in the converted model (Blender .glb = the creator's real
-  // metallic/roughness; FBX/OBJ = the classic matte defaults). The creator
-  // can tweak them on the sliders before publishing; empty = from file.
-  const metallic = parsePbr(form.get('metallic'))
-  const roughness = parsePbr(form.get('roughness'))
   // pricing: 0 = free item; limiteds are collectibles — the price is the price
   const price = Math.floor(Number(form.get('price') || 0))
   const isLimited = String(form.get('limited') || '') === '1'
@@ -230,17 +216,15 @@ export async function POST(req: NextRequest) {
   let placementJsonStr: string | null = null
   let textureFileId: string | null = null
   let baseColor: string | null = null
-  // the PBR overrides only ever apply to 3D-worn UGC
-  let itemMetallic: number | null = null
-  let itemRoughness: number | null = null
-  if (is3DType(type)) {
-    itemMetallic = metallic
-    itemRoughness = roughness
-  }
+  let roughness: number | null = null
+  let metallic: number | null = null
 
   // creator surface for 3D UGC: an optional texture image wrapped around the
-  // model, or a tint color when there is no texture (texture wins at render)
+  // model, or a tint color when there is no texture (texture wins at render).
+  // Roughness / metallic: OPTIONAL finish overrides — empty = the model's own.
   if (is3DType(type)) {
+    roughness = sanitizeFinish(form.get('roughness') ?? undefined)
+    metallic = sanitizeFinish(form.get('metallic') ?? undefined)
     if (colorRaw) {
       if (!/^#[0-9a-fA-F]{6}$/.test(colorRaw)) {
         return NextResponse.json({ error: 'The color must be a hex color like #4da6ff.' }, { status: 400 })
@@ -342,8 +326,8 @@ export async function POST(req: NextRequest) {
     placementJson: placementJsonStr,
     textureFileId,
     baseColor,
-    metallic: itemMetallic,
-    roughness: itemRoughness,
+    roughness,
+    metallic,
     animClipsJson: animClipsJsonStr,
     animTargetJson: animTargetJsonStr,
     bundlePartsJson: bundlePartsJsonStr,
