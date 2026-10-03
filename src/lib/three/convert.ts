@@ -129,36 +129,22 @@ export function dropUnloadedTextures(root: THREE.Object3D) {
   })
 }
 
-/** Normalize every material to PBR before the GLB is written, so the
+/** Normalize every material to matte PBR before the GLB is written, so the
  *  item looks IDENTICAL on the site, in the Godot kit and in future SDKs.
  *
  *  THE ROBLOX RULE — DATA WINS: everything the model file carries comes
  *  through. Blender FBX files arrive as Phong/Lambert materials, and this
  *  copies the FULL set of data they hold (base color, diffuse texture,
  *  normal map, bump map, AO map, emissive map, opacity, vertex colors),
- *  not just the paint.
- *
- *  METALLIC + ROUGHNESS ARE DATA TOO: a .glb exported from Blender's
- *  Principled BSDF arrives as a real PBR material with the creator's
- *  metallic/roughness — those are kept EXACTLY (this is how "I made it
- *  metallic in Blender" survives). Only non-PBR sources (Phong/Lambert
- *  from FBX/OBJ, which carry NO metal data at all) get the classic matte
- *  plastic defaults (0 / 0.85). Creators can fine-tune both afterwards
- *  with the item's material sliders (stored on the item, applied at
- *  render time by the site and the Godot player).
+ *  not just the paint. Metalness is zeroed because the classic look is
+ *  matte plastic — never a metal mirror.
  *
  *  Returns a warning string when the model landed with NO material colors
  *  at all — that is the classic "my UGC is plain white in game" trap that
  *  happens when the Blender material never made it into the export. */
-function normalizeMaterials(root: THREE.Object3D): { warning: string | null; metallic: number; roughness: number } {
+function normalizeMaterials(root: THREE.Object3D): string | null {
   let meshes = 0
   let colored = false
-  // PBR bookkeeping for the material sliders' starting values: the AVERAGE
-  // across every surface (a uniform Blender metal averages to itself; a
-  // mixed model gives the honest overall feel)
-  let metalSum = 0
-  let roughSum = 0
-  let matCount = 0
   root.traverse((o) => {
     const mesh = o as THREE.Mesh
     if (!(mesh as THREE.Mesh).isMesh || mesh.material == null) return
@@ -166,10 +152,10 @@ function normalizeMaterials(root: THREE.Object3D): { warning: string | null; met
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     const next = mats.map((m) => {
       const src = m as THREE.MeshStandardMaterial
-      const std =
-        src.isMeshStandardMaterial === true
-          ? (src.clone() as THREE.MeshStandardMaterial)
-          : new THREE.MeshStandardMaterial()
+      const isPbrSource = src.isMeshStandardMaterial === true
+      const std = isPbrSource
+        ? (src.clone() as THREE.MeshStandardMaterial)
+        : new THREE.MeshStandardMaterial()
       if (std !== src) {
         // Phong / Lambert (what FBX and OBJ come in as) -> PBR, keeping
         // EVERY piece of data the source material holds — grey stays grey,
@@ -197,18 +183,14 @@ function normalizeMaterials(root: THREE.Object3D): { warning: string | null; met
         std.depthWrite = src.depthWrite
         std.vertexColors = (src as unknown as THREE.MeshBasicMaterial).vertexColors === true
       }
-      if (src.isMeshStandardMaterial === true) {
-        // PBR source (a .glb/.gltf from Blender, SketchUp, ...): metallic /
-        // roughness are CREATOR DATA — keep them untouched.
-      } else {
-        // Phong / Lambert (FBX, OBJ) carry no metal data: the classic matte
-        // plastic defaults apply (the sliders can change them later)
+      // SURFACE FINISH — data wins here too. A .glb out of Blender carries the
+      // creator's real Metallic / Roughness sliders (their steel, gold, glass),
+      // so those pass through UNTOUCHED. FBX/OBJ arrive as Phong/Lambert which
+      // simply has no finish data — those get the classic matte-plastic look.
+      if (!isPbrSource) {
         std.metalness = 0
         std.roughness = 0.85
       }
-      metalSum += std.metalness
-      roughSum += std.roughness
-      matCount++
       if (hasRealColor(std)) colored = true
       return std
     })
@@ -228,33 +210,20 @@ function normalizeMaterials(root: THREE.Object3D): { warning: string | null; met
       colored = true
     }
   })
-  const fallback = { warning: null as string | null, metallic: 0, roughness: 0.85 }
-  if (meshes === 0 || matCount === 0) return fallback
-  const pbr = {
-    metallic: Math.min(1, Math.max(0, metalSum / matCount)),
-    roughness: Math.min(1, Math.max(0, roughSum / matCount)),
-  }
-  if (colored) return { ...pbr, warning: null }
-  return {
-    ...pbr,
-    warning:
-      'This model has no material colors — it would show up plain white in game. ' +
-      'Fix in Blender: give every material a Principled BSDF with Base Color (grey, brown, anything). ' +
-      'Image textures: connect straight into Base Color, re-save TGA/TIFF images as PNG first, and export with Path Mode "Copy" + "Embed Textures" — ' +
-      'or just export .glb (glTF 2.0), which always keeps colors and textures. ' +
-      'You can also paint it here with a texture or a flat color.',
-  }
+  if (meshes === 0 || colored) return null
+  return (
+    'This model has no material colors — it would show up plain white in game. ' +
+    'Fix in Blender: give every material a Principled BSDF with Base Color (grey, brown, anything). ' +
+    'Image textures: connect straight into Base Color, re-save TGA/TIFF images as PNG first, and export with Path Mode "Copy" + "Embed Textures" — ' +
+    'or just export .glb (glTF 2.0), which always keeps colors and textures. ' +
+    'You can also paint it here with a texture or a flat color.'
+  )
 }
 
 export interface GlbWithCheck {
   glb: Blob
   /** non-null when every material came in plain white — shown to the creator */
   colorWarning: string | null
-  /** the model's own PBR feel (average across its materials) — saved on the
-   *  item at publish so the material sliders START from the file's values.
-   *  metallic 0 = matte plastic, 1 = full metal; roughness 0 = gloss, 1 = matte */
-  metallic: number
-  roughness: number
 }
 
 /** Same conversion as fileToGlb, plus the material normalization and the
@@ -303,8 +272,8 @@ export async function fileToGlbWithCheck(file: File, opts?: { keepAnimations?: b
     throw new Error('Unsupported model type — upload FBX, GLB, GLTF or OBJ.')
   }
 
-  const { warning: colorWarning, metallic, roughness } = normalizeMaterials(object)
-  return { glb: await objectToGlb(object, animations), colorWarning, metallic, roughness }
+  const colorWarning = normalizeMaterials(object)
+  return { glb: await objectToGlb(object, animations), colorWarning }
 }
 
 async function objectToGlb(object: THREE.Object3D, animations?: THREE.AnimationClip[]): Promise<Blob> {
