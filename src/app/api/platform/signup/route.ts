@@ -52,15 +52,16 @@ export async function POST(req: NextRequest) {
   const birthday = body?.birthday ? String(body.birthday).slice(0, 10) : null
 
   try {
-    // short public player number — join order, same as the website signup
-    const topNo = await db.user.aggregate({ _max: { playerNo: true } })
-    const playerNo = (topNo._max.playerNo ?? 0) + 1
+    // sequential player number — in-game signups continue the same #N
+    // sequence as the website (Nexico8225 = #1 ...)
+    const maxSeq = await db.user.aggregate({ _max: { seqId: true } })
+    const nextSeq = (maxSeq._max.seqId ?? 0) + 1
 
     const user = await db.user.create({
       data: {
         username,
         usernameLower: lower,
-        playerNo,
+        seqId: nextSeq,
         passwordHash: hashPassword(password),
         gender,
         birthday,
