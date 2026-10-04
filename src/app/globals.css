@@ -61,13 +61,13 @@ body {
   font-size: 13px;
   line-height: 1.55;
   color: var(--rb-text);
-  background-color: #e2e9f0;
-  /* the fun pass: a band of retro sky at the top of every page (grass is
-     imaginary but the vibe is real) + the print-dot paper underneath */
+  background-color: #e6eaf0;
+  /* soft daylight sheen + a whisper of sky glow + the 2016 print-dot paper */
   background-image:
-    linear-gradient(180deg, #aed4f0 0%, #cde6f8 170px, #e9f0f6 460px, #e4e8ed 100%),
-    radial-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px);
-  background-size: auto, 9px 9px;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(235, 240, 246, 0.35) 40%, rgba(214, 222, 232, 0.55) 100%),
+    radial-gradient(1200px 460px at 50% -160px, rgba(0, 162, 255, 0.09), transparent 65%),
+    radial-gradient(rgba(0, 0, 0, 0.016) 1px, transparent 1px);
+  background-size: auto, auto, 9px 9px;
   background-attachment: fixed;
 }
 
@@ -93,9 +93,11 @@ body textarea {
   cursor: url('/retro/pointer.png') 12 2, text;
 }
 
-/* ---------- Typography: regular weight EVERYWHERE ----------
-   2006 Roblox set everything in plain Verdana — heavy labels read modern,
-   not retro. No exceptions anymore: buttons, tabs, badges, all weight 400. */
+/* ---------- Typography: REGULAR weight everywhere, no exceptions ----------
+   Bold text kills the retro look — the classic site set everything in
+   regular-weight Source Sans Pro and so do we. The blanket rule also beats
+   every inline fontWeight and every stray component-level weight, so the
+   page can never drift back to "modern bold" again. */
 body,
 body * {
   font-weight: normal !important;
@@ -113,14 +115,9 @@ a:focus-visible,
 /* ---------- Retro building blocks ---------- */
 .rb-box {
   background: linear-gradient(180deg, #ffffff 0%, #fcfdfe 100%);
-  border: 1px solid #a3b5c6;
+  border: 1px solid var(--rb-border);
   border-radius: 8px;
-  /* the sticker outline: a hard white inner ring + a chunky dropped edge —
-     cards pop off the sky instead of melting into it */
-  box-shadow:
-    inset 0 0 0 1px #ffffff,
-    0 2px 0 rgba(23, 46, 66, 0.14),
-    0 8px 20px rgba(23, 46, 66, 0.08);
+  box-shadow: 0 1px 3px rgba(23, 46, 66, 0.1), 0 6px 18px rgba(23, 46, 66, 0.06);
 }
 /* match the panel head to the card's rounded top (no overflow:hidden —
    popovers and drag highlights inside cards must not get clipped) */
@@ -138,21 +135,18 @@ a:focus-visible,
 }
 
 .rb-panel-head {
-  /* every card gets the sky-blue header strip with the tri-color edge —
-     red / gold / blue, straight off the wordmark's own outline */
-  background: linear-gradient(180deg, #eaf6ff 0%, #cfe9fb 100%);
-  border-bottom: 1px solid #a8d4ef;
-  color: #0d69ac;
+  background: linear-gradient(180deg, #f7f8f9 0%, #eef0f2 100%);
+  border-bottom: 1px solid var(--rb-border-light);
+  color: #4a5866;
   font-family: var(--rb-display);
   font-weight: 400 !important;
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0.4px;
-  padding: 9px 14px 9px 18px;
+  padding: 11px 14px 11px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 .rb-panel-head::before {
   content: '';
@@ -160,9 +154,8 @@ a:focus-visible,
   left: 0;
   top: 0;
   bottom: 0;
-  width: 4px;
-  /* ONE main color — the wordmark red — no tri-color rainbow edge */
-  background: #e2231a;
+  width: 3px;
+  background: var(--rb-blue);
 }
 
 .rb-link {
@@ -320,16 +313,15 @@ a:focus-visible,
   background: linear-gradient(180deg, #7ec95c, #4c9e34);
 }
 
-/* the signature greeting: plain retro letters in the main red — the way the
-   old site's headings sat on the page (no outline, no glow, no heavy font) */
+/* 2016 page titles — big Source Sans Pro LIGHT, the signature of the old
+   site ("Hello, <name>!" / page headings). The no-bold rule stays intact:
+   this is a lighter weight, not a bolder one. */
 .rb-page-title {
-  font-family: inherit;
-  font-weight: normal !important;
-  font-size: 22px;
-  line-height: 1.2;
-  color: #c8231a;
+  font-weight: 300 !important;
+  font-size: 25px;
+  line-height: 1.15;
+  color: #191919;
   letter-spacing: 0.2px;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 /* classic BrickColor swatch grid — the palette every old Roblox color
@@ -442,13 +434,10 @@ a:focus-visible,
   background: #e1f2fb;
   color: #00639e;
 }
-/* the active tab looks like the OLD site's selected tab: a plain white tab
-   pressed into the strip — same family as the others, no red, no rainbow */
 .rb-navbar-item.rb-navbar-active {
-  background: #ffffff;
-  color: #0d69ac;
-  border-color: #b6c0cb;
-  box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(23, 46, 66, 0.12);
+  background: #e1f2fb;
+  color: #00639e;
+  border-color: #b5d9ee;
 }
 
 /* sidebar group headers ("Play", "Create", "Avatar & Shop"...) */
@@ -479,52 +468,14 @@ a:focus-visible,
   background: #f2f8fd;
 }
 .rb-footer {
-  /* the deep-water footer — the page ends like the loading screen began */
-  border-top: 1px solid #00314f;
-  background: linear-gradient(180deg, #0e5d94 0%, #083c62 100%);
+  border-top: 1px solid #cccccc;
+  background: linear-gradient(180deg, #e9edf2 0%, #dfe4eb 100%);
   padding: 20px 16px 18px;
   text-align: center;
   font-size: 10px;
-  color: #bcd8ef;
+  color: #767676;
   line-height: 1.8;
   margin-top: auto;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
-}
-/* footer links stay in the footer's one color family — plain light blue,
-   underlined on hover, exactly like a 2006 footer */
-.rb-footer .rb-link {
-  color: #bcd8ef;
-}
-.rb-footer .rb-link:hover {
-  color: #ffffff;
-}
-
-/* ---------- the retro news ticker (home hero) ---------- */
-.rb-marquee {
-  margin: 12px -16px 0;
-  /* the main red — one accent color for the whole site, no gold band */
-  background: linear-gradient(180deg, #ef4136 0%, #e2231a 60%, #c01d15 100%);
-  border-top: 1px solid #a01610;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  overflow: hidden;
-  white-space: nowrap;
-}
-.rb-marquee-track {
-  display: inline-block;
-  padding: 4px 0;
-  animation: rb-marquee 38s linear infinite;
-  font-family: var(--rb-display);
-  font-size: 11.5px;
-  letter-spacing: 0.6px;
-  color: #ffffff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
-}
-@keyframes rb-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rb-marquee-track { animation: none; }
 }
 
 /* old-school scrolling marquee for flavor */
