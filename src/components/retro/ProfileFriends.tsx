@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, fmtDate, fmtCount, timeAgo, letterAvatar, flash, clearAuthToken, type RetroUser } from '@/lib/store'
-import { FxText, FxToolbar } from '@/lib/textfx'
 import { Avatar, OnlineDot } from './Shell'
 import { GameCard, GameSummary, SuggestedStrip, type SuggestedUser } from './HomeView'
 import { VideoCard } from './VideosView'
@@ -96,7 +95,6 @@ export function ProfileView({ id }: { id: string }) {
   const [bio, setBio] = useState('')
   // profile content lives in tabs — Creations (games + videos), Favorites, Groups
   const [contentTab, setContentTab] = useState<'creations' | 'favorites' | 'groups'>('creations')
-  const bioRef = useRef<HTMLTextAreaElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -203,9 +201,13 @@ export function ProfileView({ id }: { id: string }) {
   }
   if (!profile) {
     return (
-      <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#a81a13' }}>
-        User not found.
-        <div style={{ marginTop: 12 }}>
+      <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>
+        <div style={{ fontSize: 13, color: '#1c2733', marginBottom: 4 }}>This profile could not be loaded.</div>
+        <div style={{ fontSize: 11, marginBottom: 12 }}>
+          The link may be stale — profiles work with the member&apos;s name too, like <span style={{ fontFamily: 'monospace' }}>/users/Name</span>.
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <button className="rb-btn" onClick={load}>Try again</button>
           <button className="rb-btn" onClick={() => router.push('/')}>Back to Home</button>
         </div>
       </div>
@@ -352,14 +354,6 @@ export function ProfileView({ id }: { id: string }) {
             </div>
             {/* every member has an ID — copyable, like the classic profile pages */}
             <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {typeof p.seqId === 'number' && (
-                <span
-                  title={`Player #${p.seqId} — join order on the site`}
-                  style={{ fontSize: 11, fontFamily: 'monospace', color: '#0d69ac', background: '#eaf2fa', border: '1px solid #b7cfe4', padding: '1px 7px', borderRadius: 3 }}
-                >
-                  Player #{p.seqId}
-                </span>
-              )}
               <span>
                 ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>{p.id}</span>
               </span>
@@ -443,13 +437,12 @@ export function ProfileView({ id }: { id: string }) {
           <div style={{ fontSize: 11, color: '#24425f', marginBottom: 5 }}>About</div>
           {profile.isMe ? (
             <div>
-              <textarea ref={bioRef} className="rb-textarea" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} style={{ width: '100%' }} placeholder="Tell everyone about yourself... ([rainbow]text[/rainbow] works!)" aria-label="Bio" />
-              <FxToolbar taRef={bioRef} value={bio} onChange={setBio} />
+              <textarea className="rb-textarea" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} style={{ width: '100%' }} placeholder="Tell everyone about yourself..." aria-label="Bio" />
               <button className="rb-btn" style={{ marginTop: 6 }} onClick={saveBio}>Save Bio</button>
             </div>
           ) : (
             <div style={{ fontSize: 12, color: '#2c3e50', lineHeight: 1.6 }}>
-              <FxText text={p.bio || 'This blockhead has not written anything yet.'} />
+              {p.bio || 'This blockhead has not written anything yet.'}
             </div>
           )}
         </div>
@@ -929,41 +922,6 @@ export function FriendsView() {
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
   const [sessionError, setSessionError] = useState(false)
-  // people search — find ANY player by name or bio, add them as a friend
-  const [peopleQ, setPeopleQ] = useState('')
-  const [people, setPeople] = useState<(RetroUser & { friendState: string })[] | null>(null)
-  const [peopleBusy, setPeopleBusy] = useState(false)
-
-  // debounce the search a little so typing does not hammer the API
-  useEffect(() => {
-    const q = peopleQ.trim()
-    if (!q) {
-      setPeople(null)
-      return
-    }
-    setPeopleBusy(true)
-    const t = setTimeout(async () => {
-      try {
-        const res = await api<{ users: (RetroUser & { friendState: string })[] }>(`/api/users?q=${encodeURIComponent(q)}&limit=12`)
-        setPeople(res.users || [])
-      } catch {
-        setPeople([])
-      } finally {
-        setPeopleBusy(false)
-      }
-    }, 280)
-    return () => clearTimeout(t)
-  }, [peopleQ])
-
-  async function peopleAct(u: RetroUser & { friendState: string }) {
-    try {
-      await api('/api/friends', { method: 'POST', body: JSON.stringify({ username: u.username }) })
-      flash(setToast, `Friend request sent to ${u.username}!`, 2200)
-      setPeople((ps) => (ps || []).map((p) => (p.id === u.id ? { ...p, friendState: 'request_sent' } : p)))
-    } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Failed.', 2400)
-    }
-  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1047,53 +1005,6 @@ export function FriendsView() {
           <button className="rb-btn rb-btn-green" onClick={addFriend}>Send Friend Request</button>
         </div>
         {msg && <div style={{ padding: '0 12px 10px', color: '#a81a13', fontSize: 11 }}>{msg}</div>}
-
-        {/* people search — the whole site's members, live as you type */}
-        <div style={{ borderTop: '1px solid #e4eaf0', padding: 12 }}>
-          <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 6 }}>Search people</div>
-          <input
-            className="rb-input"
-            placeholder="Search by username or bio..."
-            value={peopleQ}
-            onChange={(e) => setPeopleQ(e.target.value)}
-            style={{ width: '100%' }}
-            aria-label="Search people"
-          />
-          {peopleBusy && <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 6 }}>Searching...</div>}
-          {people && !peopleBusy && (
-            people.length === 0 ? (
-              <div style={{ fontSize: 11, color: '#8ba0b3', marginTop: 6 }}>No players match “{peopleQ}”.</div>
-            ) : (
-              <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-                {people.map((p) => (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1px solid #e8eef4', background: '#fbfdff', padding: '6px 8px' }}>
-                    <Avatar user={p} size={30} rounded={4} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <Link href={`/users/${p.id}`} className="rb-link" style={{ fontSize: 12, fontWeight: 'bold' }}>
-                        {p.username}
-                      </Link>
-                      {typeof p.seqId === 'number' && (
-                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#0d69ac', marginLeft: 4 }}>#{p.seqId}</span>
-                      )}
-                      <div style={{ fontSize: 10, color: '#7b8896', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.bio ? p.bio.slice(0, 70) : p.online ? 'Online now' : 'Offline'}
-                      </div>
-                    </div>
-                    {p.friendState === 'friends' ? (
-                      <span style={{ fontSize: 10, color: '#2c6e31' }}>✓ Friends</span>
-                    ) : p.friendState === 'request_sent' ? (
-                      <span style={{ fontSize: 10, color: '#8a6d1a' }}>Request sent</span>
-                    ) : (
-                      <button className="rb-btn rb-btn-blue" style={{ fontSize: 10, padding: '3px 10px' }} onClick={() => peopleAct(p)}>
-                        + Add
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )
-          )}
-        </div>
       </div>
 
       {/* incoming requests */}
