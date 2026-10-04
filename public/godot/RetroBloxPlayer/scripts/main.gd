@@ -37,6 +37,8 @@ const TICK_SECONDS: float = 0.15        # the multiplayer heartbeat (~6.7/s)
 const TICK_RETRY: float = 1.2           # slower heartbeat while the site is unreachable
 const REMOTE_TIMEOUT: float = 12.0      # silent this long = left the game
 const WALK_ANIM_SPEED: float = 16.0     # what a remote "walk" state animates at
+const REMOTE_CULL_DISTANCE: float = 220.0   # hide far avatars (still synced)
+const REMOTE_ANIM_DISTANCE: float = 150.0   # skip their animations beyond this
 
 # the world lives in main.tscn — Arena, Players, Debris and the CameraRig
 @onready var arena: Node3D = $Arena
@@ -88,11 +90,25 @@ var volume_setting: float = 1.0
 var shoulder_blend: float = 0.0
 var _auth_done: bool = false
 
+# --- quality / mobile settings (the Settings card drives these) ---
+var quality_preset: String = "auto"    # auto/low/medium/high/custom
+var render_scale: float = 1.0          # 3D draw scale 0.5–1.0 (the big speed dial)
+var shadows_on: bool = true
+var fov_setting: float = 70.0
+var show_fps: bool = false
+var touch_mode: String = "auto"        # auto/on/off
+var touch_active: bool = false         # resolved: the touch layer is visible
+var _fps_low_time: float = 0.0         # auto-quality downgrade watch
+var _cull_timer: float = 0.0
+var _camera_touches: Dictionary = {}   # touch index -> last position (camera drag)
+var _pinch_dist: float = 0.0
+
 
 func _ready() -> void:
         _read_configuration()
         _setup_input()
         _apply_volume()
+        touch_active = _resolve_touch()
         hud = HudScene.instantiate() as CanvasLayer
         add_child(hud)
         hud.chat_submitted.connect(send_chat)
@@ -102,10 +118,20 @@ func _ready() -> void:
         hud.shiftlock_toggled.connect(_set_shiftlock)
         hud.sensitivity_changed.connect(_on_sensitivity_changed)
         hud.volume_changed.connect(_on_volume_changed)
+        hud.jump_pressed.connect(_on_touch_jump)
+        hud.quality_changed.connect(_on_quality_changed)
+        hud.render_scale_changed.connect(_on_render_scale_changed)
+        hud.shadows_changed.connect(_on_shadows_changed)
+        hud.fov_changed.connect(_on_fov_changed)
+        hud.show_fps_changed.connect(_on_show_fps_changed)
+        hud.touch_mode_changed.connect(_on_touch_mode_changed)
         hud.room_label.text = "RetroBlox  /  loading games…"
         hud.set_room_title(place_name)
         hud.set_sliders(mouse_sensitivity, volume_setting)
         hud.set_shiftlock(shiftlock)
+        hud.set_touch_enabled(touch_active)
+        _apply_quality()
+        _sync_settings_card()
         hud.add_chat("", "Welcome to RetroBlox!", true)
         # the door: log in or sign up — the website account IS the player
         auth = AuthScreenScene.instantiate() as CanvasLayer
@@ -131,6 +157,16 @@ func _read_configuration() -> void:
         shiftlock = bool(profile.get_value("player", "shiftlock", false))
         mouse_sensitivity = clampf(float(profile.get_value("settings", "sensitivity", 1.0)), 0.4, 2.0)
         volume_setting = clampf(float(profile.get_value("settings", "volume", 1.0)), 0.0, 1.0)
+        quality_preset = str(profile.get_value("settings", "quality", "auto"))
+        if not ["auto", "low", "medium", "high", "custom"].has(quality_preset):
+                quality_preset = "auto"
+        render_scale = clampf(float(profile.get_value("settings", "render_scale", 1.0)), 0.5, 1.0)
+        shadows_on = bool(profile.get_value("settings", "shadows", true))
+        fov_setting = clampf(float(profile.get_value("settings", "fov", 70.0)), 60.0, 100.0)
+        show_fps = bool(profile.get_value("settings", "show_fps", false))
+        touch_mode = str(profile.get_value("settings", "touch", "auto"))
+        if not ["auto", "on", "off"].has(touch_mode):
+                touch_mode = "auto"
 
         if not OS.get_environment("RETROBLOX_API").is_empty():
                 api_url = OS.get_environment("RETROBLOX_API").strip_edges().trim_suffix("/")
@@ -276,7 +312,9 @@ func _input(event: InputEvent) -> void:
                 return  # the login card owns the keyboard until you are in
         if event is InputEventKey and event.pressed and not event.echo:
                 if event.keycode == KEY_ESCAPE:
-                        if hud.chat_entry.has_focus():
+                        if hud.settings_open:
+                                hud.close_settings()
+                        elif hud.chat_entry.has_focus():
                                 hud.chat_entry.release_focus()
                         elif hud.chat_open:
                                 hud.toggle_chat(false)
@@ -308,6 +346,28 @@ func _input(event: InputEvent) -> void:
                         camera_distance = clampf(camera_distance - 1.4, 0.5, 30.0)
                 elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
                         camera_distance = clampf(camera_distance + 1.4, 0.5, 30.0)
+        if event is InputEventScreenTouch:
+                # mobile camera: a finger that starts on free screen space drags
+                # the camera; two fingers pinch-zoom. Joystick/buttons/filter
+                # HUD panels claim their own touches first.
+                if event.pressed:
+                        if not hud.is_point_reserved(event.position):
+                                _camera_touches[event.index] = event.position
+                else:
+                        _camera_touches.erase(event.index)
+                        if _camera_touches.size() < 2:
+                                _pinch_dist = 0.0
+        elif event is InputEventScreenDrag and _camera_touches.has(event.index):
+                _camera_touches[event.index] = event.position
+                if _camera_touches.size() >= 2:
+                        var positions: Array = _camera_touches.values()
+                        var dist: float = (positions[0] as Vector2).distance_to(positions[1] as Vector2)
+                        if _pinch_dist > 0.0:
+                                camera_distance = clampf(camera_distance - (dist - _pinch_dist) * 0.05, 0.5, 30.0)
+                        _pinch_dist = dist
+                else:
+                        camera_yaw -= event.relative.x * 0.006 * mouse_sensitivity
+                        camera_pitch = clampf(camera_pitch - event.relative.y * 0.006 * mouse_sensitivity, -1.2, 0.8)
 
 func _set_shiftlock(enabled: bool) -> void:
         shiftlock = enabled
@@ -327,6 +387,123 @@ func _on_volume_changed(value: float) -> void:
         profile.set_value("settings", "volume", value)
         profile.save("user://profile.cfg")
 
+# ------------------------------------------------------------ quality / mobile settings
+
+## Touch controls shown when the device has a touchscreen (Auto), or forced.
+func _resolve_touch() -> bool:
+        match touch_mode:
+                "on":
+                        return true
+                "off":
+                        return false
+        return DisplayServer.is_touchscreen_available() \
+                or OS.has_feature("mobile_android") or OS.has_feature("mobile_ios")
+
+
+## Turn the preset + manual settings into actual renderer state.
+## Low drops the 3D draw scale to 65% and kills shadows — by far the
+## biggest win on phones; Medium balances; High unlocks everything.
+func _apply_quality() -> void:
+        var preset := quality_preset
+        if preset == "auto":
+                preset = "low" if touch_active else "medium"
+        var max_fps := 60
+        var shadow_dist := 120.0
+        var msaa: int = Viewport.MSAA_DISABLED
+        match preset:
+                "low":
+                        render_scale = 0.65 if quality_preset != "custom" else render_scale
+                        shadows_on = false if quality_preset != "custom" else shadows_on
+                        shadow_dist = 60.0
+                "medium":
+                        render_scale = 0.85 if quality_preset != "custom" else render_scale
+                        shadows_on = true if quality_preset != "custom" else shadows_on
+                        shadow_dist = 120.0
+                "high":
+                        render_scale = 1.0 if quality_preset != "custom" else render_scale
+                        shadows_on = true if quality_preset != "custom" else shadows_on
+                        shadow_dist = 200.0
+                        msaa = Viewport.MSAA_2X
+                        max_fps = 0
+                _:
+                        # custom — keep the user's render scale + shadows
+                        shadow_dist = 120.0
+                        max_fps = 60 if render_scale < 0.99 else 0
+        var vp := get_viewport()
+        if vp != null:
+                vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+                vp.scaling_3d_scale = clampf(render_scale, 0.5, 1.0)
+                vp.msaa_3d = msaa
+        arena.set_sun_shadows(shadows_on)
+        arena.set_shadow_distance(shadow_dist)
+        if camera != null:
+                camera.fov = fov_setting
+        Engine.max_fps = max_fps
+
+
+func _sync_settings_card() -> void:
+        if hud != null:
+                hud.set_settings_state(quality_preset, render_scale, shadows_on, fov_setting, show_fps, touch_mode)
+
+
+func _persist_settings() -> void:
+        profile.set_value("settings", "quality", quality_preset)
+        profile.set_value("settings", "render_scale", render_scale)
+        profile.set_value("settings", "shadows", shadows_on)
+        profile.set_value("settings", "fov", fov_setting)
+        profile.set_value("settings", "show_fps", show_fps)
+        profile.set_value("settings", "touch", touch_mode)
+        profile.save("user://profile.cfg")
+
+
+func _on_touch_jump() -> void:
+        if players.get(my_user_id) != null and not hud.input_busy():
+                jump_serial += 1
+
+
+func _on_quality_changed(preset: String) -> void:
+        quality_preset = preset
+        _apply_quality()
+        _sync_settings_card()
+        _persist_settings()
+
+
+func _on_render_scale_changed(value: float) -> void:
+        render_scale = value
+        quality_preset = "custom"
+        _apply_quality()
+        _sync_settings_card()
+        _persist_settings()
+
+
+func _on_shadows_changed(enabled: bool) -> void:
+        shadows_on = enabled
+        quality_preset = "custom"
+        _apply_quality()
+        _sync_settings_card()
+        _persist_settings()
+
+
+func _on_fov_changed(value: float) -> void:
+        fov_setting = value
+        _apply_quality()
+        _persist_settings()
+
+
+func _on_show_fps_changed(enabled: bool) -> void:
+        show_fps = enabled
+        hud.set_show_fps(enabled)
+        _persist_settings()
+
+
+func _on_touch_mode_changed(mode: String) -> void:
+        touch_mode = mode
+        touch_active = _resolve_touch()
+        hud.set_touch_enabled(touch_active)
+        _apply_quality()
+        _sync_settings_card()
+        _persist_settings()
+
 func _apply_volume() -> void:
         if volume_setting <= 0.001:
                 AudioServer.set_bus_mute(0, true)
@@ -341,13 +518,17 @@ func _process(delta: float) -> void:
         if auth != null and auth.visible:
                 return
         _pump_tick(delta)
+        var local = players.get(my_user_id)
         for uid in players:
                 var p = players[uid]
                 if uid != my_user_id:
                         p.render_remote(delta)
-                p.update_visuals(delta)
+                        # far players stop animating (still move + stay synced)
+                        var near: bool = local == null or p.global_position.distance_to(local.global_position) < REMOTE_ANIM_DISTANCE
+                        p.update_visuals(delta, near)
+                else:
+                        p.update_visuals(delta)
         _fade_lost_players()
-        var local = players.get(my_user_id)
         var busy: bool = hud.input_busy()
         var capture: bool = not busy and (shiftlock or camera_distance < 1.0 or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
         var wanted_mode: int = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
@@ -379,6 +560,33 @@ func _process(delta: float) -> void:
         camera_pivot.rotation.y = camera_yaw
         spring_arm.rotation.x = camera_pitch
         spring_arm.spring_length = lerpf(spring_arm.spring_length, camera_distance, 1.0 - exp(-15.0 * delta))
+        # hide far-away avatars completely (they stay in the game + chat)
+        _cull_timer -= delta
+        if _cull_timer <= 0.0:
+                _cull_timer = 0.4
+                var origin: Vector3 = local.global_position if local != null else camera_pivot.global_position
+                for uid in players:
+                        var p = players[uid]
+                        if uid == my_user_id:
+                                continue
+                        if p.alive and p.has_snapshot:
+                                p.avatar.visible = p.global_position.distance_to(origin) < REMOTE_CULL_DISTANCE
+        # Auto quality: if the game runs slow for 4 straight seconds, drop to
+        # Low once and tell the player (no oscillation)
+        if quality_preset == "auto":
+                var fps := Engine.get_frames_per_second()
+                if fps > 0 and fps < 40:
+                        _fps_low_time += delta
+                        if _fps_low_time > 4.0:
+                                quality_preset = "custom"
+                                render_scale = 0.55
+                                shadows_on = false
+                                _apply_quality()
+                                _sync_settings_card()
+                                _persist_settings()
+                                _system_notice("Auto quality: switched to Low for smoother play.")
+                else:
+                        _fps_low_time = 0.0
 
 func _physics_process(delta: float) -> void:
         if quitting or auth != null and auth.visible:
@@ -388,6 +596,11 @@ func _physics_process(delta: float) -> void:
                 var direction := Vector2.ZERO
                 if not hud.input_busy():
                         direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+                        # the virtual joystick speaks the same language (y<0 = forward)
+                        if touch_active and hud.joystick_vector.length() > 0.15:
+                                direction = hud.joystick_vector
+                                if direction.length() > 1.0:
+                                        direction = direction.normalized()
                         if Input.is_action_just_pressed("jump"):
                                 jump_serial += 1
                 local.drive(delta, direction, camera_yaw, jump_serial, shiftlock)
