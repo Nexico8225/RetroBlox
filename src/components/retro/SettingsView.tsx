@@ -215,8 +215,8 @@ export function SettingsView() {
               Your account, games, videos, posts, friends and messages live on the RetroBlox
               server (not in this browser), and the site keeps automatic backups every time it
               starts. Updates no longer remove anything you made — everything you publish stays
-              right where you left it, on any device you log in from. Deleted UGC even stays
-              restorable by an admin, so nothing is ever gone for good.
+              right where you left it, on any device you log in from. Deleting your own UGC is a
+              real delete — the item is gone for good, exactly like the old site's moderation.
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderTop: '1px solid #dbe4ec', paddingTop: 12 }}>
