@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson, sanitizeFinish } from '@/lib/avatarAssets'
+import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson } from '@/lib/avatarAssets'
 import { buyPrice, RbxError } from '@/lib/rbx'
 import { saveUpload, resolveUpload } from '@/lib/uploads'
 
@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const item = await db.avatarItem.findUnique({
     where: { id },
     include: {
-      creator: { select: { id: true, username: true, avatarUrl: true, seqId: true } },
+      creator: { select: { id: true, username: true, avatarUrl: true } },
       group: { select: { id: true, name: true } },
       _count: { select: { ownedBy: true } },
     },
@@ -38,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     take: 14,
     select: {
       acquiredAt: true,
-      user: { select: { id: true, username: true, avatarUrl: true, seqId: true } },
+      user: { select: { id: true, username: true, avatarUrl: true } },
     },
   })
   return NextResponse.json({
@@ -60,8 +60,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       modelFileId: item.modelFileId,
       textureFileId: item.textureFileId,
       baseColor: item.baseColor,
-      roughness: item.roughness,
-      metallic: item.metallic,
       placement: parsePlacement(item.placementJson),
       animClips: parseAnimClipsJson(item.animClipsJson),
       animTarget: parseAnimTargetJson(item.animTargetJson),
@@ -128,9 +126,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       color: form.get('color') ?? undefined,
       clearColor: form.get('clearColor') ?? undefined,
       clearTexture: form.get('clearTexture') ?? undefined,
-      roughness: form.get('roughness') ?? undefined,
-      metallic: form.get('metallic') ?? undefined,
-      clearFinish: form.get('clearFinish') ?? undefined,
     }
     const file = await resolveUpload(form.get('image'), form.get('imageUploadId'))
     if (file instanceof File && file.size > 0) {
@@ -158,7 +153,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   }
 
-  const data: { name?: string; description?: string; price?: number; isLimited?: boolean; imageFileId?: string; textureFileId?: string | null; baseColor?: string | null; roughness?: number | null; metallic?: number | null; stock?: number | null; ownersBoost?: number } = {}
+  const data: { name?: string; description?: string; price?: number; isLimited?: boolean; imageFileId?: string; textureFileId?: string | null; baseColor?: string | null; stock?: number | null; ownersBoost?: number } = {}
 
   if (body.name !== undefined) {
     const name = String(body.name).trim()
@@ -238,14 +233,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     if (body.clearColor === '1' || body.clearColor === 1 || body.clearColor === true) {
       data.baseColor = null
-    }
-    // surface finish overrides — 0..1 sliders, empty/null = back to auto
-    if (body.clearFinish === '1' || body.clearFinish === 1 || body.clearFinish === true) {
-      data.roughness = null
-      data.metallic = null
-    } else {
-      if (body.roughness !== undefined) data.roughness = sanitizeFinish(body.roughness)
-      if (body.metallic !== undefined) data.metallic = sanitizeFinish(body.metallic)
     }
   }
 
@@ -360,15 +347,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // admin-only: undo a soft delete — the item goes straight back to the catalog
-  if (body.action === 'restore') {
-    if (user.role !== 'admin') return NextResponse.json({ error: 'Only an admin can restore UGC.' }, { status: 403 })
-    const item = await db.avatarItem.findUnique({ where: { id }, select: { id: true, name: true, deletedAt: true } })
-    if (!item) return NextResponse.json({ error: 'Item not found' }, { status: 404 })
-    if (!item.deletedAt) return NextResponse.json({ error: 'This item is not deleted.' }, { status: 400 })
-    await db.avatarItem.update({ where: { id }, data: { deletedAt: null } })
-    return NextResponse.json({ ok: true, message: `"${item.name}" is back in the catalog.` })
-  }
+  // REMOVED: the old "restore" action — delete is DELETE now (remove = delete = true),
+  // so there is nothing to restore. Old soft-deleted rows get purged by the
+  // admin's "Erase forever" button in the catalog (action purge-deleted).
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
@@ -388,9 +369,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Only the creator, the group owner, or an admin can delete UGC.' }, { status: 403 })
   }
 
-  // SOFT delete — the row (and its files) stay in the database forever, so
-  // "some ugc got deleted" can never mean "gone for good": an admin can
-  // always restore it from the catalog's Deleted UGC panel.
-  await db.avatarItem.update({ where: { id }, data: { deletedAt: new Date() } })
-  return NextResponse.json({ ok: true })
+  // HARD delete — remove = delete = true. The row (and its inventory copies,
+  // via cascade) is GONE for good, exactly what the owner asked for. The files
+  // stay on disk as orphans; nothing anywhere references a deleted item again.
+  await db.avatarItem.delete({ where: { id } })
+  return NextResponse.json({ ok: true, message: `"${item.name}" was permanently deleted.` })
 }
