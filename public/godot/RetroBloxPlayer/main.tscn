@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://scripts/arena.gd" id="2_arena"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_arm"]
-radius = 0.22
+radius = 0.45
 
 [node name="RetroBlox" type="Node3D"]
 script = ExtResource("1_main")
@@ -17,16 +17,16 @@ script = ExtResource("2_arena")
 [node name="Debris" type="Node3D" parent="."]
 
 [node name="CameraRig" type="Node3D" parent="."]
-position = Vector3(0, 2.5, 7)
+position = Vector3(0, 4.3, 7)
 
 [node name="SpringArm3D" type="SpringArm3D" parent="CameraRig"]
 collision_mask = 1
-spring_length = 8.5
-margin = 0.2
+spring_length = 14.0
+margin = 0.4
 shape = SubResource("SphereShape3D_arm")
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig/SpringArm3D"]
 fov = 70.0
 near = 0.05
-far = 220.0
+far = 600.0
 current = true
