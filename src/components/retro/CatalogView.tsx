@@ -32,7 +32,6 @@ import {
 } from '@/lib/avatarAssets'
 import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig } from '@/lib/three/convert'
 import { captureRiggedThumb } from '@/lib/three/animCapture'
-import { FxText } from '@/lib/textfx'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
 
@@ -167,8 +166,6 @@ interface CatalogItem {
   modelFileId: string | null
   textureFileId: string | null
   baseColor: string | null
-  roughness: number | null
-  metallic: number | null
   placement: Placement | null
   animClips?: AnimClipsT | null
   animTarget?: AnimTargetT | null
@@ -194,29 +191,11 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   const [myGroups, setMyGroups] = useState<GroupOpt[]>([])
   const [tryOn, setTryOn] = useState<CatalogItem | null>(null)
   const [editing, setEditing] = useState<CatalogItem | null>(null)
-  // admin-only: soft-deleted UGC — deletes are reversible, nothing is ever really gone
-  const [deletedItems, setDeletedItems] = useState<CatalogItem[]>([])
+  // deletes are PERMANENT now (remove = delete = true). The only leftovers are
+  // LEGACY soft-deleted rows from the old restore system — the admin erases
+  // them forever with the one-click purge bar.
+  const [legacyDeleted, setLegacyDeleted] = useState(0)
   const isAdmin = user?.role === 'admin'
-
-  const loadDeleted = useCallback(async () => {
-    if (!isAdmin) { setDeletedItems([]); return }
-    try {
-      const res = await api<{ items: CatalogItem[] }>('/api/catalog?deleted=1')
-      setDeletedItems(res.items)
-    } catch { /* ignore */ }
-  }, [isAdmin])
-
-  useEffect(() => { loadDeleted() }, [loadDeleted])
-
-  async function restoreItem(item: CatalogItem) {
-    try {
-      const res = await api<{ message?: string }>(`/api/catalog/${item.id}`, { method: 'POST', body: JSON.stringify({ action: 'restore' }) })
-      flash(setToast, res.message || 'Restored!')
-      await Promise.all([loadDeleted(), load()])
-    } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Restore failed', 3000)
-    }
-  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -225,9 +204,10 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
       if (type) params.set('type', type)
       if (q.trim()) params.set('q', q.trim())
       if (onlyLimited) params.set('limited', '1')
-      const res = await api<{ items: CatalogItem[]; ownedItemIds: string[] }>(`/api/catalog?${params}`)
+      const res = await api<{ items: CatalogItem[]; ownedItemIds: string[]; legacyDeleted?: number }>(`/api/catalog?${params}`)
       setItems(res.items)
       setOwnedIds(res.ownedItemIds)
+      setLegacyDeleted(res.legacyDeleted || 0)
     } catch { /* ignore */ } finally {
       setLoading(false)
     }
@@ -257,14 +237,24 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   }
 
   async function removeItem(item: CatalogItem) {
-    if (!window.confirm(`Delete "${item.name}"? It hides from the catalog — an admin can restore it any time.`)) return
+    if (!window.confirm(`Permanently delete "${item.name}"?\n\nThis is real — the item is gone for good, for everyone. There is no undo.`)) return
     try {
-      await api(`/api/catalog/${item.id}`, { method: 'DELETE' })
-      flash(setToast, 'UGC deleted — restorable by an admin.')
+      const res = await api<{ message?: string }>(`/api/catalog/${item.id}`, { method: 'DELETE' })
+      flash(setToast, res.message || 'Deleted for good.')
       load()
-      loadDeleted()
     } catch (e) {
       flash(setToast, e instanceof Error ? e.message : 'Failed', 2400)
+    }
+  }
+
+  async function purgeLegacy() {
+    if (!window.confirm(`Erase ${legacyDeleted} old deleted item${legacyDeleted === 1 ? '' : 's'} forever?\n\nThese are leftovers from the old restore system. After this they never come back.`)) return
+    try {
+      const res = await api<{ message?: string }>('/api/catalog', { method: 'POST', body: JSON.stringify({ action: 'purge-deleted' }) })
+      flash(setToast, res.message || 'Erased for good.')
+      setLegacyDeleted(0)
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Failed', 3000)
     }
   }
 
@@ -349,29 +339,16 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
         </div>
       </div>
 
-      {/* admin-only recycle bin — deleted UGC is restorable, nothing is ever gone for good */}
-      {isAdmin && deletedItems.length > 0 && (
-        <div className="rb-box" style={{ padding: 10, marginBottom: 12, background: '#fff8e8', borderColor: '#e0c98a' }}>
-          <div style={{ fontSize: 11, fontWeight: 'bold', color: '#8a6d1a', marginBottom: 6 }}>
-            Deleted UGC ({deletedItems.length}) — restorable, nothing is ever gone for good
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {deletedItems.map((item) => (
-              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e0c98a', padding: '3px 8px', borderRadius: 3 }}>
-                <span style={{ fontSize: 10, color: '#5d4a0a' }}>
-                  {item.name} <span style={{ fontFamily: 'monospace', color: '#9aa7b4' }}>({item.assetId})</span>
-                </span>
-                <button
-                  type="button"
-                  className="rb-btn rb-btn-green"
-                  style={{ fontSize: 9, padding: '2px 8px' }}
-                  onClick={() => restoreItem(item)}
-                >
-                  ↺ Restore
-                </button>
-              </div>
-            ))}
-          </div>
+      {/* admin-only housekeeping: the old restore system's leftover rows get
+          one permanent erase button — then this bar never comes back */}
+      {isAdmin && legacyDeleted > 0 && (
+        <div className="rb-box" style={{ padding: 10, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#5a6b7b', flex: 1, minWidth: 200 }}>
+            {legacyDeleted} old deleted item{legacyDeleted === 1 ? '' : 's'} left over from the restore system — deletes are permanent now.
+          </span>
+          <button type="button" className="rb-btn rb-btn-red" style={{ fontSize: 10, padding: '4px 12px' }} onClick={purgeLegacy}>
+            Erase forever
+          </button>
         </div>
       )}
 
@@ -412,8 +389,6 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       fallbackSrc={`/api/files/${item.imageFileId}`}
                       textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
                       color={item.baseColor || undefined}
-                      roughness={item.roughness}
-                      metallic={item.metallic}
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#fff' }}
                     />
                   )}
@@ -473,7 +448,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                 </div>
                 <div style={{ padding: 8 }}>
                   <Link href={`/catalog/${item.id}`} className="rb-link" style={{ display: 'block', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <FxText text={item.name} />
+                    {item.name}
                   </Link>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '3px 0 6px', fontSize: 10, color: '#5a6b7b' }}>
                     <Avatar user={item.creator} size={14} rounded={3} />
@@ -715,11 +690,6 @@ function EditItemModal({
   const [clearTexture, setClearTexture] = useState(false)
   const [tintOn, setTintOn] = useState(!!item.baseColor)
   const [tint, setTint] = useState(item.baseColor || '#b8663a')
-  // surface finish (3D items): roughness/metallic sliders, null = "auto — the
-  // model's own materials" (what Blender exported)
-  const [finishAuto, setFinishAuto] = useState(item.roughness == null && item.metallic == null)
-  const [finishRough, setFinishRough] = useState(item.roughness ?? 0.85)
-  const [finishMetal, setFinishMetal] = useState(item.metallic ?? 0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const imageRef = useRef<HTMLInputElement>(null)
@@ -780,12 +750,6 @@ function EditItemModal({
         if (clearTexture) fd.append('clearTexture', '1')
         if (tintOn) fd.append('color', tint)
         else if (item.baseColor) fd.append('clearColor', '1')
-        // surface finish — auto clears the override, sliders send 0..1 values
-        if (finishAuto) fd.append('clearFinish', '1')
-        else {
-          fd.append('roughness', String(Math.round(finishRough * 100) / 100))
-          fd.append('metallic', String(Math.round(finishMetal * 100) / 100))
-        }
       }
       await api(`/api/catalog/${item.id}`, {
         method: 'PATCH',
@@ -834,8 +798,6 @@ function EditItemModal({
                   placement={item.placement}
                   alt={item.name}
                   fallbackSrc={`/api/files/${item.imageFileId}`}
-                  roughness={finishAuto ? item.roughness : finishRough}
-                  metallic={finishAuto ? item.metallic : finishMetal}
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
                 />
               ) : (
@@ -949,47 +911,6 @@ function EditItemModal({
                   e.target.value = ''
                 }}
               />
-              {/* surface finish — the metallic / roughness sliders */}
-              <div style={{ borderTop: '1px dashed #cfdce8', marginTop: 8, paddingTop: 8 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#1c4e7c', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={finishAuto}
-                    onChange={(e) => setFinishAuto(e.target.checked)}
-                  />
-                  Auto finish (use the model&rsquo;s own Blender materials)
-                </label>
-                {!finishAuto && (
-                  <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5a6b7b' }}>
-                      <span style={{ width: 62 }}>Metallic</span>
-                      <input
-                        type="range" min={0} max={100} step={1}
-                        value={Math.round(finishMetal * 100)}
-                        onChange={(e) => setFinishMetal(Number(e.target.value) / 100)}
-                        style={{ flex: 1 }}
-                        aria-label="Metallic override"
-                      />
-                      <span style={{ width: 34, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(finishMetal * 100)}%</span>
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5a6b7b' }}>
-                      <span style={{ width: 62 }}>Roughness</span>
-                      <input
-                        type="range" min={0} max={100} step={1}
-                        value={Math.round(finishRough * 100)}
-                        onChange={(e) => setFinishRough(Number(e.target.value) / 100)}
-                        style={{ flex: 1 }}
-                        aria-label="Roughness override"
-                      />
-                      <span style={{ width: 34, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(finishRough * 100)}%</span>
-                    </label>
-                    <div style={{ fontSize: 10, color: '#8ba0b3' }}>
-                      0% roughness + high metallic = shiny chrome · 100% roughness = matte plastic. Overrides every surface of the model,
-                      in games too.
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           )}
           <label style={{ display: 'block', fontSize: 11, color: '#1c4e7c', marginBottom: 8 }}>
@@ -1130,11 +1051,6 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [textureUrl, setTextureUrl] = useState<string | null>(null)
   const [colorOn, setColorOn] = useState(false)
   const [itemColor, setItemColor] = useState('#4da6ff')
-  // surface finish: metallic / roughness sliders (0..1). finishAuto = send
-  // nothing — the model's own Blender materials win
-  const [finishAuto, setFinishAuto] = useState(true)
-  const [finishRough, setFinishRough] = useState(0.85)
-  const [finishMetal, setFinishMetal] = useState(0)
   const textureRef = useRef<HTMLInputElement>(null)
   const textureUrlRef = useRef<string | null>(null)
   const is3D = is3DType(type)
@@ -1543,11 +1459,6 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         // the creator's surface: texture first, flat color when there is none
         if (texture) await attachUpload(fd, 'texture', texture, texture.name || 'texture.png', texture.type || 'image/png', setUploadNote)
         else if (colorOn) fd.append('color', itemColor)
-        // surface finish — auto sends nothing (the model's own materials win)
-        if (!finishAuto) {
-          fd.append('roughness', String(Math.round(finishRough * 100) / 100))
-          fd.append('metallic', String(Math.round(finishMetal * 100) / 100))
-        }
       } else if (image) {
         await attachUpload(fd, 'image', image, image.name || 'image.png', image.type || 'image/png', setUploadNote)
       }
@@ -1621,8 +1532,6 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   fallbackSrc={thumbUrl || undefined}
                   textureUrl={textureUrl || undefined}
                   color={textureUrl ? undefined : colorOn ? itemColor : undefined}
-                  roughness={finishAuto ? undefined : finishRough}
-                  metallic={finishAuto ? undefined : finishMetal}
                   style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#fff' }}
                 />
               ) : thumbUrl ? (
@@ -1683,7 +1592,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   style={{ fontSize: 10, width: '100%', marginTop: 6 }}
                   onClick={() => setEditorOpen(true)}
                 >
-                  {thumbUrl ? '✎ Edit thumbnail' : '≡ Place it in 3D'}
+                  {thumbUrl ? '✎ Re-angle the thumbnail' : '≡ Place it in 3D'}
                 </button>
               )}
               {is3D && modelNotice && (
@@ -1706,7 +1615,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               )}
               {thumbUrl && (
                 <div style={{ fontSize: 9, color: '#3e8e41', marginTop: 4, lineHeight: 1.4 }}>
-                  ✓ Thumbnail saved — just the item on a transparent background. Re-open any time to re-frame it.
+                  ✓ Thumbnail saved — re-angling it never moves your item, only the icon.
                 </div>
               )}
             </>
@@ -1959,46 +1868,6 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   ? 'A texture wraps every surface that has no texture of its own — your model\'s own colors and textures always show.'
                   : 'No texture? A flat color only paints the parts that arrived plain white — your model\'s own Blender colors always show. You can also just drop an image anywhere on this form.'}
               </div>
-              {/* surface finish — metallic / roughness, the Blender sliders */}
-              <div style={{ borderTop: '1px dashed #cfdce8', marginTop: 8, paddingTop: 8 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#1c4e7c', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={finishAuto}
-                    onChange={(e) => setFinishAuto(e.target.checked)}
-                  />
-                  Auto finish (use the model&rsquo;s own materials — .glb keeps your Blender metallic)
-                </label>
-                {!finishAuto && (
-                  <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5a6b7b' }}>
-                      <span style={{ width: 62 }}>Metallic</span>
-                      <input
-                        type="range" min={0} max={100} step={1}
-                        value={Math.round(finishMetal * 100)}
-                        onChange={(e) => setFinishMetal(Number(e.target.value) / 100)}
-                        style={{ flex: 1 }}
-                        aria-label="Metallic override"
-                      />
-                      <span style={{ width: 34, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(finishMetal * 100)}%</span>
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5a6b7b' }}>
-                      <span style={{ width: 62 }}>Roughness</span>
-                      <input
-                        type="range" min={0} max={100} step={1}
-                        value={Math.round(finishRough * 100)}
-                        onChange={(e) => setFinishRough(Number(e.target.value) / 100)}
-                        style={{ flex: 1 }}
-                        aria-label="Roughness override"
-                      />
-                      <span style={{ width: 34, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(finishRough * 100)}%</span>
-                    </label>
-                    <div style={{ fontSize: 10, color: '#8ba0b3' }}>
-                      High metallic + 0% roughness = chrome · low metallic + high roughness = the classic matte plastic.
-                    </div>
-                  </div>
-                )}
-              </div>
               <input
                 ref={textureRef}
                 type="file"
@@ -2093,12 +1962,16 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         </div>
       </form>
 
-      {/* the 3D space: player model in the middle, creator places the item */}
+      {/* the 3D space: player model in the middle, creator places the item.
+          initialPlacement: when the item is ALREADY placed (the creator came
+          back to re-angle the thumbnail), the editor restores it 1:1 — moving
+          the camera changes ONLY the shot, never where the UGC sits. */}
       {editorOpen && modelBlob && (
         <PlacementEditor
           glb={modelBlob}
           textureUrl={textureUrl || undefined}
           color={textureUrl ? undefined : colorOn ? itemColor : undefined}
+          initialPlacement={placement}
           onCancel={() => setEditorOpen(false)}
           onSave={onPlaced}
         />
