@@ -130,6 +130,32 @@ export function isOnline(lastSeen: Date | string): boolean {
   return Date.now() - t.getTime() < 3 * 60 * 1000 // online within last 3 min
 }
 
+/**
+ * Resolve a `/users/[id]`-style route param to a user id.
+ * Accepts, in order:
+ *   1. the literal "me"       -> the signed-in viewer (or null)
+ *   2. a user id (cuid)       -> exact lookup
+ *   3. a username             -> case-insensitive lookup
+ * This is what kills the "User not found" walls: profile pages, avatar
+ * configs and stats all work whether a caller passes an id, a username,
+ * any letter-casing of it, or "me" — one resolver, same rule everywhere.
+ * Returns the canonical user id, or null when nothing matches.
+ */
+export async function resolveUserIdParam(raw: string, viewerId?: string | null): Promise<string | null> {
+  const param = decodeURIComponent(raw || '').trim()
+  if (!param) return null
+  if (param === 'me') return viewerId || null
+  const byId = await db.user.findUnique({ where: { id: param }, select: { id: true } })
+  if (byId) return byId.id
+  // not an id (or a stale one) — treat it as a username, case-insensitively
+  // (same OR trick the login route uses; usernameLower backfills the casing)
+  const byName = await db.user.findFirst({
+    where: { OR: [{ username: param }, { usernameLower: param.toLowerCase() }] },
+    select: { id: true },
+  })
+  return byName?.id || null
+}
+
 export function publicUser(u: {
   id: string
   username: string
@@ -140,7 +166,6 @@ export function publicUser(u: {
   createdAt: Date | string
   lastSeen: Date | string
   rbxBalance?: number
-  seqId?: number | null
 }) {
   return {
     id: u.id,
@@ -153,7 +178,5 @@ export function publicUser(u: {
     lastSeen: u.lastSeen,
     online: isOnline(u.lastSeen),
     rbxBalance: typeof u.rbxBalance === 'number' ? u.rbxBalance : 0,
-    // sequential player number (#1 = the oldest account)
-    seqId: typeof u.seqId === 'number' ? u.seqId : null,
   }
 }
