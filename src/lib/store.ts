@@ -14,8 +14,6 @@ export interface RetroUser {
   lastSeen: string
   online: boolean
   rbxBalance?: number
-  /** sequential player number (#1 = the oldest account) */
-  seqId?: number | null
 }
 
 interface RetroState {
@@ -202,8 +200,11 @@ function hashSeed(seed: string): number {
 }
 
 /* Google-style letter avatar: if someone has no photo, show the first
-   letter of their name on a stable color picked from their username. */
-const LETTER_COLORS = ['#e1231a', '#0d69ac', '#4c9e34', '#8e44ad', '#d35400', '#16a085', '#c2185b', '#2c3e50', '#b8860b', '#5d4037']
+   letter of their name on a stable color picked from their username.
+   Palette is deliberately narrow — the site has ONE main color (blue),
+   so the avatar chips stay inside the blue/slate/teal family instead of
+   turning every member list into a rainbow wall. */
+const LETTER_COLORS = ['#0d69ac', '#2e7dc4', '#5b8db8', '#16a085', '#34495e', '#5d7a94', '#3a6b8a', '#6e8ca8']
 
 export function letterAvatar(name: string): string {
   const clean = (name || '?').trim()
