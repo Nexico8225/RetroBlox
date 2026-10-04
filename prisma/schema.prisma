@@ -9,7 +9,6 @@ datasource db {
 
 model User {
   id            String       @id @default(cuid())
-  seqId         Int?         @unique // sequential player number (#1, #2 ...) assigned in signup order
   username      String       @unique
   usernameLower String?      @unique // case-insensitive uniqueness ("people can't have the same username")
   passwordHash  String
@@ -47,18 +46,13 @@ model User {
   videoComments VideoComment[]
   createdSubs   Sub[]
   musicTracks  MusicTrack[]
-  tradesSent    Trade[] @relation("tradesSent")
-  tradesRecv    Trade[] @relation("tradesRecv")
-  notifications Notification[]
-  itemComments  ItemComment[]
-  placeChats    PlaceChatMessage[]
-  placePresence PlacePresence?
   avatarConfig  AvatarConfig?
   inventory     InventoryEntry[]
   ugcItems      AvatarItem[]
   rbxBalance    Int           @default(0) // server-side RBX wallet — only the ledger moves it
   rbxTransactions RbxTransaction[]
   payments      Payment[]
+  presence      PlayerPresence[] @relation("presence") // live in-game row (see Place)
 }
 
 model Session {
@@ -480,8 +474,6 @@ model AvatarItem {
   placementJson String? // 3D UGC only: creator-placed transform {p:[x,y,z], r:[x,y,z] deg, s:[x,y,z]} — rendered EXACTLY as placed, never auto-corrected
   textureFileId String? // 3D UGC only: optional texture image wrapped around the model (creator uploads it at publish)
   baseColor String? // 3D UGC only: optional tint painted on the model when it has no texture (#RRGGBB)
-  roughness Float? // 3D UGC only: creator surface finish override 0..1 (null = the model's own materials)
-  metallic  Float? // 3D UGC only: creator metalness override 0..1 (null = the model's own materials)
   // ---- rigged UGC (emotes / bundles / animation packs) ----
   animClipsJson   String? // emote/anim: {"clips":["Wave"],"map":{"idle":"Idle","walk":"Walk"}} — clip names inside the GLB
   animTargetJson  String? // emote/anim: {"kind":"avatar"|"bundle"|"ugc","assetId":"..."} — the creator's suggested preview context
@@ -496,95 +488,7 @@ model AvatarItem {
   group       Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   deletedAt   DateTime? // soft delete — UGC is NEVER hard-deleted, an admin can always restore it
-  comments    ItemComment[]
   ownedBy     InventoryEntry[]
-}
-
-// ---------------- In-game place chat + presence (the RetroBlox Player) ----------------
-// The Godot player polls GET /api/placechat/{placeId} every couple of seconds:
-// it returns the latest chat lines AND who is in the place right now (presence
-// rows updated in the last 30s). Places are the client's built-in maps, so
-// placeId is a slug ("baseplate", "obby", "skylands"), not a Game row id.
-
-model PlaceChatMessage {
-  id        String   @id @default(cuid())
-  placeId   String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  text      String
-  createdAt DateTime @default(now())
-
-  @@index([placeId, createdAt])
-  @@index([userId, createdAt])
-}
-
-model PlacePresence {
-  id        String   @id @default(cuid())
-  userId    String   @unique // a player is in exactly one place at a time
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  placeId   String
-  x         Float    @default(0)
-  y         Float    @default(0)
-  z         Float    @default(0)
-  heading   Float    @default(0) // radians, the avatar's facing
-  updatedAt DateTime @updatedAt
-
-  @@index([placeId, updatedAt])
-}
-
-// ---------------- UGC comments (the classic item page comment wall) ----------------
-
-model ItemComment {
-  id        String     @id @default(cuid())
-  text      String
-  itemId    String
-  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime   @default(now())
-
-  @@index([itemId, createdAt])
-}
-
-// ---------------- Trades (swap UGC + Tix with other players) ----------------
-// A trade is an OFFER: the sender gives giveItemIds (+ optional Tix) and asks
-// for takeItemIds. The recipient accepts (ownership + Tix move atomically),
-// declines, or the sender cancels. Replies ride in notesJson (oldest first).
-
-model Trade {
-  id           String   @id @default(cuid())
-  fromUserId   String
-  fromUser     User     @relation("tradesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
-  toUserId     String
-  toUser       User     @relation("tradesRecv", fields: [toUserId], references: [id], onDelete: Cascade)
-  giveItemIds  String   @default("[]") // JSON array of AvatarItem ids the SENDER gives
-  takeItemIds  String   @default("[]") // JSON array of AvatarItem ids the sender WANTS
-  tix          Int      @default(0) // optional Tix attached to the offer (from the sender's wallet)
-  message      String   @default("") // the offer note
-  notesJson    String   @default("[]") // thread after creation: [{userId, text, at}]
-  status       String   @default("pending") // pending | accepted | declined | cancelled
-  createdAt    DateTime @default(now())
-  respondedAt  DateTime?
-
-  @@index([toUserId, status])
-  @@index([fromUserId, status])
-}
-
-// ---------------- Notifications (the classic bell) ----------------
-// One row per event for one user: trades, comments, friend requests.
-// dataJson carries the payload the UI needs (names, ids) so the list never
-// needs joins.
-
-model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String // trade_offer | trade_accepted | trade_declined | trade_cancelled | item_comment
-  dataJson  String    @default("{}")
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId, readAt])
 }
 
 // Who owns which UGC item (publishers get their item automatically; "Get" grants it too)
@@ -681,4 +585,60 @@ model GameData {
   updatedAt DateTime @updatedAt
 
   @@unique([gameId, userId, key])
+}
+
+// ---------------- In-game places (the Godot player syncs THESE) ----------------
+// The website owns the games: the desktop player downloads the map JSON from
+// here every launch, so a place edited on the web changes in-game instantly.
+// ONE game ships for now: baseplate (the classic brick world).
+model Place {
+  id          String   @id @default(cuid())
+  slug        String   @unique // "baseplate" — stable id the game client asks for
+  name        String // "Baseplate"
+  description String   @default("")
+  dataJson    String   @default("{}") // map JSON: {parts:[],spawns:[],ladders[]} in studs
+  maxPlayers  Int      @default(12)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  updatedBy   String? // user id of the last editor (web side)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  presence    PlayerPresence[]
+  chat        PlaceChat[]
+}
+
+// ONE live row per signed-in player in a place — upserted every tick by
+// POST /api/game/state. Rows older than ~2 minutes are garbage-collected;
+// only rows seen in the last 10 seconds count as "in the game".
+model PlayerPresence {
+  id        String   @id @default(cuid())
+  userId    String   @unique // one presence per account (two windows = same player)
+  user      User     @relation("presence", fields: [userId], references: [id], onDelete: Cascade)
+  placeId   String
+  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  username  String   @default("")
+  x         Float    @default(0)
+  y         Float    @default(10)
+  z         Float    @default(0)
+  yaw       Float    @default(0)
+  state     String   @default("idle") // idle | walk | jump | fall | climb
+  shiftlock Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([placeId, updatedAt])
+}
+
+// In-game chat, per place. The game client polls new rows since its last
+// timestamp on the same tick it sends presence — one request, no websocket.
+model PlaceChat {
+  id        String   @id @default(cuid())
+  placeId   String
+  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  userId    String
+  username  String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([placeId, createdAt])
 }
