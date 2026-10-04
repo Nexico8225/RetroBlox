@@ -49,10 +49,6 @@ async function nextAssetId(type: string): Promise<string> {
 }
 
 // GET /api/catalog?type=hat&q=wizard&group=<groupId>&limited=1 — browse avatar UGC
-// DELETES ARE REAL NOW (remove = delete = true): there is no soft-delete
-// recycle bin anymore. The only leftover soft-deleted rows are LEGACY ones
-// from the old restore system — admins get their count here and erase them
-// forever with action purge-deleted (below).
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const type = url.searchParams.get('type') || ''
@@ -60,10 +56,11 @@ export async function GET(req: NextRequest) {
   const groupId = url.searchParams.get('group') || ''
   const onlyLimited = url.searchParams.get('limited') === '1'
   const viewer = await getUserFromReq(req)
-  const isAdmin = viewer?.role === 'admin'
 
   const items = await db.avatarItem.findMany({
     where: {
+      // deletes are HARD deletes now — this filter only screens out rows
+      // soft-deleted before that change; nothing new ever lands here
       deletedAt: null,
       ...(type && UGC_TYPES.includes(type as never) ? { type } : {}),
       ...(groupId ? { groupId } : {}),
@@ -138,30 +135,19 @@ export async function GET(req: NextRequest) {
       }
     }),
     ownedItemIds: owned.map((o) => o.itemId),
-    // admins only: how many LEGACY soft-deleted rows are still waiting to be
-    // erased for good (deletes are permanent now, this is the old backlog)
-    legacyDeleted: isAdmin ? await db.avatarItem.count({ where: { deletedAt: { not: null } } }) : 0,
   })
 }
 
 // POST /api/catalog — publish avatar UGC (multipart)
-//   action=purge-deleted (admin, JSON body instead of multipart): permanently
-//          erases every LEGACY soft-deleted row — the old restore system's backlog
+//   2D types (face|tshirt|shirt|pants):  name, type, description, image, [groupId]
+//   3D types (hat|gear|accessory):       name, type, description, image = try-on
+//                                        thumbnail, model = GLB, placement = JSON, [groupId]
+//   rigged types (emote|bundle|anim):    name, type, description, image = auto-captured
+//                                        shot, model = rigged GLB, animClips/animTarget/
+//                                        bundleParts = JSON, [limited: stock = N], [groupId]
 export async function POST(req: NextRequest) {
   const user = await getUserFromReq(req)
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
-
-  // admin housekeeping: wipe the legacy soft-deleted backlog forever
-  const purgeOnly = req.headers.get('content-type')?.includes('application/json')
-  if (purgeOnly) {
-    const body = (await req.json().catch(() => ({}))) as { action?: string }
-    if (body.action === 'purge-deleted') {
-      if (user.role !== 'admin') return NextResponse.json({ error: 'Only an admin can erase deleted UGC.' }, { status: 403 })
-      const gone = await db.avatarItem.deleteMany({ where: { deletedAt: { not: null } } })
-      return NextResponse.json({ ok: true, erased: gone.count, message: `${gone.count} deleted item${gone.count === 1 ? '' : 's'} erased for good.` })
-    }
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-  }
 
   const form = await req.formData()
   const name = String(form.get('name') || '').trim()
