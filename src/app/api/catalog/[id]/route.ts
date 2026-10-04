@@ -347,10 +347,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // REMOVED: the old "restore" action — delete is DELETE now (remove = delete = true),
-  // so there is nothing to restore. Old soft-deleted rows get purged by the
-  // admin's "Erase forever" button in the catalog (action purge-deleted).
-
+  // admin-only restore of the old soft delete — REMOVED. Delete means delete:
+  // the row is gone, there is nothing to restore.
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
 
@@ -369,9 +367,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Only the creator, the group owner, or an admin can delete UGC.' }, { status: 403 })
   }
 
-  // HARD delete — remove = delete = true. The row (and its inventory copies,
-  // via cascade) is GONE for good, exactly what the owner asked for. The files
-  // stay on disk as orphans; nothing anywhere references a deleted item again.
+  // HARD delete — remove means remove. The row (and every inventory copy
+  // through the cascade) is gone from the database for real; there is no
+  // recycle bin and no restore. The full-screen confirm on the catalog card
+  // exists exactly because this cannot be undone.
   await db.avatarItem.delete({ where: { id } })
-  return NextResponse.json({ ok: true, message: `"${item.name}" was permanently deleted.` })
+  return NextResponse.json({ ok: true })
 }
