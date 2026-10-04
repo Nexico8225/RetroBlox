@@ -478,16 +478,6 @@ a:focus-visible,
   margin-top: auto;
 }
 
-/* old-school scrolling marquee for flavor */
-@keyframes rb-blink {
-  50% {
-    opacity: 0.25;
-  }
-}
-.rb-blink {
-  animation: rb-blink 1.1s step-start infinite;
-}
-
 /* thin retro scrollbars */
 * {
   scrollbar-width: thin;
