@@ -1,14 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq, publicUser, isOnline } from '@/lib/auth'
-import { resaleValue } from '@/lib/market'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await getUserFromReq(req)
 
-  const user = await db.user.findUnique({
-    where: { id },
+  try {
+    return await handle(viewer, id)
+  } catch (e) {
+    // never a blank 500 again — the page (and the admin) get the real reason.
+    // Prisma errors carry a code (P2021 = missing table, P2022 = missing column).
+    const err = e as { message?: string; code?: string }
+    return NextResponse.json(
+      { error: 'Profile failed to load', detail: err?.message || String(e), code: err?.code },
+      { status: 500 }
+    )
+  }
+}
+
+async function handle(viewer: Awaited<ReturnType<typeof getUserFromReq>>, id: string) {
+  // the param is an account id OR a username — /users/Nexico8225 works like
+  // the old site's profile URLs, not just /users/<cuid>. usernameLower makes
+  // the match case-insensitive on SQLite (which has no insensitive mode).
+  const user = await db.user.findFirst({
+    where: {
+      OR: [{ id }, { username: id }, { usernameLower: decodeURIComponent(id).toLowerCase() }],
+    },
     include: {
       games: {
         orderBy: { createdAt: 'desc' },
@@ -28,27 +46,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       },
       requestsSent: { where: { status: 'accepted' }, select: { addresseeId: true } },
       requestsRecv: { where: { status: 'accepted' }, select: { requesterId: true } },
-      // their UGC — profiles double as trade windows: see what they own,
-      // then press Trade to put an offer on the table
-      inventory: {
-        orderBy: { acquiredAt: 'desc' },
-        select: {
-          serial: true,
-          acquiredAt: true,
-          item: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-              imageFileId: true,
-              isLimited: true,
-              price: true,
-              stock: true,
-              deletedAt: true,
-            },
-          },
-        },
-      },
     },
   })
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -125,7 +122,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .map((f) => mapGame(f.game, { id: f.game.creator.id, username: f.game.creator.username, avatarUrl: f.game.creator.avatarUrl }))
 
   const videos = user.videos.map((v) => {
-    const ups = JSON.parse(v.upIds || '[]') as string[]
+    // a malformed like list must never take the whole profile down
+    let ups: string[] = []
+    try { ups = JSON.parse(v.upIds || '[]') as string[] } catch { /* keep 0 likes */ }
+    if (!Array.isArray(ups)) ups = []
     return {
       id: v.id,
       title: v.title,
@@ -137,75 +137,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   })
 
-  // the tradeable UGC — soft-deleted items are hidden from the showcase
-  const inventoryRows = user.inventory.filter((e) => !e.item.deletedAt)
-  const inventory = inventoryRows.map((e) => ({
-    id: e.item.id,
-    name: e.item.name,
-    type: e.item.type,
-    imageFileId: e.item.imageFileId,
-    isLimited: e.item.isLimited,
-    price: e.item.price,
-    stock: e.item.stock,
-    serial: e.serial,
-  }))
-
-  // ---- UGC WORTH — what their collection is worth on the market ----
-  // per copy: the active listing ask if there is one, otherwise the
-  // suggested resale (1.5x what they paid; creators count 1.5x mint price)
-  const invItemIds = inventoryRows.map((e) => e.item.id)
-  const [lastPaidRows, askRows] = await Promise.all([
-    invItemIds.length
-      ? db.ugcPricePoint.findMany({
-          where: { itemId: { in: invItemIds }, buyerId: user.id },
-          orderBy: { createdAt: 'desc' },
-          select: { itemId: true, price: true },
-        })
-      : Promise.resolve([] as { itemId: string; price: number }[]),
-    invItemIds.length
-      ? db.ugcListing.groupBy({
-          by: ['itemId'],
-          where: { itemId: { in: invItemIds }, sellerId: user.id, status: 'active' },
-          _max: { price: true },
-        })
-      : Promise.resolve([] as { itemId: string; _max: { price: number | null } }[]),
-  ])
-  const paidMap = new Map<string, number>() // first hit per item = the latest (rows are desc)
-  for (const r of lastPaidRows) if (!paidMap.has(r.itemId)) paidMap.set(r.itemId, r.price)
-  const askMap = new Map<string, number>()
-  for (const r of askRows) if ((r._max.price ?? 0) > 0) askMap.set(r.itemId, r._max.price as number)
-  let ugcWorth = 0
-  for (const e of inventoryRows) {
-    const ask = askMap.get(e.item.id)
-    if (ask != null) { ugcWorth += ask; continue }
-    const paid = paidMap.get(e.item.id) ?? 0
-    ugcWorth += resaleValue(paid, e.item.price)
-  }
-
-  // ---- CREATIONS — everything they published to the catalog ----
-  const creationRows = await db.avatarItem.findMany({
-    where: { creatorId: user.id, deletedAt: null },
-    orderBy: { createdAt: 'desc' },
-    take: 60,
-    select: {
-      id: true, name: true, type: true, imageFileId: true,
-      isLimited: true, price: true, stock: true, createdAt: true,
-      _count: { select: { ownedBy: true } },
-    },
-  })
-  // real sales per creation (the creator's own copy is not a sale)
-  const creations = creationRows.map((c) => ({
-    id: c.id,
-    name: c.name,
-    type: c.type,
-    imageFileId: c.imageFileId,
-    isLimited: c.isLimited,
-    price: c.price,
-    stock: c.stock,
-    owners: c._count.ownedBy,
-    createdAt: c.createdAt,
-  }))
-
   return NextResponse.json({
     user: {
       ...publicUser(user),
@@ -216,9 +147,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     games,
     favoriteGames,
     videos,
-    inventory,
-    ugcWorth,
-    creations,
     friends,
     followersCount,
     followingCount,
