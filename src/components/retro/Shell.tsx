@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useRetro, api, letterAvatar, clearAuthToken, type RetroUser } from '@/lib/store'
 import { tixCompact } from '@/lib/tix'
 import { eggLogoClick } from '@/lib/eggs'
-import { RetroFontText } from '@/components/retro/RetroFontText'
 
 /* Avatar with letter fallback (Google-style first letter when no photo) */
 export function Avatar({
@@ -69,18 +68,18 @@ export function OnlineDot({ online }: { online: boolean }) {
 
 /* ---------------- Header ---------------- */
 
+/* The top strip carries only the pages people actually browse every day.
+   Niche corners (Music, RetroLabs, SDK, Tix Store...) live in the footer and
+   the mobile drawer — the sidebar was never meant to be a sitemap. */
 const NAV = [
   { label: 'Home', href: '/' },
   { label: 'Games', href: '/games' },
   { label: 'Catalog', href: '/catalog' },
   { label: 'Avatar', href: '/avatar' },
-  { label: 'Trades', href: '/trades' },
-  { label: 'Groups', href: '/groups' },
-  { label: 'Music', href: '/music' },
-  { label: 'RetroLabs', href: '/labs' },
-  { label: 'Communities', href: '/community' },
   { label: 'Create', href: '/create' },
-  { label: 'My Games', href: '/my' },
+  { label: 'Videos', href: '/videos' },
+  { label: 'Groups', href: '/groups' },
+  { label: 'Communities', href: '/community' },
 ]
 
 export function Header() {
@@ -88,9 +87,6 @@ export function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const [q, setQ] = useState('')
-  const [unreadNotifs, setUnreadNotifs] = useState(0)
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [notifs, setNotifs] = useState<{ id: string; type: string; data: Record<string, unknown>; read: boolean; createdAt: string }[]>([])
 
   useEffect(() => {
     // refresh pending friend-request + chat badges + the Tix wallet chip occasionally
@@ -102,53 +98,11 @@ export function Header() {
         const u = useRetro.getState().user
         if (u && res.user) useRetro.getState().setUser({ ...u, rbxBalance: res.user.rbxBalance ?? 0 })
       } catch { /* ignore */ }
-      // the bell: unread notifications (trades, comments...)
-      if (useRetro.getState().user) {
-        try {
-          const n = await api<{ unread: number; notifications: typeof notifs }>('/api/notifications')
-          setUnreadNotifs(n.unread || 0)
-          setNotifs(n.notifications || [])
-        } catch { /* ignore */ }
-      } else {
-        setUnreadNotifs(0)
-      }
     }
     tick()
     const t = setInterval(tick, 30000)
     return () => clearInterval(t)
   }, [setPendingRequests, setUnreadChats])
-
-  async function openBell() {
-    const next = !notifOpen
-    setNotifOpen(next)
-    if (next && unreadNotifs > 0) {
-      try {
-        await api('/api/notifications', { method: 'POST', body: JSON.stringify({ action: 'read_all' }) })
-        setUnreadNotifs(0)
-        setNotifs((ns) => ns.map((n) => ({ ...n, read: true })))
-      } catch { /* ignore */ }
-    }
-  }
-
-  function notifLine(n: { type: string; data: Record<string, unknown> }): string {
-    const d = n.data as Record<string, string | number>
-    switch (n.type) {
-      case 'trade_offer':
-        return `${d.fromName} offered you a trade${Number(d.tix) > 0 ? ` + T$ ${Number(d.tix).toLocaleString('en-US')}` : ''}!`
-      case 'trade_accepted':
-        return `${d.fromName} ACCEPTED your trade — check your inventory!`
-      case 'trade_declined':
-        return `${d.fromName} declined your trade offer.`
-      case 'trade_cancelled':
-        return `${d.fromName} cancelled their trade offer.`
-      case 'trade_message':
-        return `${d.fromName} sent you a message about a trade.`
-      case 'item_comment':
-        return `${d.fromName} commented on your item "${d.itemName}".`
-      default:
-        return 'Something new happened.'
-    }
-  }
 
   function search(e: React.FormEvent) {
     e.preventDefault()
@@ -162,8 +116,10 @@ export function Header() {
         {/* Mobile: burger menu + slide-in drawer (all the pages the tab bar can't fit) */}
         <MobileDrawer />
 
-        {/* Logo — the wordmark is the user's own cropped font sheet (branding only) */}
-        <Link href="/" aria-label="RetroBlox home" onClick={eggLogoClick} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+        {/* Logo — the user's own ReTROBLOX wordmark (white letters, red outline):
+            look closely and you can see the ROBLOX hiding inside ReTROBLOX.
+            The little R chip stays for phones, where the wordmark is hidden. */}
+        <Link href="/" aria-label="RetroBlox home" onClick={eggLogoClick} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
           <span
             className="rb-logo-chip"
             style={{
@@ -175,10 +131,16 @@ export function Header() {
               boxShadow: 'inset 1px 1px 0 #fff',
             }}
           >
-            <img src="/retro/logo.png" alt="RetroBlox logo" width={34} height={34} style={{ display: 'block' }} />
+            <img src="/retro/logo.png" alt="RetroBlox logo" width={30} height={30} style={{ display: 'block' }} />
           </span>
+          {/* span wrapper only — the <480px media rule hides the wordmark on
+              phones and it must be able to win over inline styles */}
           <span className="rb-brand-desktop">
-            <RetroFontText text="RetroBlox" size={21} style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.45))' }} />
+            <img
+              src="/retro/logo-wordmark.png"
+              alt="ReTROBLOX"
+              style={{ display: 'block', height: 24, width: 'auto', filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.5))' }}
+            />
           </span>
         </Link>
 
@@ -211,14 +173,15 @@ export function Header() {
                 className="rb-header-chip rb-wallet-chip"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
-                  background: 'transparent',
-                  border: 'none',
-                  borderRadius: 3,
-                  padding: '3px 8px',
-                  color: '#fff',
+                  background: 'linear-gradient(180deg,#ffe07a 0%,#f5b81e 70%,#e3a812 100%)',
+                  border: '1px solid #b5890f',
+                  borderRadius: 4,
+                  boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.55), 0 1px 2px rgba(0,0,0,.25)',
+                  padding: '2px 8px',
+                  color: '#5d4300',
                   textDecoration: 'none',
                   fontSize: 12,
-                  textShadow: '0 1px 1px rgba(0,0,0,.3)',
+                  textShadow: '0 1px 0 rgba(255,255,255,.35)',
                 }}
               >
                 {/* classic gold ticket — the 2016 bar showed your money flat on blue */}
@@ -238,7 +201,7 @@ export function Header() {
                   <path d="M15.5 6v2M15.5 10.5v2M15.5 15v2" stroke="#8a6d1a" strokeWidth="1.4" strokeDasharray="2.4 2.2" fill="none" />
                 </svg>
                 <span style={{ fontFamily: 'monospace' }}>{tixCompact(user.rbxBalance ?? 0)}</span>
-                <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#cfe8f8' }}>+ Buy</span>
+                <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#7a5a08' }}>+ Buy</span>
               </Link>
 
               <Link
@@ -253,71 +216,6 @@ export function Header() {
                   <span className="rb-badge" style={{ position: 'absolute', top: -4, right: -7 }}>{unreadChats}</span>
                 )}
               </Link>
-
-              {/* the bell — trades, comments, everything social */}
-              <span style={{ position: 'relative', display: 'inline-flex' }}>
-                <button
-                  type="button"
-                  onClick={openBell}
-                  title="Notifications"
-                  aria-label={`Notifications${unreadNotifs > 0 ? ` (${unreadNotifs} unread)` : ''}`}
-                  className="rb-header-chat"
-                  style={{ position: 'relative', display: 'inline-flex', padding: 6, background: 'none', border: 'none' }}
-                >
-                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.4))' }}>
-                    <path d="M12 3a6 6 0 0 0-6 6v3.5L4.5 15.5a.8.8 0 0 0 .7 1.2h13.6a.8.8 0 0 0 .7-1.2L18 12.5V9a6 6 0 0 0-6-6z" fill="#ffd34e" stroke="#8a6d1a" strokeWidth="1.3" />
-                    <path d="M9.8 19a2.3 2.3 0 0 0 4.4 0" fill="none" stroke="#8a6d1a" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                  {unreadNotifs > 0 && (
-                    <span className="rb-badge" style={{ position: 'absolute', top: -4, right: -7 }}>{unreadNotifs}</span>
-                  )}
-                </button>
-                {notifOpen && (
-                  <>
-                    {/* click-away layer */}
-                    <span
-                      aria-hidden
-                      style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'transparent' }}
-                      onClick={() => setNotifOpen(false)}
-                    />
-                    <span
-                      className="rb-box"
-                      style={{
-                        position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 61,
-                        width: 300, maxHeight: 380, overflowY: 'auto', padding: 8,
-                        display: 'flex', flexDirection: 'column', gap: 6,
-                      }}
-                      role="dialog"
-                      aria-label="Notifications list"
-                    >
-                      <span style={{ fontSize: 11, color: '#5a6b7b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <b style={{ color: '#1c4e7c' }}>Notifications</b>
-                        <Link href="/trades" className="rb-link" style={{ fontSize: 10 }} onClick={() => setNotifOpen(false)}>Open trades</Link>
-                      </span>
-                      {notifs.length === 0 ? (
-                        <span style={{ fontSize: 11, color: '#8ba0b3', padding: '8px 2px' }}>
-                          All quiet. Trade offers, comments and accepted trades land here.
-                        </span>
-                      ) : (
-                        notifs.map((n) => (
-                          <span
-                            key={n.id}
-                            style={{
-                              display: 'block', fontSize: 11, color: n.read ? '#5a6b7b' : '#1b2a34',
-                              background: n.read ? '#f6f9fc' : '#fff8e1', border: '1px solid #e8eef4', padding: '6px 8px',
-                            }}
-                          >
-                            {notifLine(n)}
-                            <span style={{ display: 'block', fontSize: 9, color: '#9aa7b4', marginTop: 2 }}>
-                              {n.type === 'trade_offer' || n.type === 'trade_message' ? 'check the Trades page' : ''}
-                            </span>
-                          </span>
-                        ))
-                      )}
-                    </span>
-                  </>
-                )}
-              </span>
 
               <Link
                 href={`/users/${user.id}`}
@@ -396,36 +294,10 @@ function ChatIcon() {
   )
 }
 
-/* ---------------- Sidebar ---------------- */
-
-function SiteStatsBox() {
-  const [stats, setStats] = useState<{ games: number; users: number; downloads: number; groups: number; labs: number; community: number; videos: number } | null>(null)
-  useEffect(() => {
-    api<{ games: number; users: number; downloads: number; groups: number; labs: number; community: number; videos: number }>('/api/stats')
-      .then(setStats)
-      .catch(() => {})
-  }, [])
-  const row = (k: string, v: number | undefined) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '2px 0' }}>
-      <span style={{ color: '#5a6b7b' }}>{k}</span>
-      <span style={{ color: '#24425f' }}>{v === undefined ? '...' : v.toLocaleString('en-US')}</span>
-    </div>
-  )
-  return (
-    <div className="rb-box" style={{ overflow: 'hidden', marginBottom: 10 }}>
-      <div className="rb-panel-head"><span>RetroBlox Stats</span></div>
-      <div style={{ padding: 8 }}>
-        {row('Games published', stats?.games)}
-        {row('Videos uploaded', stats?.videos)}
-        {row('Blockheads', stats?.users)}
-        {row('Downloads', stats?.downloads)}
-        {row('Groups', stats?.groups)}
-        {row('Labs posts', stats?.labs)}
-        {row('Community posts', stats?.community)}
-      </div>
-    </div>
-  )
-}
+/* ---------------- Sidebar ----------------
+   The sidebar is YOUR hub — profile, friends, chat and the stuff you own.
+   Browse-everything links live in the white strip under the header, and the
+   niche corners live in the footer — this list stays short on purpose. */
 
 export function Sidebar() {
   const { user, pendingRequests, unreadChats, setUser, setPendingRequests, setUnreadChats, setToast } = useRetro()
@@ -486,33 +358,16 @@ export function Sidebar() {
             </span>
           </div>
         </div>
-        {/* SIDEBAR = the organized hub. Grouped sections, most-used first.
-            When the first real GAME arrives from the game AI, its "Play Now"
-            tab goes at the TOP of the Play section below. */}
-        {sec('Play')}
-        {item('Discover', '/games')}
-        {item('Favorites', '/favorites')}
-
         {sec('Create')}
         {item('My Games', '/my')}
         {item('Create a Game', '/create')}
-        {item('RetroLabs', '/labs')}
-        {item('RetroBlox SDK', '/sdk')}
 
-        {sec('Avatar & Shop')}
-        {item('Avatar Editor', '/avatar')}
-        {item('Catalog', '/catalog')}
-        {item('Tix Store', '/store')}
-
-        {sec('Social')}
+        {sec('Me')}
         {item('My Profile', `/users/${user.id}`)}
         {item('Friends', '/friends', pendingRequests || undefined)}
         {item('Chat', '/chat', unreadChats || undefined)}
-        {item('Trades', '/trades')}
-        {item('Groups', '/groups')}
-        {item('Communities', '/community')}
-        {item('Videos', '/videos')}
-        {item('Music', '/music')}
+        {item('Favorites', '/favorites')}
+        {item('Avatar Editor', '/avatar')}
 
         {sec('Account')}
         {user.role === 'admin' && item('Admin Panel', '/admin')}
@@ -523,8 +378,6 @@ export function Sidebar() {
           </button>
         </div>
       </div>
-
-      <SiteStatsBox />
     </aside>
   )
 }
@@ -705,6 +558,8 @@ function MobileDrawer() {
         <div className="rb-drawer-sec">Browse</div>
         {link('Games', '/games')}
         {link('Catalog', '/catalog')}
+        {link('Videos', '/videos')}
+        {link('Music', '/music')}
         {link('Groups', '/groups')}
         {link('RetroLabs', '/labs')}
         {link('Communities', '/community')}
@@ -795,15 +650,15 @@ export function BootScreen() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0b1c2c',
+        background: 'linear-gradient(180deg,#0b1c2c,#123a5c)',
         color: '#ffd34e',
         fontSize: 16,
         fontFamily: 'Verdana, sans-serif',
         flexDirection: 'column',
-        gap: 12,
+        gap: 16,
       }}
     >
-      <img src="/retro/logo.png" alt="RetroBlox" width={72} height={72} />
+      <img src="/retro/logo-wordmark.png" alt="ReTROBLOX" style={{ display: 'block', height: 44, width: 'auto' }} />
       Loading RetroBlox...
     </div>
   )
@@ -848,10 +703,10 @@ export function Page({ children }: { children: React.ReactNode }) {
           width: '100%',
           maxWidth: 1280,
           margin: '0 auto',
-          padding: '20px 22px',
+          padding: '14px 18px',
           display: 'flex',
           flexWrap: 'wrap',
-          gap: 16,
+          gap: 12,
           alignItems: 'flex-start',
           boxSizing: 'border-box',
         }}
@@ -860,15 +715,18 @@ export function Page({ children }: { children: React.ReactNode }) {
         <div style={{ flex: 1, minWidth: 0, paddingBottom: 12 }}>{children}</div>
       </main>
       <footer className="rb-footer">
-        <div>
-          <span className="rb-footer-brand" style={{ verticalAlign: '-2px', marginRight: 6 }}>
-            <RetroFontText text="RetroBlox" size={13} />
-          </span>
-          A fan-made tribute to classic blocky gaming
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <img
+            src="/retro/logo-wordmark.png"
+            alt="ReTROBLOX"
+            style={{ display: 'block', height: 17, width: 'auto', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.55))' }}
+          />
+          <span>— you can see the ROBLOX inside ReTROBLOX. A fan-made tribute to classic blocky gaming.</span>
         </div>
         <div>
           <Link href="/" className="rb-link">Home</Link> · <Link href="/games" className="rb-link">Games</Link> ·{' '}
-          <Link href="/videos" className="rb-link">Videos</Link> · <Link href="/groups" className="rb-link">Groups</Link> ·{' '}
+          <Link href="/videos" className="rb-link">Videos</Link> · <Link href="/music" className="rb-link">Music</Link> ·{' '}
+          <Link href="/groups" className="rb-link">Groups</Link> ·{' '}
           <Link href="/labs" className="rb-link">RetroLabs</Link> · <Link href="/community" className="rb-link">Communities</Link> ·{' '}
           <Link href="/catalog" className="rb-link">Catalog</Link> ·{' '}
           <Link href="/store" className="rb-link">Tix Store</Link> ·{' '}
@@ -876,7 +734,7 @@ export function Page({ children }: { children: React.ReactNode }) {
           <Link href="/create" className="rb-link">Create</Link> ·{' '}
           {new Date().getFullYear()} RetroBlox Corporation
         </div>
-        <div style={{ fontSize: 10, color: '#8ba0b3' }}>Best viewed at 1024x768 with a 56k modem</div>
+        <div style={{ fontSize: 10, color: '#7fa8c9' }}>Best viewed at 1024x768 with a 56k modem</div>
       </footer>
       {user && <MobileTabs />}
     </div>
