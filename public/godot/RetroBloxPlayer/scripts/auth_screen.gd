@@ -2,15 +2,14 @@
 #
 # The card itself lives in scenes/auth_screen.tscn — open it in the editor to
 # restyle the login UI visually. This script keeps the behavior: what happens
-# when you log in, sign up, or play as a guest.
+# when you log in or sign up.
 #
-#   LOG IN   — existing accounts (username + password)
-#   SIGN UP  — create a brand-new account without ever opening the website;
-#              the fresh account's avatar loads immediately via /api/platform/me
-#   GUEST    — play without an account (classic noob colors, "Guest-1234")
+#   LOG IN  — existing accounts (username + password)
+#   SIGN UP — create a brand-new account without ever opening the website;
+#             the fresh account's avatar loads immediately via /api/platform/me
+# LOGIN ONLY — there is no guest mode: your RetroBlox account IS your player,
+# and the multiplayer heartbeat is authenticated with your session token.
 # Remembers the last username; a saved token auto-signs-in instantly.
-# The server URL is LOCKED to the RetroBlox website — players only sign in;
-# the card has no URL field (self-hosters use network.cfg / RETROBLOX_API).
 class_name RetrobloxAuthScreen
 extends CanvasLayer
 
@@ -19,9 +18,6 @@ extends CanvasLayer
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
 signal completed(api, username: String, user_id: String, avatar: Dictionary)
-signal guest_requested
-
-const DEFAULT_URL := "https://retro-blox.vercel.app"
 
 const RED := Color("e2231a")
 const GREEN := Color("02b757")
@@ -30,6 +26,7 @@ const MUTED := Color("6b7c86")
 const LINK := Color("0d69ac")
 
 # unique names inside scenes/auth_screen.tscn
+@onready var _server_edit: LineEdit = %ServerEdit
 @onready var _user_edit: LineEdit = %UserEdit
 @onready var _pass_edit: LineEdit = %PassEdit
 @onready var _confirm_edit: LineEdit = %ConfirmEdit
@@ -39,7 +36,6 @@ const LINK := Color("0d69ac")
 @onready var _login_tab_btn: Button = %LoginTabBtn
 @onready var _signup_tab_btn: Button = %SignupTabBtn
 
-var _api_url: String = DEFAULT_URL
 var _signup_mode := false
 var _busy := false
 
@@ -48,17 +44,9 @@ func _ready() -> void:
         _login_tab_btn.pressed.connect(_set_mode.bind(false))
         _signup_tab_btn.pressed.connect(_set_mode.bind(true))
         _submit_btn.pressed.connect(_submit)
-        %GuestBtn.pressed.connect(_guest_pressed)
-        for edit: LineEdit in [_user_edit, _pass_edit, _confirm_edit]:
+        for edit: LineEdit in [_server_edit, _user_edit, _pass_edit, _confirm_edit]:
                 edit.text_submitted.connect(_on_field_submitted)
         _set_mode(false)
-
-
-func _guest_pressed() -> void:
-        # always allowed — main.gd one-shot guards (_auth_done) the rest.
-        # (the old `_busy` gate made the guest button DEAD after a successful
-        # form login, because _submit leaves _busy = true on the success path)
-        guest_requested.emit()
 
 
 func _on_field_submitted(_text: String) -> void:
@@ -88,12 +76,10 @@ func _style_tab(button: Button, active: bool) -> void:
         button.add_theme_color_override("font_color", Color.WHITE if active else INK)
 
 
-## Lock the platform URL from main.gd (network.cfg / RETROBLOX_API / --api=).
-## There is deliberately NO editable URL field on the card.
+## Pre-fill from config / a previous session.
 func set_api_url(url: String) -> void:
-        var clean := url.strip_edges().trim_suffix("/")
-        if not clean.is_empty():
-                _api_url = clean
+        if _server_edit != null:
+                _server_edit.text = url
 
 func set_saved_username(username: String) -> void:
         if _user_edit != null:
@@ -114,9 +100,13 @@ func _error(text: String) -> void:
 func _submit() -> void:
         if _busy:
                 return
-        var server := _api_url
+        var server := _server_edit.text.strip_edges()
         var user := _user_edit.text.strip_edges()
         var passw := _pass_edit.text
+        if server == "":
+                server = "https://retro-blox.vercel.app"
+        if not server.begins_with("http"):
+                server = "http://" + server
         if user.is_empty() or passw.is_empty():
                 _error("Fill in your username and password.")
                 return
@@ -160,8 +150,4 @@ func _submit() -> void:
 
         _status.text = "Ready!"
         var av = me.get("avatar", {})
-        # one-shot: the form is spent — further clicks (guest included) are
-        # ignored here; main.gd hides this card the moment it gets this signal.
-        _busy = true
-        _submit_btn.disabled = true
         completed.emit(api, String(me.get("username", api.username)), String(me.get("userId", api.user_id)), av if av is Dictionary else {})
