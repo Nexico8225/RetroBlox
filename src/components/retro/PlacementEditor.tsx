@@ -27,10 +27,10 @@ interface PlacementEditorProps {
   textureUrl?: string
   /** optional tint the creator picked — shown live while placing */
   color?: string
-  /** PBR material feel (metallic / roughness, 0..1) — shown live while placing
-   *  so the creator previews exactly what players will see */
-  metallic?: number | null
-  roughness?: number | null
+  /** a PREVIOUSLY SAVED placement for this model — restored 1:1 on open so
+   *  re-opening the editor to re-angle the thumbnail can never move the UGC.
+   *  The camera (and ONLY the camera) decides the thumbnail's direction. */
+  initialPlacement?: Placement | null
   onSave: (result: { placement: Placement; thumb: Blob }) => void
   onCancel: () => void
 }
@@ -82,7 +82,7 @@ function round(n: number): number {
   return Math.round(n * 1000) / 1000
 }
 
-export default function PlacementEditor({ glb, textureUrl, color, metallic, roughness, onSave, onCancel }: PlacementEditorProps) {
+export default function PlacementEditor({ glb, textureUrl, color, initialPlacement, onSave, onCancel }: PlacementEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const holderRef = useRef<THREE.Group | null>(null)
   const wrapRef = useRef<THREE.Group | null>(null)
@@ -342,10 +342,9 @@ export default function PlacementEditor({ glb, textureUrl, color, metallic, roug
         const importSize = UGC_IMPORT_SIZE
         model.scale.setScalar(importSize / maxDim)
 
-        // the creator's texture / color / material feel — visible WHILE
-        // placing, so what they save is exactly what the catalog and every
-        // player will see
-        applyModelSurface(model, { textureUrl, color, metallic, roughness })
+        // the creator's texture / color — visible WHILE placing, so what
+        // they save is exactly what the catalog and every player will see
+        applyModelSurface(model, { textureUrl, color })
 
         const wrap = new THREE.Group()
         wrap.name = 'ugc-model'
@@ -353,15 +352,31 @@ export default function PlacementEditor({ glb, textureUrl, color, metallic, roug
         const holder = new THREE.Group()
         holder.name = 'ugc'
         holder.add(wrap)
-        // starts floating just above the head; the creator takes it from here
-        const headTop = rig.boxes.get('head')?.max.y ?? 5
-        holder.position.set(0, Math.min(headTop + importSize / 2 + 0.06, PLACEMENT_BOUNDS.max[1]), 0)
+        if (initialPlacement) {
+          // RESTORE the saved placement exactly: renderers apply p/r/s onto the
+          // normalized model, so the editor does the same — holder carries the
+          // placement transform with the pivot still at the origin. The item
+          // lands precisely where the creator left it; the camera is the only
+          // thing that changes the thumbnail's direction.
+          const [px, py, pz] = initialPlacement.p
+          const [rx, ry, rz] = initialPlacement.r
+          const [sx, sy, sz] = initialPlacement.s
+          wrap.position.set(0, 0, 0)
+          holder.position.set(px, py, pz)
+          holder.rotation.set(THREE.MathUtils.degToRad(rx), THREE.MathUtils.degToRad(ry), THREE.MathUtils.degToRad(rz))
+          holder.scale.set(sx, sy, sz)
+        } else {
+          // first-time placement: starts floating just above the head
+          const headTop = rig.boxes.get('head')?.max.y ?? 5
+          holder.position.set(0, Math.min(headTop + importSize / 2 + 0.06, PLACEMENT_BOUNDS.max[1]), 0)
+        }
         holderRef.current = holder
         wrapRef.current = wrap
         scene.add(holder)
         tc.attach(holder)
         // rotate/scale around the item's own center from the start — the
         // pivot is editable below for anyone who wants the raw origin back
+        // (setPivot compensates the holder, so the model does NOT move)
         centerPivotOnItem(true)
         // the yellow pivot marker: a child of the holder, so its local
         // position IS the model-space pivot. In pivot mode the gizmo drags
@@ -378,7 +393,11 @@ export default function PlacementEditor({ glb, textureUrl, color, metallic, roug
         marker.visible = false
         holder.add(marker)
         pivotMarkerRef.current = marker
-        setStatus('Place your item on the player model — it stays exactly where you leave it.')
+        setStatus(
+          initialPlacement
+            ? 'Your item is exactly where you placed it — orbit the camera to set the thumbnail direction, then save.'
+            : 'Place your item on the player model — it stays exactly where you leave it.'
+        )
       })
       .catch(() => setStatus('Could not load that model — try a different file.'))
 
