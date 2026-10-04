@@ -6,6 +6,9 @@
 #   GET  /api/users/{id}/avatar  public avatar payload (any player)
 #   GET  /api/assets/{assetId}   asset service: color / image / model for an id
 #   GET  /api/files/{fileId}     raw asset bytes (images, GLB models, audio)
+#   GET  /api/game/places        the games the WEBSITE hosts (live counts)
+#   GET  /api/game/places/{slug} one place's full map JSON (studs)
+#   POST /api/game/state         Bearer token -> THE multiplayer tick
 # The avatar belongs to the RetroBlox ACCOUNT: dress it on the website (or
 # sign up right inside this player) and every game spawns you wearing it.
 class_name RetrobloxApi
@@ -15,9 +18,6 @@ var base_url: String
 var token: String = ""
 var user_id: String = ""
 var username: String = ""
-# remembered on a successful login/signup so the player is auto-signed-in
-# next launch (saved ONLY in their own user:// profile, never sent anywhere)
-var password: String = ""
 
 # toggle verbose logging of every request
 var debug := false
@@ -29,7 +29,7 @@ func _init(p_base_url: String) -> void:
 
 # ---------------------------------------------------------------- requests
 
-func _request(method: HTTPClient.Method, path: String, headers: PackedStringArray = PackedStringArray(), body: String = "") -> Dictionary:
+func _request(method: int, path: String, headers: PackedStringArray = PackedStringArray(), body: String = "") -> Dictionary:
         var http := HTTPRequest.new()
         http.timeout = 30.0
         http.use_threads = true
@@ -46,7 +46,7 @@ func _request(method: HTTPClient.Method, path: String, headers: PackedStringArra
                 var why := error_string(int(result[0]))
                 if int(result[0]) == ERR_TIMEOUT:
                         why = "the request timed out — check your internet, then try again"
-                return { "ok": false, "error": "Could not reach %s (%s). Check your internet connection, then try again." % [base_url, why] }
+                return { "ok": false, "error": "Could not reach %s (%s). Check the Server field and your internet." % [base_url, why] }
         var status: int = result[1]
         var raw: PackedByteArray = result[3]
         var text := raw.get_string_from_utf8()
@@ -82,7 +82,6 @@ func login(p_username: String, p_password: String) -> Dictionary:
                 token = String(res.get("token", ""))
                 user_id = String(res.get("userId", ""))
                 username = String(res.get("username", ""))
-                password = p_password
         return res
 
 
@@ -102,7 +101,6 @@ func signup(p_username: String, p_password: String, p_birthday := "", p_gender :
                 token = String(res.get("token", ""))
                 user_id = String(res.get("userId", ""))
                 username = String(res.get("username", ""))
-                password = p_password
         return res
 
 
@@ -114,6 +112,47 @@ func get_me() -> Dictionary:
 ## GET /api/users/{id}/avatar — any player's avatar (public, no token needed).
 func get_avatar(p_user_id: String) -> Dictionary:
         return await _request(HTTPClient.METHOD_GET, "/api/users/%s/avatar" % p_user_id)
+
+
+# ---------------------------------------------------------------- game sync
+
+## GET /api/game/places — the games the WEBSITE hosts, with live counts.
+func get_places() -> Dictionary:
+        return await _request(HTTPClient.METHOD_GET, "/api/game/places")
+
+
+## GET /api/game/places/{slug} — one place's full map (studs) to build the world.
+func get_place(p_slug: String) -> Dictionary:
+        return await _request(HTTPClient.METHOD_GET, "/api/game/places/%s" % p_slug)
+
+
+## POST /api/game/state — THE multiplayer tick. Sends this player's state
+## (plus an optional chat message / leave flag) and receives every other
+## active player plus the chat posted since `since` (ISO timestamp).
+func post_state(payload: Dictionary) -> Dictionary:
+        var body := JSON.stringify(payload)
+        return await _request(
+                HTTPClient.METHOD_POST, "/api/game/state",
+                PackedStringArray(["Content-Type: application/json", "Authorization: Bearer %s" % token]),
+                body
+        )
+
+
+## POST /api/game/state {leave:true} — FIRE AND FORGET for quitting: tells
+## the website we left without awaiting the answer (the game is closing).
+func post_state_nowait(payload: Dictionary) -> void:
+        var http := HTTPRequest.new()
+        http.timeout = 5.0
+        (Engine.get_main_loop() as SceneTree).root.add_child(http)
+        http.request_completed.connect(func(_r: Array, _c: int, _h: PackedStringArray, _b: PackedByteArray) -> void:
+                http.queue_free())
+        var body := JSON.stringify(payload)
+        # not awaited on purpose — the request still leaves the machine
+        http.request(
+                base_url + "/api/game/state",
+                PackedStringArray(["Content-Type: application/json", "Authorization: Bearer %s" % token]),
+                HTTPClient.METHOD_POST, body
+        )
 
 
 ## GET /api/assets/{assetId} — resolve an asset id into what to render.
