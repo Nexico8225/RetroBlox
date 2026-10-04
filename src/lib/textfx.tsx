@@ -137,9 +137,66 @@ function renderContent(
   })
 }
 
+/* ---------- copy support: rendered FX copies back as [tag]…[/tag] markup ----------
+   Old-school BBCode rule: the effect lives IN the text, so copying styled text
+   and pasting it into any FX-enabled field (bio, comments, posts, chat, trades)
+   re-renders the effects instead of losing them. */
+
+function fxTagsOf(el: Element): string[] {
+  const tags: string[] = []
+  el.classList.forEach((c) => {
+    if (c !== 'fx' && c !== 'fx-char' && c.startsWith('fx-')) {
+      const tag = c.slice(3)
+      if (FX_MAP[tag]) tags.push(tag)
+    }
+  })
+  return tags
+}
+
+function serializeFxNode(node: Node, range: Range): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    if (!range.intersectsNode(node)) return ''
+    const text = node.textContent || ''
+    let start = 0
+    let end = text.length
+    if (node === range.startContainer) start = range.startOffset
+    if (node === range.endContainer) end = range.endOffset
+    return text.slice(start, end)
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return ''
+  const el = node as Element
+  const inner = Array.from(el.childNodes)
+    .map((child) => serializeFxNode(child, range))
+    .join('')
+  if (!inner) return ''
+  const tags = fxTagsOf(el)
+  if (!tags.length) return inner
+  return tags.map((t) => `[${t}]`).join('') + inner + [...tags].reverse().map((t) => `[/${t}]`).join('')
+}
+
 export function FxText({ text, style }: { text?: string | null; style?: React.CSSProperties }) {
   if (!text) return null
-  return <span style={style}>{renderContent(parseFx(text), { i: 0 }, [], 'fx')}</span>
+  const hasFx = text !== stripFx(text)
+  const onCopy = hasFx
+    ? (e: React.ClipboardEvent<HTMLSpanElement>) => {
+        const sel = window.getSelection()
+        const root = e.currentTarget
+        if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
+        const range = sel.getRangeAt(0)
+        // only take over the copy when the whole selection lives inside this FX text —
+        // otherwise let the browser copy normally
+        if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return
+        const markup = serializeFxNode(root, range)
+        if (!markup) return
+        e.preventDefault()
+        e.clipboardData.setData('text/plain', markup)
+      }
+    : undefined
+  return (
+    <span style={style} onCopy={onCopy}>
+      {renderContent(parseFx(text), { i: 0 }, [], 'fx')}
+    </span>
+  )
 }
 
 /* ---------- icons (pure SVG, no emoji) ---------- */
@@ -430,7 +487,7 @@ export function FxToolbar({
         FX Menu
         <span className="rb-fx-caret" aria-hidden="true">{open ? '▲' : '▼'}</span>
       </button>
-      <span className="rb-fxbar-hint">Select text, then pick an effect — with nothing selected it styles the whole text. Stack as many as you like.</span>
+      <span className="rb-fxbar-hint">Select text, then pick an effect — with nothing selected it styles the whole text. Stack as many as you like. Copy text that already has effects and the effects ride along.</span>
 
       {open && pos && (
         <div
