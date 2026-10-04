@@ -304,9 +304,12 @@ func accept_snapshot(pos: Vector3, vel: Vector3, yaw: float, floor_state: bool, 
                         if absf(error.y) > 1.3:
                                 velocity.y = vel.y
 
-func update_visuals(delta: float) -> void:
+func update_visuals(delta: float, animate: bool = true) -> void:
         if alive:
-                avatar.animate(delta, Vector2(velocity.x, velocity.z).length(), grounded, climbing)
+                # far-away players skip their AnimationPlayer work (main.gd
+                # passes animate=false) — they still glide and stay synced
+                if animate:
+                        avatar.animate(delta, Vector2(velocity.x, velocity.z).length(), grounded, climbing)
         if bubble_remaining > 0.0:
                 bubble_remaining -= delta
                 bubble.visible = alive and bubble_remaining > 0.0
