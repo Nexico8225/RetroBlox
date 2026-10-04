@@ -52,7 +52,6 @@ model User {
   rbxBalance    Int           @default(0) // server-side RBX wallet — only the ledger moves it
   rbxTransactions RbxTransaction[]
   payments      Payment[]
-  presence      PlayerPresence[] @relation("presence") // live in-game row (see Place)
 }
 
 model Session {
@@ -487,7 +486,7 @@ model AvatarItem {
   groupId     String? // set when published from a group
   group       Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
-  deletedAt   DateTime? // soft delete — UGC is NEVER hard-deleted, an admin can always restore it
+  deletedAt   DateTime? // legacy soft-delete flag (unused since deletes became HARD deletes — kept so no migration is needed)
   ownedBy     InventoryEntry[]
 }
 
@@ -572,7 +571,7 @@ model MusicTrack {
   fileName  String?
   plays     Int       @default(0)
   createdAt DateTime  @default(now())
-  deletedAt DateTime? // soft delete — UGC is NEVER hard-deleted
+  deletedAt DateTime? // legacy soft-delete flag (unused since deletes became HARD deletes)
 }
 
 // Game data / save API — per game + player + key, written only through the platform API
@@ -585,60 +584,4 @@ model GameData {
   updatedAt DateTime @updatedAt
 
   @@unique([gameId, userId, key])
-}
-
-// ---------------- In-game places (the Godot player syncs THESE) ----------------
-// The website owns the games: the desktop player downloads the map JSON from
-// here every launch, so a place edited on the web changes in-game instantly.
-// ONE game ships for now: baseplate (the classic brick world).
-model Place {
-  id          String   @id @default(cuid())
-  slug        String   @unique // "baseplate" — stable id the game client asks for
-  name        String // "Baseplate"
-  description String   @default("")
-  dataJson    String   @default("{}") // map JSON: {parts:[],spawns:[],ladders[]} in studs
-  maxPlayers  Int      @default(12)
-  sortOrder   Int      @default(0)
-  active      Boolean  @default(true)
-  updatedBy   String? // user id of the last editor (web side)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  presence    PlayerPresence[]
-  chat        PlaceChat[]
-}
-
-// ONE live row per signed-in player in a place — upserted every tick by
-// POST /api/game/state. Rows older than ~2 minutes are garbage-collected;
-// only rows seen in the last 10 seconds count as "in the game".
-model PlayerPresence {
-  id        String   @id @default(cuid())
-  userId    String   @unique // one presence per account (two windows = same player)
-  user      User     @relation("presence", fields: [userId], references: [id], onDelete: Cascade)
-  placeId   String
-  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  username  String   @default("")
-  x         Float    @default(0)
-  y         Float    @default(10)
-  z         Float    @default(0)
-  yaw       Float    @default(0)
-  state     String   @default("idle") // idle | walk | jump | fall | climb
-  shiftlock Boolean  @default(false)
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
-
-  @@index([placeId, updatedAt])
-}
-
-// In-game chat, per place. The game client polls new rows since its last
-// timestamp on the same tick it sends presence — one request, no websocket.
-model PlaceChat {
-  id        String   @id @default(cuid())
-  placeId   String
-  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  userId    String
-  username  String
-  text      String
-  createdAt DateTime @default(now())
-
-  @@index([placeId, createdAt])
 }
