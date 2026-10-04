@@ -93,24 +93,12 @@ body textarea {
   cursor: url('/retro/pointer.png') 12 2, text;
 }
 
-/* ---------- Typography: regular weight everywhere (no bold text) ----------
-   ...EXCEPT the display layer (buttons, nav, chips) — 2016 used semibold
-   there, and the site reads flat without it. Class selectors beat the
-   body * blanket, so these re-enable weight without touching body text. */
+/* ---------- Typography: regular weight EVERYWHERE ----------
+   2006 Roblox set everything in plain Verdana — heavy labels read modern,
+   not retro. No exceptions anymore: buttons, tabs, badges, all weight 400. */
 body,
 body * {
   font-weight: normal !important;
-}
-.rb-btn,
-.rb-nav-item,
-.rb-side-item,
-.rb-admin-badge,
-.rb-badge,
-.rb-fx-toggle,
-.rb-drawer-item,
-.rb-mobile-tab,
-.rb-vote-btn {
-  font-weight: 600 !important;
 }
 
 /* keyboard focus ring — same blue outline as other webs */
@@ -173,7 +161,8 @@ a:focus-visible,
   top: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(180deg, #e2231a 0%, #ff8a00 50%, #00a2ff 100%);
+  /* ONE main color — the wordmark red — no tri-color rainbow edge */
+  background: #e2231a;
 }
 
 .rb-link {
@@ -331,26 +320,16 @@ a:focus-visible,
   background: linear-gradient(180deg, #7ec95c, #4c9e34);
 }
 
-/* the signature: greeting + page headings set like the ReTROBLOX wordmark
-   itself — bubbly Fredoka letters, white fill, red outline, soft drop.
-   Browsers without text-stroke just get the red letters. */
+/* the signature greeting: plain retro letters in the main red — the way the
+   old site's headings sat on the page (no outline, no glow, no heavy font) */
 .rb-page-title {
-  font-family: var(--rb-display);
-  font-weight: 400 !important;
-  font-size: 24px;
-  line-height: 1.15;
+  font-family: inherit;
+  font-weight: normal !important;
+  font-size: 22px;
+  line-height: 1.2;
   color: #c8231a;
-  letter-spacing: 0.3px;
-}
-@supports (-webkit-text-stroke: 1px #fff) {
-  .rb-page-title {
-    color: #ffffff;
-    -webkit-text-stroke: 1.2px #d5231c;
-    paint-order: stroke fill;
-    text-shadow:
-      0 2px 0 rgba(184, 27, 19, 0.22),
-      0 3px 5px rgba(23, 46, 66, 0.25);
-  }
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 /* classic BrickColor swatch grid — the palette every old Roblox color
@@ -452,7 +431,6 @@ a:focus-visible,
 .rb-navbar-item {
   padding: 6px 12px;
   font-size: 12px;
-  font-weight: 700;
   color: #1c4e7c;
   text-decoration: none;
   white-space: nowrap;
@@ -464,21 +442,19 @@ a:focus-visible,
   background: #e1f2fb;
   color: #00639e;
 }
-/* the active strip link becomes the RED pill — the wordmark color leads
-   the way, everything else stays cool blue */
+/* the active tab looks like the OLD site's selected tab: a plain white tab
+   pressed into the strip — same family as the others, no red, no rainbow */
 .rb-navbar-item.rb-navbar-active {
-  background: linear-gradient(180deg, #f0544a 0%, #e2231a 60%, #c01d15 100%);
-  color: #fff;
-  border-color: #a01610;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
+  background: #ffffff;
+  color: #0d69ac;
+  border-color: #b6c0cb;
+  box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(23, 46, 66, 0.12);
 }
 
 /* sidebar group headers ("Play", "Create", "Avatar & Shop"...) */
 .rb-side-sec {
   margin: 10px 13px 3px;
   font-size: 9.5px;
-  font-weight: 800;
   letter-spacing: 1.3px;
   text-transform: uppercase;
   color: #7c8ea0;
@@ -514,13 +490,22 @@ a:focus-visible,
   margin-top: auto;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
+/* footer links stay in the footer's one color family — plain light blue,
+   underlined on hover, exactly like a 2006 footer */
+.rb-footer .rb-link {
+  color: #bcd8ef;
+}
+.rb-footer .rb-link:hover {
+  color: #ffffff;
+}
 
 /* ---------- the retro news ticker (home hero) ---------- */
 .rb-marquee {
   margin: 12px -16px 0;
-  background: linear-gradient(180deg, #ffe07a 0%, #f5b81e 70%, #e3a812 100%);
-  border-top: 1px solid #b5890f;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  /* the main red — one accent color for the whole site, no gold band */
+  background: linear-gradient(180deg, #ef4136 0%, #e2231a 60%, #c01d15 100%);
+  border-top: 1px solid #a01610;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
   overflow: hidden;
   white-space: nowrap;
 }
@@ -531,8 +516,8 @@ a:focus-visible,
   font-family: var(--rb-display);
   font-size: 11.5px;
   letter-spacing: 0.6px;
-  color: #5d4300;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
 }
 @keyframes rb-marquee {
   from { transform: translateX(0); }
