@@ -6,7 +6,6 @@ import { saveUpload, resolveUpload } from '@/lib/uploads'
 import {
   UGC_TYPES, UGC_TYPE_LABELS, is3DType, isRiggedType, parseAssetId, parsePlacement, placementJson,
   sanitizeAnimClips, sanitizeAnimTarget, sanitizeBundleParts, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson,
-  sanitizeFinish,
 } from '@/lib/avatarAssets'
 import { buyPrice } from '@/lib/rbx'
 
@@ -50,21 +49,22 @@ async function nextAssetId(type: string): Promise<string> {
 }
 
 // GET /api/catalog?type=hat&q=wizard&group=<groupId>&limited=1 — browse avatar UGC
-//   admins can pass deleted=1 to list soft-deleted UGC (for the restore panel)
+// DELETES ARE REAL NOW (remove = delete = true): there is no soft-delete
+// recycle bin anymore. The only leftover soft-deleted rows are LEGACY ones
+// from the old restore system — admins get their count here and erase them
+// forever with action purge-deleted (below).
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const type = url.searchParams.get('type') || ''
   const q = (url.searchParams.get('q') || '').trim()
   const groupId = url.searchParams.get('group') || ''
-  const wantDeleted = url.searchParams.get('deleted') === '1'
   const onlyLimited = url.searchParams.get('limited') === '1'
   const viewer = await getUserFromReq(req)
   const isAdmin = viewer?.role === 'admin'
 
   const items = await db.avatarItem.findMany({
     where: {
-      // soft-deleted UGC stays out of every list unless an admin asks for it
-      deletedAt: wantDeleted && isAdmin ? { not: null } : null,
+      deletedAt: null,
       ...(type && UGC_TYPES.includes(type as never) ? { type } : {}),
       ...(groupId ? { groupId } : {}),
       ...(onlyLimited ? { isLimited: true } : {}),
@@ -126,8 +126,6 @@ export async function GET(req: NextRequest) {
         modelFileId: i.modelFileId,
         textureFileId: i.textureFileId,
         baseColor: i.baseColor,
-        roughness: i.roughness,
-        metallic: i.metallic,
         placement: parsePlacement(i.placementJson),
         animClips: parseAnimClipsJson(i.animClipsJson),
         animTarget: parseAnimTargetJson(i.animTargetJson),
@@ -140,19 +138,30 @@ export async function GET(req: NextRequest) {
       }
     }),
     ownedItemIds: owned.map((o) => o.itemId),
+    // admins only: how many LEGACY soft-deleted rows are still waiting to be
+    // erased for good (deletes are permanent now, this is the old backlog)
+    legacyDeleted: isAdmin ? await db.avatarItem.count({ where: { deletedAt: { not: null } } }) : 0,
   })
 }
 
 // POST /api/catalog — publish avatar UGC (multipart)
-//   2D types (face|tshirt|shirt|pants):  name, type, description, image, [groupId]
-//   3D types (hat|gear|accessory):       name, type, description, image = try-on
-//                                        thumbnail, model = GLB, placement = JSON, [groupId]
-//   rigged types (emote|bundle|anim):    name, type, description, image = auto-captured
-//                                        shot, model = rigged GLB, animClips/animTarget/
-//                                        bundleParts = JSON, [limited: stock = N], [groupId]
+//   action=purge-deleted (admin, JSON body instead of multipart): permanently
+//          erases every LEGACY soft-deleted row — the old restore system's backlog
 export async function POST(req: NextRequest) {
   const user = await getUserFromReq(req)
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
+
+  // admin housekeeping: wipe the legacy soft-deleted backlog forever
+  const purgeOnly = req.headers.get('content-type')?.includes('application/json')
+  if (purgeOnly) {
+    const body = (await req.json().catch(() => ({}))) as { action?: string }
+    if (body.action === 'purge-deleted') {
+      if (user.role !== 'admin') return NextResponse.json({ error: 'Only an admin can erase deleted UGC.' }, { status: 403 })
+      const gone = await db.avatarItem.deleteMany({ where: { deletedAt: { not: null } } })
+      return NextResponse.json({ ok: true, erased: gone.count, message: `${gone.count} deleted item${gone.count === 1 ? '' : 's'} erased for good.` })
+    }
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  }
 
   const form = await req.formData()
   const name = String(form.get('name') || '').trim()
@@ -216,15 +225,10 @@ export async function POST(req: NextRequest) {
   let placementJsonStr: string | null = null
   let textureFileId: string | null = null
   let baseColor: string | null = null
-  let roughness: number | null = null
-  let metallic: number | null = null
 
   // creator surface for 3D UGC: an optional texture image wrapped around the
-  // model, or a tint color when there is no texture (texture wins at render).
-  // Roughness / metallic: OPTIONAL finish overrides — empty = the model's own.
+  // model, or a tint color when there is no texture (texture wins at render)
   if (is3DType(type)) {
-    roughness = sanitizeFinish(form.get('roughness') ?? undefined)
-    metallic = sanitizeFinish(form.get('metallic') ?? undefined)
     if (colorRaw) {
       if (!/^#[0-9a-fA-F]{6}$/.test(colorRaw)) {
         return NextResponse.json({ error: 'The color must be a hex color like #4da6ff.' }, { status: 400 })
@@ -326,8 +330,6 @@ export async function POST(req: NextRequest) {
     placementJson: placementJsonStr,
     textureFileId,
     baseColor,
-    roughness,
-    metallic,
     animClipsJson: animClipsJsonStr,
     animTargetJson: animTargetJsonStr,
     bundlePartsJson: bundlePartsJsonStr,
