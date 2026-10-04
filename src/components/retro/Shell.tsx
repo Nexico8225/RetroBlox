@@ -172,16 +172,16 @@ export function Header() {
                 title="Tix Store — top up your wallet"
                 className="rb-header-chip rb-wallet-chip"
                 style={{
+                  /* same quiet white glass as the profile chip — the gold
+                     ticket icon is the only accent, no rainbow in the bar */
                   display: 'flex', alignItems: 'center', gap: 5,
-                  background: 'linear-gradient(180deg,#ffe07a 0%,#f5b81e 70%,#e3a812 100%)',
-                  border: '1px solid #b5890f',
+                  background: 'rgba(255,255,255,.12)',
+                  border: '1px solid rgba(255,255,255,.35)',
                   borderRadius: 4,
-                  boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.55), 0 1px 2px rgba(0,0,0,.25)',
                   padding: '2px 8px',
-                  color: '#5d4300',
+                  color: '#fff',
                   textDecoration: 'none',
                   fontSize: 12,
-                  textShadow: '0 1px 0 rgba(255,255,255,.35)',
                 }}
               >
                 {/* classic gold ticket — the 2016 bar showed your money flat on blue */}
@@ -201,7 +201,7 @@ export function Header() {
                   <path d="M15.5 6v2M15.5 10.5v2M15.5 15v2" stroke="#8a6d1a" strokeWidth="1.4" strokeDasharray="2.4 2.2" fill="none" />
                 </svg>
                 <span style={{ fontFamily: 'monospace' }}>{tixCompact(user.rbxBalance ?? 0)}</span>
-                <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#7a5a08' }}>+ Buy</span>
+                <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#ffe07a' }}>+ Buy</span>
               </Link>
 
               <Link
