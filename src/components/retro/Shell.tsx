@@ -703,10 +703,10 @@ export function Page({ children }: { children: React.ReactNode }) {
           width: '100%',
           maxWidth: 1280,
           margin: '0 auto',
-          padding: '14px 18px',
+          padding: '18px 22px',
           display: 'flex',
           flexWrap: 'wrap',
-          gap: 12,
+          gap: 14,
           alignItems: 'flex-start',
           boxSizing: 'border-box',
         }}
