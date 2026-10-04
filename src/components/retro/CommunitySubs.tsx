@@ -178,33 +178,33 @@ export function CommunitySidebar({
             </div>
             <div style={{ fontSize: 15, color: '#1c2733' }}>r/{activeSub.slug}</div>
             {activeSub.name !== activeSub.slug && (
-              <div style={{ fontSize: 10, color: '#7b8896' }}>{activeSub.name}</div>
+              <div style={{ fontSize: 11, color: '#7b8896' }}>{activeSub.name}</div>
             )}
-            <div style={{ fontSize: 10, color: '#5a6b7b', margin: '6px 0 10px', lineHeight: 1.55 }}>
+            <div style={{ fontSize: 11, color: '#5a6b7b', margin: '6px 0 12px', lineHeight: 1.55 }}>
               {activeSub.description || 'A player-created community in the RETROBLOX lounge.'}
             </div>
-            <div style={{ display: 'flex', gap: 18, fontSize: 11, color: '#1c2733' }}>
+            <div style={{ display: 'flex', gap: 20, fontSize: 11, color: '#1c2733' }}>
               <div>
-                <div style={{ fontSize: 14 }}>{activeSub.members}</div>
-                <div style={{ fontSize: 9, color: '#7b8896' }}>Members</div>
+                <div style={{ fontSize: 16 }}>{activeSub.members}</div>
+                <div style={{ fontSize: 10, color: '#7b8896' }}>Members</div>
               </div>
               <div>
-                <div style={{ fontSize: 14 }}>{activeSub.posts}</div>
-                <div style={{ fontSize: 9, color: '#7b8896' }}>Posts</div>
+                <div style={{ fontSize: 16 }}>{activeSub.posts}</div>
+                <div style={{ fontSize: 10, color: '#7b8896' }}>Posts</div>
               </div>
               <div>
-                <div style={{ fontSize: 14 }}>{timeAgo(activeSub.createdAt).replace(' ago', '')}</div>
-                <div style={{ fontSize: 9, color: '#7b8896' }}>Age</div>
+                <div style={{ fontSize: 16 }}>{timeAgo(activeSub.createdAt).replace(' ago', '')}</div>
+                <div style={{ fontSize: 10, color: '#7b8896' }}>Age</div>
               </div>
             </div>
-            <div style={{ fontSize: 9, color: '#7b8896', marginTop: 10, borderTop: '1px solid #e4eaf0', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 10, color: '#7b8896', marginTop: 12, borderTop: '1px solid #e4eaf0', paddingTop: 9, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Avatar user={activeSub.creator} size={16} rounded="50%" />
-              created by <Link href={`/users/${activeSub.creator.id}`} className="rb-link" style={{ fontSize: 9 }}>u/{activeSub.creator.username}</Link>
+              created by <Link href={`/users/${activeSub.creator.id}`} className="rb-link" style={{ fontSize: 10 }}>u/{activeSub.creator.username}</Link>
             </div>
             <button
               type="button"
               className={`rb-btn ${activeSub.joined ? '' : 'rb-btn-green'}`}
-              style={{ width: '100%', marginTop: 10, fontSize: 12, padding: '7px 0' }}
+              style={{ width: '100%', marginTop: 12, fontSize: 12, padding: '8px 0' }}
               disabled={joinBusy === activeSub.slug}
               onClick={() => toggleJoin(activeSub)}
             >
@@ -221,26 +221,26 @@ export function CommunitySidebar({
           </div>
           <div style={{ padding: '26px 12px 12px' }}>
             <div style={{ fontSize: 14, color: '#1c2733' }}>{active === 'r/videos' ? 'r/videos' : 'r/RetroBloxLounge'}</div>
-            <div style={{ fontSize: 10, color: '#5a6b7b', margin: '4px 0 10px', lineHeight: 1.55 }}>
+            <div style={{ fontSize: 11, color: '#5a6b7b', margin: '4px 0 12px', lineHeight: 1.55 }}>
               {active === 'r/videos'
                 ? 'Every video uploaded through a post lands here AND on the Videos tab.'
                 : 'The player lounge — posts, memes, finds and player videos. Reddit votes, YouTube uploads, X-speed chatter.'}
             </div>
-            <div style={{ display: 'flex', gap: 18, fontSize: 11, color: '#1c2733' }}>
+            <div style={{ display: 'flex', gap: 20, fontSize: 11, color: '#1c2733' }}>
               <div>
-                <div style={{ fontSize: 14 }}>{stats?.users ?? 1}</div>
-                <div style={{ fontSize: 9, color: '#7b8896' }}>Blockheads</div>
+                <div style={{ fontSize: 16 }}>{stats?.users ?? 1}</div>
+                <div style={{ fontSize: 10, color: '#7b8896' }}>Blockheads</div>
               </div>
               <div>
-                <div style={{ fontSize: 14 }}>{stats?.videos ?? 0}</div>
-                <div style={{ fontSize: 9, color: '#7b8896' }}>Videos</div>
+                <div style={{ fontSize: 16 }}>{stats?.videos ?? 0}</div>
+                <div style={{ fontSize: 10, color: '#7b8896' }}>Videos</div>
               </div>
               <div>
-                <div style={{ fontSize: 14 }}>{stats?.community ?? 0}</div>
-                <div style={{ fontSize: 9, color: '#7b8896' }}>Posts</div>
+                <div style={{ fontSize: 16 }}>{stats?.community ?? 0}</div>
+                <div style={{ fontSize: 10, color: '#7b8896' }}>Posts</div>
               </div>
             </div>
-            <div style={{ fontSize: 9, color: '#7b8896', marginTop: 10, borderTop: '1px solid #e4eaf0', paddingTop: 8 }}>
+            <div style={{ fontSize: 10, color: '#7b8896', marginTop: 12, borderTop: '1px solid #e4eaf0', paddingTop: 9 }}>
               Created September 2026 · Est. 2006 vibes
             </div>
           </div>
@@ -248,14 +248,14 @@ export function CommunitySidebar({
       )}
 
       {/* ---------- action buttons ---------- */}
-      <div style={{ display: 'grid', gap: 6 }}>
-        <Link className="rb-btn rb-btn-green" href="/community/new" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', fontSize: 12, padding: '7px 0' }}>
+      <div style={{ display: 'grid', gap: 8 }}>
+        <Link className="rb-btn rb-btn-green" href="/community/new" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', fontSize: 12, padding: '8px 0' }}>
           + Create Post
         </Link>
-        <Link className="rb-btn" href="/community/new?video=1" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', fontSize: 12, padding: '7px 0' }}>
+        <Link className="rb-btn" href="/community/new?video=1" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', fontSize: 12, padding: '8px 0' }}>
           ▶ Post a Video
         </Link>
-        <Link className="rb-btn" href="/subs/new" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', fontSize: 12, padding: '7px 0' }}>
+        <Link className="rb-btn" href="/subs/new" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', fontSize: 12, padding: '8px 0' }}>
           🏳 Create your own r/
         </Link>
       </div>
@@ -263,19 +263,19 @@ export function CommunitySidebar({
       {/* ---------- r/ communities list ---------- */}
       <div className="rb-box" style={{ padding: 0 }}>
         <div className="rb-panel-head"><span>Communities</span></div>
-        <div style={{ padding: 6 }}>
+        <div style={{ padding: 8 }}>
           <Link
             href="/community"
             className="rb-clickable"
             style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 4,
+              display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 4,
               textDecoration: 'none', background: active === 'r/all' ? '#e3edf7' : 'transparent',
             }}
           >
             <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#24425f', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Courier New', monospace", flexShrink: 0 }}>r/</span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: 11, color: '#1c4e7c' }}>r/all</span>
-              <span style={{ display: 'block', fontSize: 9, color: '#7b8896' }}>everything from the lounge</span>
+              <span style={{ display: 'block', fontSize: 10, color: '#7b8896' }}>everything from the lounge</span>
             </span>
           </Link>
           {DEFAULT_R.map((r) => (
@@ -284,14 +284,14 @@ export function CommunitySidebar({
               href={`/community?r=${encodeURIComponent(r.r)}`}
               className="rb-clickable"
               style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 4,
+                display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 4,
                 textDecoration: 'none', background: active === r.r ? '#e3edf7' : 'transparent',
               }}
             >
               <span style={{ width: 22, height: 22, borderRadius: '50%', background: r.color, color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Courier New', monospace", flexShrink: 0 }}>r/</span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 11, color: '#1c4e7c' }}>{r.label}</span>
-                <span style={{ display: 'block', fontSize: 9, color: '#7b8896' }}>{r.blurb}</span>
+                <span style={{ display: 'block', fontSize: 10, color: '#7b8896' }}>{r.blurb}</span>
               </span>
             </Link>
           ))}
@@ -301,21 +301,21 @@ export function CommunitySidebar({
               href={`/community?r=${encodeURIComponent(`r/${s.slug}`)}`}
               className="rb-clickable"
               style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 4,
+                display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 4,
                 textDecoration: 'none', background: active === `r/${s.slug}` ? '#e3edf7' : 'transparent',
               }}
             >
               <SubIcon sub={s} size={22} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 11, color: '#1c4e7c' }}>r/{s.slug}</span>
-                <span style={{ display: 'block', fontSize: 9, color: '#7b8896' }}>
+                <span style={{ display: 'block', fontSize: 10, color: '#7b8896' }}>
                   {s.members} member{s.members === 1 ? '' : 's'} · {s.posts} post{s.posts === 1 ? '' : 's'}
                 </span>
               </span>
               {s.joined && <span style={{ fontSize: 9, color: '#2c6e31' }}>✓</span>}
             </Link>
           ))}
-          <Link href="/labs" className="rb-clickable" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 4, textDecoration: 'none' }}>
+          <Link href="/labs" className="rb-clickable" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 4, textDecoration: 'none' }}>
             <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#2f7bc0', color: '#fff', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Courier New', monospace", flexShrink: 0 }}>{'</>'}</span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: 11, color: '#1c4e7c' }}>r/retrolabs</span>
@@ -337,11 +337,11 @@ export function CommunitySidebar({
       {trending && trending.length > 0 && (
         <div className="rb-box" style={{ padding: 0 }}>
           <div className="rb-panel-head"><span>Trending Today</span></div>
-          <ol style={{ margin: 0, padding: '6px 10px 8px 26px', fontSize: 10, color: '#5a6b7b', lineHeight: 1.7 }}>
+          <ol style={{ margin: 0, padding: '8px 12px 10px 28px', fontSize: 11, color: '#5a6b7b', lineHeight: 1.8 }}>
             {trending.slice(0, 4).map((t) => (
-              <li key={t.href}>
-                <Link href={t.href} className="rb-link" style={{ fontSize: 10 }}><FxText text={t.title.length > 42 ? `${t.title.slice(0, 42)}...` : t.title} /></Link>
-                <span style={{ fontSize: 9, color: '#c2570e' }}> · {t.score}▲</span>
+              <li key={t.href} style={{ marginBottom: 2 }}>
+                <Link href={t.href} className="rb-link" style={{ fontSize: 11 }}><FxText text={t.title.length > 60 ? `${t.title.slice(0, 60)}…` : t.title} /></Link>
+                <span style={{ fontSize: 10, color: '#c2570e' }}> · {t.score}▲</span>
               </li>
             ))}
           </ol>
@@ -351,7 +351,7 @@ export function CommunitySidebar({
       {/* ---------- rules ---------- */}
       <div className="rb-box" style={{ padding: 0 }}>
         <div className="rb-panel-head"><span>Community Rules</span></div>
-        <ol style={{ margin: 0, padding: '8px 10px 10px 26px', fontSize: 10, color: '#5a6b7b', lineHeight: 1.7 }}>
+        <ol style={{ margin: 0, padding: '10px 12px 12px 28px', fontSize: 11, color: '#5a6b7b', lineHeight: 1.8 }}>
           <li>Be a good blockhead — no bullying.</li>
           <li>Upload your own pictures and videos.</li>
           <li>No scam links, no pretending to be staff.</li>
