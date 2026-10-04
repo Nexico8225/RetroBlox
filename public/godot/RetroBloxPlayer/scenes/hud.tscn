@@ -318,13 +318,14 @@ autowrap_mode = 3
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
-anchors_preset = 0
-offset_left = 10.0
-offset_top = 64.0
-offset_right = 430.0
-offset_bottom = 330.0
-grow_horizontal = 1
-grow_vertical = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -322.0
+offset_right = 388.0
+offset_bottom = -76.0
+grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="ChatBox" type="VBoxContainer" parent="Root/ChatPanel"]
