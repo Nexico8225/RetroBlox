@@ -1,53 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserFromReq, publicUser, isOnline } from '@/lib/auth'
+import { getUserFromReq, publicUser, isOnline, resolveUserIdParam } from '@/lib/auth'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await getUserFromReq(req)
 
-  try {
-    return await handle(viewer, id)
-  } catch (e) {
-    // never a blank 500 again — the page (and the admin) get the real reason.
-    // Prisma errors carry a code (P2021 = missing table, P2022 = missing column).
-    const err = e as { message?: string; code?: string }
-    return NextResponse.json(
-      { error: 'Profile failed to load', detail: err?.message || String(e), code: err?.code },
-      { status: 500 }
-    )
-  }
-}
+  // id, username (any casing) or "me" all resolve here — no more "User not found"
+  // walls when a profile is opened by name or a stale id link
+  const userId = await resolveUserIdParam(id, viewer?.id)
 
-async function handle(viewer: Awaited<ReturnType<typeof getUserFromReq>>, id: string) {
-  // the param is an account id OR a username — /users/Nexico8225 works like
-  // the old site's profile URLs, not just /users/<cuid>. usernameLower makes
-  // the match case-insensitive on SQLite (which has no insensitive mode).
-  const user = await db.user.findFirst({
-    where: {
-      OR: [{ id }, { username: id }, { usernameLower: decodeURIComponent(id).toLowerCase() }],
-    },
-    include: {
-      games: {
-        orderBy: { createdAt: 'desc' },
-        include: { likes: true, _count: { select: { comments: true, favorites: true } } },
-      },
-      memberships: {
-        include: { group: { select: { id: true, name: true, iconUrl: true } } },
-        orderBy: { joinedAt: 'asc' },
-      },
-      favorites: { include: { game: { include: { creator: { select: { id: true, username: true, avatarUrl: true } }, likes: true, _count: { select: { comments: true, favorites: true } } } } }, orderBy: { id: 'desc' } },
-      videos: {
+  const user = userId
+    ? await db.user.findUnique({
+        where: { id: userId },
         include: {
-          _count: { select: { comments: true } },
+          games: {
+            orderBy: { createdAt: 'desc' },
+            include: { likes: true, _count: { select: { comments: true, favorites: true } } },
+          },
+          memberships: {
+            include: { group: { select: { id: true, name: true, iconUrl: true } } },
+            orderBy: { joinedAt: 'asc' },
+          },
+          favorites: { include: { game: { include: { creator: { select: { id: true, username: true, avatarUrl: true } }, likes: true, _count: { select: { comments: true, favorites: true } } } } }, orderBy: { id: 'desc' } },
+          videos: {
+            include: {
+              _count: { select: { comments: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 24,
+          },
+          requestsSent: { where: { status: 'accepted' }, select: { addresseeId: true } },
+          requestsRecv: { where: { status: 'accepted' }, select: { requesterId: true } },
         },
-        orderBy: { createdAt: 'desc' },
-        take: 24,
-      },
-      requestsSent: { where: { status: 'accepted' }, select: { addresseeId: true } },
-      requestsRecv: { where: { status: 'accepted' }, select: { requesterId: true } },
-    },
-  })
+      })
+    : null
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   // friendship state between viewer and this user
@@ -122,10 +109,7 @@ async function handle(viewer: Awaited<ReturnType<typeof getUserFromReq>>, id: st
     .map((f) => mapGame(f.game, { id: f.game.creator.id, username: f.game.creator.username, avatarUrl: f.game.creator.avatarUrl }))
 
   const videos = user.videos.map((v) => {
-    // a malformed like list must never take the whole profile down
-    let ups: string[] = []
-    try { ups = JSON.parse(v.upIds || '[]') as string[] } catch { /* keep 0 likes */ }
-    if (!Array.isArray(ups)) ups = []
+    const ups = JSON.parse(v.upIds || '[]') as string[]
     return {
       id: v.id,
       title: v.title,
