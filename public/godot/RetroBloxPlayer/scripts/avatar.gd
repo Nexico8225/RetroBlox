@@ -21,11 +21,14 @@ const HEAD_INDEX: int = 0
 const RIG_SCENE_PATH: String = "res://assets/models/R6IK.fbx"
 const RIG_HEIGHT: float = 5.0  # STUDS: the classic character is exactly 5 studs tall
 
-# the real R6IK animations, straight from the FBX (old Roblox moves)
-const ANIM_IDLE: StringName = &"Old_Idle"
-const ANIM_WALK: StringName = &"Old_Walk"
-const ANIM_JUMP: StringName = &"Old_Jump"
-const ANIM_CLIMB: StringName = &"Climb"
+# Referenced by FILE PATH (parses correctly on the very first open, before
+# Godot registers global class_names).
+const RbxAnimations := preload("res://scripts/rbx_animations.gd")
+
+# the animation slots — resolved against the rig's own clips plus any user
+# animation files in assets/anims/ and user://anims/ (user clips win).
+# Public so tests and creator scripts can inspect what is loaded.
+var anims: RefCounted = RbxAnimations.new()
 
 # classic noob defaults — brand-new accounts (and the offline fallback) wear these
 const NOOB_HEAD := Color("f5cd30")
@@ -181,27 +184,43 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false)
                 return
         _animate_boxes(delta, speed, grounded, climbing)
 
-## The real R6IK clips — Old_Idle / Old_Walk / Old_Jump / Climb, exactly the
-## animations that ship inside the rig. The walk/climb clips are speed-scaled
-## to the actual movement so feet do not slide; the jump clip plays once and
-## holds its last frame until you land (classic old-Roblox jump).
+## The animation slots — Old_Idle/Old_Walk/Old_Jump/Climb by default, or
+## whatever the user dropped into assets/anims/ + user://anims/. The walk
+## and climb clips are speed-scaled to the actual movement so feet do not
+## slide; the jump clip plays once and holds its last frame until you land
+## (classic old-Roblox jump).
 func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
-        var next: StringName = ANIM_IDLE
+        var slot := RbxAnimations.SLOT_IDLE
         var rate := 1.0
         if climbing:
-                next = ANIM_CLIMB
+                slot = RbxAnimations.SLOT_CLIMB
                 rate = clampf(speed / 6.0, 0.5, 1.5)
         elif not grounded:
-                next = ANIM_JUMP
+                slot = RbxAnimations.SLOT_JUMP
         elif speed > 1.2:
-                next = ANIM_WALK
+                slot = RbxAnimations.SLOT_WALK
                 rate = clampf(speed / 8.0, 0.8, 2.2)
-        if _current_anim != next:
-                _current_anim = next
+        var clip: String = anims.resolve(slot)
+        if clip.is_empty():
+                return
+        if _current_anim != clip:
+                _current_anim = clip
                 # snappy jump, gentle blends everywhere else
-                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
-        elif next == ANIM_WALK or next == ANIM_CLIMB:
+                _anim_player.play(clip, 0.08 if slot == RbxAnimations.SLOT_JUMP else 0.16)
+                _anim_player.speed_scale = 1.35 if slot == RbxAnimations.SLOT_JUMP else rate
+        elif slot == RbxAnimations.SLOT_WALK or slot == RbxAnimations.SLOT_CLIMB:
                 _anim_player.speed_scale = rate
+
+## Whatever the import flags said, our slots have fixed looping rules:
+## idle/walk/run/climb/sit/fall cycle, jump holds its last frame.
+func _normalize_loops(anim_player: AnimationPlayer) -> void:
+        for slot in RbxAnimations.LOOP_SLOTS:
+                var clip: String = anims.resolve(slot)
+                if not clip.is_empty() and anim_player.has_animation(clip):
+                        anim_player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+        var jump_clip: String = anims.resolve(RbxAnimations.SLOT_JUMP)
+        if not jump_clip.is_empty() and anim_player.has_animation(jump_clip):
+                anim_player.get_animation(jump_clip).loop_mode = Animation.LOOP_NONE
 
 ## Box-fallback rig: procedural limb swings, same classic feel.
 func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
@@ -336,19 +355,18 @@ func _try_r6ik() -> bool:
                 return false
 
         # ---- the rig's own AnimationPlayer carries the old Roblox clips
-        # (Old_Idle / Old_Walk / Old_Jump / Climb ...) and its tracks drive the
-        # visible body parts directly — so we USE it instead of silencing it.
+        # (Old_Idle / Old_Walk / Old_Jump / Climb ...). Slot-map them, then
+        # merge any user animation files (assets/anims/, user://anims/) on
+        # top — user clips win their slots.
         for node in inst.find_children("*", "AnimationPlayer", true, false):
                 var anim_player := node as AnimationPlayer
                 anim_player.autoplay = ""
                 anim_player.stop()
-                # IDLE processing: advances every frame, honoring speed_scale
-                # (used to speed the walk clip up and down with the player)
-                # the jump clip must hold its last frame mid-air, not loop
-                var jump_anim := anim_player.get_animation(ANIM_JUMP)
-                if jump_anim != null:
-                        jump_anim.loop_mode = Animation.LOOP_NONE
+                anims.attach(anim_player)
+                anims.load_user_files(anim_player, inst)
+                _normalize_loops(anim_player)
                 _anim_player = anim_player
+                print("[RetroBlox] anims: ", anims.describe())
 
         # ---- normalize: RIG_HEIGHT tall, feet on y=0, centered on x/z ----
         # bounds are computed from REAL vertices — the FBX part nodes carry
