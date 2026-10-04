@@ -27,7 +27,7 @@ const ANIM_WALK: StringName = &"Old_Walk"
 const ANIM_JUMP: StringName = &"Old_Jump"
 const ANIM_CLIMB: StringName = &"Climb"
 
-# classic noob defaults — guests and brand-new accounts wear these
+# classic noob defaults — brand-new accounts (and the offline fallback) wear these
 const NOOB_HEAD := Color("f5cd30")
 const NOOB_TORSO := Color("0d69ac")
 const NOOB_LEGS := Color("7ab53e")
@@ -78,7 +78,6 @@ var _using_r6ik: bool = false
 var _time: float = 0.0
 var _face_boxes: Array[MeshInstance3D] = []
 var _face_decal: MeshInstance3D
-var _tshirt_decal: MeshInstance3D
 var _applied_colors: Dictionary = {}     # part index -> Color, reapplied if the rig upgrades
 var _anim_player: AnimationPlayer        # the R6IK rig's own AnimationPlayer (old Roblox clips)
 var _current_anim: StringName = &""
@@ -174,41 +173,6 @@ func clear_face() -> void:
                 _face_decal.queue_free()
         _face_decal = null
 
-## T-shirt — an image decal on the FRONT of the torso, the site's
-## tshirtUrls -> frontDecal rule (92% of the torso face, just off the
-## surface). Replaces any t-shirt worn before.
-func set_tshirt(tex: Texture2D) -> void:
-        _ensure_built()
-        if tex == null:
-                return
-        if _tshirt_decal != null and is_instance_valid(_tshirt_decal):
-                _tshirt_decal.queue_free()
-        _tshirt_decal = null
-        var torso_size: Vector3 = _part_sizes[TORSO]
-        var quad := MeshInstance3D.new()
-        quad.name = "TshirtDecal"
-        var mesh := QuadMesh.new()
-        mesh.size = Vector2(torso_size.x * 0.92, torso_size.y * 0.92)
-        quad.mesh = mesh
-        var material := StandardMaterial3D.new()
-        material.albedo_texture = tex
-        material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-        material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-        material.cull_mode = BaseMaterial3D.CULL_DISABLED
-        quad.material_override = material
-        # front of the torso (the rig faces -Z), just off the surface,
-        # parented to the torso mount so it follows every swing
-        var host: Node3D = _mounts[TORSO] if _using_r6ik else _pivots[TORSO]
-        host.add_child(quad)
-        quad.position = Vector3(0.0, 0.0, -_part_aabb[TORSO].size.z * 0.5 - 0.014)
-        quad.rotation.y = PI
-        _tshirt_decal = quad
-
-func clear_tshirt() -> void:
-        if _tshirt_decal != null and is_instance_valid(_tshirt_decal):
-                _tshirt_decal.queue_free()
-        _tshirt_decal = null
-
 func animate(delta: float, speed: float, grounded: bool, climbing: bool = false) -> void:
         _ensure_built()
         _time += delta
@@ -240,7 +204,7 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
                 _anim_player.speed_scale = rate
 
 ## Box-fallback rig: procedural limb swings, same classic feel.
-func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var movement: float = clampf(abs(speed) / 5.0, 0.0, 1.0)
         var walk_rate: float = 4.8 + movement * 2.0
         var swing: float = sin(_time * walk_rate) * movement
@@ -399,12 +363,12 @@ func _try_r6ik() -> bool:
                 part_boxes[index] = box
                 raw_bounds = box if not have_bounds else raw_bounds.merge(box)
                 have_bounds = true
-        var fit_scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
+        var scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
         var raw_center := raw_bounds.get_center()
         var model := Node3D.new()
         model.name = "R6IKModel"
-        model.scale = Vector3.ONE * fit_scale
-        model.position = Vector3(-raw_center.x * fit_scale, -raw_bounds.position.y * fit_scale, -raw_center.z * fit_scale)
+        model.scale = Vector3.ONE * scale
+        model.position = Vector3(-raw_center.x * scale, -raw_bounds.position.y * scale, -raw_center.z * scale)
         model.add_child(inst)
         add_child(model)
 
