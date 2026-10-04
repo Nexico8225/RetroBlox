@@ -97,11 +97,11 @@ export function VoteArrows({
     </svg>
   )
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: 36, flexShrink: 0, paddingTop: 2 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, width: 42, flexShrink: 0, paddingTop: 4 }}>
       <button className="rb-clickable" style={{ background: 'none', border: 'none', padding: 2 }} onClick={() => onVote(1)} disabled={disabled} aria-label="Upvote" title="Upvote">
         {arrow(true, myVote === 1)}
       </button>
-      <span style={{ fontSize: 12, color: score > 0 ? '#c2570e' : score < 0 ? '#3d566e' : dark ? '#8fa0b3' : '#5a6b7b' }}>{score}</span>
+      <span style={{ fontSize: 13, color: score > 0 ? '#c2570e' : score < 0 ? '#3d566e' : dark ? '#8fa0b3' : '#5a6b7b' }}>{score}</span>
       <button className="rb-clickable" style={{ background: 'none', border: 'none', padding: 2 }} onClick={() => onVote(-1)} disabled={disabled} aria-label="Downvote" title="Downvote">
         {arrow(false, myVote === -1)}
       </button>
@@ -123,14 +123,14 @@ function ActionBar({
   const { setToast } = useRetro()
   const c = dark ? '#8fa0b3' : '#7b8896'
   const item = {
-    display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: c,
+    display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: c,
     background: 'none', border: 'none', padding: 0, cursor: 'pointer',
   }
   return (
-    <div style={{ marginTop: 6, fontSize: 10, color: c, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+    <div style={{ marginTop: 10, fontSize: 11, color: c, display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
       {href ? (
         <Link href={href} className="rb-clickable" style={{ ...item, textDecoration: 'none' }} aria-label="Comments">
-          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h12v8H6l-3 3v-3H2z" fill="none" stroke={c} strokeWidth="1.3" /></svg>
+          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h12v8H6l-3 3v-3H2z" fill="none" stroke={c} strokeWidth="1.3" /></svg>
           {comments} comment{comments === 1 ? '' : 's'}
         </Link>
       ) : (
@@ -400,11 +400,11 @@ export function CommunityView() {
           style={{
             flex: 1,
             textAlign: 'center',
-            padding: '9px 6px',
+            padding: '12px 8px',
             background: tab === 'posts' ? '#e3edf7' : 'transparent',
             border: 'none',
             borderBottom: tab === 'posts' ? '2px solid #2f7bc0' : '2px solid transparent',
-            fontSize: 12,
+            fontSize: 13,
             color: tab === 'posts' ? '#0a4f82' : '#5a6b7b',
             cursor: 'pointer',
           }}
@@ -418,12 +418,12 @@ export function CommunityView() {
           style={{
             flex: 1,
             textAlign: 'center',
-            padding: '9px 6px',
+            padding: '12px 8px',
             background: tab === 'videos' ? '#f9e5e3' : 'transparent',
             border: 'none',
             borderLeft: '1px solid #e4eaf0',
             borderBottom: tab === 'videos' ? '2px solid #e1231a' : '2px solid transparent',
-            fontSize: 12,
+            fontSize: 13,
             color: tab === 'videos' ? '#a02018' : '#5a6b7b',
             cursor: 'pointer',
           }}
@@ -483,18 +483,18 @@ export function CommunityView() {
     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       {tab === 'videos' ? (
         /* -------- VIDEOS TAB — same tab as the community -------- */
-        <div style={{ flex: 1, minWidth: 280, display: 'grid', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 280, display: 'grid', gap: 14 }}>
           {tabBar}
           <VideosBrowserView q={q} sort="new" embedded />
         </div>
       ) : (
       /* -------- POSTS TAB -------- */
-      <div style={{ flex: 1, minWidth: 280, display: 'grid', gap: 8 }}>
+      <div style={{ flex: 1, minWidth: 280, display: 'grid', gap: 14, alignContent: 'start' }}>
         {tabBar}
         {/* reddit-style header bar: title + search + actions */}
         <div className="rb-box" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14, color: '#1c2733' }}>{heading}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, color: '#1c2733' }}>{heading}</span>
             <form
               onSubmit={(e) => {
                 e.preventDefault()
@@ -530,9 +530,9 @@ export function CommunityView() {
                 className="rb-clickable"
                 onClick={() => setSort(s)}
                 style={{
-                  flex: 1, textAlign: 'center', padding: '8px 6px', background: sort === s ? '#e3edf7' : 'transparent',
+                  flex: 1, textAlign: 'center', padding: '10px 6px', background: sort === s ? '#e3edf7' : 'transparent',
                   border: 'none', borderBottom: sort === s ? '2px solid #2f7bc0' : '2px solid transparent',
-                  fontSize: 11, color: sort === s ? '#0a4f82' : '#5a6b7b', textTransform: 'capitalize', cursor: 'pointer',
+                  fontSize: 12, color: sort === s ? '#0a4f82' : '#5a6b7b', textTransform: 'capitalize', cursor: 'pointer',
                 }}
                 aria-pressed={sort === s}
               >
@@ -587,21 +587,21 @@ export function CommunityView() {
           feed.map((it) =>
             it.kind === 'post' ? (
               /* ---------------- Reddit-style post card ---------------- */
-              <div key={it.post.id} className="rb-box rb-feed-card" style={{ padding: 8, display: 'flex', gap: 8 }}>
+              <div key={it.post.id} className="rb-box rb-feed-card" style={{ padding: '12px 14px', display: 'flex', gap: 12 }}>
                 <VoteArrows ups={it.post.ups} downs={it.post.downs} score={it.post.score} myVote={it.post.myVote} onVote={(v) => votePost(it.post, v as 1 | -1)} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: '#7b8896', marginBottom: 3, display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 11, color: '#7b8896', marginBottom: 5, display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
                     <SubChip post={it.post} />
                     <span>· posted by</span>
-                    <Link href={`/users/${it.post.author.id}`} className="rb-link" style={{ fontSize: 10 }}>u/{it.post.author.username}</Link>
+                    <Link href={`/users/${it.post.author.id}`} className="rb-link" style={{ fontSize: 11 }}>u/{it.post.author.username}</Link>
                     {it.post.author.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
                     <span>· {timeAgo(it.post.createdAt)}</span>
                   </div>
-                  <Link href={`/community/${it.post.id}`} className="rb-link" style={{ fontSize: 13, display: 'block', lineHeight: 1.35 }}>
+                  <Link href={`/community/${it.post.id}`} className="rb-link" style={{ fontSize: 15, display: 'block', lineHeight: 1.35 }}>
                     <FxText text={it.post.title} />
                   </Link>
                   {it.post.body && (
-                    <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 3, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <div style={{ fontSize: 12, color: '#5a6b7b', marginTop: 5, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {it.post.body}
                     </div>
                   )}
@@ -632,20 +632,20 @@ export function CommunityView() {
               </div>
             ) : (
               /* ---------------- YouTube-in-Reddit video card ---------------- */
-              <div key={it.video.id} className="rb-box rb-feed-card" style={{ padding: 8, display: 'flex', gap: 8 }}>
+              <div key={it.video.id} className="rb-box rb-feed-card" style={{ padding: '12px 14px', display: 'flex', gap: 12 }}>
                 <VoteArrows ups={it.video.likes} downs={it.video.dislikes} score={it.video.score || 0} myVote={it.video.myVote || 0} onVote={(v) => voteVideo(it.video, v as 1 | -1)} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: '#7b8896', marginBottom: 3, display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Link href="/community?r=r%2Fvideos" className="rb-link" style={{ fontSize: 10, color: '#1c4e7c' }}>r/videos</Link>
+                  <div style={{ fontSize: 11, color: '#7b8896', marginBottom: 5, display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Link href="/community?r=r%2Fvideos" className="rb-link" style={{ fontSize: 11, color: '#1c4e7c' }}>r/videos</Link>
                     <span>· posted by</span>
-                    <Link href={`/users/${it.video.author.id}`} className="rb-link" style={{ fontSize: 10 }}>u/{it.video.author.username}</Link>
+                    <Link href={`/users/${it.video.author.id}`} className="rb-link" style={{ fontSize: 11 }}>u/{it.video.author.username}</Link>
                     <span>· {timeAgo(it.video.createdAt)}</span>
                   </div>
-                  <Link href={`/videos/${it.video.id}`} className="rb-link" style={{ fontSize: 13, display: 'block', lineHeight: 1.35 }}>
+                  <Link href={`/videos/${it.video.id}`} className="rb-link" style={{ fontSize: 15, display: 'block', lineHeight: 1.35 }}>
                     {it.video.title}
                   </Link>
                   {it.video.description && (
-                    <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 3, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <div style={{ fontSize: 12, color: '#5a6b7b', marginTop: 5, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {it.video.description}
                     </div>
                   )}
@@ -1017,18 +1017,18 @@ export function CommunityDetailView({ id }: { id: string }) {
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <div style={{ flex: 1, minWidth: 280 }}>
-        <div className="rb-box" style={{ padding: 10, display: 'flex', gap: 8 }}>
+        <div className="rb-box" style={{ padding: '14px 16px', display: 'flex', gap: 12 }}>
           <VoteArrows ups={post.ups} downs={post.downs} score={post.score} myVote={post.myVote} onVote={(v) => vote(v as 1 | -1)} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: '#7b8896', marginBottom: 4, display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 11, color: '#7b8896', marginBottom: 6, display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
               <SubChip post={post} />
               <span>· posted by</span>
-              <Link href={`/users/${post.author.id}`} className="rb-link" style={{ fontSize: 10 }}>u/{post.author.username}</Link>
+              <Link href={`/users/${post.author.id}`} className="rb-link" style={{ fontSize: 11 }}>u/{post.author.username}</Link>
               {post.author.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
               <span>· {timeAgo(post.createdAt)}</span>
             </div>
-            <h1 style={{ fontSize: 17, color: '#1c2733', margin: '0 0 8px', lineHeight: 1.35 }}><FxText text={post.title} /></h1>
-            {post.body && <div style={{ fontSize: 12, color: '#2c3e50', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}><FxText text={post.body} /></div>}
+            <h1 style={{ fontSize: 20, color: '#1c2733', margin: '0 0 10px', lineHeight: 1.3 }}><FxText text={post.title} /></h1>
+            {post.body && <div style={{ fontSize: 13, color: '#2c3e50', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}><FxText text={post.body} /></div>}
             {mediaRender(post.mediaFileId ?? null, post.mediaType ?? null, post.mediaName)}
             {post.videoId && (
               <Link href={`/videos/${post.videoId}`} className="rb-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, textDecoration: 'none', marginTop: 8 }}>
@@ -1045,12 +1045,12 @@ export function CommunityDetailView({ id }: { id: string }) {
         </div>
 
         {/* comments */}
-        <div className="rb-box" style={{ marginTop: 12 }}>
+        <div className="rb-box" style={{ marginTop: 14 }}>
           <div className="rb-panel-head"><span>Comments ({post.comments?.length || 0})</span></div>
-          <div style={{ padding: 10 }}>
+          <div style={{ padding: 14 }}>
             {user && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                <Avatar user={user as RetroUser} size={36} />
+              <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+                <Avatar user={user as RetroUser} size={38} />
                 <div style={{ flex: 1 }}>
                   <textarea
                     ref={commentTaRef}
@@ -1102,8 +1102,8 @@ export function CommunityDetailView({ id }: { id: string }) {
               const replies = (post.comments || []).filter((r) => r.parentId === c.id)
               const replyOpen = replyTo === c.id
               return (
-                <div key={c.id} style={{ padding: '8px 0', borderTop: '1px solid #e4eaf0' }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                <div key={c.id} style={{ padding: '10px 0', borderTop: '1px solid #e4eaf0' }}>
+                  <div style={{ display: 'flex', gap: 10 }}>
                     <Avatar user={c.author} size={34} />
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1156,7 +1156,7 @@ export function CommunityDetailView({ id }: { id: string }) {
 
                   {/* replies */}
                   {replies.length > 0 && (
-                    <div style={{ marginLeft: 42, marginTop: 8, display: 'grid', gap: 8 }}>
+                    <div style={{ marginLeft: 44, marginTop: 10, display: 'grid', gap: 10 }}>
                       {replies.map((r) => (
                         <div key={r.id} style={{ display: 'flex', gap: 8 }}>
                           <Avatar user={r.author} size={26} />
@@ -1181,7 +1181,7 @@ export function CommunityDetailView({ id }: { id: string }) {
 
                   {/* inline reply composer */}
                   {replyOpen && user && (
-                    <div style={{ marginLeft: 42, marginTop: 8, display: 'flex', gap: 8 }}>
+                    <div style={{ marginLeft: 44, marginTop: 10, display: 'flex', gap: 8 }}>
                       <Avatar user={user as RetroUser} size={26} />
                       <div style={{ flex: 1 }}>
                         <textarea
