@@ -14,8 +14,26 @@ import { BADGES, BADGE_MAP, evaluateBadges, levelForXp } from '@/lib/badges'
  */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await db.user.findUnique({ where: { id }, select: { id: true, username: true, createdAt: true } })
-  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  try {
+    return await handle(id)
+  } catch (e) {
+    const err = e as { message?: string; code?: string }
+    return NextResponse.json(
+      { error: 'Stats failed to load', detail: err?.message || String(e), code: err?.code },
+      { status: 500 }
+    )
+  }
+}
+
+async function handle(id: string) {
+  // id OR username — the profile page passes the URL param straight through.
+  // usernameLower gives the case-insensitive match on SQLite.
+  const found = await db.user.findFirst({
+    where: { OR: [{ id }, { username: id }, { usernameLower: decodeURIComponent(id).toLowerCase() }] },
+    select: { id: true, username: true, createdAt: true },
+  })
+  if (!found) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  const user = found
 
   // badges catch-up: cheap, guarantees the showcase is fresh even if a
   // milestone happened outside a playtime heartbeat
@@ -42,18 +60,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     db.gamePlay.count({ where: { userId: id } }),
   ])
 
-  // no groupBy+orderBy(_sum) here either — that combo crashes on the libSQL
-  // adapter in production; aggregate this player's week rows in JS instead
-  const weekRows = await db.playSession.findMany({
+  const weekGameRows = await db.playSession.groupBy({
+    by: ['gameId'],
     where: { userId: id, lastBeatAt: { gte: twoWeeksAgo } },
-    select: { gameId: true, seconds: true },
+    _sum: { seconds: true },
+    orderBy: { _sum: { seconds: 'desc' } },
+    take: 10,
   })
-  const weekSecondsMap = new Map<string, number>()
-  for (const r of weekRows) weekSecondsMap.set(r.gameId, (weekSecondsMap.get(r.gameId) || 0) + r.seconds)
-  const weekGameRows = [...weekSecondsMap.entries()]
-    .map(([gameId, seconds]) => ({ gameId, _sum: { seconds } }))
-    .sort((a, b) => b._sum.seconds - a._sum.seconds)
-    .slice(0, 10)
 
   const totalSecondsByGame = new Map(gameAgg.map((r) => [r.game.id, r.seconds]))
   const weekIds = weekGameRows.map((r) => r.gameId).filter((gid) => !totalSecondsByGame.has(gid))
