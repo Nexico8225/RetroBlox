@@ -265,11 +265,6 @@ function LatestVideosStrip() {
 
 /* ---------------- Home ---------------- */
 
-/* the old-school news ticker — one endless strip of fun, like the marquees
-   every website had in 2006. Rendered twice for a seamless CSS loop. */
-const TICKER =
-  "★ WELCOME TO RETROBLOX ★ PLAY “BASEPLATE” WITH EVERYONE — IT'S LIVE RIGHT NOW ★ PUBLISH YOUR OWN GAMES ★ DRESS YOUR BLOCKHEAD ★ TRADE LIMITEDS WITH FRIENDS ★ POST VIDEOS OF YOUR WINS ★ YOU CAN SEE THE ROBLOX INSIDE RETROBLOX ★ "
-
 export function HomeView() {
   const { user, pendingRequests } = useRetro()
   const [friends, setFriends] = useState<RetroUser[]>([])
@@ -304,15 +299,15 @@ export function HomeView() {
   return (
     <div>
       {/* the hero — your wordmark, your name, and the three things people
-          actually do here. Sky gradient + the scrolling news ticker keep it
-          loud and proud like a 2006 fansite. */}
+          actually do here. Sky gradient keeps it loud and proud like a
+          2006 fansite. */}
       <section
         className="rb-box rb-hero"
         style={{
-          marginBottom: 10,
-          padding: '14px 16px 0',
+          marginBottom: 12,
+          padding: '18px 20px',
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: 'row',
           overflow: 'hidden',
           position: 'relative',
         }}
@@ -329,24 +324,17 @@ export function HomeView() {
               Publish a game, dress your blockhead, or hang out in the lounge.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {/* one main color — the wordmark red leads, the rest stay neutral */}
-            <Link className="rb-btn rb-btn-red" href="/create" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
+            <Link className="rb-btn rb-btn-red" href="/create" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 15px' }}>
               + Publish a Game
             </Link>
-            <Link className="rb-btn" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
+            <Link className="rb-btn" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 15px' }}>
               ▶ Post a Video
             </Link>
-            <Link className="rb-btn" href="/community" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
+            <Link className="rb-btn" href="/community" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 15px' }}>
               Community
             </Link>
-          </div>
-        </div>
-        {/* retro marquee ticker — pure flavor, ignorable, but impossible to miss */}
-        <div className="rb-marquee" aria-hidden="true">
-          <div className="rb-marquee-track">
-            <span>{TICKER}</span>
-            <span>{TICKER}</span>
           </div>
         </div>
       </section>
