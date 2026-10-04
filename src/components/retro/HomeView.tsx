@@ -330,10 +330,11 @@ export function HomeView() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {/* one main color — the wordmark red leads, the rest stay neutral */}
             <Link className="rb-btn rb-btn-red" href="/create" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
               + Publish a Game
             </Link>
-            <Link className="rb-btn rb-btn-green" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
+            <Link className="rb-btn" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
               ▶ Post a Video
             </Link>
             <Link className="rb-btn" href="/community" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
