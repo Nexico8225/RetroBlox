@@ -7,11 +7,8 @@ import { useRetro, api, fmtDate, timeAgo, flash, type RetroUser } from '@/lib/st
 import { Avatar, OnlineDot } from './Shell'
 import { GameCard, GameSummary } from './HomeView'
 import { RetroVideoPlayer } from './RetroVideoPlayer'
-import dynamic from 'next/dynamic'
 import type { Placement } from '@/lib/avatarAssets'
-
-/** clean white item-only thumb for group-published 3D UGC */
-const ItemThumb3D = dynamic(() => import('./ItemThumb3D'), { ssr: false })
+import DeleteConfirmFullScreen from './DeleteConfirmFullScreen'
 
 /* ================= Groups directory (/groups) ================= */
 
@@ -232,8 +229,6 @@ interface GroupDetailT {
     modelFileId?: string | null
     textureFileId?: string | null
     baseColor?: string | null
-    roughness?: number | null
-    metallic?: number | null
     placement?: Placement | null
     creator: { id: string; username: string; avatarUrl: string | null }
     createdAt: string
@@ -1050,6 +1045,9 @@ function GroupUgc({
   const [preview, setPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  // the screen-filling permanent-delete gate — remove = delete = true
+  const [deleteTarget, setDeleteTarget] = useState<GroupDetailT['ugcItems'][number] | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const { user } = useRetro()
 
@@ -1085,14 +1083,23 @@ function GroupUgc({
     }
   }
 
+  /** remove = delete = true: open the full-screen gate, then HARD delete. */
   async function removeItem(item: GroupDetailT['ugcItems'][number]) {
-    if (!window.confirm(`Delete "${item.name}" from the catalog?`)) return
+    setDeleteTarget(item)
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await api(`/api/catalog/${item.id}`, { method: 'DELETE' })
-      flash(setToast, 'UGC deleted.')
+      await api(`/api/catalog/${deleteTarget.id}`, { method: 'DELETE' })
+      flash(setToast, `"${deleteTarget.name}" deleted permanently.`)
+      setDeleteTarget(null)
       onChanged()
     } catch (err) {
       flash(setToast, err instanceof Error ? err.message : 'Failed', 2400)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -1160,24 +1167,9 @@ function GroupUgc({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
           {ugcItems.map((item) => (
             <div key={item.id} className="rb-box rb-card" style={{ padding: 0, overflow: 'hidden' }}>
-              {/* saved shot paints first, live 3D render covers it — slot can never be blank */}
+              {/* the saved thumbnail IS the icon — 3D renders stay in try-on/avatar */}
               <div style={{ position: 'relative' }}>
                 <img src={`/api/files/${item.imageFileId}`} alt={item.name} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block', background: '#fff' }} />
-                {item.modelFileId && (
-                  <div style={{ position: 'absolute', inset: 0 }}>
-                    <ItemThumb3D
-                      modelUrl={`/api/files/${item.modelFileId}`}
-                      placement={item.placement}
-                      alt={item.name}
-                      fallbackSrc={`/api/files/${item.imageFileId}`}
-                      textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
-                      color={item.baseColor || undefined}
-                      roughness={item.roughness}
-                      metallic={item.metallic}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#fff' }}
-                    />
-                  </div>
-                )}
               </div>
               <div style={{ padding: 8 }}>
                 <div style={{ fontSize: 12, color: '#1c2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
@@ -1192,6 +1184,16 @@ function GroupUgc({
             </div>
           ))}
         </div>
+      )}
+
+      {/* the screen-filling permanent-delete gate — remove = delete = true */}
+      {deleteTarget && (
+        <DeleteConfirmFullScreen
+          target={{ id: deleteTarget.id, name: deleteTarget.name, imageFileId: deleteTarget.imageFileId, assetId: deleteTarget.assetId, type: deleteTarget.type }}
+          busy={deleting}
+          onDelete={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   )
