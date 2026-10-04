@@ -18,10 +18,10 @@ extends RefCounted
 # and when other devs copy these scripts into their own project.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
-const RIG_HEIGHT := 2.9          # this avatar's height (site rig = 5.0 studs)
+const RIG_HEIGHT := 5.0          # this avatar's height — SAME as the site rig (5.0 studs)
 const SITE_RIG_HEIGHT := 5.0
 const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies
-const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT
+const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT  # 1.0 — same studs as the site
 
 # "this surface arrived with no real paint" threshold (raw sRGB ~0.97+),
 # matching the site converter's linear-space 0.93 rule
@@ -138,12 +138,21 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                 var inner := Node3D.new()
                 inner.name = "UGC_" + String(acc_id)
                 inner.add_child(scene)
+                # the creator's placement, applied VERBATIM — in SITE space
+                # (three.js 'XYZ' Euler, degrees), see _apply_placement
                 _apply_placement(inner, surface_asset.get("placement", null))
-                # site placements are authored against the 5-stud rig — scale down
+                # THE MIRROR FIX — the site rig faces +Z, this rig faces -Z.
+                # A 180° turn around Y maps site space onto game space, so
+                # every item lands facing exactly the way the creator placed
+                # it on the website (previously hats/UGC wore BACKWARDS).
+                var site := Node3D.new()
+                site.name = "UGCSiteSpace_" + String(acc_id)
+                site.rotation.y = PI
+                site.add_child(inner)
                 var holder := Node3D.new()
                 holder.name = "UGCScaled_" + String(acc_id)
                 holder.scale = Vector3.ONE * UGC_SCALE
-                holder.add_child(inner)
+                holder.add_child(site)
                 avatar_node.add_child(holder)
                 # creator texture / tint — THE ROBLOX RULE, DATA WINS: the
                 # model's own materials always show; the site's paint only
@@ -158,13 +167,6 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                         var paint := Color.from_string(tint, Color.TRANSPARENT)
                         if paint != Color.TRANSPARENT:
                                 _surface_texture(scene, null, paint)
-                # creator surface finish — the site's Metallic / Roughness
-                # sliders. An explicit creator choice beats what the GLB
-                # carries, on every surface, exactly like the website renders.
-                var rough_v: Variant = surface_asset.get("roughness", null)
-                var metal_v: Variant = surface_asset.get("metallic", null)
-                if rough_v != null or metal_v != null:
-                        _surface_finish(scene, rough_v, metal_v)
 
 
 # ---------------------------------------------------------------- helpers
@@ -308,7 +310,11 @@ static func _relative_xform(root: Node3D, node: Node3D) -> Transform3D:
 
 
 ## The creator's placement: p = position, r = degrees, s = scale — applied
-## VERBATIM. The platform NEVER auto-fits or repositions UGC.
+## VERBATIM, in the SITE's conventions: three.js 'XYZ' Euler order (the site
+## applies obj.rotation.set(x, y, z) = Rx·Ry·Rz; Godot's rotation_degrees
+## would compose YXZ and twist multi-axis placements). The platform NEVER
+## auto-fits or repositions UGC. The +Z→-Z mirror lives in the site-space
+## wrapper node this script adds above the placement holder.
 static func _apply_placement(holder: Node3D, placement: Variant) -> void:
         if placement == null or not (placement is Dictionary):
                 return
@@ -318,7 +324,13 @@ static func _apply_placement(holder: Node3D, placement: Variant) -> void:
         if p.size() == 3:
                 holder.position = Vector3(float(p[0]), float(p[1]), float(p[2]))
         if r.size() == 3:
-                holder.rotation_degrees = Vector3(float(r[0]), float(r[1]), float(r[2]))
+                var rx := deg_to_rad(float(r[0]))
+                var ry := deg_to_rad(float(r[1]))
+                var rz := deg_to_rad(float(r[2]))
+                # Rx · Ry · Rz — exactly the site's three.js 'XYZ' Euler.
+                # (Built by hand: Godot's rotation_degrees would compose YXZ,
+                # and Vector3.BACK is -Z, which would flip the sign.)
+                holder.basis = Basis(Vector3.RIGHT, rx) * Basis(Vector3.UP, ry) * Basis(Vector3(0, 0, 1), rz)
         if s.size() == 3:
                 holder.scale = Vector3(float(s[0]), float(s[1]), float(s[2]))
 
@@ -371,23 +383,4 @@ static func _surface_texture(root: Node, tex: Texture2D, tint := Color.TRANSPARE
                                 m.albedo_color = tint
                         else:
                                 continue
-                        mi.set_surface_override_material(surface, m)
-
-
-## Creator surface finish (the site's Metallic / Roughness sliders, 0..1).
-## An explicit override beats whatever the GLB carries — applied to EVERY
-## surface, matching how the website and ItemThumb3D render the same item.
-static func _surface_finish(root: Node, roughness_v: Variant, metallic_v: Variant) -> void:
-        for mi in _all_mesh_instances(root):
-                if mi.mesh == null:
-                        continue
-                for surface: int in range(mi.mesh.get_surface_count()):
-                        var mat: Material = mi.get_active_material(surface)
-                        if mat == null or not (mat is BaseMaterial3D):
-                                continue
-                        var m: BaseMaterial3D = (mat as BaseMaterial3D).duplicate()
-                        if roughness_v != null:
-                                m.roughness = clampf(float(roughness_v), 0.0, 1.0)
-                        if metallic_v != null:
-                                m.metallic = clampf(float(metallic_v), 0.0, 1.0)
                         mi.set_surface_override_material(surface, m)
