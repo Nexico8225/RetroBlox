@@ -109,20 +109,23 @@ func _build_toolbar() -> void:
         root.add_child(toolbar)
 
         # move the three real buttons into the toolbar (signals stay wired).
-        # Grab direct references FIRST — after remove_child the %Name unique
-        # lookups stop resolving and the old code crashed right here, which
-        # aborted _ready() and silently skipped the classic restyle below.
+        # CAPTURE THEM FIRST: removing a node from the tree drops its
+        # unique-name ("%Name") registration, so a %lookup after the move
+        # returns null — the toolbar used to error and lose its icons.
         var menu_btn: Button = %MenuButton
-        for button: Button in [menu_btn, chat_button, people_button]:
-                button.get_parent().remove_child(button)
-                row.add_child(button)
-                _style_toolbar_button(button)
+        var chat_btn: Button = chat_button
+        var people_btn: Button = people_button
+        for button in [menu_btn, chat_btn, people_btn]:
+                var btn := button as Button
+                btn.get_parent().remove_child(btn)
+                row.add_child(btn)
+                _style_toolbar_button(btn)
         menu_btn.icon = load("res://assets/icons/menu.png")
         menu_btn.tooltip_text = "Menu (ESC)"
-        chat_button.icon = load("res://assets/icons/chat.png")
-        chat_button.tooltip_text = "Chat (/)"
-        people_button.icon = load("res://assets/icons/people.png")
-        people_button.tooltip_text = "Players"
+        chat_btn.icon = load("res://assets/icons/chat.png")
+        chat_btn.tooltip_text = "Chat (/)"
+        people_btn.icon = load("res://assets/icons/people.png")
+        people_btn.tooltip_text = "Players"
         toolbar.reset_size()
 
 
@@ -323,13 +326,13 @@ func add_chat(sender_name: String, message: String, system: bool = false) -> voi
                 _unread += 1
                 chat_button.text = str(_unread)
 
-func update_roster(entries: Array, local_id: int) -> void:
+func update_roster(entries: Array, local_id: Variant = "") -> void:
         roster_names = entries
         count_label.text = "%d %s" % [entries.size(), "player" if entries.size() == 1 else "players"]
         var lines: Array[String] = []
         for i in range(mini(entries.size(), 10)):
                 var entry: Dictionary = entries[i]
-                lines.append("• " + str(entry["name"]) + ("  (you)" if int(entry["id"]) == local_id else ""))
+                lines.append("• " + str(entry["name"]) + ("  (you)" if str(entry["id"]) == str(local_id) else ""))
         if entries.size() > 10:
                 lines.append("+ %d more" % (entries.size() - 10))
         if entries.size() == 1:
