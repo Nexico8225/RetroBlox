@@ -36,6 +36,8 @@ var _spawn_pads: Array[Vector3] = []
 var _spawn_cursor: int = 0
 var _map_root: Node3D
 var _loaded_scene_path: String = ""   # which map is live right now (debug/status)
+var _sun: DirectionalLight3D          # main sun — quality settings toggle its shadows
+var _fill: DirectionalLight3D
 
 
 func _ready() -> void:
@@ -214,8 +216,9 @@ func _make_environment() -> void:
         sun.light_color = Color("#ffffff")
         sun.light_energy = 1.15
         sun.shadow_enabled = true
-        sun.directional_shadow_max_distance = 200.0
+        sun.directional_shadow_max_distance = 120.0
         add_child(sun)
+        _sun = sun
 
         # sky/ground fill — the "hemisphere" stand-in from the site playground:
         # soft green-tinted light from the opposite side, no shadows
@@ -226,3 +229,16 @@ func _make_environment() -> void:
         fill.light_energy = 0.30
         fill.shadow_enabled = false
         add_child(fill)
+        _fill = fill
+
+
+## ---- quality hooks (main.gd's settings drive these) -------------------
+
+func set_sun_shadows(enabled: bool) -> void:
+        if _sun != null:
+                _sun.shadow_enabled = enabled
+
+
+func set_shadow_distance(distance: float) -> void:
+        if _sun != null:
+                _sun.directional_shadow_max_distance = maxf(distance, 10.0)
