@@ -1,17 +1,19 @@
-# RetroBlox Godot SDK — Player + Dev Kit
+# RetroBlox Godot Player — web-synced multiplayer
 
-The official RetroBlox player system for **Godot 4.5+**: a classic six-part
-multiplayer world that signs players into their RetroBlox account **inside
-the game** and spawns them wearing their real account avatar.
+The official RetroBlox player for **Godot 4.5+**: log in with your RetroBlox
+account, wear your account avatar (including your own 3D UGC), and play the
+**Baseplate** together with everyone else. The game itself is **synced from
+the RetroBlox website** — the site owns the games, this player downloads and
+runs them.
 
-It is also the **starter kit for your own games** — every piece ships as a
-Godot **scene** you can drag into any project: the block avatar, the player,
-the account login card, the HUD, and a small HTTP client class that talks to
-the RetroBlox platform.
+It is also a **starter kit for your own games** — every piece ships as a
+Godot **scene** built from plain nodes you can drag into any project: the
+block avatar, the player, the login card, the HUD, the part/spawn/ladder
+builders, and a small HTTP client class that talks to the RetroBlox platform.
 
-> **One platform, every engine.** The Godot kit ships first. The same
-> platform API is engine-agnostic (plain HTTP + JSON), so Unity, Unreal,
-> Flax and Source2 adapters are planned next — see the roadmap at the bottom.
+> **Login only.** There is no guest mode — your RetroBlox account IS your
+> player. Accounts made on the website work here, and accounts made here
+> (Sign Up tab) work on the website.
 
 ---
 
@@ -23,238 +25,162 @@ press **F5**. No plugins, no external assets.
 
 The game opens on the login card:
 
-- **Log In** — your existing RetroBlox account. Your account avatar (body
-  colors, shirt, pants, face, 3D UGC) loads from the website.
-- **Sign Up** — create a brand-new account WITHOUT leaving the game.
-- **Play as Guest** — no account; classic noob colors, "Guest-1234" name.
+- **Log In** — your existing RetroBlox account. Your avatar (body colors,
+  shirt, pants, face, 3D UGC) loads from the website.
+- **Sign Up** — create a brand-new account without leaving the game.
 
-The game remembers you — the next launch signs you in automatically.
+Then it downloads the game list from the website and drops you into
+**Baseplate** with everyone else who is online.
 
-| Action | Control |
-|---|---|
-| Move | WASD or arrow keys |
-| Jump | Space |
-| Orbit the camera | Hold right mouse button and drag |
-| Zoom / first person | Mouse wheel |
-| **Shift Lock** | Shift (or toggle it in the Esc menu) |
-| Chat | **/** (already in typing mode) or Enter, then Enter to send |
-| Menu / close chat focus | Esc |
+### Controls
 
-Internet play: run a build with `-- --server` on a machine with a public IP,
-open **UDP 42420** (+42421 for LAN discovery), and set
-`server="YOUR_SERVER_IP"` in the `network.cfg` beside the players' builds.
-Point the login card at any RetroBlox site with `-- --api=https://your-site`.
+| Input | Action |
+| --- | --- |
+| W A S D / arrows | Move (classic WalkSpeed 16, JumpPower 50) |
+| Space | Jump — climb a ladder and press Space to **jump OFF** |
+| Shift | **Shift Lock** on/off (also in the ESC menu) |
+| Right mouse (hold) | Free-look camera |
+| Mouse wheel | Zoom in/out (all the way in = first person) |
+| `/` or Enter | **Chat** — everyone in the place sees it live |
+| Esc | Release chat focus / open the menu |
 
-### The avatar uses the real catalog model (R6IK)
+### Shift Lock
 
-In-game players wear **`assets/models/R6IK.fbx`** — the exact rig the
-website's catalog and avatar editor render — normalized to the game's
-capsule, with limbs swinging from shoulder/hip pivots and arms-up jumps,
-like the site's playground. If the FBX has not been imported yet (a
-brand-new project), the kit falls back to its built-in box rig
-automatically and upgrades the moment Godot imports the model.
+Press **Shift** (or toggle it in the menu): the cursor locks to the screen
+center, the camera rests on your right shoulder, and your character squares
+up to the camera direction while strafing — exactly the classic feel. The
+setting is remembered between sessions.
 
-Making your own rig? Export an FBX with the same part names —
-`Head`, `Torso`, `Left Arm`, `Right Arm`, `Left Leg`, `Right Leg` — and
-drop it in `assets/models/`; the alias matcher (same rules as the site's
-`rig.ts`) finds the parts, hides helper meshes, and everything (painting,
-clothing zones, face decals, debris) keeps working.
+### Ladders
 
-### HUD: the classic top-left icon toolbar
-
-The screen stays clear while you play — a **top-left toolbar** of grey
-beveled icon buttons (the old-Roblox spot) toggles the menu, chat panel
-and player list, and CHAT shows an unread badge while hidden.
-`/` opens chat already in typing mode (the classic behavior), `Enter`
-still works, `Esc` closes it. Switching to another app (alt-tab) does
-**not** pause the game or open the menu — only you pause you. Lighting
-matches the site's catalog look: bright white sun, sky/ground fill light,
-filmic tonemapping.
-
-### Troubleshooting sign-in
-
-- **"Incorrect username or password"** — accounts are shared with the
-  website, so the same name + password work. No account yet? Use the
-  **Sign Up** tab right on the card.
-- **"Could not reach …"** — this player is locked to the official site
-  `https://retro-blox.vercel.app` (the card has no URL field by design).
-  Check your internet, then try again.
-- **Signing in works but the error comes back** — delete
-  `user://profile.cfg` (Godot's *Project → Open User Data Folder*) to
-  clear a stale saved token, then sign in again.
-- **Still stuck on an older kit?** Re-download this zip — versions before
-  September 27, 2026 defaulted the Server field to `localhost:3000`, which
-  always fails. This build is locked to the official site and no longer has
-  a URL field at all.
+RetroLadder (truss) parts are climbable: walk into one and push **forward**
+to climb up, **back** to climb down, and press **Space** to jump off. The
+rig's Climb animation plays while you climb.
 
 ---
 
-## 2. Build YOUR game with the kit (the scenes)
-
-Everything reusable lives in `scenes/`. Each is a normal Godot scene — open
-it in the editor, tweak sizes/colors/widgets visually, or instance it from
-code:
-
-| Scene | What it gives you |
-|---|---|
-| `scenes/avatar.tscn` | The six-part block avatar (head/torso/arms/legs + nameplate + face). Paintable, textureable, animatable. |
-| `scenes/player.tscn` | CharacterBody3D with capsule, avatar and chat bubble — drop it in your world and call `initialize()`. |
-| `scenes/auth_screen.tscn` | The account gate: log in / sign up / guest, saved-token auto sign-in. |
-| `scenes/hud.tscn` | Chat, roster, status line, Esc menu with settings. |
-| `main.tscn` | The demo game: arena + player spawns + camera rig + HUD + auth. Use it as a reference or a starting world. |
-
-### Minimal example — your own game with accounts + avatars
-
-Create a new scene, instance `scenes/auth_screen.tscn` and
-`scenes/player.tscn`, then attach a small script:
-
-```gdscript
-extends Node3D
-
-func _ready() -> void:
-        var auth := $AuthScreen
-        auth.completed.connect(_on_signed_in)
-        auth.guest_requested.connect(_on_guest)
-        auth.set_api_url("https://your-retroblox-site.example")  # optional; default = official site
-
-func _on_signed_in(_api, username: String, _user_id: String, _avatar: Dictionary) -> void:
-        _spawn_player(username)
-
-func _on_guest() -> void:
-        _spawn_player("Guest-%04d" % (randi() % 10000))
-
-func _spawn_player(player_name: String) -> void:
-        $AuthScreen.visible = false
-        var player := preload("res://scenes/player.tscn").instantiate()
-        add_child(player)                      # add to the tree FIRST
-        player.initialize(1, player_name)      # then configure
-        player.global_position = Vector3(0, 0.1, 0)
-```
-
-The demo's `scripts/main.gd` does the same thing plus multiplayer — read it
-as the full example.
-
-Prefer learning from something runnable? Open
-`examples/mini_game/mini_game.tscn` and press **F6** — a login card, your
-account avatar on a platform, and 8 coins to collect, in one small scene.
-See `examples/mini_game/README.md` for the walkthrough.
-
-### Painting the avatar (the same rules the website uses)
-
-`scripts/avatar_platform.gd` dresses an avatar from a platform payload —
-body colors, shirt/pants template zones (300x190 / 220x190), the face decal,
-and 3D UGC accessories loaded from GLB with the creator's exact placement:
-
-```gdscript
-await AvatarPlatform.apply(api, player.avatar, avatar_payload)
-```
-
-Or paint it yourself — no account needed:
-
-```gdscript
-player.avatar.set_part_color(player.avatar.HEAD, Color("f5cd30"))
-```
-
-Every part also has `set_part_textured()` (custom UV-stamped clothing mesh +
-texture) and `set_face()` (decal quad on the head front).
-
-### Making UGC in Blender — materials that survive
-
-The kit loads catalog UGC from GLB, and GLB materials come through exactly
-(StandardMaterial3D albedo). If YOUR item shows up plain white, the colors
-never made it into the file — Blender only exports colors it can carry.
-The 60-second recipe:
-
-1. Shading workspace → select your object → New Material.
-2. It is a **Principled BSDF** by default — set **Base Color** to grey,
-   brown, whatever. One material per color (grey body + brown trim = two
-   materials). Colors ONLY export from Principled BSDF Base Color — the
-   little "Viewport Display" color swatch does NOT export, and other
-   shader nodes (Diffuse BSDF etc.) export as WHITE.
-3. **Best export: File → Export → glTF 2.0 (.glb)** — Format "glTF Binary".
-   Principled colors and image textures always survive this path, and the
-   uploader takes .glb directly.
-4. FBX also works: File → Export → FBX, defaults are fine for flat colors.
-   The site converts it to GLB in your browser and keeps the paint. If your
-   material uses an IMAGE texture, either use .glb (embeds it) or, in the
-   FBX exporter, set Path Mode to **Copy** and tick **Embed Textures** —
-   otherwise the texture file is left behind on your PC and the item is
-   white again.
-
-The uploader warns you at publish time when a model lands with no material
-colors, and the catalog's Texture / Flat color pickers can always paint a
-model that has none.
-
-### The platform API (one HTTP door, any engine)
-
-`scripts/retroblox_api.gd` is a plain RefCounted HTTP client. The same
-endpoints are what every future engine adapter will call:
-
-- `POST /api/platform/login` — sign in (JSON, CORS-open)
-- `POST /api/platform/signup` — create an account (JSON, CORS-open)
-- `GET  /api/platform/me` — your profile + account avatar (Bearer token)
-- `GET  /api/users/{id}/avatar` — any player's avatar (public)
-- `GET  /api/assets/{assetId}` — resolve an asset id into color/image/model
-- `GET  /api/files/{fileId}` — raw asset bytes (PNG/JPG/WEBP/GLB)
-
-### Testing your changes
-
-A headless smoke test covers every scene and script:
+## 2. How the web sync works
 
 ```
-godot --headless -s tests/smoke.gd
+   retroblox website (source of truth)          this player
+   ┌────────────────────────────────┐          ┌────────────────────┐
+   │ GET  /api/game/places          │ ◀─────── │ after login: list  │
+   │ GET  /api/game/places/baseplate│ ◀─────── │ download the map   │
+   │ POST /api/game/state  ~7x/s    │ ◀─────── │ pos/yaw/anim/chat  │
+   │      -> other players + chat   │ ───────▶ │ smoothed, rendered │
+   └────────────────────────────────┘          └────────────────────┘
 ```
 
-It ends with `SMOKE_OK` when all ~48 checks pass.
+- The map (every part, spawn pad, ladder) is stored **on the website** — one
+  game ships today: `baseplate`. Edit the place on the web and the next
+  launch plays the new version.
+- Multiplayer runs over plain HTTPS through the site — **no port forwarding,
+  no LAN setup**. Your client posts its position ~7 times per second and
+  receives everyone else's; remote characters are smoothed so it feels instant.
+- Chat is part of the same loop: messages land in the website's chat store
+  and are delivered to every player in the place (with a spam guard).
+- If the website cannot be reached, the bundled Baseplate scene loads so you
+  can still play solo; the player keeps retrying in the background.
 
-A second tiny guard fails if an input action ever goes missing from
-`project.godot` (movement reads `move_left/right/forward/back` + `jump`):
-
-```
-godot --headless --path . --script res://tests/validate_actions.gd
-```
+Point the player at a different website (self-host): the Server field on the
+login card, `RETROBLOX_API=<url>` or `--api=<url>`.
 
 ---
 
-## 3. Source map
+## 3. For creators — nodes and scenes
 
-| Path | Role |
-|---|---|
-| `main.tscn` | The demo game tree: Arena, Players, Debris, CameraRig |
-| `scenes/avatar.tscn` | The block avatar rig (edit sizes visually) |
-| `scenes/player.tscn` | Capsule + Avatar instance + ChatBubble |
-| `scenes/auth_screen.tscn` | The login card (restyle visually) |
-| `scenes/hud.tscn` | All HUD panels and the Esc menu (restyle visually) |
-| `scripts/main.gd` | Networking, auth flow, camera, shift lock, settings |
-| `scripts/player.gd` | Movement, prediction, shift-lock heading |
-| `scripts/avatar.gd` | Drives the avatar scene nodes (paint/animate/burst) |
-| `scripts/avatar_platform.gd` | Account avatar dressing (site-identical rules) |
-| `scripts/retroblox_api.gd` | HTTP client for the platform |
-| `scripts/auth_screen.gd` | Login/signup/guest behavior |
-| `scripts/hud.gd` | Chat, roster, menu behavior |
-| `scripts/arena.gd` | The procedural demo baseplate world |
-| `network.cfg` | Room name, ports, server address, platform api_url |
+The world is built from the SAME scenes on the web and in the editor:
 
-Networking model: server-authoritative simulation, clients send input,
-20 Hz snapshots, client prediction with reconciliation, LAN auto-host /
-auto-join, plain-text chat with server-side sanitizing.
+| Scene | Node | What it does |
+| --- | --- | --- |
+| `scenes/part.tscn` | `RetroPart` | One classic studded block (size + color in the inspector) |
+| `scenes/spawn_location.tscn` | `SpawnLocation` | Spawn pad — players appear on these round-robin |
+| `scenes/ladder.tscn` | `RetroLadder` | Climbable truss with rungs |
+| `scenes/maps/classic_baseplate.tscn` | — | The classic map, hand-built from the three nodes above |
 
-## 4. Roadmap — one platform, every engine
+To build your own place: open any map scene (or make a new one), drag in
+`part.tscn` / `spawn_location.tscn` / `ladder.tscn`, and set `size` +
+`color` in the inspector. Everything is in **studs** (1 unit = 1 stud, a
+player is 5 studs tall). Players step over ledges up to 3 studs, so
+staircases just work — stack 1-stud steps.
 
-The platform API is intentionally boring: HTTP + JSON + static files. That
-is what makes multi-engine support straightforward. Planned order:
+The web-sync path spawns these very same scenes from the website's map JSON:
 
-1. **Godot (this kit)** — done, ships first.
-2. **Unity** adapter — C# `RetrobloxApi` + prefab avatar rig.
-3. **Unreal** adapter — C++/Blueprints.
-4. **Flax Engine** adapter — C#.
-5. **Source 2** adapter — Hammer + Lua/C++.
+```json
+{
+  "parts":   [{ "name": "Baseplate", "p": [0,-1,0], "s": [128,2,128], "color": "#287f47" }],
+  "spawns":  [{ "name": "Spawn1",    "p": [-6,0.5,-6], "s": [6,1,6],  "color": "#a3a2a5" }],
+  "ladders": [{ "name": "Truss",     "p": [-14.5,6,0], "s": [2,12,1],  "color": "#63666a" }]
+}
+```
 
-Each adapter gets the same promise: sign in inside the game, wear your
-account avatar, every game sees the same you.
+`scripts/arena.gd` builds either source: `apply_map_data()` (web JSON) or the
+bundled `classic_baseplate.tscn` (offline fallback). The map you edit as
+nodes in the editor converts to that JSON 1:1 with
+`scripts/parse_baseplate.py` (in the website repo).
 
-## 5. License
+### Player + avatar scenes
 
-Project code is MIT. The reset sound is an original oof-style synthesis,
-not the licensed Roblox recording. This is a fan-made classic-style client,
-not affiliated with Roblox Corporation.
+- `scenes/player.tscn` — the character: capsule physics + avatar + chat
+  bubble. `initialize(id, name)` for locals, `render_remote()` for network
+  players.
+- `scenes/avatar.tscn` + `scripts/avatar.gd` — the six-part classic rig.
+  In R6IK mode it uses the REAL catalog model (`assets/models/R6IK.fbx`) with
+  the site's own part-matching rules; the box rig is the fallback.
+- `scripts/avatar_platform.gd` — dresses the avatar from the platform
+  payload (body colors, shirt/pants templates, face decal, 3D UGC placed
+  EXACTLY where the creator left it — site-space mapped, so UGC never wears
+  backwards).
+
+### Scripts map
+
+| Script | Role |
+| --- | --- |
+| `scripts/main.gd` | The whole game flow: login → download game → build world → multiplayer heartbeat → chat → respawn |
+| `scripts/player.gd` | Classic movement (WalkSpeed 16 / JumpPower 50 / gravity 196.2), step-up, ladders, fall damage, health |
+| `scripts/arena.gd` | Sky + sun + the map (web JSON or scene) |
+| `scripts/retroblox_api.gd` | The one HTTP door: login, signup, me, avatars, assets, files, game sync |
+| `scripts/hud.gd` | Classic old-Roblox HUD: toolbar, chat, player list, health, ESC menu, Shift Lock toggle |
+| `scripts/auth_screen.gd` | The login / signup card (remembers the last username + token) |
+
+---
+
+## 4. Animations — swapping in new ones
+
+The rig ships with the old-Roblox clips `Old_Idle`, `Old_Walk`, `Old_Jump`
+and `Climb` inside `assets/models/R6IK.fbx`, driven by the rig's own
+AnimationPlayer (`scripts/avatar.gd`).
+
+Making your own anims? Two supported routes:
+
+1. **Replace the built-in clips** — animate the R6IK rig in Blender, export
+   the FBX over `assets/models/R6IK.fbx` with the SAME clip names. Nothing
+   else to change; walk/climb are auto speed-scaled to the movement.
+2. **A different rig** — keep `scenes/avatar.tscn`'s box rig animating
+   procedurally, or point `avatar.gd`'s `ANIM_*` constants at your new clip
+   names. Clip names live in ONE place (top of `scripts/avatar.gd`), so a
+   swap is a four-line change.
+
+---
+
+## 5. Self-hosting / SDK notes
+
+- Everything talks to the same platform API the website exposes — see the
+  endpoint list at the top of `scripts/retroblox_api.gd`.
+- The game sync endpoints are public read (`/api/game/places*`); presence
+  and chat require a login token (`POST /api/game/state`).
+- `tests/probe_web_game.gd` is a full headless E2E: login → avatar → game
+  list → map → two players seeing each other → chat round trip → rate
+  limit → leave → placement math. Point it at any server:
+  change `API_URL`, then
+  `godot --headless --path . --script res://tests/probe_web_game.gd`.
+
+### Troubleshooting
+
+- **"Could not reach the server"** — check the Server field / your internet.
+  The exact network reason is printed.
+- **Wrong colors / white UGC** — creators: export `.glb` from Blender (or
+  FBX with Path Mode "Copy" + "Embed Textures"). The site converter warns at
+  upload when a model carries no material colors.
+- **Stale install** — re-download the kit zip from the site; old zips had
+  missing scenes/icons.
