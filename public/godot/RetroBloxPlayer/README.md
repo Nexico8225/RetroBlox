@@ -44,6 +44,37 @@ Then it downloads the game list from the website and drops you into
 | `/` or Enter | **Chat** — everyone in the place sees it live |
 | Esc | Release chat focus / open the menu |
 
+### Mobile / touch
+
+On phones and tablets the touch controls appear automatically:
+
+| Control | Action |
+| --- | --- |
+| Left stick | Move (the classic WASD, under your thumb) |
+| JUMP button | Jump / jump off ladders |
+| LOCK button | Shift Lock toggle |
+| RESET button | Rebuild your character |
+| Drag on free screen | Orbit the camera |
+| Pinch | Zoom in/out |
+
+The top-left toolbar (menu / chat / people) gets bigger touch targets
+while touch controls are on. Force them on or off in **Menu > Settings >
+Touch Controls** (Auto / On / Off).
+
+### Settings (ESC menu > Settings…)
+
+| Setting | What it does |
+| --- | --- |
+| Quality | Auto / Low / Medium / High — presets for the options below. Auto picks Low on touch devices and **drops to Low by itself** if the game runs below 40 FPS for 4 seconds. |
+| Draw Scale | Renders the 3D world at a lower resolution and upscales it — the single biggest speed boost on phones (65% = roughly half the GPU work). |
+| Shadows | Sun shadows on/off. Off = much faster. |
+| Field of View | 60–100, classic default 70. |
+| Show FPS | Tiny FPS counter top-center (green/yellow/red). |
+| Touch Controls | Auto / On / Off. |
+
+Mouse sensitivity, volume and Shift Lock stay on the main menu card.
+Everything is saved to `user://profile.cfg` between sessions.
+
 ### Shift Lock
 
 Press **Shift** (or toggle it in the menu): the cursor locks to the screen
@@ -140,26 +171,44 @@ nodes in the editor converts to that JSON 1:1 with
 | `scripts/player.gd` | Classic movement (WalkSpeed 16 / JumpPower 50 / gravity 196.2), step-up, ladders, fall damage, health |
 | `scripts/arena.gd` | Sky + sun + the map (web JSON or scene) |
 | `scripts/retroblox_api.gd` | The one HTTP door: login, signup, me, avatars, assets, files, game sync |
-| `scripts/hud.gd` | Classic old-Roblox HUD: toolbar, chat, player list, health, ESC menu, Shift Lock toggle |
+| `scripts/hud.gd` | Classic old-Roblox HUD: toolbar, chat, player list, health, ESC menu, Shift Lock toggle, touch controls (joystick + buttons), Settings card, FPS counter |
+| `scripts/rbx_animations.gd` | The animation slot system: drop-in user clips, name→slot matching, track remapping onto the rig |
 | `scripts/auth_screen.gd` | The login / signup card (remembers the last username + token) |
 
 ---
 
 ## 4. Animations — swapping in new ones
 
-The rig ships with the old-Roblox clips `Old_Idle`, `Old_Walk`, `Old_Jump`
-and `Climb` inside `assets/models/R6IK.fbx`, driven by the rig's own
-AnimationPlayer (`scripts/avatar.gd`).
+**The drop-in way (new):** put an animation file (.fbx or .glb) into
+`assets/anims/` and open the project. That's it. Clips are matched to
+slots by name:
 
-Making your own anims? Two supported routes:
+| Clip names in your file | Plays when |
+| --- | --- |
+| Idle / Old_Idle / Stand | standing still |
+| Walk / Old_Walk / Walking | moving |
+| Run / Running / Sprint | fast movement (fallback when no walk clip) |
+| Jump / Old_Jump / Leap | jumping — holds the last frame mid-air |
+| Fall / Falling / Freefall | falling (falls back to the jump clip) |
+| Climb / Ladder / Truss | on a ladder — auto speed-scaled |
+| Sit / Sitting | reserved for seats |
 
-1. **Replace the built-in clips** — animate the R6IK rig in Blender, export
-   the FBX over `assets/models/R6IK.fbx` with the SAME clip names. Nothing
-   else to change; walk/climb are auto speed-scaled to the movement.
-2. **A different rig** — keep `scenes/avatar.tscn`'s box rig animating
-   procedurally, or point `avatar.gd`'s `ANIM_*` constants at your new clip
-   names. Clip names live in ONE place (top of `scripts/avatar.gd`), so a
-   swap is a four-line change.
+Matching is loose: `My_Cool-Walk 2` plays as the walk clip. User clips
+always win over the rig's built-in `Old_*` clips, and every track is
+remapped onto the rig's real nodes (so part names like `Left Arm` bind
+correctly). See `assets/anims/README.txt` for the Blender export
+checklist — **Bake Animation must be ON**, or the FBX ships with no
+animation data at all (a very common miss). `.glb` never has this problem.
+
+Under the hood: `scripts/rbx_animations.gd` owns the slots
+(idle/walk/run/jump/fall/climb/sit), `scripts/avatar.gd` plays them and
+speed-scales walk/climb to the actual movement. There is also a runtime
+path — drop `.glb` files in `user://anims/` and they play without
+re-downloading the kit.
+
+Making a whole new rig? Keep `scenes/avatar.tscn`'s box rig animating
+procedurally, or extend `rbx_animations.gd`'s alias table — clip mapping
+lives in ONE place.
 
 ---
 
