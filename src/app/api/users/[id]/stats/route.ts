@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { BADGES, BADGE_MAP, evaluateBadges, levelForXp } from '@/lib/badges'
+import { resolveUserIdParam } from '@/lib/auth'
 
 /**
  * STEAM-STYLE PLAYER STATS — GET /api/users/{userId}/stats   (public)
@@ -14,26 +15,11 @@ import { BADGES, BADGE_MAP, evaluateBadges, levelForXp } from '@/lib/badges'
  */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  try {
-    return await handle(id)
-  } catch (e) {
-    const err = e as { message?: string; code?: string }
-    return NextResponse.json(
-      { error: 'Stats failed to load', detail: err?.message || String(e), code: err?.code },
-      { status: 500 }
-    )
-  }
-}
-
-async function handle(id: string) {
-  // id OR username — the profile page passes the URL param straight through.
-  // usernameLower gives the case-insensitive match on SQLite.
-  const found = await db.user.findFirst({
-    where: { OR: [{ id }, { username: id }, { usernameLower: decodeURIComponent(id).toLowerCase() }] },
-    select: { id: true, username: true, createdAt: true },
-  })
-  if (!found) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-  const user = found
+  // id, username (any casing) or "me" all resolve — the showcase never walls up
+  const userId = await resolveUserIdParam(id)
+  if (!userId) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, username: true, createdAt: true } })
+  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   // badges catch-up: cheap, guarantees the showcase is fresh even if a
   // milestone happened outside a playtime heartbeat
@@ -42,27 +28,27 @@ async function handle(id: string) {
   const twoWeeksAgo = new Date(Date.now() - 14 * 86400000)
 
   const [totals, weekAgg, gameAgg, badgeRows, userCount, favGame, distinctGames] = await Promise.all([
-    db.gamePlay.aggregate({ where: { userId: id }, _sum: { seconds: true } }),
-    db.playSession.aggregate({ where: { userId: id, lastBeatAt: { gte: twoWeeksAgo } }, _sum: { seconds: true } }),
+    db.gamePlay.aggregate({ where: { userId: userId }, _sum: { seconds: true } }),
+    db.playSession.aggregate({ where: { userId: userId, lastBeatAt: { gte: twoWeeksAgo } }, _sum: { seconds: true } }),
     db.gamePlay.findMany({
-      where: { userId: id },
+      where: { userId: userId },
       orderBy: [{ seconds: 'desc' }, { lastPlayedAt: 'desc' }],
       take: 12,
       include: { game: { select: { id: true, name: true, iconUrl: true, thumbnailUrl: true, genre: true } } },
     }),
-    db.playerBadge.findMany({ where: { userId: id }, select: { badgeId: true, unlockedAt: true } }),
+    db.playerBadge.findMany({ where: { userId: userId }, select: { badgeId: true, unlockedAt: true } }),
     db.user.count(),
     db.gamePlay.findFirst({
-      where: { userId: id },
+      where: { userId: userId },
       orderBy: { lastPlayedAt: 'desc' },
       select: { game: { select: { id: true, name: true, iconUrl: true } } },
     }),
-    db.gamePlay.count({ where: { userId: id } }),
+    db.gamePlay.count({ where: { userId: userId } }),
   ])
 
   const weekGameRows = await db.playSession.groupBy({
     by: ['gameId'],
-    where: { userId: id, lastBeatAt: { gte: twoWeeksAgo } },
+    where: { userId: userId, lastBeatAt: { gte: twoWeeksAgo } },
     _sum: { seconds: true },
     orderBy: { _sum: { seconds: 'desc' } },
     take: 10,
