@@ -1,8 +1,8 @@
 /* ============================================================
-   RetroBlox global theme — "2006 Steel": the OG Roblox look —
-   deep steel-blue header, grey beveled panels, chunky borders,
-   hard little shadows, the classic link blue #0d69ac and brick
-   red #e2231a. Buttons and panels press like real plastic.
+   RetroBlox global theme — "2016 Classic": the old Roblox look
+   (solid blue top bar, light gray page, white cards, Source Sans
+   Pro feel) sampled from the user's 2016 screenshots — nav blue
+   #0070b6, page #e3e3e3, action green #02b757, link blue #00A2FF.
    Still RetroBlox: chunky retro cursors and the sprite logo stay.
    ============================================================ */
 
@@ -34,23 +34,21 @@
 :root {
   --rb-red: #e2231a;
   --rb-red-dark: #b81b13;
-  --rb-blue: #0d69ac;
-  --rb-blue-bright: #00A2FF;
-  --rb-blue-dark: #0a5589;
-  --rb-blue-darker: #084672;
+  --rb-blue: #00A2FF;
+  --rb-blue-dark: #0083d1;
+  --rb-blue-darker: #00639e;
   --rb-green: #02b757;
   --rb-green-dark: #029a4a;
-  --rb-bg: #d4dde4;
+  --rb-bg: #e3e3e3;
   --rb-box: #ffffff;
-  --rb-border: #93a7b8;
-  --rb-border-light: #c7d3dd;
-  --rb-head-grad-a: #eef2f6;
-  --rb-head-grad-b: #dbe3ea;
-  --rb-text: #1b2a34;
-  --rb-text-dim: #5c6f7d;
-  --rb-nav: #244f77;
-  --rb-nav-hover: #2d6290;
-  --rb-steel: #8fa3b5;
+  --rb-border: #b6c0cb;
+  --rb-border-light: #dde3ea;
+  --rb-head-grad-a: #f5f6f7;
+  --rb-head-grad-b: #ebedee;
+  --rb-text: #191919;
+  --rb-text-dim: #68737f;
+  --rb-nav: #0070b6;
+  --rb-nav-hover: #0085cf;
 }
 
 html,
@@ -63,13 +61,13 @@ body {
   font-size: 13px;
   line-height: 1.55;
   color: var(--rb-text);
-  background-color: #cfdae2;
-  /* the 2006 grey desk: soft top light, steel vignette, print-dot paper */
+  background-color: #e2e9f0;
+  /* the fun pass: a band of retro sky at the top of every page (grass is
+     imaginary but the vibe is real) + the print-dot paper underneath */
   background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(222, 231, 238, 0.25) 38%, rgba(186, 200, 212, 0.5) 100%),
-    radial-gradient(1100px 420px at 50% -140px, rgba(13, 105, 172, 0.10), transparent 65%),
-    radial-gradient(rgba(27, 42, 52, 0.025) 1px, transparent 1px);
-  background-size: auto, auto, 8px 8px;
+    linear-gradient(180deg, #aed4f0 0%, #cde6f8 170px, #e9f0f6 460px, #e4e8ed 100%),
+    radial-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+  background-size: auto, 9px 9px;
   background-attachment: fixed;
 }
 
@@ -124,42 +122,44 @@ a:focus-visible,
   outline-offset: 1px;
 }
 
-/* ---------- Retro building blocks: grey bevel, the 2006 way ---------- */
+/* ---------- Retro building blocks ---------- */
 .rb-box {
-  background: #fff;
-  border: 1px solid var(--rb-border);
-  border-radius: 6px;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdfe 100%);
+  border: 1px solid #a3b5c6;
+  border-radius: 8px;
+  /* the sticker outline: a hard white inner ring + a chunky dropped edge —
+     cards pop off the sky instead of melting into it */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 1px 2px rgba(23, 46, 66, 0.22),
-    0 4px 10px rgba(23, 46, 66, 0.1);
+    inset 0 0 0 1px #ffffff,
+    0 2px 0 rgba(23, 46, 66, 0.14),
+    0 8px 20px rgba(23, 46, 66, 0.08);
 }
 /* match the panel head to the card's rounded top (no overflow:hidden —
    popovers and drag highlights inside cards must not get clipped) */
 .rb-box > .rb-panel-head:first-child {
-  border-radius: 5px 5px 0 0;
+  border-radius: 7px 7px 0 0;
 }
 
-/* catalog / game cards: a firm little lift, like picking up a brick */
+/* catalog / game cards: a gentle lift on hover so the grid feels alive */
 .rb-card {
   transition: transform 110ms ease, box-shadow 110ms ease;
 }
 .rb-card:hover {
   transform: translateY(-2px);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.22),
-    0 8px 16px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
 }
 
 .rb-panel-head {
-  background: linear-gradient(180deg, #f2f6f9 0%, #dfe7ee 100%);
-  border-bottom: 2px solid var(--rb-border);
-  color: #1c4e7c;
+  /* every card gets the sky-blue header strip with the tri-color edge —
+     red / gold / blue, straight off the wordmark's own outline */
+  background: linear-gradient(180deg, #eaf6ff 0%, #cfe9fb 100%);
+  border-bottom: 1px solid #a8d4ef;
+  color: #0d69ac;
   font-family: var(--rb-display);
   font-weight: 400 !important;
   font-size: 14px;
-  letter-spacing: 0.5px;
-  padding: 10px 14px 10px 18px;
+  letter-spacing: 0.4px;
+  padding: 9px 14px 9px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -173,7 +173,7 @@ a:focus-visible,
   top: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(180deg, #1c81c4 0%, var(--rb-blue) 100%);
+  background: linear-gradient(180deg, #e2231a 0%, #ff8a00 50%, #00a2ff 100%);
 }
 
 .rb-link {
@@ -185,46 +185,42 @@ a:focus-visible,
   color: var(--rb-blue-dark);
 }
 
-/* 2006 beveled buttons — chunky grey plastic with a pressed state */
+/* 2016 flat buttons — light gray squares, blue/green/red action colors */
 .rb-btn {
   font-family: inherit;
   font-size: 12px;
-  padding: 7px 16px;
-  border: 1px solid #7e93a6;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #ffffff 0%, #e9eef3 45%, #d3dce4 100%);
-  color: #1b2a34;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 1px 2px rgba(23, 46, 66, 0.25);
+  padding: 8px 17px;
+  border: 1px solid #adadad;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #ffffff 0%, #efefef 50%, #e0e0e0 100%);
+  color: #333;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   transition: filter 100ms;
 }
 .rb-btn:hover {
-  background: linear-gradient(180deg, #ffffff 0%, #e8f3fb 45%, #cfe6f6 100%);
-  border-color: #0d69ac;
+  background: linear-gradient(180deg, #ffffff 0%, #eaf4fb 50%, #d9ecf8 100%);
+  border-color: #7cbde0;
 }
 .rb-btn:active {
-  background: linear-gradient(180deg, #c9d4dd 0%, #dde5ec 100%);
-  box-shadow: inset 0 2px 4px rgba(23, 46, 66, 0.25);
+  background: linear-gradient(180deg, #dcdcdc 0%, #ededed 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 .rb-btn:disabled {
   opacity: 0.55;
 }
 
-/* classic blue action — the Sign Up / primary button */
+/* 2016 blue action — the Sign Up / primary button on the old bar */
 .rb-btn-blue {
-  background: linear-gradient(180deg, #3d8fc9 0%, #1668a5 55%, #0d5386 100%);
-  border-color: #084067;
+  background: linear-gradient(180deg, #2ea3e0 0%, #0d69ac 100%);
+  border-color: #005f9c;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 .rb-btn-blue:hover {
-  background: linear-gradient(180deg, #4c9ed6 0%, #1b76b8 55%, #0f5f96 100%);
+  background: linear-gradient(180deg, #45b1e8 0%, #1173b8 100%);
 }
 .rb-btn-blue:active {
-  background: linear-gradient(180deg, #0d5386 0%, #1668a5 100%);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(180deg, #0d69ac 0%, #005f9c 100%);
 }
 
 .rb-btn-red {
@@ -251,7 +247,7 @@ a:focus-visible,
   background: linear-gradient(180deg, #029a4a 0%, #02b757 100%);
 }
 
-/* retro inputs — white wells with an inset shadow, like the old forms */
+/* retro inputs — soft squares, 2016 style */
 .rb-input,
 .rb-select,
 .rb-textarea {
@@ -260,17 +256,16 @@ a:focus-visible,
   line-height: 1.5;
   color: var(--rb-text);
   background: #fff;
-  border: 1px solid #9db0c0;
-  border-radius: 4px;
+  border: 1px solid #c9d0d8;
+  border-radius: 5px;
   padding: 7px 12px;
   outline: none;
-  box-shadow: inset 0 1px 3px rgba(23, 46, 66, 0.12);
 }
 .rb-input:focus,
 .rb-select:focus,
 .rb-textarea:focus {
   border-color: var(--rb-blue);
-  box-shadow: inset 0 1px 2px rgba(23, 46, 66, 0.08), 0 0 4px rgba(13, 105, 172, 0.45);
+  box-shadow: 0 0 3px rgba(0, 162, 255, 0.45);
 }
 
 /* Online dot */
@@ -336,15 +331,26 @@ a:focus-visible,
   background: linear-gradient(180deg, #7ec95c, #4c9e34);
 }
 
-/* 2016 page titles — big Source Sans Pro LIGHT, the signature of the old
-   site ("Hello, <name>!" / page headings). The no-bold rule stays intact:
-   this is a lighter weight, not a bolder one. */
+/* the signature: greeting + page headings set like the ReTROBLOX wordmark
+   itself — bubbly Fredoka letters, white fill, red outline, soft drop.
+   Browsers without text-stroke just get the red letters. */
 .rb-page-title {
-  font-weight: 300 !important;
-  font-size: 25px;
+  font-family: var(--rb-display);
+  font-weight: 400 !important;
+  font-size: 24px;
   line-height: 1.15;
-  color: #191919;
-  letter-spacing: 0.2px;
+  color: #c8231a;
+  letter-spacing: 0.3px;
+}
+@supports (-webkit-text-stroke: 1px #fff) {
+  .rb-page-title {
+    color: #ffffff;
+    -webkit-text-stroke: 1.2px #d5231c;
+    paint-order: stroke fill;
+    text-shadow:
+      0 2px 0 rgba(184, 27, 19, 0.22),
+      0 3px 5px rgba(23, 46, 66, 0.25);
+  }
 }
 
 /* classic BrickColor swatch grid — the palette every old Roblox color
@@ -372,38 +378,36 @@ a:focus-visible,
 
 /* ---------- header / sidebar / footer ---------- */
 .rb-header {
-  background: linear-gradient(180deg, #35628c 0%, var(--rb-nav) 40%, #16374f 100%);
-  border-bottom: 2px solid #0e2637;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 2px 5px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(180deg, #0f83c9 0%, var(--rb-nav) 45%, #005f9c 100%);
+  border-bottom: 1px solid #004e83;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
   position: sticky;
   top: 0;
   z-index: 50;
 }
-/* faint CRT scanlines over the steel bar — you only notice them sideways,
+/* faint CRT scanlines over the blue bar — you only notice them sideways,
    and that is exactly the point */
 .rb-header::after {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 3px);
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
 }
 .rb-nav-item {
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 
-/* the header search — beveled blue Go button on the steel bar */
+/* the 2016 header search — white box with the blue Go button */
 .rb-header-search .rb-btn {
-  background: linear-gradient(180deg, #3d8fc9 0%, #1668a5 55%, #0d5386 100%);
-  border-color: #084067;
+  background: linear-gradient(180deg, #2ea3e0 0%, #0d69ac 100%);
+  border-color: #005f9c;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 .rb-header-search .rb-btn:hover {
-  background: linear-gradient(180deg, #4c9ed6 0%, #1b76b8 55%, #0f5f96 100%);
-  border-color: #084067;
+  background: linear-gradient(180deg, #45b1e8 0%, #1173b8 100%);
+  border-color: #005f9c;
 }
 .rb-header-inner {
   max-width: 1200px;
@@ -428,11 +432,11 @@ a:focus-visible,
   border-color: transparent !important;
 }
 
-/* the classic light nav strip — beveled, with tab-like active state */
+/* the classic white nav strip — the old site's second header row */
 .rb-navbar {
-  background: linear-gradient(180deg, #fdfefe 0%, #e6edf3 100%);
-  border-bottom: 2px solid var(--rb-border);
-  box-shadow: 0 2px 5px rgba(23, 74, 120, 0.16);
+  background: linear-gradient(180deg, #ffffff 0%, #f0f5fa 100%);
+  border-bottom: 1px solid #c9d6e2;
+  box-shadow: 0 2px 6px rgba(23, 74, 120, 0.1);
 }
 .rb-navbar-inner {
   max-width: 1200px;
@@ -457,15 +461,17 @@ a:focus-visible,
   flex-shrink: 0;
 }
 .rb-navbar-item:hover {
-  background: linear-gradient(180deg, #ffffff 0%, #dceaf5 100%);
-  border-color: #9dc4de;
-  color: #084672;
+  background: #e1f2fb;
+  color: #00639e;
 }
+/* the active strip link becomes the RED pill — the wordmark color leads
+   the way, everything else stays cool blue */
 .rb-navbar-item.rb-navbar-active {
-  background: linear-gradient(180deg, #dceaf5 0%, #c8e0f0 100%);
-  color: #084672;
-  border-color: #7fb3d3;
-  box-shadow: inset 0 1px 3px rgba(23, 74, 120, 0.18);
+  background: linear-gradient(180deg, #f0544a 0%, #e2231a 60%, #c01d15 100%);
+  color: #fff;
+  border-color: #a01610;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* sidebar group headers ("Play", "Create", "Avatar & Shop"...) */
@@ -475,7 +481,7 @@ a:focus-visible,
   font-weight: 800;
   letter-spacing: 1.3px;
   text-transform: uppercase;
-  color: #71869a;
+  color: #7c8ea0;
 }
 .rb-side-sec:first-of-type {
   margin-top: 8px;
@@ -487,25 +493,53 @@ a:focus-visible,
   width: 100%;
   padding: 9px 13px;
   border: none;
-  border-bottom: 1px solid #e4e9ee;
+  border-bottom: 1px solid #ececec;
   font-size: 12px;
   text-align: left;
   text-decoration: none;
   box-sizing: border-box;
 }
 .rb-side-item:hover {
-  background: linear-gradient(180deg, #f4f9fd 0%, #e3eff8 100%);
+  background: #f2f8fd;
 }
 .rb-footer {
-  border-top: 2px solid var(--rb-border);
-  background: linear-gradient(180deg, #dde4ea 0%, #ccd6de 100%);
+  /* the deep-water footer — the page ends like the loading screen began */
+  border-top: 1px solid #00314f;
+  background: linear-gradient(180deg, #0e5d94 0%, #083c62 100%);
   padding: 20px 16px 18px;
   text-align: center;
   font-size: 10px;
-  color: #5f7181;
+  color: #bcd8ef;
   line-height: 1.8;
   margin-top: auto;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- the retro news ticker (home hero) ---------- */
+.rb-marquee {
+  margin: 12px -16px 0;
+  background: linear-gradient(180deg, #ffe07a 0%, #f5b81e 70%, #e3a812 100%);
+  border-top: 1px solid #b5890f;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.rb-marquee-track {
+  display: inline-block;
+  padding: 4px 0;
+  animation: rb-marquee 38s linear infinite;
+  font-family: var(--rb-display);
+  font-size: 11.5px;
+  letter-spacing: 0.6px;
+  color: #5d4300;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+@keyframes rb-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rb-marquee-track { animation: none; }
 }
 
 /* old-school scrolling marquee for flavor */
@@ -518,23 +552,22 @@ a:focus-visible,
   animation: rb-blink 1.1s step-start infinite;
 }
 
-/* thin retro scrollbars — steel, like the panels */
+/* thin retro scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #8fa3b5 #dde4ea;
+  scrollbar-color: #9db2c4 #e6ecf1;
 }
 *::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
 *::-webkit-scrollbar-track {
-  background: #dde4ea;
-  border: 1px solid #b4c2ce;
+  background: #e6ecf1;
+  border: 1px solid #c4cfd9;
 }
 *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #dfe7ee, #8fa3b5);
-  border: 1px solid #6f8496;
-  border-radius: 3px;
+  background: linear-gradient(180deg, #cfdce7, #9db2c4);
+  border: 1px solid #8ba0b3;
 }
 
 /* invisible overlay controls on the sign-in/up artwork */
