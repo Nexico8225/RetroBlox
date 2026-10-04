@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, fmtCount, flash, type RetroUser } from '@/lib/store'
 import { Avatar, OnlineDot } from './Shell'
-import { FxText } from '@/lib/textfx'
 import { VideoCard, type VideoSummary } from './VideosView'
 
 export interface GameSummary {
@@ -112,7 +111,7 @@ export function GameCard({ game }: { game: GameSummary }) {
           textOverflow: 'ellipsis',
         }}
       >
-        <FxText text={game.name} />
+        {game.name}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#5a6b7b' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
@@ -264,103 +263,12 @@ function LatestVideosStrip() {
   )
 }
 
-/* ---------------- Your library: played + downloaded rails ---------------- */
-
-function YourGamesRails({ list, title, blurb }: { list: 'played' | 'downloaded'; title: string; blurb: string }) {
-  const { user } = useRetro()
-  const [games, setGames] = useState<GameSummary[] | null>(null)
-
-  useEffect(() => {
-    if (!user) return
-    api<{ games: GameSummary[] }>(`/api/games?list=${list}&limit=12`)
-      .then((r) => setGames(r.games))
-      .catch(() => setGames([]))
-  }, [user, list])
-
-  if (!user || !games || games.length === 0) return null
-
-  return (
-    <section className="rb-box" style={{ marginTop: 12 }}>
-      <div className="rb-panel-head">
-        <span>{title}</span>
-        <Link className="rb-link" style={{ fontSize: 11 }} href="/games">
-          Browse &rarr;
-        </Link>
-      </div>
-      <div style={{ padding: '8px 12px', fontSize: 10, color: '#7b8896', borderBottom: '1px solid #eef2f6' }}>{blurb}</div>
-      <div
-        style={{
-          padding: 12,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-          gap: 10,
-        }}
-      >
-        {games.map((g) => (
-          <GameCard key={g.id} game={g} />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-/* ---------------- Community pulse (latest from forums) ---------------- */
-function CommunityPulse() {
-  const [labs, setLabs] = useState<{ id: string; title: string; board: string; author: { username: string }; createdAt: string }[]>([])
-  const [community, setCommunity] = useState<{ id: string; title: string; flair: string; author: { username: string }; createdAt: string; score: number }[]>([])
-
-  useEffect(() => {
-    api<{ posts: { id: string; title: string; board: string; author: { username: string }; createdAt: string }[] }>('/api/labs?limit=4')
-      .then((r) => setLabs(r.posts))
-      .catch(() => {})
-    api<{ posts: { id: string; title: string; flair: string; author: { username: string }; createdAt: string; score: number }[] }>('/api/community?sort=new&limit=4')
-      .then((r) => setCommunity(r.posts))
-      .catch(() => {})
-  }, [])
-
-  if (labs.length === 0 && community.length === 0) return null
-
-  return (
-    <section style={{ display: 'flex', gap: 12, marginTop: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <div className="rb-box" style={{ flex: '1 1 280px', minWidth: 250, overflow: 'hidden' }}>
-        <div className="rb-panel-head">
-          <span>RetroLabs — Latest</span>
-          <Link className="rb-link" style={{ fontSize: 11 }} href="/labs">Visit &rarr;</Link>
-        </div>
-        <div style={{ padding: 8 }}>
-          {labs.length === 0 && <div style={{ fontSize: 10, color: '#7b8896', padding: '4px 2px' }}>No posts yet — devs, get writing!</div>}
-          {labs.map((p) => (
-            <div key={p.id} style={{ padding: '5px 2px', borderBottom: '1px solid #eef2f6' }}>
-              <Link href={`/labs/${p.id}`} className="rb-link" style={{ fontSize: 11, display: 'block', lineHeight: 1.35 }}>
-                <FxText text={p.title} />
-              </Link>
-              <div style={{ fontSize: 9, color: '#7b8896', marginTop: 1 }}>{p.board} · {p.author.username}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="rb-box" style={{ flex: '1 1 280px', minWidth: 250, overflow: 'hidden' }}>
-        <div className="rb-panel-head">
-          <span>Community — Newest</span>
-          <Link className="rb-link" style={{ fontSize: 11 }} href="/community">Visit &rarr;</Link>
-        </div>
-        <div style={{ padding: 8 }}>
-          {community.length === 0 && <div style={{ fontSize: 10, color: '#7b8896', padding: '4px 2px' }}>The lounge is quiet... for now.</div>}
-          {community.map((p) => (
-            <div key={p.id} style={{ padding: '5px 2px', borderBottom: '1px solid #eef2f6' }}>
-              <Link href={`/community/${p.id}`} className="rb-link" style={{ fontSize: 11, display: 'block', lineHeight: 1.35 }}>
-                <FxText text={p.title} />
-              </Link>
-              <div style={{ fontSize: 9, color: '#7b8896', marginTop: 1 }}>{p.flair} · {p.score} points · {p.author.username}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 /* ---------------- Home ---------------- */
+
+/* the old-school news ticker — one endless strip of fun, like the marquees
+   every website had in 2006. Rendered twice for a seamless CSS loop. */
+const TICKER =
+  "★ WELCOME TO RETROBLOX ★ PLAY “BASEPLATE” WITH EVERYONE — IT'S LIVE RIGHT NOW ★ PUBLISH YOUR OWN GAMES ★ DRESS YOUR BLOCKHEAD ★ TRADE LIMITEDS WITH FRIENDS ★ POST VIDEOS OF YOUR WINS ★ YOU CAN SEE THE ROBLOX INSIDE RETROBLOX ★ "
 
 export function HomeView() {
   const { user, pendingRequests } = useRetro()
@@ -374,7 +282,7 @@ export function HomeView() {
     try {
       const [f, g, s] = await Promise.all([
         api<{ friends: RetroUser[] }>('/api/friends'),
-        api<{ games: GameSummary[] }>('/api/games?sort=recent&limit=15'),
+        api<{ games: GameSummary[] }>('/api/games?sort=recent&limit=8'),
         api<{ suggested: SuggestedUser[] }>('/api/friends/suggested'),
       ])
       setFriends(f.friends)
@@ -395,45 +303,50 @@ export function HomeView() {
 
   return (
     <div>
-      {/* 2016-style welcome — a white card, big Source Sans Pro Light
-          "Hello, <name>!" exactly like the old home page, actions on the right */}
+      {/* the hero — your wordmark, your name, and the three things people
+          actually do here. Sky gradient + the scrolling news ticker keep it
+          loud and proud like a 2006 fansite. */}
       <section
-        className="rb-box"
+        className="rb-box rb-hero"
         style={{
-          marginBottom: 12,
-          padding: '20px 22px',
-          background: 'var(--rb-box)',
+          marginBottom: 10,
+          padding: '14px 16px 0',
           display: 'flex',
-          gap: 16,
-          alignItems: 'center',
-          flexWrap: 'wrap',
+          flexDirection: 'column',
           overflow: 'hidden',
           position: 'relative',
         }}
       >
-        <img
-          src="/retro/logo.png"
-          alt=""
-          width={58}
-          height={58}
-          style={{ flexShrink: 0, border: '1px solid var(--rb-border)', borderRadius: 4, background: '#fff' }}
-        />
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div className="rb-page-title">{user ? `Hello, ${user.username}!` : 'Welcome to RetroBlox'}</div>
-          <div style={{ fontSize: 12, color: 'var(--rb-text-dim)', marginTop: 4 }}>
-            Publish a game, upload a video, dress your blockhead, or hang out in the lounge.
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+          <img
+            src="/retro/logo-wordmark.png"
+            alt="ReTROBLOX"
+            style={{ height: 42, width: 'auto', maxWidth: '100%', filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.35))' }}
+          />
+          <div style={{ flex: 1, minWidth: 190 }}>
+            <div className="rb-page-title">{user ? `Hello, ${user.username}!` : 'Welcome to RetroBlox'}</div>
+            <div style={{ fontSize: 12, color: 'var(--rb-text-dim)', marginTop: 3 }}>
+              Publish a game, dress your blockhead, or hang out in the lounge.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <Link className="rb-btn rb-btn-red" href="/create" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
+              + Publish a Game
+            </Link>
+            <Link className="rb-btn rb-btn-green" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
+              ▶ Post a Video
+            </Link>
+            <Link className="rb-btn" href="/community" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
+              Community
+            </Link>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <Link className="rb-btn rb-btn-red" href="/create" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
-            + Publish a Game
-          </Link>
-          <Link className="rb-btn rb-btn-green" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
-            ▶ Post a Video
-          </Link>
-          <Link className="rb-btn" href="/community" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
-            Community
-          </Link>
+        {/* retro marquee ticker — pure flavor, ignorable, but impossible to miss */}
+        <div className="rb-marquee" aria-hidden="true">
+          <div className="rb-marquee-track">
+            <span>{TICKER}</span>
+            <span>{TICKER}</span>
+          </div>
         </div>
       </section>
 
@@ -538,18 +451,12 @@ export function HomeView() {
       {/* Similar players */}
       {!loading && suggested.length > 0 && <SuggestedStrip users={suggested} title="People You May Know" />}
 
-      {/* Your library — plays and downloads are tracked separately */}
-      <YourGamesRails list="played" title="🎮 Games You've Played" blurb="Every game you hit Play now on — your personal play history."
-      />
-      <YourGamesRails list="downloaded" title="⬇ Your Downloaded Games" blurb="Games sitting on your device — re-download them any time."
-      />
-
-      {/* Games */}
+      {/* Games — the main event. Eight fresh cards, no endless scrolling. */}
       <section className="rb-box">
         <div className="rb-panel-head">
           <span>All Games</span>
           <Link className="rb-link" style={{ fontSize: 11 }} href="/games">
-            Browse &rarr;
+            Browse all games &rarr;
           </Link>
         </div>
         <div
@@ -589,9 +496,6 @@ export function HomeView() {
 
       {/* latest videos */}
       <LatestVideosStrip />
-
-      {/* community pulse */}
-      <CommunityPulse />
     </div>
   )
 }
@@ -655,21 +559,43 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
 
   return (
     <div>
-      <div className="rb-box" style={{ marginBottom: 12 }}>
-        <div className="rb-panel-head"><span>{title}</span></div>
-        <div style={{ padding: '8px 12px', fontSize: 11, color: '#5a6b7b' }}>
-          {q
-            ? `${loading ? '...' : games.length} game(s) found — matched against titles, descriptions and creators.`
-            : sort === 'recommended'
-              ? 'Picked for you from what the community rates, plays and talks about — the more a game engages, the higher it rises.'
-              : sort === 'trending'
-                ? 'Hot right now — engagement per day, so fresh games with real play outrank the old giants.'
-                : 'Every game published on RetroBlox — sorted by rating, downloads or date.'}
+      {/* one compact header: title + sort in a single card (the old blurb box
+          went away — nobody read it, and it pushed the games below the fold) */}
+      <div className="rb-box" style={{ marginBottom: 10, overflow: 'hidden' }}>
+        <div className="rb-panel-head">
+          <span>{title}</span>
+          <span style={{ fontSize: 10, color: '#5a6b7b' }}>
+            {loading ? '...' : `${games.length} game${games.length === 1 ? '' : 's'}`}
+          </span>
+        </div>
+        <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#24425f' }}>Sort by:</span>
+          <select
+            className="rb-select"
+            value={sort}
+            onChange={(e) => pushParams({ sort: e.target.value })}
+            style={{ fontSize: 11, padding: '3px 6px' }}
+            aria-label="Sort games"
+          >
+            <option value="recommended">Recommended For You</option>
+            <option value="trending">Trending Now</option>
+            <option value="popular">Popular</option>
+            <option value="topRated">Top Rated</option>
+            <option value="downloads">Downloads (highest number)</option>
+            <option value="recent">Recently Uploaded</option>
+            <option value="updated">Recently Updated</option>
+            <option value="gems">💎 Hidden Gems</option>
+          </select>
+          {q && (
+            <span style={{ fontSize: 10, color: '#7b8896' }}>
+              matched against titles, descriptions and creators
+            </span>
+          )}
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* genre filter */}
+        {/* genre filter — one of the two filters that matter, kept */}
         <div className="rb-box" style={{ width: 170, flexShrink: 0, overflow: 'hidden' }}>
           <div className="rb-panel-head"><span>Genres</span></div>
           <div style={{ padding: '4px 0' }}>
@@ -697,29 +623,6 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
 
         {/* grid */}
         <div style={{ flex: 1, minWidth: 280 }}>
-          <div className="rb-box" style={{ padding: '6px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: '#24425f' }}>Sort by:</span>
-            <select
-              className="rb-select"
-              value={sort}
-              onChange={(e) => pushParams({ sort: e.target.value })}
-              style={{ fontSize: 11, padding: '3px 6px' }}
-              aria-label="Sort games"
-            >
-              <option value="recommended">Recommended For You</option>
-              <option value="trending">Trending Now</option>
-              <option value="popular">Popular</option>
-              <option value="topRated">Top Rated</option>
-              <option value="downloads">Downloads (highest number)</option>
-              <option value="recent">Recently Uploaded</option>
-              <option value="updated">Recently Updated</option>
-              <option value="gems">💎 Hidden Gems</option>
-            </select>
-            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#7b8896' }}>
-              {loading ? '...' : `${games.length} game${games.length === 1 ? '' : 's'}`}
-            </span>
-          </div>
-
           <div
             style={{
               display: 'grid',
