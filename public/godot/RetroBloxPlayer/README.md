@@ -278,7 +278,10 @@ server so everyone sees them, 60 per player).
 
 **Classic combat + leaderboard:** 100 hp, classic regen, fall damage, part-burst
 death + oof, 6s posthumous WO credit — KOs/WOs show in the player list
-(top-right) and menu roster.
+(top-right) and menu roster. **Spawn forcefield:** every respawn grants the
+classic 6 seconds of protection — a shimmering original bubble blocks all
+damage (server-honored) while explosion knockback still shoves you; it fades
+out over its last second.
 
 **Emotes:** type `/e wave`, `/e dance`, `/e point`, `/e laugh` — chat shows
 "* wave" and your blockhead performs.
