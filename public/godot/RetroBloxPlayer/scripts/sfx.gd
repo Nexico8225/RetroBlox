@@ -47,8 +47,8 @@ func _ready() -> void:
         _world_bus = "World" if AudioServer.get_bus_index("World") != -1 else "Master"
 
 ## 2D sound for menu/chat interactions — routed to the UI bus.
-func ui(name: String, volume_db: float = 0.0) -> void:
-        var stream: AudioStream = _bank.get(name)
+func ui(key: String, volume_db: float = 0.0) -> void:
+        var stream: AudioStream = _bank.get(key)
         if stream == null:
                 return
         var p := AudioStreamPlayer.new()
@@ -60,8 +60,8 @@ func ui(name: String, volume_db: float = 0.0) -> void:
         p.play()
 
 ## Positional 3D sound — attach under `parent` so it can play then free.
-func at(name: String, pos: Vector3, parent: Node, volume_db: float = 0.0) -> void:
-        var stream: AudioStream = _bank.get(name)
+func at(key: String, pos: Vector3, parent: Node, volume_db: float = 0.0) -> void:
+        var stream: AudioStream = _bank.get(key)
         if stream == null or parent == null or not parent.is_inside_tree():
                 return
         var p := AudioStreamPlayer3D.new()
