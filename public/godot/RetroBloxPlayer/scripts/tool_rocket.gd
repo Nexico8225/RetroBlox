@@ -18,7 +18,7 @@ func _init() -> void:
 	cyl.bottom_radius = 0.16
 	cyl.height = 1.7
 	tube.mesh = cyl
-	tube.rotation = Vector3(Mathf.PI / 2.0, 0.0, 0.0)
+	tube.rotation = Vector3(PI / 2.0, 0.0, 0.0)
 	tube.position = Vector3(0.3, 0.15, -0.6)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.55, 0.58, 0.6)
@@ -61,7 +61,7 @@ func use_primary() -> bool:
 	get_tree().current_scene.add_child(_rocket)
 	_rocket.global_position = player.global_position + Vector3(0, 1.4, 0) + dir * 1.5
 	_rocket.look_at(_rocket.global_position + dir, Vector3.UP)
-	_rocket.rotate_object_local(Vector3.RIGHT, Mathf.PI / 2.0)
+	_rocket.rotate_object_local(Vector3.RIGHT, PI / 2.0)
 	_rocket_vel = dir * SPEED
 	_alive = true
 	Sfx.ui("swing", -6.0)
