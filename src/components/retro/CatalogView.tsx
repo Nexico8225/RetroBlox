@@ -34,7 +34,6 @@ import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig } from '@/lib/
 import { captureRiggedThumb } from '@/lib/three/animCapture'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
-import DeleteConfirmFullScreen from './DeleteConfirmFullScreen'
 
 /* 3D pieces load on demand (three.js is heavy and browser-only) */
 const PlacementEditor = dynamic(() => import('./PlacementEditor'), { ssr: false })
@@ -192,23 +191,27 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   const [myGroups, setMyGroups] = useState<GroupOpt[]>([])
   const [tryOn, setTryOn] = useState<CatalogItem | null>(null)
   const [editing, setEditing] = useState<CatalogItem | null>(null)
-  // the screen-filling permanent-delete gate — remove = delete = true
-  const [deleteTarget, setDeleteTarget] = useState<CatalogItem | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  // admin-only: soft-deleted UGC — deletes are reversible, nothing is ever really gone
+  const [deletedItems, setDeletedItems] = useState<CatalogItem[]>([])
   const isAdmin = user?.role === 'admin'
 
-  async function confirmDelete() {
-    if (!deleteTarget) return
-    setDeleting(true)
+  const loadDeleted = useCallback(async () => {
+    if (!isAdmin) { setDeletedItems([]); return }
     try {
-      await api(`/api/catalog/${deleteTarget.id}`, { method: 'DELETE' })
-      flash(setToast, `"${deleteTarget.name}" deleted permanently.`)
-      setDeleteTarget(null)
-      await load()
+      const res = await api<{ items: CatalogItem[] }>('/api/catalog?deleted=1')
+      setDeletedItems(res.items)
+    } catch { /* ignore */ }
+  }, [isAdmin])
+
+  useEffect(() => { loadDeleted() }, [loadDeleted])
+
+  async function restoreItem(item: CatalogItem) {
+    try {
+      const res = await api<{ message?: string }>(`/api/catalog/${item.id}`, { method: 'POST', body: JSON.stringify({ action: 'restore' }) })
+      flash(setToast, res.message || 'Restored!')
+      await Promise.all([loadDeleted(), load()])
     } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Delete failed', 3000)
-    } finally {
-      setDeleting(false)
+      flash(setToast, e instanceof Error ? e.message : 'Restore failed', 3000)
     }
   }
 
@@ -250,10 +253,16 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
     }
   }
 
-  /** remove = delete = true: the button opens the full-screen permanent-delete
-   *  gate; confirming HARD-deletes the item — no hide, no replace, no undo. */
-  function removeItem(item: CatalogItem) {
-    setDeleteTarget(item)
+  async function removeItem(item: CatalogItem) {
+    if (!window.confirm(`Delete "${item.name}"? It hides from the catalog — an admin can restore it any time.`)) return
+    try {
+      await api(`/api/catalog/${item.id}`, { method: 'DELETE' })
+      flash(setToast, 'UGC deleted — restorable by an admin.')
+      load()
+      loadDeleted()
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Failed', 2400)
+    }
   }
 
   const canDelete = (item: CatalogItem) =>
@@ -337,6 +346,32 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
         </div>
       </div>
 
+      {/* admin-only recycle bin — deleted UGC is restorable, nothing is ever gone for good */}
+      {isAdmin && deletedItems.length > 0 && (
+        <div className="rb-box" style={{ padding: 10, marginBottom: 12, background: '#fff8e8', borderColor: '#e0c98a' }}>
+          <div style={{ fontSize: 11, fontWeight: 'bold', color: '#8a6d1a', marginBottom: 6 }}>
+            Deleted UGC ({deletedItems.length}) — restorable, nothing is ever gone for good
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {deletedItems.map((item) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e0c98a', padding: '3px 8px', borderRadius: 3 }}>
+                <span style={{ fontSize: 10, color: '#5d4a0a' }}>
+                  {item.name} <span style={{ fontFamily: 'monospace', color: '#9aa7b4' }}>({item.assetId})</span>
+                </span>
+                <button
+                  type="button"
+                  className="rb-btn rb-btn-green"
+                  style={{ fontSize: 9, padding: '2px 8px' }}
+                  onClick={() => restoreItem(item)}
+                >
+                  ↺ Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* item grid */}
       {loading ? (
         <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Loading the catalog...</div>
@@ -352,10 +387,9 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
             return (
               <div key={item.id} className="rb-box rb-card" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{ background: '#ffffff', borderBottom: '1px solid #dbe4ec', position: 'relative' }}>
-                  {/* THE ICON IS THE IMAGE — the saved thumbnail paints and stays.
-                      The live 3D render only ever lives in the try-on view and the
-                      avatar editor, so re-framing or swapping the icon can never
-                      move the UGC itself (icon and placement are decoupled). */}
+                  {/* the SAVED thumbnail always paints first — the live 3D render (if any)
+                      covers it, and if that render ever fails the saved shot still shows:
+                      this slot can never end up blank */}
                   <img
                     src={`/api/files/${item.imageFileId}`}
                     alt={item.name}
@@ -365,8 +399,28 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       const ph = thumbPlaceholder(item.type)
                       if (!e.currentTarget.src.startsWith('data:')) e.currentTarget.src = ph
                     }}
+                    onLoad={(e) => {
+                      // a "thumbnail" that is only a few real pixels (old junk
+                      // placeholder uploads) stretches into a flat color wash —
+                      // treat it exactly like a broken image
+                      const im = e.currentTarget
+                      if (!im.src.startsWith('data:') && im.naturalWidth > 0 && im.naturalWidth <= 4 && im.naturalHeight <= 4) {
+                        im.src = thumbPlaceholder(item.type)
+                      }
+                    }}
                     style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
                   />
+                  {item.modelFileId && (
+                    <ItemThumb3D
+                      modelUrl={`/api/files/${item.modelFileId}`}
+                      placement={item.placement}
+                      alt={item.name}
+                      fallbackSrc={`/api/files/${item.imageFileId}`}
+                      textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
+                      color={item.baseColor || undefined}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#fff' }}
+                    />
+                  )}
                   <span
                     style={{
                       position: 'absolute', top: 6, left: 6, fontSize: 9, padding: '2px 6px',
@@ -529,16 +583,6 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
             setEditing(null)
             load()
           }}
-        />
-      )}
-
-      {/* the screen-filling permanent-delete gate — remove = delete = true */}
-      {deleteTarget && (
-        <DeleteConfirmFullScreen
-          target={{ id: deleteTarget.id, name: deleteTarget.name, imageFileId: deleteTarget.imageFileId, assetId: deleteTarget.assetId, type: deleteTarget.type }}
-          busy={deleting}
-          onDelete={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>
@@ -777,12 +821,12 @@ function EditItemModal({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              {/* the saved thumbnail IS the current icon — show exactly what
-                  the owner uploaded; the 3D live render belongs to try-on */}
               {item.modelFileId && !newImage ? (
-                <img
-                  src={`/api/files/${item.imageFileId}`}
+                <ItemThumb3D
+                  modelUrl={`/api/files/${item.modelFileId}`}
+                  placement={item.placement}
                   alt={item.name}
+                  fallbackSrc={`/api/files/${item.imageFileId}`}
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
                 />
               ) : (
