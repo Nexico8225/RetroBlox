@@ -19,7 +19,7 @@ export interface FxDef {
 }
 
 export const FX_LIST: FxDef[] = [
-  { tag: 'rainbow', label: 'Rainbow', cls: 'fx-rainbow', hint: 'animated rainbow colors', group: 'fx' },
+  { tag: 'rainbow', label: 'Rainbow', cls: 'fx-rainbow', hint: 'animated rainbow colors', perLetter: true, group: 'fx' },
   { tag: 'wave', label: 'Wave', cls: 'fx-wave', hint: 'letters ride a wave', perLetter: true, group: 'fx' },
   { tag: 'wiggle', label: 'Wiggle', cls: 'fx-wiggle', hint: 'wiggly jitter', group: 'fx' },
   { tag: 'swirl', label: 'Whirly', cls: 'fx-swirl', hint: 'spinning wobble', group: 'fx' },
@@ -29,15 +29,6 @@ export const FX_LIST: FxDef[] = [
   { tag: 'neon', label: 'Neon', cls: 'fx-neon', hint: 'flickering neon tube', group: 'fx' },
   { tag: 'fire', label: 'Fire', cls: 'fx-fire', hint: 'burning gradient', group: 'fx' },
   { tag: 'ice', label: 'Ice', cls: 'fx-ice', hint: 'frozen shimmer', group: 'fx' },
-  { tag: 'sparkle', label: 'Sparkle', cls: 'fx-sparkle', hint: 'twinkling stars', group: 'fx' },
-  { tag: 'pulse', label: 'Pulse', cls: 'fx-pulse', hint: 'breathing size', group: 'fx' },
-  { tag: 'flip', label: 'Flip', cls: 'fx-flip', hint: 'flips upside down', group: 'fx' },
-  { tag: 'ghost', label: 'Ghost', cls: 'fx-ghost', hint: 'fades in and out', group: 'fx' },
-  { tag: 'tilt', label: 'Tilt', cls: 'fx-tilt', hint: 'tips side to side', group: 'fx' },
-  { tag: 'spin', label: 'Spin', cls: 'fx-spin', hint: 'letters twirl around', perLetter: true, group: 'fx' },
-  { tag: 'flash', label: 'Flash', cls: 'fx-flash', hint: 'blinks on and off', group: 'fx' },
-  { tag: 'shadow', label: '3D', cls: 'fx-shadow', hint: 'hard 3D block shadow', group: 'fx' },
-  { tag: 'orbit', label: 'Orbit', cls: 'fx-orbit', hint: 'letters circle their spot', perLetter: true, group: 'fx' },
   { tag: 'big', label: 'Big', cls: 'fx-big', hint: 'jumbo size', group: 'fx' },
   { tag: 'red', label: 'Red', cls: 'fx-red', hint: 'red text', group: 'color' },
   { tag: 'blue', label: 'Blue', cls: 'fx-blue', hint: 'blue text', group: 'color' },
@@ -137,66 +128,9 @@ function renderContent(
   })
 }
 
-/* ---------- copy support: rendered FX copies back as [tag]…[/tag] markup ----------
-   Old-school BBCode rule: the effect lives IN the text, so copying styled text
-   and pasting it into any FX-enabled field (bio, comments, posts, chat, trades)
-   re-renders the effects instead of losing them. */
-
-function fxTagsOf(el: Element): string[] {
-  const tags: string[] = []
-  el.classList.forEach((c) => {
-    if (c !== 'fx' && c !== 'fx-char' && c.startsWith('fx-')) {
-      const tag = c.slice(3)
-      if (FX_MAP[tag]) tags.push(tag)
-    }
-  })
-  return tags
-}
-
-function serializeFxNode(node: Node, range: Range): string {
-  if (node.nodeType === Node.TEXT_NODE) {
-    if (!range.intersectsNode(node)) return ''
-    const text = node.textContent || ''
-    let start = 0
-    let end = text.length
-    if (node === range.startContainer) start = range.startOffset
-    if (node === range.endContainer) end = range.endOffset
-    return text.slice(start, end)
-  }
-  if (node.nodeType !== Node.ELEMENT_NODE) return ''
-  const el = node as Element
-  const inner = Array.from(el.childNodes)
-    .map((child) => serializeFxNode(child, range))
-    .join('')
-  if (!inner) return ''
-  const tags = fxTagsOf(el)
-  if (!tags.length) return inner
-  return tags.map((t) => `[${t}]`).join('') + inner + [...tags].reverse().map((t) => `[/${t}]`).join('')
-}
-
 export function FxText({ text, style }: { text?: string | null; style?: React.CSSProperties }) {
   if (!text) return null
-  const hasFx = text !== stripFx(text)
-  const onCopy = hasFx
-    ? (e: React.ClipboardEvent<HTMLSpanElement>) => {
-        const sel = window.getSelection()
-        const root = e.currentTarget
-        if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
-        const range = sel.getRangeAt(0)
-        // only take over the copy when the whole selection lives inside this FX text —
-        // otherwise let the browser copy normally
-        if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return
-        const markup = serializeFxNode(root, range)
-        if (!markup) return
-        e.preventDefault()
-        e.clipboardData.setData('text/plain', markup)
-      }
-    : undefined
-  return (
-    <span style={style} onCopy={onCopy}>
-      {renderContent(parseFx(text), { i: 0 }, [], 'fx')}
-    </span>
-  )
+  return <span style={style}>{renderContent(parseFx(text), { i: 0 }, [], 'fx')}</span>
 }
 
 /* ---------- icons (pure SVG, no emoji) ---------- */
@@ -275,70 +209,6 @@ export function FxIcon({ tag, size = 13 }: { tag: string; size?: number }) {
             <path d="M8 1.5v13M2.4 4.75l11.2 6.5M13.6 4.75L2.4 11.25" />
           </g>
           <circle cx="8" cy="8" r="1.5" fill="#b3e5fc" stroke="#4fc3f7" strokeWidth="0.8" />
-        </svg>
-      )
-    case 'sparkle':
-      return (
-        <svg {...p}>
-          <path d="M8 1.5l1.1 4.1 4.1 1.1-4.1 1.1L8 12l-1.1-4.2-4.1-1.1 4.1-1.1z" fill="#ffd54d" stroke="#e6a817" strokeWidth="0.7" />
-          <path d="M12.8 10.2l.55 2 2 .55-2 .55-.55 2-.55-2-2-.55 2-.55z" fill="#fff176" />
-        </svg>
-      )
-    case 'pulse':
-      return (
-        <svg {...p}>
-          <path d="M1.5 8h2.2l1.6-4 2.6 8 2.2-6 1.4 2h3" fill="none" stroke="#ab47bc" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )
-    case 'flip':
-      return (
-        <svg {...p}>
-          <path d="M5.5 3.5h5v9h-5z" fill="none" stroke="#4a6fa5" strokeWidth="1.6" />
-          <path d="M13.5 3.5v9" stroke="#9db8d4" strokeWidth="1.4" strokeDasharray="2 1.6" strokeLinecap="round" />
-          <path d="M2.5 3.5v9" stroke="#9db8d4" strokeWidth="1.4" strokeDasharray="2 1.6" strokeLinecap="round" />
-        </svg>
-      )
-    case 'ghost':
-      return (
-        <svg {...p}>
-          <path d="M3.5 13.5V7a4.5 4.5 0 0 1 9 0v6.5l-1.5-1.2-1.5 1.2-1.5-1.2-1.5 1.2-1.5-1.2z" fill="#e8eaf6" stroke="#7986cb" strokeWidth="1.2" />
-          <circle cx="6.6" cy="7.4" r="0.9" fill="#5c6bc0" />
-          <circle cx="9.8" cy="7.4" r="0.9" fill="#5c6bc0" />
-        </svg>
-      )
-    case 'tilt':
-      return (
-        <svg {...p}>
-          <path d="M4 12.5L8 3.5l4 9" fill="none" stroke="#ef6c00" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M2.5 14.5h11" stroke="#ffb74d" strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
-      )
-    case 'spin':
-      return (
-        <svg {...p}>
-          <text x="8" y="11.5" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#0d69ac" transform="rotate(28 8 8)">S</text>
-          <path d="M13.5 3.2a6.5 6.5 0 0 1 0 9.6" fill="none" stroke="#8fc5e8" strokeWidth="1.4" strokeLinecap="round" strokeDasharray="2.2 1.8" />
-        </svg>
-      )
-    case 'flash':
-      return (
-        <svg {...p}>
-          <path d="M9 1.5L4.5 9h3l-1.2 5.5L11 7H8z" fill="#fdd835" stroke="#e6a817" strokeWidth="0.8" strokeLinejoin="round" />
-        </svg>
-      )
-    case 'shadow':
-      return (
-        <svg {...p}>
-          <rect x="6.2" y="6.2" width="7" height="7" rx="1" fill="#2b3945" />
-          <rect x="3.5" y="3.5" width="7" height="7" rx="1" fill="#7cbde0" stroke="#0d69ac" strokeWidth="1" />
-        </svg>
-      )
-    case 'orbit':
-      return (
-        <svg {...p}>
-          <circle cx="8" cy="8" r="2" fill="#0d69ac" />
-          <ellipse cx="8" cy="8" rx="6" ry="2.6" fill="none" stroke="#8fc5e8" strokeWidth="1.3" transform="rotate(-24 8 8)" />
-          <circle cx="13.4" cy="5.6" r="1.5" fill="#ef6c00" />
         </svg>
       )
     case 'big':
@@ -425,8 +295,8 @@ export function FxToolbar({
 
   const apply = (tag: string) => {
     const ta = taRef.current
-    let start: number = ta?.selectionStart ?? value.length
-    let end: number = ta?.selectionEnd ?? value.length
+    let start = ta && ta.selectionStart !== undefined ? ta.selectionStart : value.length
+    let end = ta && ta.selectionEnd !== undefined ? ta.selectionEnd : value.length
     // nothing selected? wrap the WHOLE text so the effect is always visible —
     // "the selected text becomes the fx": selection wins, full text is the fallback
     if (end <= start) {
@@ -487,7 +357,7 @@ export function FxToolbar({
         FX Menu
         <span className="rb-fx-caret" aria-hidden="true">{open ? '▲' : '▼'}</span>
       </button>
-      <span className="rb-fxbar-hint">Select text, then pick an effect — with nothing selected it styles the whole text. Stack as many as you like. Copy text that already has effects and the effects ride along.</span>
+      <span className="rb-fxbar-hint">Select text, then pick an effect — with nothing selected it styles the whole text. Stack as many as you like.</span>
 
       {open && pos && (
         <div
