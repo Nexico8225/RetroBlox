@@ -18,10 +18,10 @@ extends RefCounted
 # and when other devs copy these scripts into their own project.
 const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 
-const RIG_HEIGHT := 5.0          # this avatar's height — SAME as the site rig (5.0 studs)
+const RIG_HEIGHT := 2.9          # this avatar's height (site rig = 5.0 studs)
 const SITE_RIG_HEIGHT := 5.0
 const UGC_IMPORT_SIZE := 1.6     # UGC max dimension before the placement applies
-const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT  # 1.0 — same studs as the site
+const UGC_SCALE: float = RIG_HEIGHT / SITE_RIG_HEIGHT
 
 # "this surface arrived with no real paint" threshold (raw sRGB ~0.97+),
 # matching the site converter's linear-space 0.93 rule
@@ -138,21 +138,12 @@ static func apply(api: RetrobloxApiScript, avatar_node, avatar_data: Dictionary)
                 var inner := Node3D.new()
                 inner.name = "UGC_" + String(acc_id)
                 inner.add_child(scene)
-                # the creator's placement, applied VERBATIM — in SITE space
-                # (three.js 'XYZ' Euler, degrees), see _apply_placement
                 _apply_placement(inner, surface_asset.get("placement", null))
-                # THE MIRROR FIX — the site rig faces +Z, this rig faces -Z.
-                # A 180° turn around Y maps site space onto game space, so
-                # every item lands facing exactly the way the creator placed
-                # it on the website (previously hats/UGC wore BACKWARDS).
-                var site := Node3D.new()
-                site.name = "UGCSiteSpace_" + String(acc_id)
-                site.rotation.y = PI
-                site.add_child(inner)
+                # site placements are authored against the 5-stud rig — scale down
                 var holder := Node3D.new()
                 holder.name = "UGCScaled_" + String(acc_id)
                 holder.scale = Vector3.ONE * UGC_SCALE
-                holder.add_child(site)
+                holder.add_child(inner)
                 avatar_node.add_child(holder)
                 # creator texture / tint — THE ROBLOX RULE, DATA WINS: the
                 # model's own materials always show; the site's paint only
@@ -214,11 +205,11 @@ static func zone_box(size: Vector3, zone: Rect2, tw: int, th: int) -> ArrayMesh:
                 var hu := absf(u_axis.x) * half.x + absf(u_axis.y) * half.y + absf(u_axis.z) * half.z
                 var hv := absf(v_axis.x) * half.x + absf(v_axis.y) * half.y + absf(v_axis.z) * half.z
                 var tl := center - u_axis * hu - v_axis * hv
-                var tr := center + u_axis * hu - v_axis * hv
+                var tr_c := center + u_axis * hu - v_axis * hv
                 var br := center + u_axis * hu + v_axis * hv
                 var bl := center - u_axis * hu + v_axis * hv
                 var base := verts.size()
-                for corner in [tl, tr, br, bl]:
+                for corner in [tl, tr_c, br, bl]:
                         verts.push_back(corner)
                 for _i in range(4):
                         norms.push_back(normal)
@@ -310,11 +301,7 @@ static func _relative_xform(root: Node3D, node: Node3D) -> Transform3D:
 
 
 ## The creator's placement: p = position, r = degrees, s = scale — applied
-## VERBATIM, in the SITE's conventions: three.js 'XYZ' Euler order (the site
-## applies obj.rotation.set(x, y, z) = Rx·Ry·Rz; Godot's rotation_degrees
-## would compose YXZ and twist multi-axis placements). The platform NEVER
-## auto-fits or repositions UGC. The +Z→-Z mirror lives in the site-space
-## wrapper node this script adds above the placement holder.
+## VERBATIM. The platform NEVER auto-fits or repositions UGC.
 static func _apply_placement(holder: Node3D, placement: Variant) -> void:
         if placement == null or not (placement is Dictionary):
                 return
@@ -324,13 +311,7 @@ static func _apply_placement(holder: Node3D, placement: Variant) -> void:
         if p.size() == 3:
                 holder.position = Vector3(float(p[0]), float(p[1]), float(p[2]))
         if r.size() == 3:
-                var rx := deg_to_rad(float(r[0]))
-                var ry := deg_to_rad(float(r[1]))
-                var rz := deg_to_rad(float(r[2]))
-                # Rx · Ry · Rz — exactly the site's three.js 'XYZ' Euler.
-                # (Built by hand: Godot's rotation_degrees would compose YXZ,
-                # and Vector3.BACK is -Z, which would flip the sign.)
-                holder.basis = Basis(Vector3.RIGHT, rx) * Basis(Vector3.UP, ry) * Basis(Vector3(0, 0, 1), rz)
+                holder.rotation_degrees = Vector3(float(r[0]), float(r[1]), float(r[2]))
         if s.size() == 3:
                 holder.scale = Vector3(float(s[0]), float(s[1]), float(s[2]))
 
