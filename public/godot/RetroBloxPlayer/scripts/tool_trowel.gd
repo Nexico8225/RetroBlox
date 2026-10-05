@@ -29,7 +29,6 @@ func _unhandled_input(event: InputEvent) -> void:
         if not visible or player == null or not player.is_multiplayer_authority():
                 return
         if event is InputEventKey and event.pressed and not event.echo:
-                var idx := int(event.keycode) - int(KEY_0)  # not used; palette via scroll below
                 if event.keycode == KEY_Q:
                         color_index = (color_index - 1 + palette.size()) % palette.size()
                         Sfx.ui("ui_hover", -8.0)
