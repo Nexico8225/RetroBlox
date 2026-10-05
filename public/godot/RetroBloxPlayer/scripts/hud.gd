@@ -39,6 +39,9 @@ const CLASSIC_BLUE := Color("0d69ac")
 @onready var chat_entry: LineEdit = %ChatEntry
 @onready var chat_button: Button = %ChatButton
 @onready var people_button: Button = %PeopleButton
+# captured as a reference (not looked up by %) because _build_toolbar moves
+# this button into the toolbar — reparenting breaks %Name resolution
+@onready var menu_button: Button = %MenuButton
 @onready var roster_panel: PanelContainer = %RosterPanel
 @onready var menu: Control = %Menu
 @onready var reset_button: Button = %ResetButton
@@ -73,7 +76,7 @@ const HEALTH_BAR_H := 12.0
 
 
 func _ready() -> void:
-        %MenuButton.pressed.connect(set_menu.bind(true))
+        menu_button.pressed.connect(set_menu.bind(true))
         %ResumeBtn.pressed.connect(_on_resume_pressed)
         %ResetButton.pressed.connect(_on_reset_pressed)
         %ShiftlockButton.pressed.connect(_on_shiftlock_pressed)
@@ -87,7 +90,7 @@ func _ready() -> void:
         _build_toolbar()
         _apply_classic_style()
         # original UI sounds on every classic interaction
-        for b: Button in [%MenuButton, %ResumeBtn, %ResetButton, %ShiftlockButton, %LeaveBtn, chat_button, people_button]:
+        for b: Button in [menu_button, %ResumeBtn, %ResetButton, %ShiftlockButton, %LeaveBtn, chat_button, people_button]:
                 b.pressed.connect(func() -> void: Sfx.ui("ui_click"))
                 b.mouse_entered.connect(func() -> void: Sfx.ui("ui_hover", -10.0))
 
@@ -113,13 +116,15 @@ func _build_toolbar() -> void:
         root.add_child(toolbar)
 
         # move the three real buttons into the toolbar (signals stay wired)
-        for button in [%MenuButton, %ChatButton, %PeopleButton]:
+        # NOTE: unique names (%) stop resolving once a node is reparented,
+        # so everything uses the @onready references captured in _ready
+        for button in [menu_button, chat_button, people_button]:
                 var btn := button as Button
                 btn.get_parent().remove_child(btn)
                 row.add_child(btn)
                 _style_toolbar_button(btn)
-        %MenuButton.icon = load("res://assets/icons/menu.png")
-        %MenuButton.tooltip_text = "Menu (ESC)"
+        menu_button.icon = load("res://assets/icons/menu.png")
+        menu_button.tooltip_text = "Menu (ESC)"
         chat_button.icon = load("res://assets/icons/chat.png")
         chat_button.tooltip_text = "Chat (/)"
         people_button.icon = load("res://assets/icons/people.png")
