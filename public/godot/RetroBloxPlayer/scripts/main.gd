@@ -345,7 +345,7 @@ func _process(delta: float) -> void:
         var local = players.get(local_id)
         var busy: bool = hud.input_busy()
         var capture: bool = not busy and (shiftlock or camera_distance < 1.0 or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
-        var wanted_mode: int = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
+        var wanted_mode: Input.MouseMode = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
         if Input.mouse_mode != wanted_mode:
                 Input.mouse_mode = wanted_mode
         hud.crosshair.visible = not busy and (shiftlock or camera_distance < 1.0)
@@ -616,14 +616,14 @@ func _register_player(requested_name: String, version: String, user_id: String) 
                 if p.display_name == safe_name:
                         safe_name = safe_name.left(12) + "-%04d" % (id % 10000)
                         break
-        var position: Vector3 = arena.spawn_point(players.size())
-        _spawn_player(id, safe_name, position, true, 0, user_id)
+        var spawn_pos: Vector3 = arena.spawn_point(players.size())
+        _spawn_player(id, safe_name, spawn_pos, true, 0, user_id)
         var roster: Array = []
         for other_id in players:
                 var p = players[other_id]
                 roster.append([int(other_id), p.display_name, p.global_position, p.alive, p.life_epoch, p.platform_user_id])
         _roster.rpc_id(id, roster, room_name)
-        _spawn_player.rpc(id, safe_name, position, true, 0, user_id)
+        _spawn_player.rpc(id, safe_name, spawn_pos, true, 0, user_id)
         _system_notice(safe_name + " joined the game.")
         _system_notice.rpc(safe_name + " joined the game.")
         print("PLAYER_JOINED id=%d name=%s user=%s players=%d" % [id, safe_name, user_id, players.size()])
@@ -1073,14 +1073,14 @@ func _do_place_brick(pos: Vector3, color_html: String, owner_id: int) -> void:
         if used >= 60:
                 return
         brick_counts[owner_id] = used + 1
-        var snapped := Vector3(roundf(pos.x / 2.0) * 2.0, floorf(pos.y) + 0.5, roundf(pos.z / 2.0) * 2.0)
+        var snap_pos := Vector3(roundf(pos.x / 2.0) * 2.0, floorf(pos.y) + 0.5, roundf(pos.z / 2.0) * 2.0)
         var brick = load("res://scenes/part.tscn").instantiate()
         brick.size = Vector3(2.0, 1.0, 4.0)
         brick.color = Color(color_html)
         brick.add_to_group("rbx_brick")
         arena.add_child(brick)
-        brick.global_position = snapped
-        Sfx.at("brick_place", snapped, self)
+        brick.global_position = snap_pos
+        Sfx.at("brick_place", snap_pos, self)
 
 func request_pop_brick(collider: Object) -> void:
         var pos: Vector3 = (collider as Node3D).global_position if collider is Node3D else Vector3.ZERO
