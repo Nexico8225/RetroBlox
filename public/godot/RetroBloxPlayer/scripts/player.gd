@@ -84,6 +84,14 @@ var climbing: bool = false           # on a ladder right now (drives the Climb a
 var _ladder_count: int = 0
 var _step_visual: float = 0.0        # avatar's downward offset that eases out after a step
 
+# classic spawn forcefield — six seconds of spawn protection after every
+# respawn, so you can never be spawn-killed (the visual is an ORIGINAL
+# shimmering bubble, not any legacy asset)
+const SPAWN_FORCEFIELD: float = 6.0
+var forcefield_left: float = 0.0
+var _ff_mesh: MeshInstance3D
+var _ff_mat: StandardMaterial3D
+
 func initialize(id: int, player_name: String) -> void:
         peer_id = id
         display_name = player_name
@@ -98,6 +106,36 @@ func initialize(id: int, player_name: String) -> void:
         bubble = get_node("ChatBubble")
         bubble.visible = false
         _setup_ladder_sensor()
+        _setup_forcefield()
+
+## The spawn-protection bubble: an unshaded translucent sphere around the
+## avatar that gently pulses and fades out over its last second.
+func _setup_forcefield() -> void:
+        _ff_mesh = MeshInstance3D.new()
+        _ff_mesh.name = "Forcefield"
+        var sphere := SphereMesh.new()
+        sphere.radius = 2.6
+        sphere.height = 5.2
+        sphere.radial_segments = 24
+        sphere.rings = 12
+        _ff_mesh.mesh = sphere
+        _ff_mesh.position = Vector3(0.0, 2.5, 0.0)
+        _ff_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        _ff_mat = StandardMaterial3D.new()
+        _ff_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        _ff_mat.albedo_color = Color(0.55, 0.78, 1.0, 0.22)
+        _ff_mat.emission_enabled = true
+        _ff_mat.emission = Color(0.35, 0.55, 0.9)
+        _ff_mat.emission_energy_multiplier = 0.5
+        _ff_mat.roughness = 0.15
+        _ff_mat.metallic = 0.2
+        _ff_mat.no_depth_test = false
+        _ff_mesh.material_override = _ff_mat
+        _ff_mesh.visible = false
+        add_child(_ff_mesh)
+
+func is_protected() -> bool:
+        return alive and forcefield_left > 0.0
 
 ## Dress this player from a platform avatar payload
 ## (GET /api/platform/me for yourself, GET /api/users/{id}/avatar for others).
@@ -304,6 +342,15 @@ func update_visuals(delta: float) -> void:
         if bubble_remaining > 0.0:
                 bubble_remaining -= delta
                 bubble.visible = alive and bubble_remaining > 0.0
+        # forcefield — pulse while up, fade the last second, then pop off
+        if forcefield_left > 0.0:
+                forcefield_left = maxf(forcefield_left - delta, 0.0)
+                var t := Time.get_ticks_msec() / 1000.0
+                _ff_mesh.visible = alive
+                _ff_mesh.scale = Vector3.ONE * (1.0 + 0.045 * sin(t * 7.0))
+                _ff_mat.albedo_color.a = 0.22 * clampf(forcefield_left, 0.0, 1.0) + 0.04
+        elif _ff_mesh != null and _ff_mesh.visible:
+                _ff_mesh.visible = false
 
 ## Health pushed from the network (sword/rocket damage is server-side) —
 ## keeps the local HUD honest without breaking local regen simulation.
@@ -336,6 +383,8 @@ func show_message(message: String) -> void:
 func hurt(amount: float) -> void:
         if not alive or amount <= 0.0:
                 return
+        if forcefield_left > 0.0:
+                return   # the bubble eats the hit — classic spawn protection
         health = maxf(health - amount, 0.0)
         regen_wait = REGEN_DELAY
         health_changed.emit(health, MAX_HEALTH)
@@ -366,6 +415,7 @@ func respawn_at(pos: Vector3, epoch: int) -> void:
         alive = true
         health = MAX_HEALTH
         regen_wait = 0.0
+        forcefield_left = SPAWN_FORCEFIELD   # classic six seconds of protection
         falling = false
         climbing = false
         _step_visual = 0.0
