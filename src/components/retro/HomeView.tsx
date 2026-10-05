@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, fmtCount, flash, type RetroUser } from '@/lib/store'
 import { Avatar, OnlineDot } from './Shell'
+import { FxText } from '@/lib/textfx'
 import { VideoCard, type VideoSummary } from './VideosView'
 
 export interface GameSummary {
@@ -164,7 +165,7 @@ export function PersonIcon() {
 /* ---------------- Shared: people-you-may-know strip ---------------- */
 
 export function SuggestedStrip({ users, title }: { users: SuggestedUser[]; title: string }) {
-  const { setToast } = useRetro()
+  const { user, setToast } = useRetro()
   const [sent, setSent] = useState<Record<string, boolean>>({})
 
   async function add(u: SuggestedUser) {
@@ -183,14 +184,16 @@ export function SuggestedStrip({ users, title }: { users: SuggestedUser[]; title
   if (users.length === 0) return null
 
   return (
-    <section className="rb-box" style={{ marginBottom: 12 }}>
+    <section className="rb-box" style={{ marginBottom: 16 }}>
       <div className="rb-panel-head">
         <span>{title}</span>
-        <Link className="rb-link" style={{ fontSize: 11 }} href="/friends">
-          See All &rarr;
-        </Link>
+        {user && (
+          <Link className="rb-link" style={{ fontSize: 11 }} href="/friends">
+            See All &rarr;
+          </Link>
+        )}
       </div>
-      <div style={{ padding: '10px 12px', display: 'flex', gap: 14, overflowX: 'auto' }}>
+      <div style={{ padding: '12px 14px', display: 'flex', gap: 14, overflowX: 'auto' }}>
         {users.slice(0, 9).map((u) => (
           <div
             key={u.id}
@@ -222,10 +225,18 @@ export function SuggestedStrip({ users, title }: { users: SuggestedUser[]; title
               <span style={{ fontSize: 9, color: '#7b8896', border: '1px solid #c3cdd7', borderRadius: 3, padding: '2px 7px', background: '#f2f6fa' }}>
                 Request Sent
               </span>
-            ) : (
+            ) : user ? (
               <button className="rb-btn rb-btn-green" style={{ fontSize: 9, padding: '2px 8px' }} onClick={() => add(u)}>
                 + Add
               </button>
+            ) : (
+              <Link
+                href="/signup"
+                className="rb-btn rb-btn-green"
+                style={{ fontSize: 9, padding: '2px 8px', textDecoration: 'none', display: 'inline-block' }}
+              >
+                + Add
+              </Link>
             )}
           </div>
         ))}
@@ -263,31 +274,140 @@ function LatestVideosStrip() {
   )
 }
 
+/* ---------------- Your library: played + downloaded rails ---------------- */
+
+function YourGamesRails({ list, title, blurb }: { list: 'played' | 'downloaded'; title: string; blurb: string }) {
+  const { user } = useRetro()
+  const [games, setGames] = useState<GameSummary[] | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    api<{ games: GameSummary[] }>(`/api/games?list=${list}&limit=12`)
+      .then((r) => setGames(r.games))
+      .catch(() => setGames([]))
+  }, [user, list])
+
+  if (!user || !games || games.length === 0) return null
+
+  return (
+    <section className="rb-box" style={{ marginTop: 12 }}>
+      <div className="rb-panel-head">
+        <span>{title}</span>
+        <Link className="rb-link" style={{ fontSize: 11 }} href="/games">
+          Browse &rarr;
+        </Link>
+      </div>
+      <div style={{ padding: '8px 12px', fontSize: 10, color: '#7b8896', borderBottom: '1px solid #eef2f6' }}>{blurb}</div>
+      <div
+        style={{
+          padding: 12,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+          gap: 10,
+        }}
+      >
+        {games.map((g) => (
+          <GameCard key={g.id} game={g} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/* ---------------- Community pulse (latest from forums) ---------------- */
+function CommunityPulse() {
+  const [labs, setLabs] = useState<{ id: string; title: string; board: string; author: { username: string }; createdAt: string }[]>([])
+  const [community, setCommunity] = useState<{ id: string; title: string; flair: string; author: { username: string }; createdAt: string; score: number }[]>([])
+
+  useEffect(() => {
+    api<{ posts: { id: string; title: string; board: string; author: { username: string }; createdAt: string }[] }>('/api/labs?limit=4')
+      .then((r) => setLabs(r.posts))
+      .catch(() => {})
+    api<{ posts: { id: string; title: string; flair: string; author: { username: string }; createdAt: string; score: number }[] }>('/api/community?sort=new&limit=4')
+      .then((r) => setCommunity(r.posts))
+      .catch(() => {})
+  }, [])
+
+  if (labs.length === 0 && community.length === 0) return null
+
+  return (
+    <section style={{ display: 'flex', gap: 12, marginTop: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div className="rb-box" style={{ flex: '1 1 280px', minWidth: 250, overflow: 'hidden' }}>
+        <div className="rb-panel-head">
+          <span>RetroLabs — Latest</span>
+          <Link className="rb-link" style={{ fontSize: 11 }} href="/labs">Visit &rarr;</Link>
+        </div>
+        <div style={{ padding: 8 }}>
+          {labs.length === 0 && <div style={{ fontSize: 10, color: '#7b8896', padding: '4px 2px' }}>No posts yet — devs, get writing!</div>}
+          {labs.map((p) => (
+            <div key={p.id} style={{ padding: '5px 2px', borderBottom: '1px solid #eef2f6' }}>
+              <Link href={`/labs/${p.id}`} className="rb-link" style={{ fontSize: 11, display: 'block', lineHeight: 1.35 }}>
+                <FxText text={p.title} />
+              </Link>
+              <div style={{ fontSize: 9, color: '#7b8896', marginTop: 1 }}>{p.board} · {p.author.username}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rb-box" style={{ flex: '1 1 280px', minWidth: 250, overflow: 'hidden' }}>
+        <div className="rb-panel-head">
+          <span>Community — Newest</span>
+          <Link className="rb-link" style={{ fontSize: 11 }} href="/community">Visit &rarr;</Link>
+        </div>
+        <div style={{ padding: 8 }}>
+          {community.length === 0 && <div style={{ fontSize: 10, color: '#7b8896', padding: '4px 2px' }}>The lounge is quiet... for now.</div>}
+          {community.map((p) => (
+            <div key={p.id} style={{ padding: '5px 2px', borderBottom: '1px solid #eef2f6' }}>
+              <Link href={`/community/${p.id}`} className="rb-link" style={{ fontSize: 11, display: 'block', lineHeight: 1.35 }}>
+                <FxText text={p.title} />
+              </Link>
+              <div style={{ fontSize: 9, color: '#7b8896', marginTop: 1 }}>{p.flair} · {p.score} points · {p.author.username}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 /* ---------------- Home ---------------- */
 
 export function HomeView() {
   const { user, pendingRequests } = useRetro()
   const [friends, setFriends] = useState<RetroUser[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])
+  const [newcomers, setNewcomers] = useState<SuggestedUser[]>([])
+  const [onlineCount, setOnlineCount] = useState<number | null>(null)
   const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
+    // Independent loads — a 401 on friends (guests) must NEVER kill the games grid
+    const [f, g, s] = await Promise.allSettled([
+      api<{ friends: RetroUser[] }>('/api/friends'),
+      api<{ games: GameSummary[] }>('/api/games?sort=recent&limit=15'),
+      api<{ suggested: SuggestedUser[] }>('/api/friends/suggested'),
+    ])
+    if (f.status === 'fulfilled') setFriends(f.value.friends)
+    if (g.status === 'fulfilled') setGames(g.value.games)
+    if (s.status === 'fulfilled') setSuggested(s.value.suggested || [])
+    // Public fallback: newest active blockheads power the "Meet the Blockheads" strip
+    // (guests always; members only when the personalized suggestions come back empty)
     try {
-      const [f, g, s] = await Promise.all([
-        api<{ friends: RetroUser[] }>('/api/friends'),
-        api<{ games: GameSummary[] }>('/api/games?sort=recent&limit=8'),
-        api<{ suggested: SuggestedUser[] }>('/api/friends/suggested'),
-      ])
-      setFriends(f.friends)
-      setGames(g.games)
-      setSuggested(s.suggested || [])
+      const u = await api<{ users: RetroUser[]; onlineCount: number }>('/api/users?limit=9')
+      setOnlineCount(u.onlineCount)
+      setNewcomers(
+        u.users.map((x) => ({
+          ...x,
+          reason: x.online ? 'Online right now — say hi!' : 'Around lately — say hi!',
+          mutuals: 0,
+        })),
+      )
     } catch {
       /* ignore */
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -298,59 +418,40 @@ export function HomeView() {
 
   return (
     <div>
-      {/* the hero — your wordmark, your name, and the three things people
-          actually do here. Sky gradient keeps it loud and proud like a
-          2006 fansite. */}
-      <section
-        className="rb-box rb-hero"
-        style={{
-          marginBottom: 12,
-          padding: '18px 20px',
-          display: 'flex',
-          flexDirection: 'row',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <img
-            src="/retro/logo-wordmark.png"
-            alt="ReTROBLOX"
-            style={{ height: 42, width: 'auto', maxWidth: '100%', filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.35))' }}
+      {/* classic old-Roblox "who's online" soul line */}
+      {onlineCount !== null && (
+        <div style={{ textAlign: 'center', fontSize: 11, color: '#5a6b7b', padding: '2px 0 10px' }}>
+          <span
+            style={{
+              display: 'inline-block',
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: '#4caf50',
+              boxShadow: '0 0 0 2px rgba(76,175,80,.18)',
+              marginRight: 5,
+              verticalAlign: 1,
+            }}
           />
-          <div style={{ flex: 1, minWidth: 190 }}>
-            <div className="rb-page-title">{user ? `Hello, ${user.username}!` : 'Welcome to RetroBlox'}</div>
-            <div style={{ fontSize: 12, color: 'var(--rb-text-dim)', marginTop: 3 }}>
-              Publish a game, dress your blockhead, or hang out in the lounge.
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {/* one main color — the wordmark red leads, the rest stay neutral */}
-            <Link className="rb-btn rb-btn-red" href="/create" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 15px' }}>
-              + Publish a Game
-            </Link>
-            <Link className="rb-btn" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 15px' }}>
-              ▶ Post a Video
-            </Link>
-            <Link className="rb-btn" href="/community" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 15px' }}>
-              Community
-            </Link>
-          </div>
+          {onlineCount === 0
+            ? 'Nobody is online right now — be the first blockhead to log in!'
+            : `${onlineCount} blockhead${onlineCount === 1 ? '' : 's'} online now`}
         </div>
-      </section>
+      )}
 
-      {/* Friends strip (members only — guests have no friends list yet) */}
-      {user && (
-      <section className="rb-box" style={{ marginBottom: 12 }}>
+      {/* Friends strip — everyone sees it; guests get the "log in to add friends" path */}
+      <section className="rb-box" style={{ marginBottom: 16 }}>
         <div className="rb-panel-head">
-          <span>Friends ({friends.length})</span>
-          <Link className="rb-link" style={{ fontSize: 11 }} href="/friends">
-            See All &rarr;
-          </Link>
+          <span>{user ? `Friends (${friends.length})` : 'Friends'}</span>
+          {user && (
+            <Link className="rb-link" style={{ fontSize: 11 }} href="/friends">
+              See All &rarr;
+            </Link>
+          )}
         </div>
         <div style={{ padding: '10px 12px', display: 'flex', gap: 10, overflowX: 'auto' }}>
           <Link
-            href="/friends"
+            href={user ? '/friends' : '/signup'}
             className="rb-clickable"
             style={{
               width: 74,
@@ -430,30 +531,45 @@ export function HomeView() {
 
           {!loading && friends.length === 0 && (
             <div style={{ alignSelf: 'center', color: '#5a6b7b', fontSize: 11, padding: '0 8px' }}>
-              No friends yet — add blockheads you know, or meet similar players below!
+              {user
+                ? 'No friends yet — add blockheads you know, or meet similar players below!'
+                : 'Log in to add blockheads as friends — they will show up right here!'}
             </div>
           )}
         </div>
       </section>
+
+      {/* People strip — members: personalized "People You May Know"; guests: liveliest blockheads */}
+      {!loading && (suggested.length > 0 || newcomers.length > 0) && (
+        <SuggestedStrip
+          users={suggested.length > 0 ? suggested : newcomers}
+          title={suggested.length > 0 ? 'People You May Know' : 'Meet the Blockheads'}
+        />
       )}
 
-      {/* Similar players */}
-      {!loading && suggested.length > 0 && <SuggestedStrip users={suggested} title="People You May Know" />}
+      {/* Your library — plays and downloads are tracked separately */}
+      <YourGamesRails list="played" title="🎮 Games You've Played" blurb="Every game you hit Play now on — your personal play history."
+      />
+      <YourGamesRails list="downloaded" title="⬇ Your Downloaded Games" blurb="Games sitting on your device — re-download them any time."
+      />
 
-      {/* Games — the main event. Eight fresh cards, no endless scrolling. */}
-      <section className="rb-box">
+      {/* Games */}
+      <section className="rb-box" style={{ marginTop: 16 }}>
         <div className="rb-panel-head">
           <span>All Games</span>
           <Link className="rb-link" style={{ fontSize: 11 }} href="/games">
-            Browse all games &rarr;
+            Browse &rarr;
           </Link>
+        </div>
+        <div style={{ padding: '9px 14px 0', fontSize: 11, color: '#5a6b7b' }}>
+          Every world the community has built so far — pick one and jump in.
         </div>
         <div
           style={{
-            padding: 12,
+            padding: 14,
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-            gap: 10,
+            gap: 12,
           }}
         >
           {loading
@@ -485,6 +601,9 @@ export function HomeView() {
 
       {/* latest videos */}
       <LatestVideosStrip />
+
+      {/* community pulse */}
+      <CommunityPulse />
     </div>
   )
 }
@@ -548,43 +667,21 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
 
   return (
     <div>
-      {/* one compact header: title + sort in a single card (the old blurb box
-          went away — nobody read it, and it pushed the games below the fold) */}
-      <div className="rb-box" style={{ marginBottom: 10, overflow: 'hidden' }}>
-        <div className="rb-panel-head">
-          <span>{title}</span>
-          <span style={{ fontSize: 10, color: '#5a6b7b' }}>
-            {loading ? '...' : `${games.length} game${games.length === 1 ? '' : 's'}`}
-          </span>
-        </div>
-        <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: '#24425f' }}>Sort by:</span>
-          <select
-            className="rb-select"
-            value={sort}
-            onChange={(e) => pushParams({ sort: e.target.value })}
-            style={{ fontSize: 11, padding: '3px 6px' }}
-            aria-label="Sort games"
-          >
-            <option value="recommended">Recommended For You</option>
-            <option value="trending">Trending Now</option>
-            <option value="popular">Popular</option>
-            <option value="topRated">Top Rated</option>
-            <option value="downloads">Downloads (highest number)</option>
-            <option value="recent">Recently Uploaded</option>
-            <option value="updated">Recently Updated</option>
-            <option value="gems">💎 Hidden Gems</option>
-          </select>
-          {q && (
-            <span style={{ fontSize: 10, color: '#7b8896' }}>
-              matched against titles, descriptions and creators
-            </span>
-          )}
+      <div className="rb-box" style={{ marginBottom: 12 }}>
+        <div className="rb-panel-head"><span>{title}</span></div>
+        <div style={{ padding: '8px 12px', fontSize: 11, color: '#5a6b7b' }}>
+          {q
+            ? `${loading ? '...' : games.length} game(s) found — matched against titles, descriptions and creators.`
+            : sort === 'recommended'
+              ? 'Picked for you from what the community rates, plays and talks about — the more a game engages, the higher it rises.'
+              : sort === 'trending'
+                ? 'Hot right now — engagement per day, so fresh games with real play outrank the old giants.'
+                : 'Every game published on RetroBlox — sorted by rating, downloads or date.'}
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* genre filter — one of the two filters that matter, kept */}
+        {/* genre filter */}
         <div className="rb-box" style={{ width: 170, flexShrink: 0, overflow: 'hidden' }}>
           <div className="rb-panel-head"><span>Genres</span></div>
           <div style={{ padding: '4px 0' }}>
@@ -612,6 +709,29 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
 
         {/* grid */}
         <div style={{ flex: 1, minWidth: 280 }}>
+          <div className="rb-box" style={{ padding: '6px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: '#24425f' }}>Sort by:</span>
+            <select
+              className="rb-select"
+              value={sort}
+              onChange={(e) => pushParams({ sort: e.target.value })}
+              style={{ fontSize: 11, padding: '3px 6px' }}
+              aria-label="Sort games"
+            >
+              <option value="recommended">Recommended For You</option>
+              <option value="trending">Trending Now</option>
+              <option value="popular">Popular</option>
+              <option value="topRated">Top Rated</option>
+              <option value="downloads">Downloads (highest number)</option>
+              <option value="recent">Recently Uploaded</option>
+              <option value="updated">Recently Updated</option>
+              <option value="gems">💎 Hidden Gems</option>
+            </select>
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#7b8896' }}>
+              {loading ? '...' : `${games.length} game${games.length === 1 ? '' : 's'}`}
+            </span>
+          </div>
+
           <div
             style={{
               display: 'grid',
