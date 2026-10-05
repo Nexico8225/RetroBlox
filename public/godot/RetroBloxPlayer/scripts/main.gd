@@ -1,29 +1,8 @@
 extends Node3D
 
-## RetroBlox Player — the WEBSITE-SYNCED multiplayer world.
-##
-## Everything runs through https://retro-blox.vercel.app:
-##   LOGIN      — accounts made on the website (or the Sign Up tab). There is
-##                no guest mode: your account IS your player.
-##   GAME SYNC  — after login the player downloads the place list and the map
-##                of the game from the site (one game: Baseplate). Change the
-##                game on the web and every player plays the new version.
-##   MULTIPLAYER— every ~0.15s the player posts its position/yaw/animation to
-##                POST /api/game/state and receives every other player plus
-##                the new chat lines. Remote characters are smoothed, so the
-##                ticking stays invisible.
-##   CHAT       — press "/" or ENTER (classic), talk, everyone in the place
-##                sees it in the chat log AND as a bubble over your head.
-##
-## Shift Lock included (SHIFT or the menu button): the camera locks to your
-## right shoulder and the character squares up to the camera, classic style.
-## Ladders: push forward to climb, back to slide down, SPACE to jump OFF.
-##
-## CREATORS — the world is still built from nodes and scenes: the web map
-## spawns the very same RetroPart / SpawnLocation / RetroLadder scenes you
-## place by hand in scenes/maps/ (see README). No website? The bundled
-## Baseplate scene loads and you play solo.
-
+## RetroBlox Player — classic multiplayer world on a platform account.
+## Sign in (or sign up) INSIDE the game, your account avatar loads from the
+## RetroBlox website, and everyone in the room sees it. Shift Lock included.
 const Player = preload("res://scripts/player.gd")
 const PlayerScene = preload("res://scenes/player.tscn")
 const HudScene = preload("res://scenes/hud.tscn")
@@ -31,14 +10,46 @@ const AuthScreenScene = preload("res://scenes/auth_screen.tscn")
 # Referenced by FILE PATH, not by global class name — parses correctly on the
 # very first open, even before Godot registers global class_names.
 const RetrobloxApiScript = preload("res://scripts/retroblox_api.gd")
+const ToolSwordScript = preload("res://scripts/tool_sword.gd")
+const ToolRocketScript = preload("res://scripts/tool_rocket.gd")
+const ToolTrowelScript = preload("res://scripts/tool_trowel.gd")
 
+var active_tool: ToolBase = null
+var hotbar: Hotbar = null
+var touch_move := Vector2.ZERO
+var touch_jump_pending := false
+var fov_setting := 70.0
+var quality_setting := 1
+var brick_counts := {}
+const VERSION: String = "RETROBLOX_1"
+const DISCOVER: String = "RETROBLOX_1_DISCOVER"
 const RESPAWN_SECONDS: float = 2.8
-const TICK_SECONDS: float = 0.15        # the multiplayer heartbeat (~6.7/s)
-const TICK_RETRY: float = 1.2           # slower heartbeat while the site is unreachable
-const REMOTE_TIMEOUT: float = 12.0      # silent this long = left the game
-const WALK_ANIM_SPEED: float = 16.0     # what a remote "walk" state animates at
-const REMOTE_CULL_DISTANCE: float = 220.0   # hide far avatars (still synced)
-const REMOTE_ANIM_DISTANCE: float = 150.0   # skip their animations beyond this
+
+var players: Dictionary = {}
+var pending_peers: Dictionary = {}
+var peer: ENetMultiplayerPeer
+var server_mode: bool = false
+var dedicated: bool = false
+var force_host: bool = false
+var local_id: int = 0
+var server_address: String = ""
+var port: int = 42420
+var discovery_port: int = 42421
+var max_players: int = 32
+var player_name: String = ""
+var room_name: String = "RetroBlox Baseplate"
+var phase: String = "starting"
+var phase_time: float = 0.0
+var discover_delay: float = 1.8
+var probe_time: float = 0.0
+var discovery: PacketPeerUDP
+var discovery_listener: PacketPeerUDP
+var snapshot_time: float = 0.0
+var send_time: float = 0.0
+var jump_serial: int = 0
+var sequence: int = 0
+var hud: CanvasLayer
+var auth: CanvasLayer
 
 # the world lives in main.tscn — Arena, Players, Debris and the CameraRig
 @onready var arena: Node3D = $Arena
@@ -47,40 +58,21 @@ const REMOTE_ANIM_DISTANCE: float = 150.0   # skip their animations beyond this
 @onready var camera_pivot: Node3D = $CameraRig
 @onready var spring_arm: SpringArm3D = $CameraRig/SpringArm3D
 @onready var camera: Camera3D = $CameraRig/SpringArm3D/Camera3D
-
 var camera_yaw: float = 0.0
 var camera_pitch: float = -0.26
 var camera_distance: float = 14.5   # studs — classic default zoom for a 5-stud character
 var camera_initialized: bool = false
 var quitting: bool = false
-
-# --- the place being played ---
-var place_slug: String = ""
-var place_name: String = "Baseplate"
-
-# --- players: account id (String) -> Player node; LOCAL included ---
-var players: Dictionary = {}
-var player_last_seen: Dictionary = {}   # uid -> msec when last present
-var my_user_id: String = ""
-var _display_name: String = "Player"
-
-# --- the multiplayer heartbeat ---
-var tick_time: float = 0.0
-var ticking: bool = false               # a state request is in flight
-var ticks_failed: int = 0               # consecutive failures (drives the status line)
-var chat_cursor: String = ""            # serverTime of the last tick (chat "since")
-var pending_chat: String = ""           # one queued message, sent on the next tick
-var my_last_chat_ms: float = -100.0
-
-var jump_serial: int = 0
-var hud: CanvasLayer
-var auth: CanvasLayer
+var debug_stats: Dictionary = {"max_players_seen": 0, "chats_received": 0, "deaths_seen": 0, "respawns_seen": 0, "snapshots_received": 0}
 
 # --- platform account ---
-# The production RetroBlox site — sign-in, avatars, catalog, game sync. Override
-# with the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
+# The production RetroBlox site — sign-in, avatars, catalog. Override with
+# the Server field on the login card, RETROBLOX_API, or --api= for self-hosts.
 var api_url: String = "https://retro-blox.vercel.app"
 var api_ref: RetrobloxApiScript
+var platform_user_id: String = ""
+var my_avatar: Dictionary = {}
+var _avatar_cache: Dictionary = {}
 var profile: ConfigFile
 
 # --- settings ---
@@ -90,56 +82,45 @@ var volume_setting: float = 1.0
 var shoulder_blend: float = 0.0
 var _auth_done: bool = false
 
-# --- quality / mobile settings (the Settings card drives these) ---
-var quality_preset: String = "auto"    # auto/low/medium/high/custom
-var render_scale: float = 1.0          # 3D draw scale 0.5–1.0 (the big speed dial)
-var shadows_on: bool = true
-var fov_setting: float = 70.0
-var show_fps: bool = false
-var touch_mode: String = "auto"        # auto/on/off
-var touch_active: bool = false         # resolved: the touch layer is visible
-var _fps_low_time: float = 0.0         # auto-quality downgrade watch
-var _cull_timer: float = 0.0
-var _camera_touches: Dictionary = {}   # touch index -> last position (camera drag)
-var _pinch_dist: float = 0.0
-
-
 func _ready() -> void:
+        randomize()
+        # All game messages go through the server. Peer-to-peer relay/announcements
+        # are unnecessary and can race when multiple clients disconnect together.
+        multiplayer.server_relay = false
         _read_configuration()
         _setup_input()
         _apply_volume()
-        touch_active = _resolve_touch()
-        hud = HudScene.instantiate() as CanvasLayer
-        add_child(hud)
-        hud.chat_submitted.connect(send_chat)
-        hud.resume_requested.connect(func(): hud.set_menu(false))
-        hud.reset_requested.connect(request_reset)
-        hud.quit_requested.connect(quit_game)
-        hud.shiftlock_toggled.connect(_set_shiftlock)
-        hud.sensitivity_changed.connect(_on_sensitivity_changed)
-        hud.volume_changed.connect(_on_volume_changed)
-        hud.jump_pressed.connect(_on_touch_jump)
-        hud.quality_changed.connect(_on_quality_changed)
-        hud.render_scale_changed.connect(_on_render_scale_changed)
-        hud.shadows_changed.connect(_on_shadows_changed)
-        hud.fov_changed.connect(_on_fov_changed)
-        hud.show_fps_changed.connect(_on_show_fps_changed)
-        hud.touch_mode_changed.connect(_on_touch_mode_changed)
-        hud.room_label.text = "RetroBlox  /  loading games…"
-        hud.set_room_title(place_name)
-        hud.set_sliders(mouse_sensitivity, volume_setting)
-        hud.set_shiftlock(shiftlock)
-        hud.set_touch_enabled(touch_active)
-        _apply_quality()
-        _sync_settings_card()
-        hud.add_chat("", "Welcome to RetroBlox!", true)
-        # the door: log in or sign up — the website account IS the player
-        auth = AuthScreenScene.instantiate() as CanvasLayer
-        add_child(auth)
-        auth.completed.connect(_on_auth_completed)
-        auth.set_api_url(api_url)
-        auth.set_saved_username(str(profile.get_value("platform", "username", "")))
-        _try_saved_token()
+        if not dedicated:
+                hud = HudScene.instantiate() as CanvasLayer
+                add_child(hud)
+                hud.chat_submitted.connect(send_chat)
+                hud.resume_requested.connect(func(): hud.set_menu(false))
+                hud.reset_requested.connect(request_reset)
+                hud.quit_requested.connect(quit_game)
+                hud.shiftlock_toggled.connect(_set_shiftlock)
+                hud.sensitivity_changed.connect(_on_sensitivity_changed)
+                hud.volume_changed.connect(_on_volume_changed)
+                hud.room_label.text = room_name + "  /  Classic worlds, your way."
+                hud.set_room_title(room_name)
+                hud.set_sliders(mouse_sensitivity, volume_setting)
+                hud.set_shiftlock(shiftlock)
+                _setup_extras()
+                hud.add_chat("", "Welcome! Only connected players appear here.", true)
+                # the door: sign in, sign up, or play as a guest
+                auth = AuthScreenScene.instantiate() as CanvasLayer
+                add_child(auth)
+                auth.completed.connect(_on_auth_completed)
+                auth.guest_requested.connect(_on_guest_requested)
+                auth.set_api_url(api_url)
+                auth.set_saved_username(str(profile.get_value("platform", "username", "")))
+                _try_saved_token()
+        multiplayer.peer_connected.connect(_peer_connected)
+        multiplayer.peer_disconnected.connect(_peer_disconnected)
+        multiplayer.connected_to_server.connect(_connected_to_server)
+        multiplayer.connection_failed.connect(_connection_failed)
+        multiplayer.server_disconnected.connect(_server_disconnected)
+        if dedicated:
+                _start_server()
 
 func _read_configuration() -> void:
         var config := ConfigFile.new()
@@ -149,29 +130,38 @@ func _read_configuration() -> void:
                 var override_path := OS.get_executable_path().get_base_dir().path_join("network.cfg")
                 if FileAccess.file_exists(override_path):
                         config.load(override_path)
+        server_address = str(config.get_value("network", "server", "")).strip_edges()
+        port = clampi(int(config.get_value("network", "port", 42420)), 1024, 65535)
+        discovery_port = clampi(int(config.get_value("network", "discovery_port", 42421)), 1024, 65535)
+        max_players = clampi(int(config.get_value("network", "max_players", 32)), 2, 64)
+        room_name = str(config.get_value("game", "room_name", "RetroBlox Baseplate")).left(32)
         api_url = str(config.get_value("platform", "api_url", "https://retro-blox.vercel.app")).strip_edges().trim_suffix("/")
 
         profile = ConfigFile.new()
         if profile.load("user://profile.cfg") != OK:
+                profile.set_value("player", "name", "Guest-%04d" % randi_range(1000, 9999))
                 profile.save("user://profile.cfg")
+        player_name = str(profile.get_value("player", "name", "Guest"))
         shiftlock = bool(profile.get_value("player", "shiftlock", false))
         mouse_sensitivity = clampf(float(profile.get_value("settings", "sensitivity", 1.0)), 0.4, 2.0)
         volume_setting = clampf(float(profile.get_value("settings", "volume", 1.0)), 0.0, 1.0)
-        quality_preset = str(profile.get_value("settings", "quality", "auto"))
-        if not ["auto", "low", "medium", "high", "custom"].has(quality_preset):
-                quality_preset = "auto"
-        render_scale = clampf(float(profile.get_value("settings", "render_scale", 1.0)), 0.5, 1.0)
-        shadows_on = bool(profile.get_value("settings", "shadows", true))
-        fov_setting = clampf(float(profile.get_value("settings", "fov", 70.0)), 60.0, 100.0)
-        show_fps = bool(profile.get_value("settings", "show_fps", false))
-        touch_mode = str(profile.get_value("settings", "touch", "auto"))
-        if not ["auto", "on", "off"].has(touch_mode):
-                touch_mode = "auto"
 
         if not OS.get_environment("RETROBLOX_API").is_empty():
                 api_url = OS.get_environment("RETROBLOX_API").strip_edges().trim_suffix("/")
+        if not OS.get_environment("BLOCKYARD_SERVER").is_empty():
+                server_address = OS.get_environment("BLOCKYARD_SERVER")
         for arg in OS.get_cmdline_user_args():
-                if arg.begins_with("--api="):
+                if arg == "--server":
+                        dedicated = true
+                elif arg == "--host":
+                        force_host = true
+                elif arg.begins_with("--connect="):
+                        server_address = arg.trim_prefix("--connect=")
+                elif arg.begins_with("--port="):
+                        port = clampi(arg.trim_prefix("--port=").to_int(), 1024, 65535)
+                elif arg.begins_with("--name="):
+                        player_name = arg.trim_prefix("--name=")
+                elif arg.begins_with("--api="):
                         api_url = arg.trim_prefix("--api=").trim_suffix("/")
 
 func _setup_input() -> void:
@@ -215,106 +205,53 @@ func _try_saved_token() -> void:
 func _on_auth_completed(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
         _finish_auth(api, username, user_id, avatar)
 
+func _on_guest_requested() -> void:
+        if _auth_done:
+                return
+        _auth_done = true
+        api_ref = RetrobloxApiScript.new(api_url)  # token-less: still fetches PUBLIC avatars
+        platform_user_id = ""
+        my_avatar = {}
+        player_name = "Guest-%04d" % randi_range(1000, 9999)
+        if auth != null:
+                auth.visible = false
+        _begin_online()
+
 func _finish_auth(api: RetrobloxApiScript, username: String, user_id: String, avatar: Dictionary) -> void:
         if _auth_done:
                 return
         _auth_done = true
         api_ref = api
-        my_user_id = user_id
-        _display_name = _clean_name(username, 1)
+        platform_user_id = user_id
+        my_avatar = avatar if avatar is Dictionary else {}
+        player_name = username if not username.is_empty() else player_name
         profile.set_value("platform", "token", api.token)
         profile.set_value("platform", "username", username)
         profile.save("user://profile.cfg")
         if hud != null:
-                hud.add_chat("", "Signed in as %s — loading the game from RetroBlox…" % username, true)
-        _join_place(avatar)
+                hud.add_chat("", "Signed in as %s — wearing your account avatar." % player_name, true)
+        _begin_online()
 
-func _clean_name(value: String, id: int) -> String:
-        var result := ""
-        for c in value.left(80):
-                var n := c.unicode_at(0)
-                if (n >= 48 and n <= 57) or (n >= 65 and n <= 90) or (n >= 97 and n <= 122) or c in [" ", "-", "_"]:
-                        result += c
-                if result.length() >= 18:
-                        break
-        result = result.strip_edges()
-        return result if not result.is_empty() else "Player-%04d" % (id % 10000)
-
-# ---------------------------------------------------------------- game sync
-
-## LOGIN DONE → download the game from the website and join it.
-func _join_place(avatar_payload: Dictionary) -> void:
-        if hud != null:
-                hud.set_status("Loading games from RetroBlox…", false)
-        var places_res: Dictionary = {}
-        if api_ref != null:
-                places_res = await api_ref.get_places()
+func _begin_online() -> void:
         if quitting:
                 return
-
-        var slug := ""
-        var display := ""
-        if places_res.get("ok", false):
-                var places: Array = places_res.get("places", [])
-                for entry in places:
-                        var place: Dictionary = entry
-                        if place.get("active", false) == false:
-                                continue
-                        slug = String(place.get("slug", ""))
-                        display = String(place.get("name", ""))
-                        break
-        if slug.is_empty():
-                # the website could not answer — play the bundled Baseplate solo;
-                # the heartbeat keeps retrying so others still see you once it heals
-                _system_notice("Could not load the games from RetroBlox — playing the local Baseplate copy.")
-                _spawn_local(avatar_payload)
-                return
-
-        place_slug = slug
-        if not display.is_empty():
-                place_name = display
-        var place_res: Dictionary = await api_ref.get_place(place_slug)
-        if quitting:
-                return
-        if place_res.get("ok", false) and place_res.get("data", {}) is Dictionary:
-                var err: String = arena.apply_map_data(place_res.get("data"))
-                if err.is_empty():
-                        place_name = String(place_res.get("name", place_name))
-                else:
-                        _system_notice("The web map could not be built (%s) — playing the local Baseplate copy." % err)
+        if dedicated or force_host:
+                _start_server()
+        elif not server_address.is_empty():
+                _connect_to(server_address)
         else:
-                _system_notice("Could not download the map — playing the local Baseplate copy.")
-
-        if hud != null:
-                hud.room_label.text = place_name + "  /  synced from retroblox web"
-                hud.set_room_title(place_name)
-        _spawn_local(avatar_payload)
-
-func _spawn_local(avatar_payload: Dictionary) -> void:
-        if hud != null and place_slug.is_empty():
-                hud.room_label.text = place_name + "  /  offline copy"
-        var p := _spawn_player(my_user_id, _display_name, arena.spawn_point(players.size()), avatar_payload)
-        p.is_remote = false
-        if hud != null:
-                p.health_changed.connect(hud.set_health)
-                p.health_depleted.connect(_on_local_health_depleted)
-                hud.set_health(p.health, p.MAX_HEALTH)
-                hud.set_status("●  " + place_name, true)
-        tick_time = TICK_SECONDS  # first heartbeat fires immediately
-        _update_roster()
+                _begin_discovery()
 
 # ---------------------------------------------------------------- input
 
 func _input(event: InputEvent) -> void:
-        if hud == null:
+        if dedicated or hud == null:
                 return
         if auth != null and auth.visible:
                 return  # the login card owns the keyboard until you are in
         if event is InputEventKey and event.pressed and not event.echo:
                 if event.keycode == KEY_ESCAPE:
-                        if hud.settings_open:
-                                hud.close_settings()
-                        elif hud.chat_entry.has_focus():
+                        if hud.chat_entry.has_focus():
                                 hud.chat_entry.release_focus()
                         elif hud.chat_open:
                                 hud.toggle_chat(false)
@@ -346,28 +283,15 @@ func _input(event: InputEvent) -> void:
                         camera_distance = clampf(camera_distance - 1.4, 0.5, 30.0)
                 elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
                         camera_distance = clampf(camera_distance + 1.4, 0.5, 30.0)
-        if event is InputEventScreenTouch:
-                # mobile camera: a finger that starts on free screen space drags
-                # the camera; two fingers pinch-zoom. Joystick/buttons/filter
-                # HUD panels claim their own touches first.
-                if event.pressed:
-                        if not hud.is_point_reserved(event.position):
-                                _camera_touches[event.index] = event.position
-                else:
-                        _camera_touches.erase(event.index)
-                        if _camera_touches.size() < 2:
-                                _pinch_dist = 0.0
-        elif event is InputEventScreenDrag and _camera_touches.has(event.index):
-                _camera_touches[event.index] = event.position
-                if _camera_touches.size() >= 2:
-                        var positions: Array = _camera_touches.values()
-                        var dist: float = (positions[0] as Vector2).distance_to(positions[1] as Vector2)
-                        if _pinch_dist > 0.0:
-                                camera_distance = clampf(camera_distance - (dist - _pinch_dist) * 0.05, 0.5, 30.0)
-                        _pinch_dist = dist
-                else:
-                        camera_yaw -= event.relative.x * 0.006 * mouse_sensitivity
-                        camera_pitch = clampf(camera_pitch - event.relative.y * 0.006 * mouse_sensitivity, -1.2, 0.8)
+                elif event.button_index == MOUSE_BUTTON_LEFT and active_tool != null:
+                        if phase == "playing" and not hud.input_busy():
+                                active_tool.use_primary()
+                                get_viewport().set_input_as_handled()
+        if event is InputEventScreenDrag and phase == "playing":
+                var d := event as InputEventScreenDrag
+                if d.position.x > 360.0:
+                        camera_yaw -= d.relative.x * 0.006
+                        camera_pitch = clampf(camera_pitch - d.relative.y * 0.006, -1.2, 0.8)
 
 func _set_shiftlock(enabled: bool) -> void:
         shiftlock = enabled
@@ -387,123 +311,6 @@ func _on_volume_changed(value: float) -> void:
         profile.set_value("settings", "volume", value)
         profile.save("user://profile.cfg")
 
-# ------------------------------------------------------------ quality / mobile settings
-
-## Touch controls shown when the device has a touchscreen (Auto), or forced.
-func _resolve_touch() -> bool:
-        match touch_mode:
-                "on":
-                        return true
-                "off":
-                        return false
-        return DisplayServer.is_touchscreen_available() \
-                or OS.has_feature("mobile_android") or OS.has_feature("mobile_ios")
-
-
-## Turn the preset + manual settings into actual renderer state.
-## Low drops the 3D draw scale to 65% and kills shadows — by far the
-## biggest win on phones; Medium balances; High unlocks everything.
-func _apply_quality() -> void:
-        var preset := quality_preset
-        if preset == "auto":
-                preset = "low" if touch_active else "medium"
-        var max_fps := 60
-        var shadow_dist := 120.0
-        var msaa: int = Viewport.MSAA_DISABLED
-        match preset:
-                "low":
-                        render_scale = 0.65 if quality_preset != "custom" else render_scale
-                        shadows_on = false if quality_preset != "custom" else shadows_on
-                        shadow_dist = 60.0
-                "medium":
-                        render_scale = 0.85 if quality_preset != "custom" else render_scale
-                        shadows_on = true if quality_preset != "custom" else shadows_on
-                        shadow_dist = 120.0
-                "high":
-                        render_scale = 1.0 if quality_preset != "custom" else render_scale
-                        shadows_on = true if quality_preset != "custom" else shadows_on
-                        shadow_dist = 200.0
-                        msaa = Viewport.MSAA_2X
-                        max_fps = 0
-                _:
-                        # custom — keep the user's render scale + shadows
-                        shadow_dist = 120.0
-                        max_fps = 60 if render_scale < 0.99 else 0
-        var vp := get_viewport()
-        if vp != null:
-                vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
-                vp.scaling_3d_scale = clampf(render_scale, 0.5, 1.0)
-                vp.msaa_3d = msaa
-        arena.set_sun_shadows(shadows_on)
-        arena.set_shadow_distance(shadow_dist)
-        if camera != null:
-                camera.fov = fov_setting
-        Engine.max_fps = max_fps
-
-
-func _sync_settings_card() -> void:
-        if hud != null:
-                hud.set_settings_state(quality_preset, render_scale, shadows_on, fov_setting, show_fps, touch_mode)
-
-
-func _persist_settings() -> void:
-        profile.set_value("settings", "quality", quality_preset)
-        profile.set_value("settings", "render_scale", render_scale)
-        profile.set_value("settings", "shadows", shadows_on)
-        profile.set_value("settings", "fov", fov_setting)
-        profile.set_value("settings", "show_fps", show_fps)
-        profile.set_value("settings", "touch", touch_mode)
-        profile.save("user://profile.cfg")
-
-
-func _on_touch_jump() -> void:
-        if players.get(my_user_id) != null and not hud.input_busy():
-                jump_serial += 1
-
-
-func _on_quality_changed(preset: String) -> void:
-        quality_preset = preset
-        _apply_quality()
-        _sync_settings_card()
-        _persist_settings()
-
-
-func _on_render_scale_changed(value: float) -> void:
-        render_scale = value
-        quality_preset = "custom"
-        _apply_quality()
-        _sync_settings_card()
-        _persist_settings()
-
-
-func _on_shadows_changed(enabled: bool) -> void:
-        shadows_on = enabled
-        quality_preset = "custom"
-        _apply_quality()
-        _sync_settings_card()
-        _persist_settings()
-
-
-func _on_fov_changed(value: float) -> void:
-        fov_setting = value
-        _apply_quality()
-        _persist_settings()
-
-
-func _on_show_fps_changed(enabled: bool) -> void:
-        show_fps = enabled
-        hud.set_show_fps(enabled)
-        _persist_settings()
-
-
-func _on_touch_mode_changed(mode: String) -> void:
-        touch_mode = mode
-        touch_active = _resolve_touch()
-        hud.set_touch_enabled(touch_active)
-        _apply_quality()
-        _sync_settings_card()
-        _persist_settings()
-
 func _apply_volume() -> void:
         if volume_setting <= 0.001:
                 AudioServer.set_bus_mute(0, true)
@@ -517,18 +324,25 @@ func _process(delta: float) -> void:
         # stay on the login card until you are through it
         if auth != null and auth.visible:
                 return
-        _pump_tick(delta)
-        var local = players.get(my_user_id)
-        for uid in players:
-                var p = players[uid]
-                if uid != my_user_id:
-                        p.render_remote(delta)
-                        # far players stop animating (still move + stay synced)
-                        var near: bool = local == null or p.global_position.distance_to(local.global_position) < REMOTE_ANIM_DISTANCE
-                        p.update_visuals(delta, near)
+        phase_time += delta
+        _pump_discovery(delta)
+        if phase == "connecting" and phase_time > 8.0:
+                _schedule_retry("Server did not answer. Retrying…")
+        elif phase == "retry" and phase_time > 3.0:
+                if server_address.is_empty():
+                        _begin_discovery()
                 else:
-                        p.update_visuals(delta)
-        _fade_lost_players()
+                        _connect_to(server_address)
+        for id in players:
+                var p = players[id]
+                if not server_mode and int(id) != local_id:
+                        p.render_remote(delta)
+                p.update_visuals(delta)
+                if not server_mode and not p.alive:
+                        p.respawn_left = maxf(p.respawn_left - delta, 0.0)
+        if dedicated:
+                return
+        var local = players.get(local_id)
         var busy: bool = hud.input_busy()
         var capture: bool = not busy and (shiftlock or camera_distance < 1.0 or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
         var wanted_mode: int = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
@@ -547,244 +361,481 @@ func _process(delta: float) -> void:
                 else:
                         camera_pivot.global_position = camera_pivot.global_position.lerp(target, 1.0 - exp(-18.0 * delta))
                 local.avatar.visible = local.alive and camera_distance >= 1.0
-                if not local.alive:
-                        # the classic rebuild wait, then back on a spawn pad
-                        local.respawn_left = maxf(local.respawn_left - delta, 0.0)
-                        if local.respawn_left <= 0.0:
-                                _respawn_local()
                 hud.toast.text = "Rebuilding you… %.1f" % local.respawn_left if not local.alive else ""
                 hud.reset_button.disabled = not local.alive
         else:
                 hud.reset_button.disabled = true
-                hud.toast.text = ""
+                hud.toast.text = "Connecting to a real room…" if phase != "playing" else ""
         camera_pivot.rotation.y = camera_yaw
         spring_arm.rotation.x = camera_pitch
         spring_arm.spring_length = lerpf(spring_arm.spring_length, camera_distance, 1.0 - exp(-15.0 * delta))
-        # hide far-away avatars completely (they stay in the game + chat)
-        _cull_timer -= delta
-        if _cull_timer <= 0.0:
-                _cull_timer = 0.4
-                var origin: Vector3 = local.global_position if local != null else camera_pivot.global_position
-                for uid in players:
-                        var p = players[uid]
-                        if uid == my_user_id:
-                                continue
-                        if p.alive and p.has_snapshot:
-                                p.avatar.visible = p.global_position.distance_to(origin) < REMOTE_CULL_DISTANCE
-        # Auto quality: if the game runs slow for 4 straight seconds, drop to
-        # Low once and tell the player (no oscillation)
-        if quality_preset == "auto":
-                var fps := Engine.get_frames_per_second()
-                if fps > 0 and fps < 40:
-                        _fps_low_time += delta
-                        if _fps_low_time > 4.0:
-                                quality_preset = "custom"
-                                render_scale = 0.55
-                                shadows_on = false
-                                _apply_quality()
-                                _sync_settings_card()
-                                _persist_settings()
-                                _system_notice("Auto quality: switched to Low for smoother play.")
-                else:
-                        _fps_low_time = 0.0
 
 func _physics_process(delta: float) -> void:
         if quitting or auth != null and auth.visible:
                 return
-        var local = players.get(my_user_id)
-        if local != null and local.alive:
+        if phase != "playing":
+                return
+        var local = players.get(local_id)
+        if local != null and local.alive and not dedicated:
                 var direction := Vector2.ZERO
                 if not hud.input_busy():
                         direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-                        # the virtual joystick speaks the same language (y<0 = forward)
-                        if touch_active and hud.joystick_vector.length() > 0.15:
-                                direction = hud.joystick_vector
-                                if direction.length() > 1.0:
-                                        direction = direction.normalized()
+                        if touch_move != Vector2.ZERO:
+                                direction = touch_move
                         if Input.is_action_just_pressed("jump"):
                                 jump_serial += 1
-                local.drive(delta, direction, camera_yaw, jump_serial, shiftlock)
-                local.reconcile(delta)
-                # classic void death
-                if local.global_position.y < -18.0:
-                        local.hurt(9999.0)
+                        if touch_jump_pending:
+                                touch_jump_pending = false
+                                jump_serial += 1
+                sequence += 1
+                if server_mode:
+                        _store_input(local_id, direction, camera_yaw, jump_serial, sequence, local.life_epoch, shiftlock)
+                else:
+                        local.drive(delta, direction, camera_yaw, jump_serial, shiftlock)
+                        local.reconcile(delta)
+                        send_time += delta
+                        if send_time >= 1.0 / 30.0:
+                                send_time = 0.0
+                                _receive_input.rpc_id(1, direction, camera_yaw, jump_serial, sequence, local.life_epoch, shiftlock)
+        if server_mode:
+                for id in players.keys():
+                        var p = players[id]
+                        if p.alive:
+                                p.input_age += delta
+                                var direction: Vector2 = p.input_direction if p.input_age < 0.35 else Vector2.ZERO
+                                p.drive(delta, direction, p.input_yaw, p.input_jump, p.input_shiftlock)
+                                if p.global_position.y < -18.0:
+                                        _kill_player(int(id))
+                        else:
+                                p.respawn_left -= delta
+                                if p.respawn_left <= 0.0:
+                                        var pos: Vector3 = arena.spawn_point(int(id) + p.life_epoch)
+                                        var epoch: int = p.life_epoch + 1
+                                        _life_event(int(id), true, pos, epoch, 0)
+                                        _life_event.rpc(int(id), true, pos, epoch, 0)
+                for id in pending_peers.keys():
+                        pending_peers[id] = float(pending_peers[id]) + delta
+                        if float(pending_peers[id]) > 10.0:
+                                peer.disconnect_peer(int(id))
+                                pending_peers.erase(id)
+                snapshot_time += delta
+                if snapshot_time >= 0.05:
+                        snapshot_time = 0.0
+                        var rows: Array = []
+                        for id in players:
+                                var p = players[id]
+                                rows.append([int(id), p.global_position, p.velocity, p.heading, p.grounded, p.life_epoch, p.health, p.kos, p.wos])
+                        if not multiplayer.get_peers().is_empty():
+                                _snapshot.rpc(rows)
 
-## THE HEARTBEAT — send me, receive everyone + the chat.
-func _pump_tick(delta: float) -> void:
-        if players.get(my_user_id) == null:
+# ---------------------------------------------------------------- discovery
+
+func _begin_discovery() -> void:
+        _close_discovery()
+        phase = "discovering"
+        phase_time = 0.0
+        discover_delay = randf_range(1.8, 2.6)
+        probe_time = 1.0
+        discovery = PacketPeerUDP.new()
+        if discovery.bind(0) != OK:
+                _start_server()
                 return
-        tick_time += delta
-        var interval: float = TICK_RETRY if ticks_failed > 0 else TICK_SECONDS
-        if tick_time < interval or ticking:
+        discovery.set_broadcast_enabled(true)
+        _status("Finding a LAN game…", false)
+
+func _pump_discovery(delta: float) -> void:
+        if discovery_listener != null:
+                # Bounded work per frame; ignore all unrelated LAN traffic.
+                for _i in range(mini(discovery_listener.get_available_packet_count(), 32)):
+                        var bytes := discovery_listener.get_packet()
+                        if bytes.size() > 64 or bytes.get_string_from_utf8() != DISCOVER:
+                                continue
+                        var ip := discovery_listener.get_packet_ip()
+                        var reply_port := discovery_listener.get_packet_port()
+                        discovery_listener.set_dest_address(ip, reply_port)
+                        discovery_listener.put_packet((VERSION + ":" + str(port)).to_utf8_buffer())
+        if phase != "discovering" or discovery == null:
                 return
-        tick_time = 0.0
-        ticking = true
-        var local = players[my_user_id]
-        var payload: Dictionary = {
-                "placeSlug": place_slug if not place_slug.is_empty() else "baseplate",
-                "x": local.global_position.x,
-                "y": local.global_position.y,
-                "z": local.global_position.z,
-                "yaw": local.heading,
-                "state": _state_of(local),
-                "shiftlock": shiftlock,
-        }
-        if not chat_cursor.is_empty():
-                payload["since"] = chat_cursor
-        if not pending_chat.is_empty():
-                payload["chat"] = pending_chat
-        var res: Dictionary = await api_ref.post_state(payload)
-        ticking = false
+        probe_time += delta
+        if probe_time >= 0.35:
+                probe_time = 0.0
+                for address in ["127.0.0.1", "255.255.255.255"]:
+                        discovery.set_dest_address(address, discovery_port)
+                        discovery.put_packet(DISCOVER.to_utf8_buffer())
+        for _i in range(mini(discovery.get_available_packet_count(), 32)):
+                var bytes := discovery.get_packet()
+                if bytes.size() > 64:
+                        continue
+                var message := bytes.get_string_from_utf8()
+                var parts := message.split(":")
+                if parts.size() == 2 and parts[0] == VERSION and parts[1].is_valid_int():
+                        var offered_port: int = int(parts[1])
+                        if offered_port < 1024 or offered_port > 65535:
+                                continue
+                        var ip := discovery.get_packet_ip()
+                        port = offered_port
+                        _close_discovery()
+                        _connect_to(ip)
+                        return
+        if phase_time > discover_delay:
+                _close_discovery()
+                _start_server()
+
+# ---------------------------------------------------------------- networking
+
+func _start_server() -> void:
+        _close_network()
+        peer = ENetMultiplayerPeer.new()
+        var error := peer.create_server(port, max_players if dedicated else max_players - 1, 3)
+        if error != OK:
+                peer = null
+                if dedicated or force_host:
+                        push_error("Cannot listen on UDP %d (error %d). Is another server using it?" % [port, error])
+                        _status("Could not host: UDP port is already in use.", false)
+                        phase = "failed"
+                        if dedicated:
+                                get_tree().quit(1)
+                else:
+                        # Another local instance may have won the auto-host race.
+                        _connect_to("127.0.0.1")
+                return
+        multiplayer.multiplayer_peer = peer
+        server_mode = true
+        local_id = 0 if dedicated else 1
+        phase = "playing"
+        phase_time = 0.0
+        discovery_listener = PacketPeerUDP.new()
+        if discovery_listener.bind(discovery_port) != OK:
+                discovery_listener.close()
+                discovery_listener = null
+                print("LAN discovery unavailable; direct UDP joining still works.")
+        if not dedicated:
+                _spawn_player(1, _clean_name(player_name, 1), arena.spawn_point(0), true, 0, platform_user_id)
+                _status("●  Hosting  /  UDP %d" % port, true)
+                _system_notice("Your game is open — other players on this network can join now.")
+        print("SERVER_READY port=%d dedicated=%s" % [port, str(dedicated)])
+
+func _connect_to(address: String) -> void:
+        _close_network()
+        phase = "connecting"
+        phase_time = 0.0
+        peer = ENetMultiplayerPeer.new()
+        var error := peer.create_client(address, port, 3)
+        if error != OK:
+                _schedule_retry("Could not reach the server. Retrying…")
+                return
+        multiplayer.multiplayer_peer = peer
+        _status("Joining %s…" % address.left(40), false)
+
+func _connected_to_server() -> void:
+        local_id = multiplayer.get_unique_id()
+        phase = "playing"
+        phase_time = 0.0
+        _status("●  Connected  /  " + room_name, true)
+        _register_player.rpc_id(1, player_name, VERSION, platform_user_id)
+
+func _connection_failed() -> void:
+        _schedule_retry("Server unavailable. Retrying in 3 seconds…")
+
+func _server_disconnected() -> void:
         if quitting:
                 return
-        if not res.get("ok", false):
-                ticks_failed = mini(ticks_failed + 1, 6)
-                if hud != null:
-                        hud.set_status("Reaching RetroBlox…", false)
-                return
-        if ticks_failed > 0:
-                ticks_failed = 0
-                if hud != null:
-                        hud.set_status("●  " + place_name, true)
-        pending_chat = ""
-        chat_cursor = String(res.get("serverTime", chat_cursor))
-        _apply_players(res.get("players", []))
-        _apply_chat(res.get("chat", []))
+        _system_notice("The host disconnected. Finding your way back…")
+        _schedule_retry("Disconnected. Reconnecting…")
 
-## anim state word the website understands
-func _state_of(local: Player) -> String:
-        if local.climbing:
-                return "climb"
-        if not local.grounded:
-                return "jump" if local.velocity.y > 2.0 else "fall"
-        if Vector2(local.velocity.x, local.velocity.z).length() > 1.2:
-                return "walk"
-        return "idle"
+func _schedule_retry(message: String) -> void:
+        _close_network()
+        _clear_players()
+        phase = "retry"
+        phase_time = 0.0
+        _status(message, false)
 
-# ---------------------------------------------------------------- players
+func _close_discovery() -> void:
+        if discovery != null:
+                discovery.close()
+                discovery = null
 
-func _apply_players(rows: Array) -> void:
-        var now := Time.get_ticks_msec()
-        for row in rows:
-                if not (row is Dictionary):
-                        continue
-                var entry: Dictionary = row
-                var uid := String(entry.get("userId", ""))
-                if uid.is_empty() or uid == my_user_id:
-                        continue
-                player_last_seen[uid] = now
-                if players.has(uid):
-                        var p: Player = players[uid]
-                        var walking := String(entry.get("state", "idle")) == "walk"
-                        var vel := Vector3(WALK_ANIM_SPEED, 0.0, 0.0) if walking else Vector3.ZERO
-                        var on_floor := String(entry.get("state", "idle")) in ["idle", "walk", "climb"]
-                        p.accept_snapshot(
-                                Vector3(float(entry.get("x", 0.0)), float(entry.get("y", 10.0)), float(entry.get("z", 0.0))),
-                                vel,
-                                float(entry.get("yaw", 0.0)),
-                                on_floor,
-                                false,
-                                String(entry.get("state", "idle")) == "climb"
-                        )
-                else:
-                        var uname := _clean_name(String(entry.get("username", "Player")), hash(uid) % 10000)
-                        _spawn_remote(uid, uname, Vector3(float(entry.get("x", 0.0)), float(entry.get("y", 10.0)), float(entry.get("z", 0.0))))
+func _close_network() -> void:
+        server_mode = false
+        local_id = 0
+        _close_discovery()
+        if discovery_listener != null:
+                discovery_listener.close()
+                discovery_listener = null
+        if peer != null:
+                multiplayer.multiplayer_peer = null
+                peer.close()
+                peer = null
+        pending_peers.clear()
+
+func _clear_players() -> void:
+        for p in players.values():
+                p.queue_free()
+        players.clear()
+        for debris in debris_root.get_children():
+                debris.queue_free()
+        camera_initialized = false
+        jump_serial = 0
         _update_roster()
 
-## Players the server stopped seeing for REMOTE_TIMEOUT seconds went home.
-func _fade_lost_players() -> void:
-        var now := Time.get_ticks_msec()
-        var gone: Array[String] = []
-        for uid in players:
-                if uid == my_user_id:
-                        continue
-                var seen: int = int(player_last_seen.get(uid, 0))
-                if seen > 0 and now - seen > int(REMOTE_TIMEOUT * 1000.0):
-                        gone.append(uid)
-        for uid in gone:
-                var uname := "Someone"
-                if players.has(uid):
-                        uname = players[uid].display_name
-                        players[uid].queue_free()
-                        players.erase(uid)
-                player_last_seen.erase(uid)
-                _system_notice(uname + " left the game.")
-                _update_roster()
+func _peer_connected(id: int) -> void:
+        if server_mode:
+                pending_peers[id] = 0.0
 
-func _spawn_player(uid: String, uname: String, pos: Vector3, avatar_payload: Dictionary) -> Player:
+func _peer_disconnected(id: int) -> void:
+        if not server_mode:
+                return
+        pending_peers.erase(id)
+        if players.has(id):
+                var leaving_name: String = players[id].display_name
+                _remove_player(id)
+                # ENet removes the disconnected peer after this signal returns.
+                # Defer broadcasts so they cannot target its already-closed channels.
+                _announce_departure.call_deferred(id, leaving_name)
+
+func _announce_departure(id: int, leaving_name: String) -> void:
+        if not server_mode or quitting:
+                return
+        _remove_player.rpc(id)
+        _system_notice(leaving_name + " left the game.")
+        _system_notice.rpc(leaving_name + " left the game.")
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _register_player(requested_name: String, version: String, user_id: String) -> void:
+        if not server_mode:
+                return
+        var id := multiplayer.get_remote_sender_id()
+        if id <= 1 or players.has(id):
+                return
+        if version != VERSION or players.size() >= max_players:
+                peer.disconnect_peer(id)
+                return
+        pending_peers.erase(id)
+        var safe_name := _clean_name(requested_name, id)
+        for p in players.values():
+                if p.display_name == safe_name:
+                        safe_name = safe_name.left(12) + "-%04d" % (id % 10000)
+                        break
+        var position: Vector3 = arena.spawn_point(players.size())
+        _spawn_player(id, safe_name, position, true, 0, user_id)
+        var roster: Array = []
+        for other_id in players:
+                var p = players[other_id]
+                roster.append([int(other_id), p.display_name, p.global_position, p.alive, p.life_epoch, p.platform_user_id])
+        _roster.rpc_id(id, roster, room_name)
+        _spawn_player.rpc(id, safe_name, position, true, 0, user_id)
+        _system_notice(safe_name + " joined the game.")
+        _system_notice.rpc(safe_name + " joined the game.")
+        print("PLAYER_JOINED id=%d name=%s user=%s players=%d" % [id, safe_name, user_id, players.size()])
+
+func _clean_name(value: String, id: int) -> String:
+        var result := ""
+        for c in value.left(80):
+                var n := c.unicode_at(0)
+                if (n >= 48 and n <= 57) or (n >= 65 and n <= 90) or (n >= 97 and n <= 122) or c in [" ", "-", "_"]:
+                        result += c
+                if result.length() >= 18:
+                        break
+        result = result.strip_edges()
+        return result if not result.is_empty() else "Guest-%04d" % (id % 10000)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _roster(rows: Array, title: String) -> void:
+        room_name = title
+        for row in rows:
+                _spawn_player(int(row[0]), str(row[1]), row[2], bool(row[3]), int(row[4]), str(row[5]))
+        _status("●  Connected  /  " + room_name, true)
+        if hud != null:
+                hud.room_label.text = room_name + "  /  Classic worlds, your way."
+                hud.set_room_title(room_name)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _spawn_player(id: int, safe_name: String, pos: Vector3, live: bool, epoch: int, user_id: String) -> void:
+        if players.has(id):
+                return
         var p = PlayerScene.instantiate() as Player
         # add to the tree first so the scene's nodes exist, then initialize
         player_root.add_child(p)
-        p.initialize(hash(uid) & 0x7fffffff, uname)
-        p.platform_user_id = uid
-        p.respawn_at(pos, 0)
-        players[uid] = p
-        _dress_player(p, avatar_payload)
-        return p
+        p.initialize(id, safe_name)
+        p.platform_user_id = user_id
+        p.respawn_at(pos, epoch)
+        p.alive = live
+        p.avatar.visible = live
+        p.respawn_left = RESPAWN_SECONDS if not live else 0.0
+        players[id] = p
+        if id == local_id:
+                jump_serial = 0
+                if hud != null:
+                        p.health_changed.connect(hud.set_health)
+                        p.health_depleted.connect(_on_local_health_depleted)
+                        hud.set_health(p.health, p.MAX_HEALTH)
+        _update_roster()
+        # fetch + paint the account avatar (async; guests keep noob colors)
+        _dress_player(p)
 
-func _spawn_remote(uid: String, uname: String, pos: Vector3) -> void:
-        var p := _spawn_player(uid, uname, pos, {})
-        p.is_remote = true
-        p.snap_remote(pos)
-        _system_notice(uname + " joined the game.")
+func _remove_player(id: int) -> void:
+        if players.has(id):
+                players[id].queue_free()
+                players.erase(id)
+        _update_roster()
 
 func _update_roster() -> void:
+        debug_stats["max_players_seen"] = maxi(int(debug_stats["max_players_seen"]), players.size())
         if hud == null:
                 return
         var entries: Array = []
-        for uid in players:
-                entries.append({"id": uid, "name": players[uid].display_name})
-        hud.update_roster(entries, my_user_id)
+        for id in players:
+                entries.append({"id": int(id), "name": players[id].display_name, "k": players[id].kos, "w": players[id].wos})
+        hud.update_roster(entries, local_id)
+
+# ---------------------------------------------------------------- avatars
 
 ## Fetch the RetroBlox account avatar for a player and paint it on.
-## `preloaded` skips the round-trip for the local player (from /platform/me).
-func _dress_player(p, preloaded: Dictionary = {}) -> void:
+## Guests (user_id == "") are skipped: they wear the classic noob colors.
+func _dress_player(p) -> void:
         if p == null or not is_instance_valid(p) or p.platform_user_id.is_empty():
                 return
         if api_ref == null:
                 return
-        var payload := preloaded
-        if payload.is_empty():
-                payload = await api_ref.get_avatar(p.platform_user_id)
+        var payload := {}
+        if p.platform_user_id == platform_user_id and not my_avatar.is_empty():
+                payload = my_avatar
+        elif _avatar_cache.has(p.platform_user_id):
+                payload = _avatar_cache[p.platform_user_id]
+        else:
+                var res: Dictionary = await api_ref.get_avatar(p.platform_user_id)
                 if not is_instance_valid(p) or quitting:
                         return
-        if not payload.get("ok", true) or not is_instance_valid(p):
+                if res.get("ok", false) and res.get("avatar", {}) is Dictionary:
+                        payload = res.get("avatar", {})
+                        _avatar_cache[p.platform_user_id] = payload
+        if payload.is_empty() or not is_instance_valid(p):
                 return
-        var avatar_data: Dictionary = payload.get("avatar", {}) if payload.get("avatar", {}) is Dictionary else {}
-        if avatar_data.is_empty():
-                return
-        await p.dress_from_payload(api_ref, avatar_data)
+        await p.dress_from_payload(api_ref, payload)
 
-# ---------------------------------------------------------------- chat
+@rpc("any_peer", "call_remote", "unreliable_ordered", 1)
+func _receive_input(direction: Vector2, yaw: float, jump: int, seq: int, epoch: int, use_shiftlock: bool) -> void:
+        if server_mode:
+                _store_input(multiplayer.get_remote_sender_id(), direction, yaw, jump, seq, epoch, use_shiftlock)
+
+func _store_input(id: int, direction: Vector2, yaw: float, jump: int, seq: int, epoch: int, use_shiftlock: bool) -> void:
+        if not players.has(id) or not direction.is_finite() or not is_finite(yaw):
+                return
+        var p = players[id]
+        if not p.alive or epoch != p.life_epoch or seq <= p.last_sequence or jump < 0 or jump > 1000000000:
+                return
+        p.input_direction = direction.limit_length(1.0)
+        p.input_yaw = wrapf(yaw, -PI, PI)
+        p.input_jump = maxi(p.input_jump, jump)
+        p.input_shiftlock = use_shiftlock
+        p.last_sequence = seq
+        p.input_age = 0.0
+
+@rpc("authority", "call_remote", "unreliable_ordered", 2)
+func _snapshot(rows: Array) -> void:
+        debug_stats["snapshots_received"] = int(debug_stats["snapshots_received"]) + 1
+        for row in rows:
+                var id: int = int(row[0])
+                if not players.has(id):
+                        continue
+                var p = players[id]
+                # Life changes arrive reliably. Ignore stale motion from another life.
+                if int(row[5]) != p.life_epoch or not p.alive:
+                        continue
+                p.accept_snapshot(row[1], row[2], float(row[3]), bool(row[4]), id == local_id)
+                if row.size() > 8:
+                        p.set_net_health(float(row[6]))
+                        p.kos = int(row[7])
+                        p.wos = int(row[8])
+
+## Local health hit zero (a big fall) — the same reset/respawn flow as the
+## menu's Reset button; the server stays the authority over the respawn.
+func _on_local_health_depleted() -> void:
+        var local = players.get(local_id)
+        if local != null and local.alive:
+                request_reset()
+
+func request_reset() -> void:
+        if hud != null:
+                hud.set_menu(false)
+        if phase != "playing" or not players.has(local_id):
+                return
+        if server_mode:
+                _kill_player(local_id)
+        else:
+                _request_reset.rpc_id(1)
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _request_reset() -> void:
+        if server_mode:
+                _kill_player(multiplayer.get_remote_sender_id())
+
+func _kill_player(id: int, _attacker: int = -1) -> void:
+        if not players.has(id) or not players[id].alive:
+                return
+        var p = players[id]
+        # classic KO/WO credit — whoever hurt you in the last 6s gets the WO
+        var now: float = Time.get_ticks_msec() / 1000.0
+        if now - p.last_hurt_time < 6.0 and p.last_hurt_by != id and players.has(p.last_hurt_by):
+                players[p.last_hurt_by].wos += 1
+        p.kos += 1
+        var epoch: int = p.life_epoch + 1
+        var seed_value: int = randi_range(1, 1000000)
+        var pos: Vector3 = p.global_position
+        _life_event(id, false, pos, epoch, seed_value)
+        _life_event.rpc(id, false, pos, epoch, seed_value)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _life_event(id: int, live: bool, pos: Vector3, epoch: int, seed_value: int) -> void:
+        if not players.has(id):
+                return
+        var p = players[id]
+        if epoch <= p.life_epoch:
+                return
+        if live:
+                p.respawn_at(pos, epoch)
+                p.respawn_left = 0.0
+                Sfx.at("respawn", pos, self, -3.0)
+                debug_stats["respawns_seen"] = int(debug_stats["respawns_seen"]) + 1
+                if id == local_id:
+                        jump_serial = 0
+                        camera_initialized = false
+        else:
+                p.global_position = pos
+                p.respawn_left = RESPAWN_SECONDS
+                if dedicated:
+                        p.alive = false
+                        p.life_epoch = epoch
+                        p.velocity = Vector3.ZERO
+                        p.avatar.visible = false
+                else:
+                        p.die(debris_root, epoch, seed_value)
+                        Sfx.at("oof", pos, self, 1.0)
+                debug_stats["deaths_seen"] = int(debug_stats["deaths_seen"]) + 1
 
 func send_chat(message: String) -> void:
-        var now_ms := Time.get_ticks_msec() / 1000.0
-        var clean := _sanitize_chat(message)
-        if clean.is_empty() or players.get(my_user_id) == null:
+        if phase != "playing" or not players.has(local_id):
+                _system_notice("You are not connected yet.")
+                Sfx.ui("ui_error", -8.0)
                 return
-        if now_ms - my_last_chat_ms < 0.8:
+        Sfx.ui("chat_send", -8.0)
+        if server_mode:
+                _accept_chat(local_id, message)
+        else:
+                _request_chat.rpc_id(1, message)
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _request_chat(message: String) -> void:
+        if server_mode:
+                _accept_chat(multiplayer.get_remote_sender_id(), message)
+
+func _accept_chat(id: int, message: String) -> void:
+        if not players.has(id):
                 return
-        my_last_chat_ms = now_ms
-        pending_chat = clean
-        # optimistic display — the server echo for myself is skipped
-        hud.add_chat(_display_name, clean)
-        players[my_user_id].show_message(clean)
-
-func _apply_chat(rows: Array) -> void:
-        for row in rows:
-                if not (row is Dictionary):
-                        continue
-                var entry: Dictionary = row
-                var uid := String(entry.get("userId", ""))
-                var uname := String(entry.get("username", "Player"))
-                var text := String(entry.get("text", ""))
-                if uid == my_user_id or text.is_empty():
-                        continue
-                hud.add_chat(_clean_name(uname, 0), text)
-                if players.has(uid):
-                        players[uid].show_message(text)
-
-func _sanitize_chat(message: String) -> String:
+        var p = players[id]
+        var now: float = Time.get_ticks_msec() / 1000.0
+        if now - p.chat_last < 0.8:
+                return
         var clean := ""
         for c in message.left(512):
                 var code := c.unicode_at(0)
@@ -793,46 +844,51 @@ func _sanitize_chat(message: String) -> String:
                         clean += c
                 if clean.length() >= 180:
                         break
-        return clean.strip_edges()
+        clean = clean.strip_edges()
+        if clean.is_empty():
+                return
+        p.chat_last = now
+        _chat_event(id, p.display_name, clean)
+        _chat_event.rpc(id, p.display_name, clean)
 
+@rpc("authority", "call_remote", "reliable", 0)
+func _chat_event(id: int, sender_name: String, message: String) -> void:
+        debug_stats["chats_received"] = int(debug_stats["chats_received"]) + 1
+        if id != local_id:
+                Sfx.ui("chat_receive", -9.0)
+        if message.begins_with("/e "):
+                var emote := message.substr(3).strip_edges().to_lower()
+                if players.has(id) and players[id].avatar != null:
+                        players[id].avatar.start_emote(emote)
+                if hud != null:
+                        hud.add_chat(sender_name, "* " + emote)
+                return
+        if hud != null:
+                hud.add_chat(sender_name, message)
+        if players.has(id):
+                players[id].show_message(message)
+
+@rpc("authority", "call_remote", "reliable", 0)
 func _system_notice(message: String) -> void:
         if hud != null:
                 hud.add_chat("", message, true)
 
-# ---------------------------------------------------------------- life & death
-
-## Local health hit zero (a big fall or the menu's Reset button) — the same
-## classic flow: break apart, wait, rebuild on a spawn pad.
-func _on_local_health_depleted() -> void:
-        var local = players.get(my_user_id)
-        if local == null or not local.alive:
-                return
-        local.die(debris_root, local.life_epoch + 1, randi_range(1, 1000000))
-        local.respawn_left = RESPAWN_SECONDS
-
-func request_reset() -> void:
+func _status(text: String, connected: bool) -> void:
         if hud != null:
-                hud.set_menu(false)
-        var local = players.get(my_user_id)
-        if local != null and local.alive:
-                local.hurt(9999.0)
-
-func _respawn_local() -> void:
-        var local = players.get(my_user_id)
-        if local == null or local.alive:
-                return
-        local.respawn_at(arena.spawn_point(players.size() + local.life_epoch), local.life_epoch + 1)
-        jump_serial = 0
-        camera_initialized = false
+                hud.set_status(text, connected)
 
 func quit_game() -> void:
         if quitting:
                 return
         quitting = true
         Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-        # tell the website we left (best effort — never blocks the exit)
-        if api_ref != null:
-                api_ref.post_state_nowait({ "placeSlug": place_slug if not place_slug.is_empty() else "baseplate", "leave": true })
+        # Give ENet a short chance to send a clean disconnect before closing sockets.
+        if peer != null and not server_mode and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+                var server_peer := peer.get_peer(1)
+                if server_peer != null:
+                        server_peer.peer_disconnect()
+                await get_tree().create_timer(0.15).timeout
+        _close_network()
         get_tree().quit()
 
 func _notification(what: int) -> void:
@@ -844,3 +900,199 @@ func _notification(what: int) -> void:
                 # so the character does not keep walking while you are away.
                 for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
                         Input.action_release(action)
+
+# ================================================================ extras 10X
+# sounds, tools + hotbar, mobile controls, KO/WO damage, bricks, quality
+
+func _setup_extras() -> void:
+        hotbar = Hotbar.new()
+        hud.root.add_child(hotbar)
+        hotbar.tool_selected.connect(_on_tool_selected)
+        if DisplayServer.is_touchscreen_available():
+                var mc := MobileControls.new()
+                add_child(mc)
+                mc.move_changed.connect(func(v: Vector2) -> void: touch_move = v)
+                mc.jump_pressed.connect(func() -> void: touch_jump_pending = true)
+        fov_setting = float(profile.get_value("settings", "fov", 70.0))
+        quality_setting = int(profile.get_value("settings", "quality", 1))
+        _apply_quality()
+        _build_settings_buttons()
+
+func _build_settings_buttons() -> void:
+        var card := hud.root.get_node_or_null("Menu/Center/Card") as Container
+        if card == null:
+                return
+        var fov_btn := Button.new()
+        fov_btn.text = "FOV: %d" % int(fov_setting)
+        fov_btn.focus_mode = Control.FOCUS_NONE
+        fov_btn.add_theme_stylebox_override("normal", hud._classic_button_style(hud.CLASSIC_BTN))
+        fov_btn.add_theme_stylebox_override("hover", hud._classic_button_style(hud.CLASSIC_BTN_HOVER))
+        fov_btn.add_theme_stylebox_override("pressed", hud._classic_button_style(hud.CLASSIC_BTN_DOWN))
+        fov_btn.pressed.connect(func() -> void:
+                var options := [60.0, 70.0, 80.0, 90.0]
+                var idx := options.find(fov_setting)
+                fov_setting = options[(idx + 1) % options.size()]
+                _apply_quality()
+                profile.set_value("settings", "fov", fov_setting)
+                profile.save("user://profile.cfg")
+                fov_btn.text = "FOV: %d" % int(fov_setting)
+                Sfx.ui("ui_click"))
+        card.add_child(fov_btn)
+        var q_btn := Button.new()
+        var q_names := ["Low", "Med", "High"]
+        q_btn.text = "Quality: %s" % q_names[clampi(quality_setting, 0, 2)]
+        q_btn.focus_mode = Control.FOCUS_NONE
+        q_btn.add_theme_stylebox_override("normal", hud._classic_button_style(hud.CLASSIC_BTN))
+        q_btn.add_theme_stylebox_override("hover", hud._classic_button_style(hud.CLASSIC_BTN_HOVER))
+        q_btn.add_theme_stylebox_override("pressed", hud._classic_button_style(hud.CLASSIC_BTN_DOWN))
+        q_btn.pressed.connect(func() -> void:
+                quality_setting = (quality_setting + 1) % 3
+                _apply_quality()
+                profile.set_value("settings", "quality", quality_setting)
+                profile.save("user://profile.cfg")
+                q_btn.text = "Quality: %s" % q_names[quality_setting]
+                Sfx.ui("ui_click"))
+        card.add_child(q_btn)
+
+func _apply_quality() -> void:
+        if camera != null:
+                camera.fov = fov_setting
+                camera.far = 220.0 if quality_setting >= 2 else 120.0
+        var lights: Array = []
+        _collect_lights(get_tree().root, lights)
+        for l in lights:
+                l.shadow_enabled = quality_setting >= 1
+
+func _collect_lights(node: Node, out: Array) -> void:
+        if node is DirectionalLight3D:
+                out.append(node)
+        for c in node.get_children():
+                _collect_lights(c, out)
+
+func _on_tool_selected(index: int) -> void:
+        if phase != "playing" or not players.has(local_id):
+                Sfx.ui("ui_error", -6.0)
+                return
+        if active_tool != null:
+                active_tool.queue_free()
+                active_tool = null
+        hotbar.set_active(index)
+        if index < 0:
+                Sfx.ui("ui_close", -6.0)
+                return
+        Sfx.ui("ui_open", -6.0)
+        var tool: ToolBase = null
+        match index:
+                0: tool = ToolSwordScript.new()
+                1: tool = ToolRocketScript.new()
+                2: tool = ToolTrowelScript.new()
+        if tool == null or not is_instance_valid(players[local_id].avatar):
+                return
+        active_tool = tool
+        tool.setup(players[local_id], self)
+        var mount: Node3D = players[local_id].avatar.hand_mount()
+        mount.add_child(tool)
+
+## melee ray hit → resolve which player was struck, then server applies damage
+func report_hit(collider: Object) -> void:
+        var victim: int = _player_from_collider(collider)
+        if victim == -1 or victim == local_id:
+                return
+        _send_damage(victim, 34.0)
+
+func report_explosion(pos: Vector3, radius: float, max_dmg: float) -> void:
+        if server_mode:
+                _apply_splash(pos, radius, max_dmg, local_id)
+        else:
+                _apply_splash.rpc_id(1, pos, radius, max_dmg, local_id)
+
+func _send_damage(victim: int, dmg: float) -> void:
+        if server_mode:
+                _apply_damage(victim, local_id, dmg)
+        else:
+                _apply_damage.rpc_id(1, victim, local_id, dmg)
+
+func _player_from_collider(collider: Object) -> int:
+        for id in players:
+                var p = players[id]
+                if p == collider or (p.avatar != null and (p.avatar == collider or p.avatar.is_ancestor_of(collider))):
+                        return int(id)
+        return -1
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _apply_damage(victim: int, attacker: int, dmg: float) -> void:
+        if not server_mode or not players.has(victim) or not players.has(attacker):
+                return
+        var p = players[victim]
+        if not p.alive:
+                return
+        # server-side range sanity: melee/rocket can never reach across the map
+        if players[attacker].global_position.distance_to(p.global_position) > 14.0:
+                return
+        p.last_hurt_by = attacker
+        p.last_hurt_time = Time.get_ticks_msec() / 1000.0
+        p.hurt(dmg)
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _apply_splash(pos: Vector3, radius: float, max_dmg: float, attacker: int) -> void:
+        if not server_mode:
+                return
+        for id in players:
+                var p = players[id]
+                if not p.alive:
+                        continue
+                var dist: float = p.global_position.distance_to(pos)
+                if dist > radius:
+                        continue
+                var dmg: float = maxf(8.0, max_dmg * (1.0 - dist / radius))
+                p.last_hurt_by = attacker
+                p.last_hurt_time = Time.get_ticks_msec() / 1000.0
+                var away: Vector3 = (p.global_position - pos).normalized()
+                away.y = 0.35
+                p.velocity += away.normalized() * 13.0   # classic rocket jump energy
+                p.hurt(dmg)
+
+## trowel — bricks are created on the server so every player sees them
+func request_place_brick(pos: Vector3, color: Color) -> void:
+        if server_mode:
+                _do_place_brick(pos, color.to_html(), local_id)
+        else:
+                _place_brick.rpc_id(1, pos, color.to_html())
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _place_brick(pos: Vector3, color_html: String) -> void:
+        if server_mode:
+                _do_place_brick(pos, color_html, multiplayer.get_remote_sender_id())
+
+func _do_place_brick(pos: Vector3, color_html: String, owner_id: int) -> void:
+        var used: int = int(brick_counts.get(owner_id, 0))
+        if used >= 60:
+                return
+        brick_counts[owner_id] = used + 1
+        var snapped := Vector3(roundf(pos.x / 2.0) * 2.0, floorf(pos.y) + 0.5, roundf(pos.z / 2.0) * 2.0)
+        var brick = load("res://scenes/part.tscn").instantiate()
+        brick.size = Vector3(2.0, 1.0, 4.0)
+        brick.color = Color(color_html)
+        brick.add_to_group("rbx_brick")
+        arena.add_child(brick)
+        brick.global_position = snapped
+        Sfx.at("brick_place", snapped, self)
+
+func request_pop_brick(collider: Object) -> void:
+        var pos: Vector3 = (collider as Node3D).global_position if collider is Node3D else Vector3.ZERO
+        if server_mode:
+                _do_pop_brick(pos)
+        else:
+                _pop_brick.rpc_id(1, pos)
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _pop_brick(pos: Vector3) -> void:
+        if server_mode:
+                _do_pop_brick(pos)
+
+func _do_pop_brick(pos: Vector3) -> void:
+        for brick in get_tree().get_nodes_in_group("rbx_brick"):
+                if brick.global_position.distance_to(pos) < 2.6:
+                        Sfx.at("brick_pop", brick.global_position, self)
+                        brick.queue_free()
+                        return
