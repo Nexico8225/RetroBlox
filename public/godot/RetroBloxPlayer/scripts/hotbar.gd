@@ -32,7 +32,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if k.keycode >= KEY_1 and k.keycode <= KEY_3:
 			var idx := int(k.keycode) - int(KEY_1)
 			tool_selected.emit(idx if idx != active else -1)
-		elif k.keycode == KEY_BACKQUOTE or k.keycode == KEY_0:
+		elif k.keycode == KEY_QUOTELEFT or k.keycode == KEY_0:
 			tool_selected.emit(-1)
 
 func set_active(index: int) -> void:
