@@ -1029,6 +1029,8 @@ func _apply_damage(victim: int, attacker: int, dmg: float) -> void:
         # server-side range sanity: melee/rocket can never reach across the map
         if players[attacker].global_position.distance_to(p.global_position) > 14.0:
                 return
+        if p.is_protected():
+                return   # spawn forcefield — the server honors the bubble too
         p.last_hurt_by = attacker
         p.last_hurt_time = Time.get_ticks_msec() / 1000.0
         p.hurt(dmg)
@@ -1045,11 +1047,13 @@ func _apply_splash(pos: Vector3, radius: float, max_dmg: float, attacker: int) -
                 if dist > radius:
                         continue
                 var dmg: float = maxf(8.0, max_dmg * (1.0 - dist / radius))
-                p.last_hurt_by = attacker
-                p.last_hurt_time = Time.get_ticks_msec() / 1000.0
                 var away: Vector3 = (p.global_position - pos).normalized()
                 away.y = 0.35
                 p.velocity += away.normalized() * 13.0   # classic rocket jump energy
+                if p.is_protected():
+                        continue   # the bubble blocks damage, not the push
+                p.last_hurt_by = attacker
+                p.last_hurt_time = Time.get_ticks_msec() / 1000.0
                 p.hurt(dmg)
 
 ## trowel — bricks are created on the server so every player sees them
