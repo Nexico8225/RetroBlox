@@ -11,6 +11,7 @@ signal quit_requested
 signal shiftlock_toggled(enabled: bool)
 signal sensitivity_changed(value: float)
 signal volume_changed(value: float)
+signal emote_requested(anim: String)
 
 const INK := Color("eaf3f3")
 const MUTED := Color("a6bac2")
@@ -39,6 +40,9 @@ const CLASSIC_BLUE := Color("0d69ac")
 @onready var chat_entry: LineEdit = %ChatEntry
 @onready var chat_button: Button = %ChatButton
 @onready var people_button: Button = %PeopleButton
+# captured as a reference (not looked up by %) because _build_toolbar moves
+# this button into the toolbar — reparenting breaks %Name resolution
+@onready var menu_button: Button = %MenuButton
 @onready var roster_panel: PanelContainer = %RosterPanel
 @onready var menu: Control = %Menu
 @onready var reset_button: Button = %ResetButton
@@ -73,7 +77,7 @@ const HEALTH_BAR_H := 12.0
 
 
 func _ready() -> void:
-        %MenuButton.pressed.connect(set_menu.bind(true))
+        menu_button.pressed.connect(set_menu.bind(true))
         %ResumeBtn.pressed.connect(_on_resume_pressed)
         %ResetButton.pressed.connect(_on_reset_pressed)
         %ShiftlockButton.pressed.connect(_on_shiftlock_pressed)
@@ -85,7 +89,61 @@ func _ready() -> void:
         people_button.pressed.connect(_on_people_button)
         _build_health_bar()
         _build_toolbar()
+        _apply_retro_theme()
         _apply_classic_style()
+        _build_animations_card()
+
+
+# ---- the retro look: real bevels + the classic Arial-metric font ----
+
+var _ui_tex: Dictionary = {}
+var _font_bold: FontFile
+
+
+## Bundle font + bevel textures into a theme so EVERY control picks them up.
+func _apply_retro_theme() -> void:
+        for tex_name in ["panel", "inner", "button", "button_down"]:
+                var path := "res://assets/ui/%s.png" % tex_name
+                if ResourceLoader.exists(path):
+                        _ui_tex[tex_name] = load(path)
+        var theme := Theme.new()
+        var font_path := "res://assets/fonts/LiberationSans-Regular.ttf"
+        if ResourceLoader.exists(font_path):
+                theme.default_font = load(font_path)
+                theme.default_font_size = 13
+        var bold_path := "res://assets/fonts/LiberationSans-Bold.ttf"
+        if ResourceLoader.exists(bold_path):
+                _font_bold = load(bold_path)
+        root.theme = theme
+
+
+func _bold(label: Label) -> void:
+        if _font_bold != null:
+                label.add_theme_font_override("font", _font_bold)
+
+
+## A raised-bevel 9-patch (light top/left, dark bottom-right) — the old
+## GUI look. Falls back to a flat box when the texture has not imported yet.
+func _bevel_style(tex_name: String, content: float) -> StyleBox:
+        var style: StyleBox = null
+        if _ui_tex.has(tex_name):
+                var textured := StyleBoxTexture.new()
+                textured.texture = _ui_tex[tex_name]
+                for side in ["left", "top", "right", "bottom"]:
+                        textured.set("texture_margin_%s" % side, 3.0)
+                style = textured
+        else:
+                var flat := StyleBoxFlat.new()
+                flat.bg_color = CLASSIC_PANEL
+                flat.border_color = CLASSIC_BORDER
+                flat.set_border_width_all(2)
+                flat.set_corner_radius_all(3)
+                style = flat
+        style.content_margin_left = content
+        style.content_margin_right = content
+        style.content_margin_top = content
+        style.content_margin_bottom = content
+        return style
 
 
 ## The classic TOP-LEFT icon toolbar — menu / chat / people, grey beveled
@@ -109,13 +167,15 @@ func _build_toolbar() -> void:
         root.add_child(toolbar)
 
         # move the three real buttons into the toolbar (signals stay wired)
-        for button in [%MenuButton, %ChatButton, %PeopleButton]:
+        # NOTE: unique names (%) stop resolving once a node is reparented,
+        # so everything uses the @onready references captured in _ready
+        for button in [menu_button, chat_button, people_button]:
                 var btn := button as Button
                 btn.get_parent().remove_child(btn)
                 row.add_child(btn)
                 _style_toolbar_button(btn)
-        %MenuButton.icon = load("res://assets/icons/menu.png")
-        %MenuButton.tooltip_text = "Menu (ESC)"
+        menu_button.icon = load("res://assets/icons/menu.png")
+        menu_button.tooltip_text = "Menu (ESC)"
         chat_button.icon = load("res://assets/icons/chat.png")
         chat_button.tooltip_text = "Chat (/)"
         people_button.icon = load("res://assets/icons/people.png")
@@ -128,9 +188,9 @@ func _style_toolbar_button(button: Button) -> void:
         button.custom_minimum_size = Vector2(38.0, 30.0)
         button.expand_icon = true
         button.focus_mode = Control.FOCUS_NONE
-        button.add_theme_stylebox_override("normal", _classic_button_style(CLASSIC_BTN))
-        button.add_theme_stylebox_override("hover", _classic_button_style(CLASSIC_BTN_HOVER))
-        button.add_theme_stylebox_override("pressed", _classic_button_style(CLASSIC_BTN_DOWN))
+        button.add_theme_stylebox_override("normal", _classic_button_style(false))
+        button.add_theme_stylebox_override("hover", _classic_button_style(false))
+        button.add_theme_stylebox_override("pressed", _classic_button_style(true))
         button.add_theme_color_override("font_color", CLASSIC_INK)
 
 
@@ -180,6 +240,8 @@ func _style_menu_labels(from: Node) -> void:
                         var label := child as Label
                         var is_title: bool = label.text == "RETROBLOX"
                         label.add_theme_color_override("font_color", CLASSIC_BLUE if is_title else CLASSIC_INK)
+                        if is_title:
+                                _bold(label)
                 elif child is Button:
                         _style_dialog_button(child as Button)
                 elif child is Container or child is Control:
@@ -187,40 +249,23 @@ func _style_menu_labels(from: Node) -> void:
 
 
 func _style_dialog_button(button: Button) -> void:
-        button.add_theme_stylebox_override("normal", _classic_button_style(CLASSIC_BTN))
-        button.add_theme_stylebox_override("hover", _classic_button_style(CLASSIC_BTN_HOVER))
-        button.add_theme_stylebox_override("pressed", _classic_button_style(CLASSIC_BTN_DOWN))
+        button.focus_mode = Control.FOCUS_NONE
+        button.add_theme_stylebox_override("normal", _classic_button_style(false))
+        button.add_theme_stylebox_override("hover", _classic_button_style(false))
+        button.add_theme_stylebox_override("pressed", _classic_button_style(true))
         button.add_theme_color_override("font_color", CLASSIC_INK)
 
 
-func _classic_panel_style() -> StyleBoxFlat:
-        var style := StyleBoxFlat.new()
-        style.bg_color = CLASSIC_PANEL
-        style.border_color = CLASSIC_BORDER
-        style.set_border_width_all(2)
-        style.set_corner_radius_all(4)
-        style.set_content_margin_all(8)
-        return style
+func _classic_panel_style() -> StyleBox:
+        return _bevel_style("panel", 8.0)
 
 
-func _classic_inner_style() -> StyleBoxFlat:
-        var style := _classic_panel_style()
-        style.bg_color = CLASSIC_FACE
-        style.set_content_margin_all(5)
-        return style
+func _classic_inner_style() -> StyleBox:
+        return _bevel_style("inner", 5.0)
 
 
-func _classic_button_style(bg: Color) -> StyleBoxFlat:
-        var style := StyleBoxFlat.new()
-        style.bg_color = bg
-        style.border_color = Color("5c666e")
-        style.set_border_width_all(1)
-        style.set_corner_radius_all(3)
-        style.content_margin_left = 6
-        style.content_margin_right = 6
-        style.content_margin_top = 4
-        style.content_margin_bottom = 4
-        return style
+func _classic_button_style(pressed: bool = false) -> StyleBox:
+        return _bevel_style("button_down" if pressed else "button", 0.0)
 
 
 func _on_resume_pressed() -> void:
@@ -265,10 +310,24 @@ func set_menu(open: bool) -> void:
                 _refresh_menu_roster()
                 chat_entry.release_focus()
                 Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+                _pop_menu()
         else:
                 var focused := root.get_viewport().gui_get_focus_owner()
                 if focused != null:
                         focused.release_focus()
+
+
+## The settings window pops in — a quick back-eased scale + fade.
+func _pop_menu() -> void:
+        var card := root.get_node_or_null("Menu/Center/Card") as Control
+        if card == null:
+                return
+        card.pivot_offset = card.size / 2.0
+        card.modulate.a = 0.0
+        card.scale = Vector2(0.86, 0.86)
+        var tween := create_tween().set_parallel(true)
+        tween.tween_property(card, "modulate:a", 1.0, 0.13).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+        tween.tween_property(card, "scale", Vector2.ONE, 0.17).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func input_busy() -> bool:
         return menu.visible or chat_entry.has_focus()
@@ -352,18 +411,13 @@ func set_status(text: String, connected: bool) -> void:
         status_label.add_theme_color_override("font_color", GREEN_BRIGHT if connected else Color("ffd39d"))
 
 
-## The classic top-right health bar — label + a green bar that reddens as
-## it drains and flashes when you take damage. Built in code: no scene edit.
+## The classic top-right health bar — bevel panel, white track, green fill
+## that reddens as it drains and flashes when you take damage.
 func _build_health_bar() -> void:
         var panel := PanelContainer.new()
         panel.name = "HealthBar"
         panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        var style := StyleBoxFlat.new()
-        style.bg_color = PANEL
-        style.border_color = Color("223038")
-        style.set_border_width_all(2)
-        style.set_content_margin_all(6)
-        panel.add_theme_stylebox_override("panel", style)
+        panel.add_theme_stylebox_override("panel", _classic_panel_style())
         # anchored top-right, out of every other panel's way
         panel.anchor_left = 1.0
         panel.anchor_right = 1.0
@@ -378,12 +432,13 @@ func _build_health_bar() -> void:
         head.mouse_filter = Control.MOUSE_FILTER_IGNORE
         var title := Label.new()
         title.text = "Health"
-        title.add_theme_font_size_override("font_size", 10)
-        title.add_theme_color_override("font_color", MUTED)
+        title.add_theme_font_size_override("font_size", 11)
+        title.add_theme_color_override("font_color", CLASSIC_INK)
+        _bold(title)
         _health_value = Label.new()
         _health_value.text = "100 / 100"
-        _health_value.add_theme_font_size_override("font_size", 10)
-        _health_value.add_theme_color_override("font_color", INK)
+        _health_value.add_theme_font_size_override("font_size", 11)
+        _health_value.add_theme_color_override("font_color", CLASSIC_INK)
         _health_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         _health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         head.add_child(title)
@@ -391,7 +446,7 @@ func _build_health_bar() -> void:
 
         var track := ColorRect.new()
         track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        track.color = Color("10181d")
+        track.color = CLASSIC_FACE
         track.custom_minimum_size = Vector2(HEALTH_BAR_W, HEALTH_BAR_H)
         _health_fill = ColorRect.new()
         _health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -405,7 +460,45 @@ func _build_health_bar() -> void:
         panel.add_child(box)
         root.add_child(panel)
 
-## Local player health (main.gd connects the player's health_changed here).
+## Settings > Animations — play any rig clip on your own character.
+func _build_animations_card() -> void:
+        var body := root.get_node_or_null("Menu/Center/Card/Column/Body") as HBoxContainer
+        if body == null:
+                return
+        var card := PanelContainer.new()
+        card.name = "AnimationsCard"
+        card.add_theme_stylebox_override("panel", _classic_panel_style())
+        var box := VBoxContainer.new()
+        box.name = "AnimationsBox"
+        box.add_theme_constant_override("separation", 6)
+        card.add_child(box)
+        var title := Label.new()
+        title.text = "Animations"
+        title.add_theme_color_override("font_color", CLASSIC_INK)
+        _bold(title)
+        box.add_child(title)
+        var grid := GridContainer.new()
+        grid.name = "EmoteGrid"
+        grid.columns = 3
+        grid.add_theme_constant_override("h_separation", 4)
+        grid.add_theme_constant_override("v_separation", 4)
+        for anim in ["Idle", "Walk", "Jump", "Climb", "Sit"]:
+                var button := Button.new()
+                button.text = anim
+                button.focus_mode = Control.FOCUS_NONE
+                _style_dialog_button(button)
+                button.pressed.connect(emote_requested.emit.bind(anim))
+                grid.add_child(button)
+        box.add_child(grid)
+        var stop := Button.new()
+        stop.text = "Stop"
+        stop.focus_mode = Control.FOCUS_NONE
+        _style_dialog_button(stop)
+        stop.pressed.connect(emote_requested.emit.bind(""))
+        box.add_child(stop)
+        body.add_child(card)
+
+
 func set_health(health: float, max_health: float) -> void:
         var safe_max := maxf(max_health, 1.0)
         _health_target = clampf(health / safe_max, 0.0, 1.0)
