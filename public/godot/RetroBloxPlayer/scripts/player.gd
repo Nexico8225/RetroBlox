@@ -32,8 +32,6 @@ const LADDER_JUMP: float = 34.0
 # (the Roblox default), zero health routes into the normal respawn flow
 signal health_changed(health: float, max_health: float)
 signal health_depleted
-signal jumped
-signal landed
 
 const MAX_HEALTH: float = 100.0
 const REGEN_DELAY: float = 5.0
@@ -47,8 +45,9 @@ const RetrobloxApiScript := preload("res://scripts/retroblox_api.gd")
 const AvatarPlatformScript := preload("res://scripts/avatar_platform.gd")
 
 var peer_id: int = 0
-var display_name: String = "Guest"
-var platform_user_id: String = ""   # RetroBlox account id, "" for guests
+var display_name: String = "Player"
+var platform_user_id: String = ""   # RetroBlox account id — ALWAYS set (login only)
+var is_remote: bool = false          # driven by the website heartbeat, not local input
 var avatar: Node3D
 var alive: bool = true
 var life_epoch: int = 0
@@ -68,29 +67,18 @@ var target_position: Vector3 = Vector3.ZERO
 var target_velocity: Vector3 = Vector3.ZERO
 var target_heading: float = 0.0
 var target_grounded: bool = false
+var target_climbing: bool = false
 var has_snapshot: bool = false
 var bubble: Label3D
 var bubble_remaining: float = 0.0
 var correction: Vector3 = Vector3.ZERO
 var health: float = MAX_HEALTH
-var kos: int = 0                # classic leaderboard — deaths
-var wos: int = 0                # classic leaderboard — knockouts
-var last_hurt_by: int = -1      # attacker id, for WO credit
-var last_hurt_time: float = -100.0
 var regen_wait: float = 0.0
 var falling: bool = false
 var fall_peak_y: float = 0.0
 var climbing: bool = false           # on a ladder right now (drives the Climb anim)
 var _ladder_count: int = 0
 var _step_visual: float = 0.0        # avatar's downward offset that eases out after a step
-
-# classic spawn forcefield — six seconds of spawn protection after every
-# respawn, so you can never be spawn-killed (the visual is an ORIGINAL
-# shimmering bubble, not any legacy asset)
-const SPAWN_FORCEFIELD: float = 6.0
-var forcefield_left: float = 0.0
-var _ff_mesh: MeshInstance3D
-var _ff_mat: StandardMaterial3D
 
 func initialize(id: int, player_name: String) -> void:
         peer_id = id
@@ -106,36 +94,6 @@ func initialize(id: int, player_name: String) -> void:
         bubble = get_node("ChatBubble")
         bubble.visible = false
         _setup_ladder_sensor()
-        _setup_forcefield()
-
-## The spawn-protection bubble: an unshaded translucent sphere around the
-## avatar that gently pulses and fades out over its last second.
-func _setup_forcefield() -> void:
-        _ff_mesh = MeshInstance3D.new()
-        _ff_mesh.name = "Forcefield"
-        var sphere := SphereMesh.new()
-        sphere.radius = 2.6
-        sphere.height = 5.2
-        sphere.radial_segments = 24
-        sphere.rings = 12
-        _ff_mesh.mesh = sphere
-        _ff_mesh.position = Vector3(0.0, 2.5, 0.0)
-        _ff_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-        _ff_mat = StandardMaterial3D.new()
-        _ff_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-        _ff_mat.albedo_color = Color(0.55, 0.78, 1.0, 0.22)
-        _ff_mat.emission_enabled = true
-        _ff_mat.emission = Color(0.35, 0.55, 0.9)
-        _ff_mat.emission_energy_multiplier = 0.5
-        _ff_mat.roughness = 0.15
-        _ff_mat.metallic = 0.2
-        _ff_mat.no_depth_test = false
-        _ff_mesh.material_override = _ff_mat
-        _ff_mesh.visible = false
-        add_child(_ff_mesh)
-
-func is_protected() -> bool:
-        return alive and forcefield_left > 0.0
 
 ## Dress this player from a platform avatar payload
 ## (GET /api/platform/me for yourself, GET /api/users/{id}/avatar for others).
@@ -193,7 +151,6 @@ func drive(delta: float, direction: Vector2, camera_yaw: float, jump_serial: int
                         consumed_jump = jump_serial
                         if is_on_floor():
                                 velocity.y = JUMP_SPEED
-                                jumped.emit()
 
         move_and_slide()
         grounded = is_on_floor()
@@ -293,7 +250,6 @@ func _update_fall_damage() -> void:
         if grounded:
                 if falling:
                         falling = false
-                        landed.emit()
                         var drop: float = fall_peak_y - global_position.y
                         if drop > FALL_SAFE_HEIGHT:
                                 hurt((drop - FALL_SAFE_HEIGHT) * FALL_DMG_PER_STUD)
@@ -309,6 +265,17 @@ func render_remote(delta: float) -> void:
         avatar.rotation.y = heading
         velocity = target_velocity
         grounded = target_grounded
+        climbing = target_climbing
+
+## A remote player that just appeared: land it exactly where the website
+## says instead of sliding in from the spawn pad.
+func snap_remote(pos: Vector3) -> void:
+        global_position = pos
+        target_position = pos
+        target_heading = 0.0
+        has_snapshot = true
+        heading = 0.0
+        avatar.rotation.y = 0.0
 
 func reconcile(delta: float) -> void:
         if not has_snapshot or not alive:
@@ -318,11 +285,12 @@ func reconcile(delta: float) -> void:
         global_position += amount
         correction -= amount
 
-func accept_snapshot(pos: Vector3, vel: Vector3, yaw: float, floor_state: bool, local: bool) -> void:
+func accept_snapshot(pos: Vector3, vel: Vector3, yaw: float, floor_state: bool, local: bool, climbing_state: bool = false) -> void:
         target_position = pos
         target_velocity = vel
         target_heading = yaw
         target_grounded = floor_state
+        target_climbing = climbing_state
         has_snapshot = true
         if local:
                 var error := pos - global_position
@@ -336,29 +304,15 @@ func accept_snapshot(pos: Vector3, vel: Vector3, yaw: float, floor_state: bool, 
                         if absf(error.y) > 1.3:
                                 velocity.y = vel.y
 
-func update_visuals(delta: float) -> void:
+func update_visuals(delta: float, animate: bool = true) -> void:
         if alive:
-                avatar.animate(delta, Vector2(velocity.x, velocity.z).length(), grounded, climbing)
+                # far-away players skip their AnimationPlayer work (main.gd
+                # passes animate=false) — they still glide and stay synced
+                if animate:
+                        avatar.animate(delta, Vector2(velocity.x, velocity.z).length(), grounded, climbing)
         if bubble_remaining > 0.0:
                 bubble_remaining -= delta
                 bubble.visible = alive and bubble_remaining > 0.0
-        # forcefield — pulse while up, fade the last second, then pop off
-        if forcefield_left > 0.0:
-                forcefield_left = maxf(forcefield_left - delta, 0.0)
-                var t := Time.get_ticks_msec() / 1000.0
-                _ff_mesh.visible = alive
-                _ff_mesh.scale = Vector3.ONE * (1.0 + 0.045 * sin(t * 7.0))
-                _ff_mat.albedo_color.a = 0.22 * clampf(forcefield_left, 0.0, 1.0) + 0.04
-        elif _ff_mesh != null and _ff_mesh.visible:
-                _ff_mesh.visible = false
-
-## Health pushed from the network (sword/rocket damage is server-side) —
-## keeps the local HUD honest without breaking local regen simulation.
-func set_net_health(value: float) -> void:
-        if not alive:
-                return
-        health = clampf(value, 0.0, MAX_HEALTH)
-        health_changed.emit(health, MAX_HEALTH)
 
 func show_message(message: String) -> void:
         # Plain text only: markup cannot be injected.
@@ -383,8 +337,6 @@ func show_message(message: String) -> void:
 func hurt(amount: float) -> void:
         if not alive or amount <= 0.0:
                 return
-        if forcefield_left > 0.0:
-                return   # the bubble eats the hit — classic spawn protection
         health = maxf(health - amount, 0.0)
         regen_wait = REGEN_DELAY
         health_changed.emit(health, MAX_HEALTH)
@@ -415,7 +367,6 @@ func respawn_at(pos: Vector3, epoch: int) -> void:
         alive = true
         health = MAX_HEALTH
         regen_wait = 0.0
-        forcefield_left = SPAWN_FORCEFIELD   # classic six seconds of protection
         falling = false
         climbing = false
         _step_visual = 0.0
