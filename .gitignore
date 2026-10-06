@@ -56,3 +56,5 @@ server.log
 /archive/
 /tool-results/
 /shots/
+.godot/
+scripts/godot-bin

@@ -1,11 +1,15 @@
 extends Control
-## ChatBox — the classic bottom-left chat. Shows the last stretch of lines
-## with colored names (#seqId chips included), Enter opens the input, Enter
-## again sends, Esc closes. Plain text only — nothing can inject markup.
+## ChatBox — the bottom-left chat, dark translucent + rounded like the
+## reference client. Shows the last stretch of lines with colored names
+## (#seqId chips included), Enter opens the input, Enter again sends, Esc
+## closes. The LOG can collapse to nothing — unread messages then count on
+## the topbar chat button's red badge. Plain text only — nothing can inject
+## markup.
 
 signal submitted(text: String)
 signal opened
 signal closed
+signal unread(count: int)
 
 const MAX_LINES := 60
 const NAME_COLORS: Array = [
@@ -18,6 +22,8 @@ var _input: LineEdit
 var _panel: PanelContainer
 var _input_panel: PanelContainer
 var is_open := false
+var log_collapsed := false
+var _unread := 0
 var _known_ids: Dictionary = {}
 
 
@@ -25,22 +31,20 @@ func _init() -> void:
         set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
         offset_left = 10.0
         offset_bottom = -10.0
-        offset_top = -232.0
-        offset_right = 470.0
+        offset_top = -242.0
+        offset_right = 440.0
         grow_vertical = Control.GROW_DIRECTION_BEGIN
 
         _panel = PanelContainer.new()
         _panel.name = "LogPanel"
-        # chat log floats on translucent dark, like every classic client
+        # dark translucent rounded log — the modern classic look
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.06, 0.10, 0.14, 0.62)
-        sb.set_border_width_all(1)
-        sb.border_color = Color(0, 0, 0, 0.5)
-        sb.set_corner_radius_all(4)
-        sb.content_margin_left = 8.0
-        sb.content_margin_right = 8.0
-        sb.content_margin_top = 6.0
-        sb.content_margin_bottom = 6.0
+        sb.bg_color = Color(0.045, 0.06, 0.08, 0.62)
+        sb.set_corner_radius_all(8)
+        sb.content_margin_left = 10.0
+        sb.content_margin_right = 10.0
+        sb.content_margin_top = 7.0
+        sb.content_margin_bottom = 7.0
         _panel.add_theme_stylebox_override("panel", sb)
         _panel.set_anchors_preset(Control.PRESET_FULL_RECT)
         _panel.offset_bottom = -42.0
@@ -54,20 +58,20 @@ func _init() -> void:
         _log.context_menu_enabled = false
         _log.add_theme_font_size_override("normal_font_size", 14)
         _log.add_theme_font_size_override("bold_font_size", 14)
-        _log.add_theme_color_override("default_color", Color(0.92, 0.95, 0.98))
+        _log.add_theme_color_override("default_color", Color(0.94, 0.96, 0.98))
         _panel.add_child(_log)
 
         _input_panel = PanelContainer.new()
         _input_panel.name = "InputPanel"
         var isb := StyleBoxFlat.new()
-        isb.bg_color = Color(0.98, 0.99, 1.0, 0.96)
-        isb.set_border_width_all(2)
-        isb.border_color = Color("51626f")
-        isb.set_corner_radius_all(3)
-        isb.content_margin_left = 6.0
-        isb.content_margin_right = 6.0
-        isb.content_margin_top = 3.0
-        isb.content_margin_bottom = 3.0
+        isb.bg_color = Color(0.05, 0.065, 0.085, 0.92)
+        isb.set_corner_radius_all(8)
+        isb.border_color = Color(1, 1, 1, 0.14)
+        isb.set_border_width_all(1)
+        isb.content_margin_left = 8.0
+        isb.content_margin_right = 8.0
+        isb.content_margin_top = 4.0
+        isb.content_margin_bottom = 4.0
         _input_panel.add_theme_stylebox_override("panel", isb)
         _input_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
         _input_panel.offset_top = -36.0
@@ -77,7 +81,8 @@ func _init() -> void:
         _input = LineEdit.new()
         _input.placeholder_text = "To chat click here or press ENTER"
         _input.max_length = 240
-        _input.add_theme_color_override("font_color", Color("1a242e"))
+        _input.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
+        _input.add_theme_color_override("font_placeholder_color", Color(0.62, 0.68, 0.74))
         _input.add_theme_font_size_override("font_size", 14)
         _input.text_submitted.connect(_on_submit)
         _input.gui_input.connect(_on_input_gui)
@@ -88,7 +93,10 @@ func open() -> void:
         if is_open:
                 return
         is_open = true
+        log_collapsed = false
+        _panel.visible = true
         _input_panel.visible = true
+        _clear_unread()
         _input.grab_focus()
         opened.emit()
 
@@ -101,6 +109,19 @@ func close() -> void:
         _input_panel.visible = false
         _input.release_focus()
         closed.emit()
+
+
+## The topbar chat button: collapse/expand the LOG (typing stays separate).
+func set_log_collapsed(collapsed: bool) -> void:
+        log_collapsed = collapsed
+        _panel.visible = not collapsed
+        if not collapsed:
+                _clear_unread()
+
+
+func _clear_unread() -> void:
+        _unread = 0
+        unread.emit(0)
 
 
 func _on_submit(text: String) -> void:
@@ -128,11 +149,17 @@ func add_chat(username: String, seq_id: int, text: String, name_color: String = 
         if self_style:
                 line = "[i]" + line + "[/i]"
         _log.append_text(line + "\n")
+        if log_collapsed:
+                _unread += 1
+                unread.emit(_unread)
         _prune()
 
 
 func add_system(text: String) -> void:
         _log.append_text("[color=#9fb6c8][i]%s[/i][/color]\n" % _esc(text))
+        if log_collapsed:
+                _unread += 1
+                unread.emit(_unread)
         _prune()
 
 

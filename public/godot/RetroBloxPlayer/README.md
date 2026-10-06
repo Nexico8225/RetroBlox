@@ -1,262 +1,128 @@
-# RetroBlox Godot SDK — Player + Dev Kit
+# RetroBlox Player (Godot)
 
-The official RetroBlox player system for **Godot 4.5+**: a classic six-part
-multiplayer world that signs players into their RetroBlox account **inside
-the game** and spawns them wearing their real account avatar.
+The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
+play as a guest) inside the game, wear your real account avatar, explore
+the built-in places, and chat with everyone online through the RetroBlox
+platform API. The HUD, the sounds and the places are built to match the
+2016-classic reference — with RetroBlox's own UI on top.
 
-It is also the **starter kit for your own games** — every piece ships as a
-Godot **scene** you can drag into any project: the block avatar, the player,
-the account login card, the HUD, and a small HTTP client class that talks to
-the RetroBlox platform.
-
-> **One platform, every engine.** The Godot kit ships first. The same
-> platform API is engine-agnostic (plain HTTP + JSON), so Unity, Unreal,
-> Flax and Source2 adapters are planned next — see the roadmap at the bottom.
+> One platform, every engine. Everything here is plain HTTP + JSON against
+> `https://retro-blox.vercel.app` — the same API the website and the future
+> SDK adapters use.
 
 ---
 
 ## 1. Just play it
 
-Install [Godot 4.5.1](https://godotengine.org/download/archive/4.5.1-stable/)
-(or any newer Godot 4.5+), open the project folder, let imports finish,
-press **F5**. No plugins, no external assets.
+Open this folder in Godot 4.5.1+, let imports finish, press **F5**. No
+plugins, no external assets, everything ships in the folder.
 
-The game opens on the login card:
+- **Log In** — your existing RetroBlox account (same one as the website).
+- **Sign Up** — create a new account without leaving the game.
+- **Play as Guest** — classic noob colors, `Guest-1234` name, read-only chat.
 
-- **Log In** — your existing RetroBlox account. Your account avatar (body
-  colors, shirt, pants, face, 3D UGC) loads from the website.
-- **Sign Up** — create a brand-new account WITHOUT leaving the game.
-- **Play as Guest** — no account; classic noob colors, "Guest-1234" name.
+The game remembers you — next launch signs you in automatically.
 
-The game remembers you — the next launch signs you in automatically.
+### Controls
 
 | Action | Control |
 |---|---|
-| Move | WASD or arrow keys |
+| Move | WASD / arrow keys |
 | Jump | Space |
-| Orbit the camera | Hold right mouse button and drag |
-| Zoom / first person | Mouse wheel |
-| **Shift Lock** | Shift (or toggle it in the Esc menu) |
-| Chat | **/** (already in typing mode) or Enter, then Enter to send |
-| Menu / close chat focus | Esc |
+| Orbit / zoom | Mouse + wheel (click the world to re-capture) |
+| Shift Lock | Shift, or the Settings toggle |
+| Chat | Enter (or the chat pill button) — Enter sends |
+| Menu / Players / Settings | Esc or the pill buttons |
 
-Internet play: run a build with `-- --server` on a machine with a public IP,
-open **UDP 42420** (+42421 for LAN discovery), and set
-`server="YOUR_SERVER_IP"` in the `network.cfg` beside the players' builds.
-Point the login card at any RetroBlox site with `-- --api=https://your-site`.
+### The HUD (the reference-video layout, original RetroBlox skin)
 
-### The avatar uses the community rig (retroblox_anims.fbx)
+- **Top-left pill** — RetroBlox logo, menu, chat (with a red unread badge
+  while the chat log is collapsed) and players.
+- **Right edge** — the vertical **Health** bar with the value chip; it
+  drains red as you take fall damage and refills with the classic 1%/s regen.
+- **Bottom-center** — your hotbar slot, the **Tix Bag**.
+- **Top-center** — black toast pills ("eh_raiderbomber joined you") when
+  someone new appears in the place.
+- **Chat bubbles** appear over the head of whoever is talking — you too.
 
-In-game players wear **`assets/models/retroblox_anims.fbx`** — a classic
-block avatar with real old-Roblox animation clips baked in: **Idle, Walk,
-Jump, Climb and Sit**. Walk and Climb speed up and slow down with the
-player, the jump clip holds its last frame mid-air, and the Settings menu
-(ESC) has an **Animations** section that plays any clip on your own
-character — moving cancels the pose. If the FBX has not been imported yet
-(a brand-new project), the kit falls back to its built-in box rig
-automatically and upgrades the moment Godot imports the model.
+### Settings (Esc → Settings)
 
-Making your own rig? Export an FBX with the same part names —
-`Head`, `Torso`, `Left Arm`, `Right Arm`, `Left Leg`, `Right Leg` — and
-drop it in `assets/models/`; the alias matcher (same rules as the site's
-`rig.ts`) finds the parts, hides helper meshes, and everything (painting,
-clothing zones, face decals, debris) keeps working.
+Everything applies live and persists to `user://retroblox_settings.cfg`:
 
-### HUD: the classic top-left icon toolbar
+- Mouse sensitivity, camera FOV
+- Master volume, sound-effect volume
+- Sun shadows on/off
+- Shift-lock default
+- **Animations** buttons — pose your character with the rig's own clips
+  (Sit / Climb / Walk / Jump / Idle); moving cancels the pose.
 
-The screen stays clear while you play — a **top-left toolbar** of grey
-beveled icon buttons (the old-Roblox spot) toggles the menu, chat panel
-and player list, and CHAT shows an unread badge while hidden.
-`/` opens chat already in typing mode (the classic behavior), `Enter`
-still works, `Esc` closes it. Switching to another app (alt-tab) does
-**not** pause the game or open the menu — only you pause you. Lighting
-matches the site's catalog look: bright white sun, sky/ground fill light,
-filmic tonemapping.
+### Sounds
 
-### Troubleshooting sign-in
+All wired through the `SFX` audio bus (so the volume slider hits exactly
+these): the classic **jump** whoosh, **plastic footsteps** while you walk
+and the **climb** loop on ladders, the original **oof** on death, and
+click / hover ticks + a join chime on every UI surface. Buttons get the
+sounds automatically — every screen, no wiring needed.
 
-- **"Incorrect username or password"** — accounts are shared with the
-  website, so the same name + password work. No account yet? Use the
-  **Sign Up** tab right on the card.
-- **"Could not reach …"** — the Server field on the card should read
-  `https://retro-blox.vercel.app` (that is the default). If you edited it,
-  clear it and press Log In again — the empty field falls back to the
-  official site.
-- **Signing in works but the error comes back** — delete
-  `user://profile.cfg` (Godot's *Project → Open User Data Folder*) to
-  clear a stale saved token, then sign in again.
-- **Still stuck on an older kit?** Re-download this zip — versions before
-  September 27, 2026 defaulted the Server field to `localhost:3000`, which
-  always fails. This build defaults to the official site.
+### The places
+
+| Place | What it is |
+|---|---|
+| **Cloud Kingdom** | THE reference place — floating grass islands over a sea of clouds: gardens, the GLOBAL LEADERBOARD sign, the NEW GAMES portal, My House, trampolines up to walkable clouds, a neon zig-zag, grey steps, a truss climb and a maroon summit with the gold goal. |
+| Happy Baseplate | The classic sandbox: brick pile, stairs fort, truss tower, trampoline, metal shed. |
+| Classic Obby | Jumps, kill bricks, narrow plank, truss climb, trampoline finish. |
+| Skylands | Islands in the sky — bridges, launches, a kill-plank finale. |
+
+Places are pure data (`scripts/world/places.gd`) turned into 3D by
+`scripts/world/world_builder.gd`: boxes/cylinders/spheres with the
+procedural 1-stud-per-unit texture, plus props (trees, flowers, fences,
+crates, clouds, walkable cloud pads, signs, pipes, arches, houses, snow).
+Groups make the gameplay: `spawn`, `kill`, `ladder`, `goal`, `checkpoint`,
+`bounce`.
+
+### The avatar uses retroblox_anims.fbx
+
+Players wear `assets/models/retroblox_anims.fbx` — the classic block avatar
+with real clips baked in: **Idle, Walk, Jump, Climb, Sit**. Walk and Climb
+ride the player's speed, the jump clip holds its last frame mid-air. The
+matcher accepts any naming (`Head2`, `Left Arm`, `torso_1`...), hides helper
+meshes, and falls back to a code-built box rig until the FBX imports.
+
+### 3D UGC appears FORWARDS
+
+The website renders its rig facing +Z; this rig faces -Z (both come from the
+same Blender export). Every catalog item is therefore wrapped in a 180° yaw
+node in `avatar_dresser.gd` — the same trick the site uses on its own rig —
+so placements land 1:1: a hat that reads forwards on the site reads forwards
+in-game.
 
 ---
 
-## 2. Build YOUR game with the kit (the scenes)
+## 2. Headless checks
 
-Everything reusable lives in `scenes/`. Each is a normal Godot scene — open
-it in the editor, tweak sizes/colors/widgets visually, or instance it from
-code:
+With Godot on PATH (or edit the paths):
 
-| Scene | What it gives you |
-|---|---|
-| `scenes/avatar.tscn` | The six-part block avatar (head/torso/arms/legs + nameplate + face). Paintable, textureable, animatable. |
-| `scenes/player.tscn` | CharacterBody3D with capsule, avatar and chat bubble — drop it in your world and call `initialize()`. |
-| `scenes/auth_screen.tscn` | The account gate: log in / sign up / guest, saved-token auto sign-in. |
-| `scenes/hud.tscn` | Chat, roster, status line, Esc menu with settings. |
-| `main.tscn` | The demo game: arena + player spawns + camera rig + HUD + auth. Use it as a reference or a starting world. |
-
-### Minimal example — your own game with accounts + avatars
-
-Create a new scene, instance `scenes/auth_screen.tscn` and
-`scenes/player.tscn`, then attach a small script:
-
-```gdscript
-extends Node3D
-
-func _ready() -> void:
-        var auth := $AuthScreen
-        auth.completed.connect(_on_signed_in)
-        auth.guest_requested.connect(_on_guest)
-        auth.set_api_url("https://your-retroblox-site.example")  # or leave default
-
-func _on_signed_in(_api, username: String, _user_id: String, _avatar: Dictionary) -> void:
-        _spawn_player(username)
-
-func _on_guest() -> void:
-        _spawn_player("Guest-%04d" % (randi() % 10000))
-
-func _spawn_player(player_name: String) -> void:
-        $AuthScreen.visible = false
-        var player := preload("res://scenes/player.tscn").instantiate()
-        add_child(player)                      # add to the tree FIRST
-        player.initialize(1, player_name)      # then configure
-        player.global_position = Vector3(0, 0.1, 0)
+```bash
+godot --headless --path . -s tests/smoke.gd       # 40+ checks: scripts, places, rig, player, chat, dresser
+godot --headless --path . -s tests/check_rig.gd   # rig loads the FBX + clips
 ```
 
-The demo's `scripts/main.gd` does the same thing plus multiplayer — read it
-as the full example.
+`tests/screenshot.tscn` renders HUD + world shots to `user://shots/` when
+run with a display (or Xvfb).
 
-Prefer learning from something runnable? Open
-`examples/mini_game/mini_game.tscn` and press **F6** — a login card, your
-account avatar on a platform, and 8 coins to collect, in one small scene.
-See `examples/mini_game/README.md` for the walkthrough.
+## 3. The platform API (one HTTP door, any engine)
 
-### Painting the avatar (the same rules the website uses)
+`scripts/core/api.gd` (autoload `Api`) — the server URL is a constant on
+purpose; this player is RetroBlox's own client:
 
-`scripts/avatar_platform.gd` dresses an avatar from a platform payload —
-body colors, shirt/pants template zones (300x190 / 220x190), the face decal,
-and 3D UGC accessories loaded from GLB with the creator's exact placement:
-
-```gdscript
-await AvatarPlatform.apply(api, player.avatar, avatar_payload)
-```
-
-Or paint it yourself — no account needed:
-
-```gdscript
-player.avatar.set_part_color(player.avatar.HEAD, Color("f5cd30"))
-```
-
-Every part also has `set_part_textured()` (custom UV-stamped clothing mesh +
-texture) and `set_face()` (decal quad on the head front).
-
-### Making UGC in Blender — materials that survive
-
-The kit loads catalog UGC from GLB, and GLB materials come through exactly
-(StandardMaterial3D albedo). If YOUR item shows up plain white, the colors
-never made it into the file — Blender only exports colors it can carry.
-The 60-second recipe:
-
-1. Shading workspace → select your object → New Material.
-2. It is a **Principled BSDF** by default — set **Base Color** to grey,
-   brown, whatever. One material per color (grey body + brown trim = two
-   materials). Colors ONLY export from Principled BSDF Base Color — the
-   little "Viewport Display" color swatch does NOT export, and other
-   shader nodes (Diffuse BSDF etc.) export as WHITE.
-3. **Best export: File → Export → glTF 2.0 (.glb)** — Format "glTF Binary".
-   Principled colors and image textures always survive this path, and the
-   uploader takes .glb directly.
-4. FBX also works: File → Export → FBX, defaults are fine for flat colors.
-   The site converts it to GLB in your browser and keeps the paint. If your
-   material uses an IMAGE texture, either use .glb (embeds it) or, in the
-   FBX exporter, set Path Mode to **Copy** and tick **Embed Textures** —
-   otherwise the texture file is left behind on your PC and the item is
-   white again.
-
-The uploader warns you at publish time when a model lands with no material
-colors, and the catalog's Texture / Flat color pickers can always paint a
-model that has none.
-
-### The platform API (one HTTP door, any engine)
-
-`scripts/retroblox_api.gd` is a plain RefCounted HTTP client. The same
-endpoints are what every future engine adapter will call:
-
-- `POST /api/platform/login` — sign in (JSON, CORS-open)
-- `POST /api/platform/signup` — create an account (JSON, CORS-open)
-- `GET  /api/platform/me` — your profile + account avatar (Bearer token)
+- `POST /api/platform/login` / `signup` — account gate
+- `GET  /api/platform/me` — profile + account avatar
 - `GET  /api/users/{id}/avatar` — any player's avatar (public)
-- `GET  /api/assets/{assetId}` — resolve an asset id into color/image/model
-- `GET  /api/files/{fileId}` — raw asset bytes (PNG/JPG/WEBP/GLB)
+- `GET  /api/assets/{assetId}` — resolve color / image / GLB model
+- `GET  /api/files/{fileId}` — raw asset bytes
+- `GET/POST /api/placechat/{placeId}` — chat + presence (the internet relay)
 
-### Testing your changes
-
-A headless smoke test covers every scene and script:
-
-```
-godot --headless -s tests/smoke.gd
-```
-
-It ends with `SMOKE_OK` when all ~48 checks pass.
-
-A second tiny guard fails if an input action ever goes missing from
-`project.godot` (movement reads `move_left/right/forward/back` + `jump`):
-
-```
-godot --headless --path . --script res://tests/validate_actions.gd
-```
-
----
-
-## 3. Source map
-
-| Path | Role |
-|---|---|
-| `main.tscn` | The demo game tree: Arena, Players, Debris, CameraRig |
-| `scenes/avatar.tscn` | The block avatar rig (edit sizes visually) |
-| `scenes/player.tscn` | Capsule + Avatar instance + ChatBubble |
-| `scenes/auth_screen.tscn` | The login card (restyle visually) |
-| `scenes/hud.tscn` | All HUD panels and the Esc menu (restyle visually) |
-| `scripts/main.gd` | Networking, auth flow, camera, shift lock, settings |
-| `scripts/player.gd` | Movement, prediction, shift-lock heading |
-| `scripts/avatar.gd` | Drives the avatar scene nodes (paint/animate/burst) |
-| `scripts/avatar_platform.gd` | Account avatar dressing (site-identical rules) |
-| `scripts/retroblox_api.gd` | HTTP client for the platform |
-| `scripts/auth_screen.gd` | Login/signup/guest behavior |
-| `scripts/hud.gd` | Chat, roster, menu behavior |
-| `scripts/arena.gd` | The procedural demo baseplate world |
-| `network.cfg` | Room name, ports, server address, platform api_url |
-
-Networking model: server-authoritative simulation, clients send input,
-20 Hz snapshots, client prediction with reconciliation, LAN auto-host /
-auto-join, plain-text chat with server-side sanitizing.
-
-## 4. Roadmap — one platform, every engine
-
-The platform API is intentionally boring: HTTP + JSON + static files. That
-is what makes multi-engine support straightforward. Planned order:
-
-1. **Godot (this kit)** — done, ships first.
-2. **Unity** adapter — C# `RetrobloxApi` + prefab avatar rig.
-3. **Unreal** adapter — C++/Blueprints.
-4. **Flax Engine** adapter — C#.
-5. **Source 2** adapter — Hammer + Lua/C++.
-
-Each adapter gets the same promise: sign in inside the game, wear your
-account avatar, every game sees the same you.
-
-## 5. License
-
-Project code is MIT. The reset sound is an original oof-style synthesis,
-not the licensed Roblox recording. This is a fan-made classic-style client,
-not affiliated with Roblox Corporation.
+Avatars dress through `scripts/player/avatar_dresser.gd`: body colors,
+shirt/pants template zones (300x190 / 220x190), face decal, and 3D UGC from
+GLB with the creator's placement applied verbatim (creator texture / tint /
+metallic / roughness included — the data-wins rule).

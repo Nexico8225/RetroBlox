@@ -143,7 +143,18 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
                 holder.name = "UGCScaled_" + String(acc_id)
                 holder.scale = Vector3.ONE * UGC_SCALE
                 holder.add_child(inner)
-                avatar_node.add_child(holder)
+                # The website renders its rig FACING +Z (it turns the Blender
+                # model around after import); this rig faces -Z. UGC placement
+                # is authored in the site's +Z space, so without a correction
+                # every item lands MIRRORED — hats read backwards. A 180° yaw
+                # wrapper (the same trick loadRig() uses on the site) maps the
+                # whole placement — position AND rotation — into this rig's
+                # space, so items appear forwards here exactly like the site.
+                var yaw := Node3D.new()
+                yaw.name = "UGCYaw_" + String(acc_id)
+                yaw.rotation.y = PI
+                yaw.add_child(holder)
+                avatar_node.add_child(yaw)
                 # creator texture / tint — THE ROBLOX RULE, DATA WINS
                 var tex_url := String(surface_asset.get("textureUrl", ""))
                 var tint := String(surface_asset.get("color", ""))

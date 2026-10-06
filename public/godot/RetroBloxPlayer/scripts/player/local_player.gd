@@ -63,6 +63,9 @@ var _bubble: Label3D
 var _bubble_left := 0.0
 var _bounce_cd := 0.0
 var _time := 0.0
+var _was_grounded := true
+var _steps_loop: AudioStreamPlayer3D
+var _climb_loop: AudioStreamPlayer3D
 
 
 func _init() -> void:
@@ -101,6 +104,23 @@ func _init() -> void:
         _setup_touch_sensor()
 
 
+func _ready() -> void:
+        # autoloads are reachable from _ready — never from _init
+        _setup_character_sfx()
+
+
+## The classic character sounds — plastic footsteps while walking, the jump
+## whoosh on takeoff, and the climb loop on ladders. All 3D, on the SFX bus.
+func _setup_character_sfx() -> void:
+        var sfx: Node = get_node_or_null("/root/Sfx")
+        if sfx == null:
+                return
+        _steps_loop = sfx.call("make_loop_3d", "Footsteps", self)
+        _climb_loop = sfx.call("make_loop_3d", "ClimbLoop", self)
+        if _climb_loop != null:
+                _climb_loop.pitch_scale = 1.25
+
+
 func setup(p_name: String) -> void:
         display_name = p_name
         avatar.call("setup", p_name)
@@ -120,6 +140,7 @@ func _physics_process(delta: float) -> void:
         if _bubble_left > 0.0:
                 _bubble_left -= delta
                 _bubble.visible = alive and _bubble_left > 0.0
+        _update_loops()
 
 
 ## One classic physics step. `direction.y < 0` = forward (W), cam_yaw orients
@@ -170,6 +191,9 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
                 health = minf(health + REGEN_RATE, MAX_HEALTH)
                 health_changed.emit(health, MAX_HEALTH)
         avatar.rotation.y = heading
+        # rig clips: Idle / Walk / Jump / Climb — driven by THIS player's state
+        var hspeed := Vector2(velocity.x, velocity.z).length()
+        avatar.call("animate", delta, hspeed, grounded, climbing)
 
 
 func _drive_ladder(wish: Vector3, delta: float) -> void:
@@ -210,6 +234,7 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
                 _jump_buffer_left = 0.0
                 _coyote = 0.0
                 velocity.y = JUMP_SPEED
+                _play_jump_sound()
 
 
 ## STAIRS — walk over any ledge between MIN_STEP and MAX_STEP studs. Measure
@@ -339,6 +364,30 @@ func _do_bounce() -> void:
         velocity.y = BOUNCE_POWER
         _falling = true
         _fall_peak_y = global_position.y
+        _play_jump_sound(0.9)
+
+
+# ---------------------------------------------------------------- sounds
+
+func _play_jump_sound(_pitch := 1.0) -> void:
+        var sfx: Node = get_node_or_null("/root/Sfx")
+        if sfx != null:
+                sfx.call("play_jump_3d", self)
+
+
+## Loops update: footsteps only while moving on the floor, climb loop only on
+## ladders. The climb pitch rides the climb speed like the classic client.
+func _update_loops() -> void:
+        if _steps_loop == null or _climb_loop == null:
+                return
+        if not is_instance_valid(_steps_loop) or not is_instance_valid(_climb_loop):
+                return
+        var hspeed := Vector2(velocity.x, velocity.z).length()
+        var walking := alive and grounded and not climbing and hspeed > 2.0
+        _steps_loop.playing = walking
+        if walking:
+                _steps_loop.pitch_scale = clampf(0.85 + hspeed / WALK_SPEED * 0.35, 0.85, 1.3)
+        _climb_loop.playing = alive and climbing
 
 
 # ---------------------------------------------------------------- sensors

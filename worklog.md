@@ -1077,3 +1077,43 @@ Stage Summary:
 - Full trade economy live: offer UGC + Tix for UGC, free to send, atomic accept, bell notifications
 - Sequential player IDs live (Nexico8225 = #1); UGC comment walls live; people search on Friends page; Text FX renders across items/chat/bios/trades
 - Robux removal confirmed complete (Tix-only economy, zero "Robux" strings in src)
+
+---
+Task ID: godot-video-1
+Agent: Super Z (main)
+Task: "Make the game like the video" — reference-video pass on the Godot player: real RetroBlox Anims rig, UGC forwards fix, Roblox-style original HUD, settings, UI + character sounds, Cloud Kingdom place
+
+Work Log:
+- Analyzed Refrence (2).mp4 (79s, 16 frames extracted): modern topbar pill (logo/menu/chat+badge), vertical Health bar right, "1 Tix Bag" hotbar, "X joined you" toasts, chat bubbles, floating cloud-islands obby world
+- VERIFIED uploaded RetroBlox Anims.fbx == assets/models/retroblox_anims.fbx (md5 identical); dumped rig headless: clips are Idle/Walk/Jump/Climb/Sit (NO "Old_" prefix) and R6IK.fbx no longer exists -> avatar_rig.gd pointed at a MISSING file and wrong anim names; box rig was the live body
+- avatar_rig.gd: RIG_SCENE_PATH -> retroblox_anims.fbx, ANIM_* -> Idle/Walk/Jump/Climb (+Sit), added play_emote(); local_player.gd never called avatar.animate() (only remotes did) -> drive() now animates the local rig; play_emote cancels on movement
+- UGC BACKWARDS FIX: site rig faces +Z (loadRig yaw-wraps the FBX), Godot rig faces -Z, placements are authored in site space -> every hat landed mirrored. avatar_dresser.gd now wraps each placed UGC in a 180-degree yaw node (position AND rotation map correctly)
+- SOUNDS: downloaded classic action_jump.mp3 + action_footsteps_plastic.mp3 (vempr/piggy-b) + the classic button click (Juexis/internet-platformer) from the internet; generated ui_hover.wav + ui_join.wav; NEW autoloads Settings (user://retroblox_settings.cfg, live apply, SFX bus) + Sfx (auto-wires click/hover on EVERY button via node_added, jump one-shot 3D, loop builders); local_player: jump whoosh, footsteps loop while walking (pitch rides speed), climb loop on ladders; oof already wired on death
+- HUD rebuilt to the video: black rounded topbar pill (white R-logo tile + hamburger + chat with red unread badge + people), VERTICAL Health bar right (green fill drains, blue "Health" label, "100" chip), "1 Tix Bag" hotbar slot, top-center toast pills on player joins (+join chime), dark rounded chat log with collapse; new white icon set generated (logo/menu/chat/people/reset)
+- ESC menu = dark card with Players | Settings tabs: mouse sensitivity, FOV, master + SFX volume, shadows, shift lock, Animations buttons (Sit/Climb/Walk/Jump/Idle/Stop); Reset Character + Leave kept; P opens Players
+- camera_rig reads Settings (sensitivity multiplier + FOV live)
+- WORLD: world_builder.gd extended (cylinder/sphere shapes, grass/dirt mats, props: tree/flower/fence/crate/cloud/WALKABLE cloudpad/sign with Label3D boards/pipe/arch/house/snow; Settings-driven shadows); NEW PLACE Cloud Kingdom (cloudkingdom, now the default) built 1:1 from the video: layered dirt islands, grey-base + black-pad spawn, gardens, GLOBAL LEADERBOARD board (yellow title on cyan), NEW GAMES portal arch, My House, fences/crates/snow/pipe, trampoline -> walkable clouds -> high island, neon yellow zig-zag, grey steps, maroon summit + gold goal, truss climb (climb sound), cyan landing + blue launch pads, decor clouds
+- CLEANED dead legacy (referenced missing files): main.gd, hud.gd, avatar.gd, avatar_platform.gd, part.gd, validate_map.gd + their .uid files
+- tests: smoke.gd REWRITTEN for the real pipeline (16 scripts, Settings/Sfx, 4 worlds build, rig upgrade + clips, local player jump v=50 + sfx loops, chat unread, placement verbatim) -> SMOKE_OK 46 checks; check_rig.gd added; screenshot.tscn renders HUD/world PNGs under Xvfb (visual parity verified against video frames)
+- README rewritten for the actual player (was describing the retired PlayerSystem kit)
+- Rebuilt public/godot/retroblox-godot-player.zip (92 files); fresh-unzip --import + smoke: SMOKE_OK; login scene boots clean headless
+
+Stage Summary:
+- The player now looks and sounds like the reference video with original RetroBlox UI; your uploaded FBX is THE player model with working Idle/Walk/Jump/Climb/Sit
+- UGC lands forwards (site-1:1) instead of backwards
+- Settings persist and apply live; sounds everywhere (UI clicks/hovers, jump, footsteps, climb, oof, join chime)
+- Cloud Kingdom ships as the first place in the hub; zip rebuilt + validated; owner must RE-DOWNLOAD the zip
+
+---
+Task ID: godot-video-1b
+Agent: Super Z (main)
+Task: Real-game boot verification + chat-order fix
+
+Work Log:
+- Wrote tests/real_game_shot.gd: boots the REAL game.tscn as a guest in Cloud Kingdom, screenshots the real HUD + Settings menu under Xvfb
+- Caught one real bug: _build_hud wired chat.unread in the topbar BEFORE the ChatBox existed (Nil access) -> chat is now created first; topbar wiring moved after
+- Re-ran: no script errors, real HUD renders (pill + badge, vertical health, Tix Bag, toasts, chat), Settings card renders (sensitivity/FOV/volumes/shadows/shift-lock/Animations/Resume/Reset/Leave)
+- Rebuilt zip (93 files); fresh-unzip --import + smoke: SMOKE_OK
+
+Stage Summary:
+- End-to-end verified in the REAL scene, not just the replica rig; zip current with the fix

@@ -19,14 +19,15 @@ const LEG_L := 4
 const LEG_R := 5
 const HEAD_INDEX := 0
 
-const RIG_SCENE_PATH := "res://assets/models/R6IK.fbx"
+const RIG_SCENE_PATH := "res://assets/models/retroblox_anims.fbx"
 const RIG_HEIGHT := 5.0
 const SITE_RIG_HEIGHT := 5.0
 
-const ANIM_IDLE := &"Old_Idle"
-const ANIM_WALK := &"Old_Walk"
-const ANIM_JUMP := &"Old_Jump"
+const ANIM_IDLE := &"Idle"
+const ANIM_WALK := &"Walk"
+const ANIM_JUMP := &"Jump"
 const ANIM_CLIMB := &"Climb"
+const ANIM_SIT := &"Sit"
 
 # classic noob defaults — guests and brand-new accounts wear these
 const NOOB_HEAD := Color("f5cd30")
@@ -193,6 +194,21 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
                 _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
         elif next == ANIM_WALK or next == ANIM_CLIMB:
                 _anim_player.speed_scale = rate
+
+
+## Settings > Animations: pose the character with a rig clip ("Sit", ...).
+## Movement calls animate() every frame, which cancels the pose naturally.
+func play_emote(clip: String) -> void:
+        _ensure_built()
+        if not _using_r6ik or _anim_player == null:
+                return
+        if clip == "":
+                _current_anim = &""
+                return
+        var anim_name := StringName(clip)
+        if _anim_player.has_animation(anim_name):
+                _current_anim = &"emote_" + anim_name
+                _anim_player.play(anim_name, 0.2)
 
 
 func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:

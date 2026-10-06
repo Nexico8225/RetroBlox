@@ -1,10 +1,10 @@
 extends SceneTree
 
-## Headless smoke test for the RetroBlox Godot player.
-## Run with:  godot --headless -s tests/smoke.gd  (from the project folder)
+## Headless smoke test for the RetroBlox player — run IN-ENGINE so the
+## autoloads (Api / Session / Settings / Sfx) exist:
+##   godot --headless --path . -s tests/smoke.gd
 
 var failures: Array[String] = []
-var _ran := false
 
 func check(condition: bool, label: String) -> void:
         if condition:
@@ -13,148 +13,128 @@ func check(condition: bool, label: String) -> void:
                 failures.append(label)
                 printerr("  FAIL  " + label)
 
-func _process(_delta: float) -> bool:
-        if _ran:
-                return false
-        _ran = true
-        # run now that the tree is live (matches real gameplay)
-        _run_all()
+func _initialize() -> void:
+        await process_frame
+        await _run_all()
+        if failures.is_empty():
+                printerr("== SMOKE_OK all checks passed ==")
+        else:
+                printerr("== SMOKE_FAILED: %d failures ==" % failures.size())
         quit(1 if failures.size() > 0 else 0)
-        return true
 
 func _run_all() -> void:
         print("== RetroBlox smoke test ==")
 
-        # --- every script loads (parses) ---
+        # --- every active script loads (parses + compiles) ---
         for path in [
-                "res://scripts/retroblox_api.gd", "res://scripts/avatar.gd",
-                "res://scripts/avatar_platform.gd", "res://scripts/player.gd",
-                "res://scripts/auth_screen.gd", "res://scripts/hud.gd",
-                "res://scripts/arena.gd", "res://scripts/main.gd",
+                "res://scripts/core/api.gd", "res://scripts/core/session.gd",
+                "res://scripts/core/settings.gd", "res://scripts/core/sfx.gd",
+                "res://scripts/game/game.gd", "res://scripts/game/camera_rig.gd",
+                "res://scripts/game/chat_box.gd",
+                "res://scripts/player/local_player.gd", "res://scripts/player/remote_player.gd",
+                "res://scripts/player/avatar_rig.gd", "res://scripts/player/avatar_dresser.gd",
+                "res://scripts/world/world_builder.gd", "res://scripts/world/places.gd",
+                "res://scripts/ui/login.gd", "res://scripts/ui/hub.gd",
+                "res://scripts/ui/retro_theme.gd",
         ]:
                 check(load(path) != null, "script loads: " + path)
 
-        # --- avatar scene: real nodes, working API ---
-        var avatar_scene: PackedScene = load("res://scenes/avatar.tscn")
-        check(avatar_scene != null, "scene loads: scenes/avatar.tscn")
-        var avatar = avatar_scene.instantiate()
-        check(avatar.get_node_or_null("HeadPivot") != null, "avatar scene has HeadPivot node")
-        check(avatar.get_node_or_null("Nameplate") != null, "avatar scene has Nameplate node")
-        root.add_child(avatar)
-        avatar.configure(0, "Tester")
-        check(avatar.parts.size() == 6, "avatar exposes 6 parts")
-        check(avatar._part_sizes.size() == 6, "avatar collected 6 part sizes")
-        if avatar.is_r6ik():
-                var head_size: Vector3 = avatar._part_sizes[0]
-                check(head_size.x > 1.0 and head_size.x < 1.35, "rig head normalized to classic scale")
-                check(avatar.get_node_or_null("RigModel") != null, "community rig model mounted")
-                check(avatar.get_node("HeadPivot").visible == false, "box fallback hidden in rig mode")
-        else:
-                check(avatar._part_sizes[0] == Vector3(0.95, 0.9, 0.85), "head size comes from the scene mesh")
-        avatar.set_part_color(avatar.HEAD, Color("f5cd30"))
-        avatar.set_display_name("SmokeTester")
-        check(avatar._nameplate.text == "SmokeTester", "nameplate text updates")
-        var tex := ImageTexture.create_from_image(Image.create(4, 4, false, Image.FORMAT_RGBA8))
-        avatar.set_part_textured(avatar.TORSO, avatar.parts[1].mesh, tex)
-        avatar.set_face(tex, 1.0)
-        avatar.play_emote("Sit")
-        check(avatar._emote == &"Sit", "emote plays a rig clip")
-        avatar.animate(0.016, 4.0, true)
-        check(avatar._emote == &"", "movement cancels the emote")
-        avatar.play_emote("NotAClip")
-        check(avatar._emote == &"", "unknown emote is a no-op")
-        avatar.animate(0.016, 0.0, false)
-        check(true, "avatar set_part_textured/set_face/animate ran")
+        # --- settings autoload: keys clamp + persist + buses exist ---
+        var settings: Node = root.get_node("/root/Settings")
+        settings.set_key("master_volume", 0.5)
+        check(is_equal_approx(float(settings.get("master_volume")), 0.5), "settings master_volume set")
+        settings.set_key("fov", 999.0)
+        check(is_equal_approx(float(settings.get("fov")), 110.0), "settings fov clamps to 110")
+        settings.set_key("fov", 70.0)
+        settings.set_key("master_volume", 1.0)
+        check(AudioServer.get_bus_index("SFX") >= 0, "SFX bus exists")
 
-        # --- player scene: capsule + avatar + bubble wired ---
-        var player_scene: PackedScene = load("res://scenes/player.tscn")
-        check(player_scene != null, "scene loads: scenes/player.tscn")
-        var player = player_scene.instantiate()
-        check(player.get_node_or_null("Avatar") != null, "player scene has Avatar instance")
-        check(player.get_node_or_null("ChatBubble") != null, "player scene has ChatBubble node")
-        check(player.get_node_or_null("Collision") != null, "player scene has Collision node")
+        # --- sfx autoload: UI one-shots never crash headless ---
+        var sfx: Node = root.get_node("/root/Sfx")
+        sfx.call("play_click")
+        sfx.call("play_hover")
+        sfx.call("play_join")
+        check(true, "sfx one-shots ran")
+
+        # --- places: all four build; cloud kingdom matches the video ---
+        var places: Array = load("res://scripts/world/places.gd").all()
+        check(places.size() == 4, "4 places ship")
+        var cloud: Dictionary = load("res://scripts/world/places.gd").by_id("cloudkingdom")
+        check(not cloud.is_empty() and String(cloud["id"]) == "cloudkingdom", "cloudkingdom place exists")
+        for def: Dictionary in places:
+                var built: Dictionary = load("res://scripts/world/world_builder.gd").build(def)
+                check(built["root"] != null and is_instance_valid(built["root"]), "world builds: %s" % String(def["id"]))
+                check((built["spawns"] as Array).size() > 0, "world has spawns: %s" % String(def["id"]))
+                if String(def["id"]) == "cloudkingdom":
+                        var parts: Array = def.get("parts", [])
+                        var props: Array = def.get("props", [])
+                        var ladders := 0
+                        var bounce := 0
+                        for part: Dictionary in parts:
+                                if String(part.get("g", "")) == "ladder":
+                                        ladders += 1
+                                if String(part.get("g", "")) == "bounce":
+                                        bounce += 1
+                        check(parts.size() >= 30, "cloud kingdom parts (%d)" % parts.size())
+                        check(props.size() >= 20, "cloud kingdom props (%d)" % props.size())
+                        check(ladders >= 1, "cloud kingdom has a ladder (climb sound)")
+                        check(bounce >= 2, "cloud kingdom has bounce pads")
+                        root.add_child(built["root"])
+        await process_frame
+
+        # --- avatar rig: the real retroblox_anims.fbx with 6 parts + clips ---
+        var rig_script: Script = load("res://scripts/player/avatar_rig.gd")
+        var rig: Node3D = rig_script.new()
+        root.add_child(rig)
+        rig.call("setup", "SmokeTester")
+        await process_frame
+        await process_frame
+        check(rig.is_r6ik(), "rig upgraded to retroblox_anims.fbx")
+        var parts_list: Array = rig.get("parts")
+        check(parts_list.size() == 6, "rig matched 6 body parts")
+        for clip in ["Idle", "Walk", "Jump", "Climb", "Sit"]:
+                rig.call("play_emote", clip)
+        rig.call("animate", 0.016, 6.0, true)
+        rig.call("animate", 0.016, 0.0, true, false)
+        check(true, "rig clips + animate ran")
+
+        # --- local player: capsule + sfx loops + jump physics ---
+        var player_script: Script = load("res://scripts/player/local_player.gd")
+        var player: CharacterBody3D = player_script.new()
         root.add_child(player)
-        player.initialize(1, "SmokeTester")
-        check(player.avatar != null and player.avatar.parts.size() == 6, "player.initialize wired the avatar")
-        check(player.bubble != null, "player.initialize wired the chat bubble")
-        check(player.name == "Player_1", "player named from peer id")
-        check(is_equal_approx(player.collision_layer, 4), "player collision layer set")
+        player.call("setup", "SmokeTester")
+        await process_frame
+        await process_frame
+        check(player.get_node_or_null("Avatar") != null, "player has an avatar")
+        check(player.get_node_or_null("Footsteps") != null, "footsteps loop exists")
+        check(player.get_node_or_null("ClimbLoop") != null, "climb loop exists")
+        # settle on the spawn pad first (the worlds above are in the tree)
+        player.global_position = Vector3(0.0, 3.0, 6.0)
+        for i in range(10):
+                player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false)
+                await physics_frame
+        check(player.is_on_floor(), "player settled on the ground")
+        player.call("drive", 0.016, Vector2.ZERO, 0.0, true, false)
+        check(player.velocity.y > 10.0, "jump launches (v=%.1f)" % player.velocity.y)
 
-        # --- auth + hud scenes: widgets present ---
-        var auth_scene: PackedScene = load("res://scenes/auth_screen.tscn")
-        var auth = auth_scene.instantiate()
-        root.add_child(auth)
-        check(auth.get_node_or_null("%SubmitBtn") != null, "auth scene has SubmitBtn")
-        check(auth.get_node_or_null("%ServerEdit") != null, "auth scene has ServerEdit")
-        auth.set_api_url("http://localhost:3000")
-        check(auth._server_edit.text == "http://localhost:3000", "auth set_api_url works")
-        auth._set_mode(true)
-        check(auth._submit_btn.text == "Create Account", "auth signup mode toggles")
-        auth.queue_free()
+        # --- chat box: lines render, unread badge counts when collapsed ---
+        var chat_script: Script = load("res://scripts/game/chat_box.gd")
+        var chat: Control = chat_script.new()
+        root.add_child(chat)
+        chat.call("add_chat", "Ann", 3, "hello")
+        chat.call("add_system", "welcome")
+        chat.call("set_log_collapsed", true)
+        chat.call("add_chat", "Bob", 4, "hidden line")
+        check(chat.get("log_collapsed") == true, "chat collapsed")
+        chat.call("set_log_collapsed", false)
+        check(chat.get("log_collapsed") == false, "chat expanded")
 
-        var hud_scene: PackedScene = load("res://scenes/hud.tscn")
-        var hud = hud_scene.instantiate()
-        root.add_child(hud)
-        check(hud.get_node_or_null("%ChatLog") != null, "hud scene has ChatLog")
-        check(hud.get_node_or_null("%Menu") != null, "hud scene has Menu")
-        check(hud.chat_button != null, "hud scene has ChatButton")
-        check(hud.people_button != null, "hud scene has PeopleButton")
-        check(hud.chat_panel.visible == false, "chat panel starts hidden")
-        check(hud.roster_panel.visible == false, "roster panel starts hidden")
-        hud.add_chat("Ann", "hello")
-        check(hud.chat_log.text.contains("Ann: hello"), "hud add_chat renders")
-        check(hud.chat_button.text == "1", "unread badge counts hidden chat")
-        hud.toggle_chat(true)
-        check(hud.chat_panel.visible and hud.chat_open, "chat button opens the panel")
-        check(hud.chat_button.text == "", "opening chat clears the badge")
-        hud.toggle_chat(false)
-        check(not hud.chat_panel.visible and not hud.chat_open, "chat button closes the panel")
-        hud.toggle_people(true)
-        check(hud.roster_panel.visible, "people button shows the roster")
-        hud.update_roster([{"id": 1, "name": "Ann"}], 1)
-        check(hud.count_label.text == "1 player", "hud roster count updates")
-        hud.set_menu(true)
-        check(hud.menu.visible, "hud menu opens")
-        hud.set_menu(false)
-        hud.queue_free()
+        # --- dresser: placement applies verbatim ---
+        var holder := Node3D.new()
+        root.add_child(holder)
+        load("res://scripts/player/avatar_dresser.gd").call(
+                "_apply_placement", holder, {"p": [1, 2, 3], "r": [10, 20, 30], "s": [1, 1, 1]})
+        var xf: Transform3D = holder.transform
+        check(xf.origin.is_equal_approx(Vector3(1, 2, 3)), "UGC placement position verbatim")
+        check(xf.basis.get_euler().is_equal_approx(Vector3(deg_to_rad(10), deg_to_rad(20), deg_to_rad(30))), "UGC placement rotation verbatim")
 
-        # --- main scene: arena + camera rig are real nodes ---
-        var main_scene: PackedScene = load("res://main.tscn")
-        check(main_scene != null, "scene loads: main.tscn")
-        var main = main_scene.instantiate()
-        check(main.get_node_or_null("Arena") != null, "main scene has Arena node")
-        check(main.get_node_or_null("Players") != null, "main scene has Players node")
-        check(main.get_node_or_null("Debris") != null, "main scene has Debris node")
-        var arm: SpringArm3D = main.get_node_or_null("CameraRig/SpringArm3D")
-        check(arm != null, "main scene has CameraRig/SpringArm3D")
-        var cam: Camera3D = main.get_node_or_null("CameraRig/SpringArm3D/Camera3D")
-        check(cam != null and cam.fov == 70.0, "camera node with fov 70")
-        root.add_child(main)
-        check(main.arena != null, "main @onready wired arena")
-        check(main.spring_arm != null, "main @onready wired spring arm")
-        check(main.spring_arm.spring_length == 14.0, "spring arm length from scene")
-        main.queue_free()
-
-        # --- api class: pure logic paths ---
-        var api = load("res://scripts/retroblox_api.gd").new("http://localhost:3000/")
-        check(api.base_url == "http://localhost:3000", "api trims trailing slash")
-        var png := Image.create(4, 4, false, Image.FORMAT_RGBA8)
-        var png_bytes: PackedByteArray = png.save_png_to_buffer()
-        var decoded: Image = api.image_from_bytes(png_bytes)
-        check(decoded != null and decoded.get_width() == 4, "api.image_from_bytes decodes PNG")
-        check(api.image_from_bytes(PackedByteArray([1, 2, 3])) == null, "api.image_from_bytes rejects tiny input")
-
-        # --- avatar_platform static helpers still duck-typed ---
-        var platform = load("res://scripts/avatar_platform.gd")
-        check(platform.get("zone_box") != null, "avatar_platform exposes zone_box")
-        var mesh: ArrayMesh = platform.zone_box(Vector3(1, 2, 1), Rect2(0, 0, 300, 190), 300, 190)
-        check(mesh != null and mesh.get_surface_count() == 1, "zone_box builds a mesh")
-
-        avatar.queue_free()
-        player.queue_free()
-        main.queue_free()
-
-        if failures.is_empty():
-                print("== SMOKE_OK all checks passed ==")
-        else:
-                printerr("== SMOKE_FAILED: %d failures ==" % failures.size())

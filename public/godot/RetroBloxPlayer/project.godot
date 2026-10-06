@@ -16,6 +16,8 @@ config/icon="res://assets/icon.svg"
 
 Api="*res://scripts/core/api.gd"
 Session="*res://scripts/core/session.gd"
+Settings="*res://scripts/core/settings.gd"
+Sfx="*res://scripts/core/sfx.gd"
 
 [display]
 

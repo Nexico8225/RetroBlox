@@ -22,11 +22,12 @@ var camera_rig        # CameraRig
 var chat              # ChatBox
 var hud: CanvasLayer
 
-var _health_bar: ProgressBar
-var _health_text: Label
-var _player_list: PanelContainer
-var _player_list_box: VBoxContainer
+var _health_fill: ColorRect
+var _health_value: Label
 var _menu: Control
+var _menu_card: PanelContainer
+var _players_tab: VBoxContainer
+var _settings_tab: VBoxContainer
 var _remotes: Dictionary = {}      # userId -> RemotePlayer
 var _seen_messages: Dictionary = {} # message id -> true
 var _spawn_index := 0
@@ -36,6 +37,9 @@ var _finished := false
 var _poll_left := 0.6
 var _beat_left := 1.2
 var _menu_open := false
+var _chat_badge: Label
+var _unread := 0
+var _toast_box: VBoxContainer
 
 
 func _ready() -> void:
@@ -65,6 +69,9 @@ func _ready() -> void:
         add_child(camera_rig)
         camera_rig.setup(player)
         camera_rig.set_mouse_captured(true)
+        var settings: Node = get_node_or_null("/root/Settings")
+        if settings != null:
+                camera_rig.shift_locked = bool(settings.get("shift_lock"))
 
         _build_hud()
 
@@ -126,7 +133,7 @@ func _unhandled_input(event: InputEvent) -> void:
                         camera_rig.set_mouse_captured(false)
                         get_viewport().set_input_as_handled()
         elif event.is_action_pressed("toggle_players"):
-                _player_list.visible = not _player_list.visible
+                _open_menu("players")
                 get_viewport().set_input_as_handled()
         elif event is InputEventMouseButton and event.is_pressed():
                 # click the world to recapture the mouse after menus / chat
@@ -136,37 +143,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # ---------------------------------------------------------------- HUD
 
+## The HUD from the reference video: a black rounded TOPBAR PILL (logo /
+## menu / chat with unread badge) top-left, a VERTICAL HEALTH BAR on the
+## right, a hotbar slot bottom-center ("1 Tix Bag"), join toasts top-center,
+## translucent dark chat bottom-left, and a dark settings card in the menu.
 func _build_hud() -> void:
         hud = CanvasLayer.new()
         hud.name = "HUD"
         add_child(hud)
 
-        # ---- top-left: place name + health ----
-        var top := PanelContainer.new()
-        top.add_theme_stylebox_override("panel", _dark_panel())
-        top.position = Vector2(12, 12)
-        hud.add_child(top)
-        var top_box := VBoxContainer.new()
-        top_box.custom_minimum_size = Vector2(230, 0)
-        top.add_child(top_box)
-        var place_label := Label.new()
-        place_label.text = String(place.get("name", "RetroBlox"))
-        place_label.add_theme_font_size_override("font_size", 16)
-        place_label.add_theme_color_override("font_color", RetroUI.TEXT_INV)
-        top_box.add_child(place_label)
-        _health_bar = ProgressBar.new()
-        _health_bar.custom_minimum_size = Vector2(0, 20)
-        _health_bar.max_value = 100.0
-        _health_bar.value = 100.0
-        _health_bar.show_percentage = false
-        top_box.add_child(_health_bar)
-        _health_text = Label.new()
-        _health_text.text = "100 / 100"
-        _health_text.add_theme_font_size_override("font_size", 11)
-        _health_text.add_theme_color_override("font_color", RetroUI.TEXT_INV)
-        top_box.add_child(_health_text)
-
-        # ---- bottom-left: chat ----
+        # chat FIRST — the topbar's chat button + unread badge wire to it
         chat = ChatBoxScript.new()
         chat.submitted.connect(_on_chat_submit)
         chat.closed.connect(func() -> void:
@@ -174,42 +160,263 @@ func _build_hud() -> void:
                         camera_rig.set_mouse_captured(true))
         hud.add_child(chat)
 
-        # ---- bottom-right: hints ----
-        var hints := PanelContainer.new()
-        hints.add_theme_stylebox_override("panel", _dark_panel())
-        hints.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-        hints.offset_left = -342.0
-        hints.offset_right = -12.0
-        hints.offset_bottom = -12.0
-        hud.add_child(hints)
-        var hints_label := Label.new()
-        hints_label.text = "WASD move · SPACE jump · SHIFT lock · ENTER chat · P players · ESC menu"
-        hints_label.add_theme_font_size_override("font_size", 11)
-        hints_label.add_theme_color_override("font_color", Color(0.78, 0.86, 0.93))
-        hints.add_child(hints_label)
+        _build_topbar()
+        _build_health()
+        _build_hotbar()
 
-        # ---- right: player list (P) ----
-        _player_list = PanelContainer.new()
-        _player_list.add_theme_stylebox_override("panel", _dark_panel())
-        _player_list.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-        _player_list.offset_left = -240.0
-        _player_list.offset_right = -12.0
-        _player_list.offset_top = -160.0
-        _player_list.offset_bottom = 160.0
-        _player_list.visible = false
-        hud.add_child(_player_list)
-        _player_list_box = VBoxContainer.new()
-        _player_list.add_child(_player_list_box)
-        var pl_title := Label.new()
-        pl_title.text = "PLAYERS"
-        pl_title.add_theme_font_size_override("font_size", 13)
-        pl_title.add_theme_color_override("font_color", RetroUI.GOLD)
-        _player_list_box.add_child(pl_title)
-        _refresh_player_list([])
+        # ---- top-center: join toasts ----
+        _toast_box = VBoxContainer.new()
+        _toast_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+        _toast_box.offset_top = 14.0
+        _toast_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+        _toast_box.add_theme_constant_override("separation", 6)
+        _toast_box.alignment = BoxContainer.ALIGNMENT_BEGIN
+        hud.add_child(_toast_box)
 
-        # ---- center: esc menu ----
+        # ---- center: esc menu with Players + Settings tabs ----
         _menu = _build_menu()
         hud.add_child(_menu)
+
+
+# ---- topbar pill -------------------------------------------------------
+
+func _build_topbar() -> void:
+        var pill := PanelContainer.new()
+        pill.name = "Topbar"
+        pill.add_theme_stylebox_override("panel", _pill_style())
+        pill.position = Vector2(12, 12)
+        hud.add_child(pill)
+        var row := HBoxContainer.new()
+        row.add_theme_constant_override("separation", 6)
+        pill.add_child(row)
+
+        var logo_btn := _pill_button("res://assets/icons/logo.png", "RetroBlox")
+        logo_btn.pressed.connect(func() -> void:
+                _notify("RetroBlox — %s" % String(place.get("name", "a classic place"))))
+        row.add_child(logo_btn)
+
+        var menu_btn := _pill_button("res://assets/icons/menu.png", "Menu (ESC)")
+        menu_btn.pressed.connect(func() -> void: _toggle_menu())
+        row.add_child(menu_btn)
+
+        var chat_btn := _pill_button("res://assets/icons/chat.png", "Chat (ENTER)")
+        chat_btn.pressed.connect(func() -> void:
+                if chat.is_open:
+                        chat.close()
+                        chat.set_log_collapsed(not chat.log_collapsed)
+                else:
+                        chat.set_log_collapsed(false)
+                        chat.open()
+                        camera_rig.set_mouse_captured(false))
+        chat.unread.connect(func(n: int) -> void:
+                _chat_badge.text = "" if n <= 0 else str(n))
+        var badge_holder := Control.new()
+        badge_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        badge_holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+        badge_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        chat_btn.add_child(badge_holder)
+        _chat_badge = Label.new()
+        _chat_badge.name = "ChatBadge"
+        _chat_badge.text = ""
+        _chat_badge.add_theme_font_size_override("font_size", 12)
+        _chat_badge.add_theme_color_override("font_color", Color.WHITE)
+        var badge_panel := PanelContainer.new()
+        badge_panel.add_theme_stylebox_override("panel", _badge_style())
+        badge_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        badge_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+        badge_panel.offset_left = -4.0
+        badge_panel.offset_right = 10.0
+        badge_panel.offset_top = -6.0
+        badge_panel.offset_bottom = 10.0
+        badge_panel.add_child(_chat_badge)
+        badge_holder.add_child(badge_panel)
+        row.add_child(chat_btn)
+
+        var people_btn := _pill_button("res://assets/icons/people.png", "Players (P)")
+        people_btn.pressed.connect(func() -> void:
+                _open_menu("players"))
+        row.add_child(people_btn)
+
+
+func _pill_button(icon_path: String, tip: String) -> Button:
+        var b := Button.new()
+        b.custom_minimum_size = Vector2(40, 34)
+        b.focus_mode = Control.FOCUS_NONE
+        b.tooltip_text = tip
+        b.icon = load(icon_path)
+        b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        b.expand_icon = true
+        b.add_theme_stylebox_override("normal", _pill_btn_style(false))
+        b.add_theme_stylebox_override("hover", _pill_btn_style(true))
+        b.add_theme_stylebox_override("pressed", _pill_btn_style(true))
+        return b
+
+
+func _pill_style() -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(0.055, 0.06, 0.07, 0.86)
+        sb.set_corner_radius_all(22)
+        sb.content_margin_left = 8.0
+        sb.content_margin_right = 8.0
+        sb.content_margin_top = 5.0
+        sb.content_margin_bottom = 5.0
+        return sb
+
+
+func _pill_btn_style(hover: bool) -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(1, 1, 1, 0.12) if hover else Color(0, 0, 0, 0)
+        sb.set_corner_radius_all(16)
+        return sb
+
+
+func _badge_style() -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color("e2231a")
+        sb.set_corner_radius_all(9)
+        sb.content_margin_left = 5.0
+        sb.content_margin_right = 5.0
+        sb.content_margin_top = 1.0
+        sb.content_margin_bottom = 1.0
+        return sb
+
+
+# ---- vertical health bar (right edge, like the video) -------------------
+
+func _build_health() -> void:
+        var holder := VBoxContainer.new()
+        holder.name = "HealthBar"
+        holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        holder.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+        holder.offset_left = -74.0
+        holder.offset_right = -14.0
+        holder.offset_top = -120.0
+        holder.offset_bottom = 120.0
+        holder.alignment = BoxContainer.ALIGNMENT_CENTER
+        holder.add_theme_constant_override("separation", 4)
+        hud.add_child(holder)
+
+        # the bar: white track + green fill rising from the bottom
+        var track_holder := Control.new()
+        track_holder.custom_minimum_size = Vector2(10, 150)
+        track_holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+        track_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        holder.add_child(track_holder)
+        var track := ColorRect.new()
+        track.color = Color(1, 1, 1, 0.85)
+        track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        track.set_anchors_preset(Control.PRESET_FULL_RECT)
+        track_holder.add_child(track)
+        _health_fill = ColorRect.new()
+        _health_fill.color = Color("3fd432")
+        _health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        _health_fill.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+        _health_fill.offset_top = -150.0
+        track_holder.add_child(_health_fill)
+
+        var label := Label.new()
+        label.text = "Health"
+        label.add_theme_font_size_override("font_size", 17)
+        label.add_theme_color_override("font_color", Color("1b3fbf"))
+        label.add_theme_color_override("font_outline_color", Color.WHITE)
+        label.add_theme_constant_override("outline_size", 6)
+        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        holder.add_child(label)
+
+        _health_value = Label.new()
+        _health_value.text = "100"
+        _health_value.add_theme_font_size_override("font_size", 14)
+        _health_value.add_theme_color_override("font_color", Color.WHITE)
+        _health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        var chip := PanelContainer.new()
+        chip.add_theme_stylebox_override("panel", _chip_style())
+        chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+        chip.add_child(_health_value)
+        holder.add_child(chip)
+
+
+func _chip_style() -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color("3fd432")
+        sb.set_corner_radius_all(8)
+        sb.content_margin_left = 10.0
+        sb.content_margin_right = 10.0
+        sb.content_margin_top = 2.0
+        sb.content_margin_bottom = 2.0
+        return sb
+
+
+# ---- hotbar (bottom-center: 1 Tix Bag) ----------------------------------
+
+func _build_hotbar() -> void:
+        var slot := Button.new()
+        slot.name = "HotbarSlot"
+        slot.focus_mode = Control.FOCUS_NONE
+        slot.tooltip_text = "Tix Bag — your classic wallet"
+        slot.add_theme_stylebox_override("normal", _hotbar_style())
+        slot.add_theme_stylebox_override("hover", _hotbar_style())
+        slot.add_theme_stylebox_override("pressed", _hotbar_style())
+        slot.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+        slot.offset_left = -44.0
+        slot.offset_right = 44.0
+        slot.offset_top = -96.0
+        slot.offset_bottom = -8.0
+        slot.pressed.connect(func() -> void: _notify("The Tix Bag jingles. Chat is free forever."))
+        hud.add_child(slot)
+        var num := Label.new()
+        num.text = "1"
+        num.add_theme_font_size_override("font_size", 11)
+        num.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+        num.position = Vector2(6, 4)
+        num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        slot.add_child(num)
+        var name_label := Label.new()
+        name_label.text = "Tix Bag"
+        name_label.add_theme_font_size_override("font_size", 12)
+        name_label.add_theme_color_override("font_color", Color.WHITE)
+        name_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+        name_label.offset_top = -30.0
+        name_label.offset_bottom = -12.0
+        name_label.offset_left = -44.0
+        name_label.offset_right = 44.0
+        name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        slot.add_child(name_label)
+
+
+func _hotbar_style() -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(0.05, 0.07, 0.09, 0.55)
+        sb.set_corner_radius_all(4)
+        sb.border_color = Color(1, 1, 1, 0.22)
+        sb.set_border_width_all(1)
+        return sb
+
+
+# ---- toasts (top-center black pills) ------------------------------------
+
+func _notify(text: String, with_sound := false) -> void:
+        if _toast_box == null or not is_instance_valid(_toast_box):
+                return
+        var pill := PanelContainer.new()
+        pill.add_theme_stylebox_override("panel", _pill_style())
+        var l := Label.new()
+        l.text = text
+        l.add_theme_font_size_override("font_size", 14)
+        l.add_theme_color_override("font_color", Color.WHITE)
+        pill.add_child(l)
+        _toast_box.add_child(pill)
+        if with_sound:
+                var sfx: Node = get_node_or_null("/root/Sfx")
+                if sfx != null:
+                        sfx.call("play_join")
+        var tween := create_tween()
+        tween.tween_interval(3.4)
+        tween.tween_property(pill, "modulate:a", 0.0, 0.5)
+        tween.tween_callback(pill.queue_free)
+
+
+# ---- the menu (dark card, Players + Settings tabs) ----------------------
 
 
 func _dark_panel() -> StyleBoxFlat:
@@ -233,49 +440,264 @@ func _build_menu() -> Control:
         dim.color = Color(0.02, 0.05, 0.09, 0.6)
         dim.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.add_child(dim)
-        var card := PanelContainer.new()
-        card.set_anchors_preset(Control.PRESET_CENTER)
-        card.grow_horizontal = Control.GROW_DIRECTION_BOTH
-        card.grow_vertical = Control.GROW_DIRECTION_BOTH
-        overlay.add_child(card)
+        _menu_card = PanelContainer.new()
+        _menu_card.add_theme_stylebox_override("panel", _card_style())
+        _menu_card.set_anchors_preset(Control.PRESET_CENTER)
+        _menu_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+        _menu_card.grow_vertical = Control.GROW_DIRECTION_BOTH
+        overlay.add_child(_menu_card)
         var box := VBoxContainer.new()
-        box.custom_minimum_size = Vector2(280, 0)
-        box.add_theme_constant_override("separation", 8)
-        card.add_child(box)
-        var title := Label.new()
-        title.text = "GAME MENU"
-        title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        title.add_theme_font_size_override("font_size", 18)
-        box.add_child(title)
+        box.custom_minimum_size = Vector2(460, 0)
+        box.add_theme_constant_override("separation", 10)
+        _menu_card.add_child(box)
 
+        var title := Label.new()
+        title.text = "RETROBLOX"
+        title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        title.add_theme_font_size_override("font_size", 22)
+        title.add_theme_color_override("font_color", Color.WHITE)
+        box.add_child(title)
+        var sub := Label.new()
+        sub.text = String(place.get("name", "a classic place"))
+        sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        sub.add_theme_font_size_override("font_size", 12)
+        sub.add_theme_color_override("font_color", Color(0.62, 0.72, 0.8))
+        box.add_child(sub)
+
+        # ---- tabs ----
+        var tabs := HBoxContainer.new()
+        tabs.add_theme_constant_override("separation", 6)
+        tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+        box.add_child(tabs)
+        var players_btn := Button.new()
+        players_btn.text = "Players"
+        players_btn.toggle_mode = true
+        players_btn.custom_minimum_size = Vector2(120, 30)
+        players_btn.focus_mode = Control.FOCUS_NONE
+        var settings_btn := Button.new()
+        settings_btn.text = "Settings"
+        settings_btn.toggle_mode = true
+        settings_btn.custom_minimum_size = Vector2(120, 30)
+        settings_btn.focus_mode = Control.FOCUS_NONE
+        tabs.add_child(players_btn)
+        tabs.add_child(settings_btn)
+
+        # ---- pages ----
+        var pages := Control.new()
+        pages.custom_minimum_size = Vector2(0, 260)
+        box.add_child(pages)
+        _players_tab = VBoxContainer.new()
+        _players_tab.set_anchors_preset(Control.PRESET_FULL_RECT)
+        _players_tab.add_theme_constant_override("separation", 4)
+        pages.add_child(_players_tab)
+        _settings_tab = _build_settings_tab()
+        _settings_tab.set_anchors_preset(Control.PRESET_FULL_RECT)
+        pages.add_child(_settings_tab)
+
+        var set_tab := func(tab: String) -> void:
+                _players_tab.visible = tab == "players"
+                _settings_tab.visible = tab == "settings"
+                players_btn.button_pressed = tab == "players"
+                settings_btn.button_pressed = tab == "settings"
+        players_btn.pressed.connect(func() -> void: set_tab.call("players"))
+        settings_btn.pressed.connect(func() -> void: set_tab.call("settings"))
+        _menu_switch = set_tab
+
+        # ---- actions row ----
+        var actions := HBoxContainer.new()
+        actions.add_theme_constant_override("separation", 8)
+        box.add_child(actions)
         var resume := Button.new()
         resume.text = "Resume"
+        resume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        resume.custom_minimum_size = Vector2(0, 40)
+        resume.focus_mode = Control.FOCUS_NONE
+        resume.add_theme_stylebox_override("normal", _menu_btn_style(Color("2f9e44")))
+        resume.add_theme_stylebox_override("hover", _menu_btn_style(Color("37b64f")))
+        resume.add_theme_stylebox_override("pressed", _menu_btn_style(Color("278139")))
+        resume.add_theme_color_override("font_color", Color.WHITE)
         resume.pressed.connect(_toggle_menu)
-        box.add_child(resume)
+        actions.add_child(resume)
 
         var respawn := Button.new()
-        respawn.text = "Respawn (reset character)"
+        respawn.text = "Reset Character"
+        respawn.custom_minimum_size = Vector2(150, 40)
+        respawn.focus_mode = Control.FOCUS_NONE
+        respawn.add_theme_stylebox_override("normal", _menu_btn_style(Color("3a4b58")))
+        respawn.add_theme_stylebox_override("hover", _menu_btn_style(Color("48606f")))
+        respawn.add_theme_stylebox_override("pressed", _menu_btn_style(Color("2c3944")))
+        respawn.add_theme_color_override("font_color", Color.WHITE)
         respawn.pressed.connect(func() -> void:
                 _toggle_menu()
                 if player.alive:
                         player.die(self)
                 _start_respawn())
-        box.add_child(respawn)
+        actions.add_child(respawn)
 
         var leave := Button.new()
-        leave.text = "Leave Place"
-        leave.theme_type_variation = "BtnRed"
+        leave.text = "Leave"
+        leave.custom_minimum_size = Vector2(110, 40)
+        leave.focus_mode = Control.FOCUS_NONE
+        leave.add_theme_stylebox_override("normal", _menu_btn_style(Color("b3261e")))
+        leave.add_theme_stylebox_override("hover", _menu_btn_style(Color("d13a30")))
+        leave.add_theme_stylebox_override("pressed", _menu_btn_style(Color("8f1d17")))
+        leave.add_theme_color_override("font_color", Color.WHITE)
         leave.pressed.connect(func() -> void:
                 Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
                 get_tree().change_scene_to_file("res://scenes/hub.tscn"))
-        box.add_child(leave)
+        actions.add_child(leave)
 
         var hint := Label.new()
-        hint.text = "Chat with ENTER — everyone online sees it."
+        hint.text = "Chat with ENTER — everyone online sees it. Esc closes this menu."
         hint.add_theme_font_size_override("font_size", 11)
         hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        hint.add_theme_color_override("font_color", Color(0.55, 0.64, 0.72))
         box.add_child(hint)
+        set_tab.call("players")
         return overlay
+
+
+var _menu_switch: Callable = func(_t: String) -> void: pass
+
+
+func _open_menu(tab: String) -> void:
+        if not _menu_open:
+                _toggle_menu()
+        if _menu_open:
+                _menu_switch.call(tab)
+
+
+## The settings page: mouse, camera, audio, graphics — saved to disk and
+## applied live. Plus the classic Animations buttons for the rig's clips.
+func _build_settings_tab() -> VBoxContainer:
+        var tab := VBoxContainer.new()
+        tab.add_theme_constant_override("separation", 6)
+        var settings: Node = get_node_or_null("/root/Settings")
+
+        var row := HBoxContainer.new()
+        row.add_theme_constant_override("separation", 12)
+        tab.add_child(row)
+
+        # left column: sliders
+        var left := VBoxContainer.new()
+        left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        left.add_theme_constant_override("separation", 7)
+        row.add_child(left)
+
+        _slider_row(left, "Mouse sensitivity", 0.1, 3.0,
+                float(settings.get("mouse_sensitivity")) if settings != null else 1.0,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("mouse_sensitivity", v))
+        _slider_row(left, "Camera FOV", 40.0, 110.0,
+                float(settings.get("fov")) if settings != null else 70.0,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("fov", v))
+        _slider_row(left, "Master volume", 0.0, 1.0,
+                float(settings.get("master_volume")) if settings != null else 1.0,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("master_volume", v))
+        _slider_row(left, "Sound effects", 0.0, 1.0,
+                float(settings.get("sfx_volume")) if settings != null else 1.0,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("sfx_volume", v))
+
+        # right column: toggles + animations
+        var right := VBoxContainer.new()
+        right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        right.add_theme_constant_override("separation", 7)
+        row.add_child(right)
+
+        var shadows := CheckButton.new()
+        shadows.text = "Sun shadows"
+        shadows.button_pressed = bool(settings.get("shadows")) if settings != null else true
+        shadows.focus_mode = Control.FOCUS_NONE
+        shadows.toggled.connect(func(on: bool) -> void:
+                if settings != null:
+                        settings.set_key("shadows", on))
+        right.add_child(shadows)
+
+        var shift := CheckButton.new()
+        shift.text = "Shift lock (also SHIFT key)"
+        shift.button_pressed = bool(settings.get("shift_lock")) if settings != null else false
+        shift.focus_mode = Control.FOCUS_NONE
+        shift.toggled.connect(func(on: bool) -> void:
+                if settings != null:
+                        settings.set_key("shift_lock", on)
+                camera_rig.shift_locked = on)
+        right.add_child(shift)
+
+        var anim_title := Label.new()
+        anim_title.text = "Animations"
+        anim_title.add_theme_font_size_override("font_size", 13)
+        anim_title.add_theme_color_override("font_color", Color(0.72, 0.8, 0.87))
+        right.add_child(anim_title)
+        var grid := GridContainer.new()
+        grid.columns = 3
+        grid.add_theme_constant_override("h_separation", 4)
+        grid.add_theme_constant_override("v_separation", 4)
+        right.add_child(grid)
+        for anim in ["Sit", "Climb", "Walk", "Jump", "Idle", "Stop"]:
+                var b := Button.new()
+                b.text = anim
+                b.custom_minimum_size = Vector2(64, 26)
+                b.focus_mode = Control.FOCUS_NONE
+                b.add_theme_stylebox_override("normal", _menu_btn_style(Color("3a4b58")))
+                b.add_theme_stylebox_override("hover", _menu_btn_style(Color("48606f")))
+                b.add_theme_stylebox_override("pressed", _menu_btn_style(Color("2c3944")))
+                b.add_theme_color_override("font_color", Color.WHITE)
+                var clip: String = "" if anim == "Stop" else anim
+                b.pressed.connect(func() -> void:
+                        if player != null and is_instance_valid(player):
+                                player.avatar.call("play_emote", clip))
+                grid.add_child(b)
+        return tab
+
+
+func _slider_row(parent: VBoxContainer, label_text: String, minv: float, maxv: float, value: float, on_change: Callable) -> void:
+        var l := Label.new()
+        l.text = "%s  —  %.2f" % [label_text, value]
+        l.add_theme_font_size_override("font_size", 12)
+        l.add_theme_color_override("font_color", Color(0.8, 0.87, 0.92))
+        parent.add_child(l)
+        var s := HSlider.new()
+        s.min_value = minv
+        s.max_value = maxv
+        s.step = 0.01
+        s.value = value
+        s.custom_minimum_size = Vector2(0, 20)
+        s.focus_mode = Control.FOCUS_NONE
+        s.value_changed.connect(func(v: float) -> void:
+                l.text = "%s  —  %.2f" % [label_text, v]
+                on_change.call(v))
+        parent.add_child(s)
+
+
+func _menu_btn_style(bg: Color) -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = bg
+        sb.set_corner_radius_all(8)
+        sb.content_margin_left = 12.0
+        sb.content_margin_right = 12.0
+        sb.content_margin_top = 6.0
+        sb.content_margin_bottom = 6.0
+        return sb
+
+
+func _card_style() -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(0.075, 0.10, 0.13, 0.97)
+        sb.set_corner_radius_all(10)
+        sb.border_color = Color(1, 1, 1, 0.08)
+        sb.set_border_width_all(1)
+        sb.content_margin_left = 18.0
+        sb.content_margin_right = 18.0
+        sb.content_margin_top = 14.0
+        sb.content_margin_bottom = 14.0
+        return sb
 
 
 func _toggle_menu() -> void:
@@ -283,6 +705,7 @@ func _toggle_menu() -> void:
         _menu.visible = _menu_open
         if _menu_open:
                 camera_rig.set_mouse_captured(false)
+                _refresh_player_list([])
         else:
                 camera_rig.set_mouse_captured(true)
 
@@ -290,9 +713,12 @@ func _toggle_menu() -> void:
 # ---------------------------------------------------------------- events
 
 func _on_health_changed(hp: float, max_hp: float) -> void:
-        _health_bar.max_value = max_hp
-        _health_bar.value = hp
-        _health_text.text = "%d / %d" % [int(hp), int(max_hp)]
+        var ratio := clampf(hp / maxf(max_hp, 1.0), 0.0, 1.0)
+        _health_value.text = str(int(roundf(hp)))
+        var c := Color("e2231a").lerp(Color("3fd432"), ratio)
+        _health_fill.color = c
+        # the vertical bar drains from the top
+        _health_fill.offset_top = -150.0 * ratio
 
 
 func _on_health_depleted() -> void:
@@ -384,7 +810,9 @@ func _reconcile_players(players: Array) -> void:
                         rp.setup(uid, String(p.get("username", "Player")))
                         rp.update_state(pos, float(p.get("heading", 0.0)))
                         _remotes[uid] = rp
-                        chat.add_system("%s is here" % String(p.get("username", "Someone")))
+                        var uname := String(p.get("username", "Someone"))
+                        chat.add_system("%s is here" % uname)
+                        _notify("%s joined you" % uname, true)
                         var payload := Session.cached_avatar(uid)
                         if payload.is_empty():
                                 _dress_remote(rp, uid)
@@ -406,21 +834,33 @@ func _dress_remote(rp: Node3D, uid: String) -> void:
 
 
 func _refresh_player_list(players: Array) -> void:
-        for child in _player_list_box.get_children():
-                if child is Label and child.text != "PLAYERS":
-                        child.queue_free()
-        var names: Array[String] = [Session.display_tag()]
+        for child in _players_tab.get_children():
+                child.queue_free()
+        var title := Label.new()
+        var total := 1 + players.size()
+        title.text = "%d %s in %s" % [total, "player" if total == 1 else "players", String(place.get("name", "the place"))]
+        title.add_theme_font_size_override("font_size", 14)
+        title.add_theme_color_override("font_color", Color.WHITE)
+        _players_tab.add_child(title)
+        _add_player_row(Session.display_tag(), true)
         for p in players:
                 var uname := String(p.get("username", ""))
-                if uname != "" and String(p.get("userId", "")) != Session.user_id:
-                        var seq: Variant = p.get("seqId")
-                        if seq is int and int(seq) > 0:
-                                names.append("%s #%d" % [uname, int(seq)])
-                        else:
-                                names.append(uname)
-        for n in names:
-                var l := Label.new()
-                l.text = n
-                l.add_theme_font_size_override("font_size", 12)
-                l.add_theme_color_override("font_color", RetroUI.TEXT_INV)
-                _player_list_box.add_child(l)
+                if uname == "" or String(p.get("userId", "")) == Session.user_id:
+                        continue
+                _add_player_row(uname, false)
+
+
+func _add_player_row(text: String, is_me: bool) -> void:
+        var row := HBoxContainer.new()
+        row.add_theme_constant_override("separation", 8)
+        var dot := ColorRect.new()
+        dot.custom_minimum_size = Vector2(10, 10)
+        dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        dot.color = Color("3fd432") if is_me else Color("5aa8e8")
+        row.add_child(dot)
+        var l := Label.new()
+        l.text = text + ("  (you)" if is_me else "")
+        l.add_theme_font_size_override("font_size", 13)
+        l.add_theme_color_override("font_color", Color(0.88, 0.93, 0.97))
+        row.add_child(l)
+        _players_tab.add_child(row)
