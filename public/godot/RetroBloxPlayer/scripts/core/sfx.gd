@@ -16,6 +16,8 @@ extends Node
 const CLICK := "res://assets/sfx_click.mp3"
 const HOVER := "res://assets/ui_hover.wav"
 const JOIN := "res://assets/ui_join.wav"
+const MUSIC := "res://assets/music_main.wav"        # original retro music-box loop
+const WIND := "res://assets/amb_wind.wav"           # sky ambience (cloud places)
 const JUMP_PREFS: Array[String] = [
         "res://assets/rbx_action_jump.mp3",      # authentic client file
         "res://assets/sfx_jump.mp3",             # older kit fallback
@@ -34,6 +36,12 @@ const OOF_PREFS: Array[String] = [
         "res://assets/rbx_uuhhh.mp3",            # the original oof
         "res://assets/oof.wav",
 ]
+const TIX_PREFS: Array[String] = [
+        "res://assets/sfx_tix.wav",              # original coin chime
+]
+const GOAL_PREFS: Array[String] = [
+        "res://assets/sfx_goal.wav",             # original victory fanfare
+]
 
 var _click: AudioStream
 var _hover: AudioStream
@@ -43,6 +51,10 @@ var _steps: AudioStream
 var _land: AudioStream
 var _fall: AudioStream
 var _oof: AudioStream
+var _tix: AudioStream
+var _goal: AudioStream
+var _music: AudioStream
+var _wind: AudioStream
 var _pool: Array[AudioStreamPlayer] = []
 
 
@@ -55,6 +67,10 @@ func _ready() -> void:
         _land = _load_first(LAND_PREFS)
         _fall = _load_first(FALL_PREFS)
         _oof = _load_first(OOF_PREFS)
+        _tix = _load_first(TIX_PREFS)
+        _goal = _load_first(GOAL_PREFS)
+        _music = _load(MUSIC)
+        _wind = _load(WIND)
         for i in range(6):
                 var p := AudioStreamPlayer.new()
                 p.bus = "SFX"
@@ -134,6 +150,20 @@ func play_oof_3d(at: Node3D) -> void:
         _play_one_shot_3d(_oof, "OofSfx", at, -1.0)
 
 
+## Coin chime at the collected Tix.
+func play_tix_3d(at: Node3D) -> void:
+        _play_one_shot_3d(_tix, "TixSfx", at, -2.0)
+
+
+## Victory fanfare — non positional, it is YOUR win.
+func play_goal() -> void:
+        if _goal != null:
+                var p := _grab()
+                p.stream = _goal
+                p.volume_db = -3.0
+                p.play()
+
+
 func _play_one_shot_3d(stream: AudioStream, kind: String, at: Node3D, db: float) -> void:
         if stream == null or at == null or not is_instance_valid(at):
                 return
@@ -168,3 +198,37 @@ func make_loop_3d(kind: String, at: Node3D) -> AudioStreamPlayer3D:
                         p.unit_size = 7.0
         at.add_child(p)
         return p
+
+
+## A NON-positional looped player for the whole-screen sounds: the music box
+## ("Music" bus) or the sky wind ambience ("SFX" bus). Caller adds it to the
+## scene and calls play(). Loop points are set on the stream itself.
+func make_screen_loop(kind: String) -> AudioStreamPlayer:
+        var p := AudioStreamPlayer.new()
+        p.name = kind
+        match kind:
+                "Music":
+                        p.stream = _looped(_music)
+                        p.bus = "Music"
+                        p.volume_db = -6.0
+                "Wind":
+                        p.stream = _looped(_wind)
+                        p.bus = "SFX"
+                        p.volume_db = -13.0
+                _:
+                        p.stream = _looped(_music)
+                        p.bus = "Music"
+        return p
+
+
+## Force WAV loop points in code so the ambience/music loop no matter what the
+## import defaults say.
+func _looped(stream: AudioStream) -> AudioStream:
+        if stream is AudioStreamWAV:
+                var wav := stream as AudioStreamWAV
+                if wav.loop_mode != AudioStreamWAV.LOOP_FORWARD:
+                        wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+                        wav.loop_begin = 0
+                        var bytes_per_frame := 2  # 16-bit mono
+                        wav.loop_end = int(wav.data.size() / float(bytes_per_frame))
+        return stream

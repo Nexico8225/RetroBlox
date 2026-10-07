@@ -55,6 +55,7 @@ var grounded := false
 var climbing := false
 var spawn_point := Transform3D()
 var wants_chat_input := false   # set by the game while the chat box is open
+var dust_enabled := true        # landing / jump dust puffs (the game can turn these off)
 
 var _regen_wait := 0.0
 var _falling := false
@@ -187,6 +188,7 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         # landing thud after real air time (Roblox plays jump_land on impact)
         if grounded and not was_grounded and _last_vy < -LAND_SOUND_FALL:
                 _play_land_sound()
+                _dust(clampf(-_last_vy / 40.0, 1.0, 1.8))
         if grounded and is_on_wall():
                 _attempt_step_up()
 
@@ -255,6 +257,41 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
                 _coyote = 0.0
                 velocity.y = JUMP_SPEED
                 _play_jump_sound()
+                _dust()
+
+
+## A soft dust puff at the feet — takeoffs, hard landings, bounces.
+func _dust(strength := 1.0) -> void:
+        if not dust_enabled or not alive:
+                return
+        var world := get_parent()
+        if world == null or not is_inside_tree():
+                return
+        var puff := CPUParticles3D.new()
+        puff.name = "DustPuff"
+        puff.one_shot = true
+        puff.emitting = true
+        puff.amount = int(10 * strength)
+        puff.lifetime = 0.45
+        puff.explosiveness = 0.92
+        puff.direction = Vector3.UP
+        puff.spread = 75.0
+        puff.initial_velocity_min = 2.0 * strength
+        puff.initial_velocity_max = 5.0 * strength
+        puff.gravity = Vector3(0.0, -7.0, 0.0)
+        puff.scale_amount_min = 0.16
+        puff.scale_amount_max = 0.34
+        var ring := SphereMesh.new()
+        ring.radius = 0.5
+        ring.height = 1.0
+        ring.radial_segments = 6
+        ring.rings = 3
+        puff.mesh = ring
+        puff.color = Color(0.92, 0.9, 0.84, 0.8)
+        world.add_child(puff)
+        puff.global_position = global_position + Vector3(0.0, 0.25, 0.0)
+        var timer := get_tree().create_timer(1.0)
+        timer.timeout.connect(puff.queue_free)
 
 
 ## STAIRS — walk over any ledge between MIN_STEP and MAX_STEP studs. Measure
@@ -375,6 +412,7 @@ func respawn_at(pos: Vector3) -> void:
         heading = 0.0
         avatar.rotation.y = 0.0
         avatar.visible = true
+        _dust(1.3)  # a little "you are back" puff at the spawn
 
 
 ## Trampolines — the classic bounce pad launch.
@@ -386,6 +424,7 @@ func _do_bounce() -> void:
         _falling = true
         _fall_peak_y = global_position.y
         _play_jump_sound(0.9)
+        _dust(1.4)
 
 
 # ---------------------------------------------------------------- sounds

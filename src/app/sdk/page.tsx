@@ -6,7 +6,7 @@ import { SdkView } from '@/components/retro/SdkView'
 export default function SdkPage() {
   return (
     <Page>
-      <Title t="RetroBlox Player System" />
+      <Title t="RetroBlox SDK — Player v3" />
       <SdkView />
     </Page>
   )

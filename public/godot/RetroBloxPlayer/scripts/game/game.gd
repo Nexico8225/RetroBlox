@@ -41,6 +41,9 @@ var _chat_badge: Label
 var _unread := 0
 var _toast_box: VBoxContainer
 var _shift_check: CheckButton
+var _tix_label: Label
+var _tix_total := 0
+var _tix_got := 0
 
 
 func _ready() -> void:
@@ -64,6 +67,10 @@ func _ready() -> void:
         player.health_depleted.connect(_on_health_depleted)
         player.touched_group.connect(_on_touched_group)
         _dress_me()
+
+        # ---- collectibles + sound bed ----
+        _hook_coins()
+        _setup_audio()
 
         # ---- camera ----
         camera_rig = CameraRigScript.new()
@@ -175,6 +182,7 @@ func _build_hud() -> void:
         _build_topbar()
         _build_health()
         _build_hotbar()
+        _build_tix_chip()
 
         # ---- top-center: join toasts ----
         _toast_box = VBoxContainer.new()
@@ -429,6 +437,95 @@ func _notify(text: String, with_sound := false) -> void:
         tween.tween_callback(pill.queue_free)
 
 
+# ---- tix counter (top-right gold chip) ----------------------------------
+
+func _build_tix_chip() -> void:
+        var chip := PanelContainer.new()
+        chip.name = "TixChip"
+        chip.tooltip_text = "Collect every Tix hidden in the place!"
+        chip.add_theme_stylebox_override("panel", _tix_style())
+        chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+        chip.offset_left = -150.0
+        chip.offset_right = -14.0
+        chip.offset_top = 12.0
+        chip.offset_bottom = 42.0
+        var row := HBoxContainer.new()
+        row.add_theme_constant_override("separation", 7)
+        chip.add_child(row)
+        var icon := Label.new()
+        icon.text = "Tix"
+        icon.add_theme_font_size_override("font_size", 14)
+        icon.add_theme_color_override("font_color", Color("5a3c00"))
+        row.add_child(icon)
+        _tix_label = Label.new()
+        _tix_label.text = "0 / 0"
+        _tix_label.add_theme_font_size_override("font_size", 14)
+        _tix_label.add_theme_color_override("font_color", Color("3d2c00"))
+        row.add_child(_tix_label)
+        hud.add_child(chip)
+        _update_tix()
+
+
+func _tix_style() -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        # a little gold coin of a chip
+        sb.bg_color = Color("ffd23f")
+        sb.set_corner_radius_all(14)
+        sb.border_color = Color("b98a00")
+        sb.set_border_width_all(2)
+        sb.content_margin_left = 12.0
+        sb.content_margin_right = 12.0
+        sb.content_margin_top = 4.0
+        sb.content_margin_bottom = 4.0
+        return sb
+
+
+# ---------------------------------------------------------------- audio bed
+
+## The music box everywhere, wind on the sky places. Both loop via code-set
+## WAV loop points and respect the Music / SFX volume sliders.
+func _setup_audio() -> void:
+        var sfx: Node = get_node_or_null("/root/Sfx")
+        if sfx == null:
+                return
+        var music = sfx.call("make_screen_loop", "Music")
+        if music != null:
+                add_child(music)
+                music.call("play")
+        if bool(place.get("wind", false)):
+                var wind = sfx.call("make_screen_loop", "Wind")
+                if wind != null:
+                        add_child(wind)
+                        wind.call("play")
+
+
+# ---------------------------------------------------------------- tix coins
+
+## Every "coin" prop registers itself in the tix_coin group — count them,
+## wire the chime + counter, and fanfare when the place is swept clean.
+func _hook_coins() -> void:
+        for coin in get_tree().get_nodes_in_group("tix_coin"):
+                _tix_total += 1
+                coin.connect("collected", _on_tix_collected)
+        _update_tix()
+
+
+func _on_tix_collected(_coin: Area3D) -> void:
+        _tix_got += 1
+        _update_tix()
+        if _tix_total > 0 and _tix_got >= _tix_total:
+                var sfx: Node = get_node_or_null("/root/Sfx")
+                if sfx != null:
+                        sfx.call("play_goal")
+                chat.add_system("*** ALL %d TIX COLLECTED — you legend! ***" % _tix_total)
+                _notify("All Tix collected!", true)
+
+
+func _update_tix() -> void:
+        if _tix_label != null and is_instance_valid(_tix_label):
+                _tix_label.text = "%d / %d" % [_tix_got, _tix_total]
+
+
 # ---- the menu (dark card, Players + Settings tabs) ----------------------
 
 
@@ -617,6 +714,11 @@ func _build_settings_tab() -> VBoxContainer:
                 func(v: float) -> void:
                         if settings != null:
                                 settings.set_key("sfx_volume", v))
+        _slider_row(left, "Music", 0.0, 1.0,
+                float(settings.get("music_volume")) if settings != null else 0.7,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("music_volume", v))
 
         # right column: toggles + animations
         var right := VBoxContainer.new()
@@ -632,6 +734,15 @@ func _build_settings_tab() -> VBoxContainer:
                 if settings != null:
                         settings.set_key("shadows", on))
         right.add_child(shadows)
+
+        var fullscreen := CheckButton.new()
+        fullscreen.text = "Fullscreen"
+        fullscreen.button_pressed = bool(settings.get("fullscreen")) if settings != null else false
+        fullscreen.focus_mode = Control.FOCUS_NONE
+        fullscreen.toggled.connect(func(on: bool) -> void:
+                if settings != null:
+                        settings.set_key("fullscreen", on))
+        right.add_child(fullscreen)
 
         var shift := CheckButton.new()
         shift.text = "Shift lock (also SHIFT key)"
@@ -770,15 +881,44 @@ func _start_respawn() -> void:
 # ---------------------------------------------------------------- chat + presence
 
 func _on_chat_submit(text: String) -> void:
+        var trimmed := text.strip_edges()
+        if trimmed.begins_with("/"):
+                _handle_command(trimmed)
+                return
         if Session.is_guest:
                 chat.add_system("Guests watch chat — sign up on retro-blox.vercel.app to talk!")
                 return
-        var res: Dictionary = await Api.place_chat_send(String(place["id"]), text)
+        var res: Dictionary = await Api.place_chat_send(String(place["id"]), trimmed)
         if res.get("ok", false) and res.get("message", null) is Dictionary:
                 var msg: Dictionary = res["message"]
                 _ingest_message(msg)
         else:
                 chat.add_system(String(res.get("error", "Could not send the message.")))
+
+
+## Local chat commands — they never leave the client.
+func _handle_command(command: String) -> void:
+        var parts := command.split(" ", false)
+        var cmd := String(parts[0]).to_lower()
+        if cmd == "/help":
+                chat.add_system("Commands: /e sit · /e stop · /help")
+                chat.add_system("SHIFT = shift lock · SPACE jumps off ladders · P = players")
+        elif cmd == "/e":
+                var emote := String(parts[1]).to_lower() if parts.size() > 1 else ""
+                match emote:
+                        "sit":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "Sit")
+                                chat.add_system("You sit down. (move to stand up)")
+                        "stop", "stand":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "")
+                        "dance", "wave", "point":
+                                chat.add_system("The classic rig knows Sit — try /e sit")
+                        _:
+                                chat.add_system("Unknown emote — try /e sit or /e stop")
+        else:
+                chat.add_system("Unknown command — try /help")
 
 
 func _poll_feed() -> void:

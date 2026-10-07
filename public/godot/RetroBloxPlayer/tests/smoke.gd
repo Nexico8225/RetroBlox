@@ -46,28 +46,48 @@ func _run_all() -> void:
         var settings: Node = root.get_node("/root/Settings")
         settings.set_key("master_volume", 0.5)
         check(is_equal_approx(float(settings.get("master_volume")), 0.5), "settings master_volume set")
+        settings.set_key("music_volume", 0.6)
+        check(is_equal_approx(float(settings.get("music_volume")), 0.6), "settings music_volume set")
+        settings.set_key("music_volume", 0.7)
+        settings.set_key("fullscreen", true)
+        check(bool(settings.get("fullscreen")), "settings fullscreen set")
+        settings.set_key("fullscreen", false)
         settings.set_key("fov", 999.0)
         check(is_equal_approx(float(settings.get("fov")), 110.0), "settings fov clamps to 110")
         settings.set_key("fov", 70.0)
         settings.set_key("master_volume", 1.0)
         check(AudioServer.get_bus_index("SFX") >= 0, "SFX bus exists")
+        check(AudioServer.get_bus_index("Music") >= 0, "Music bus exists")
 
         # --- sfx autoload: UI one-shots never crash headless ---
         var sfx: Node = root.get_node("/root/Sfx")
         sfx.call("play_click")
         sfx.call("play_hover")
         sfx.call("play_join")
+        sfx.call("play_goal")
         check(true, "sfx one-shots ran")
+        check(sfx.get("_music") != null, "music box loop loaded")
+        check(sfx.get("_wind") != null, "wind ambience loop loaded")
+        check(sfx.get("_tix") != null, "tix chime loaded")
+        var music_player = sfx.call("make_screen_loop", "Music")
+        check(music_player != null and music_player.stream != null, "screen music player builds")
+        check(music_player != null and music_player.stream is AudioStreamWAV and (music_player.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD, "music stream loops")
 
-        # --- places: all four build; cloud kingdom matches the video ---
+        # --- places: all five build; cloud kingdom matches the video ---
         var places: Array = load("res://scripts/world/places.gd").all()
-        check(places.size() == 4, "4 places ship")
+        check(places.size() == 5, "5 places ship")
         var cloud: Dictionary = load("res://scripts/world/places.gd").by_id("cloudkingdom")
         check(not cloud.is_empty() and String(cloud["id"]) == "cloudkingdom", "cloudkingdom place exists")
+        check(load("res://scripts/world/coin.gd").can_instantiate(), "coin script loads")
         for def: Dictionary in places:
                 var built: Dictionary = load("res://scripts/world/world_builder.gd").build(def)
                 check(built["root"] != null and is_instance_valid(built["root"]), "world builds: %s" % String(def["id"]))
                 check((built["spawns"] as Array).size() > 0, "world has spawns: %s" % String(def["id"]))
+                var coins := 0
+                for prop: Dictionary in def.get("props", []):
+                        if String(prop.get("type", "")) == "coin":
+                                coins += 1
+                check(coins >= 3, "%s has Tix coins (%d)" % [String(def["id"]), coins])
                 if String(def["id"]) == "cloudkingdom":
                         var parts: Array = def.get("parts", [])
                         var props: Array = def.get("props", [])
@@ -82,8 +102,21 @@ func _run_all() -> void:
                         check(props.size() >= 20, "cloud kingdom props (%d)" % props.size())
                         check(ladders >= 1, "cloud kingdom has a ladder (climb sound)")
                         check(bounce >= 2, "cloud kingdom has bounce pads")
-                        root.add_child(built["root"])
+                        check(bool(def.get("wind", false)), "cloud kingdom has wind ambience")
+                if String(def["id"]) == "tower":
+                        var tower_ladders := 0
+                        var tower_goals := 0
+                        for part: Dictionary in def.get("parts", []):
+                                if String(part.get("g", "")) == "ladder":
+                                        tower_ladders += 1
+                                if String(part.get("g", "")) == "goal":
+                                        tower_goals += 1
+                        check(tower_ladders >= 1, "tower has its truss ladder")
+                        check(tower_goals == 1, "tower has exactly one goal")
+                root.add_child(built["root"])
         await process_frame
+        # coins actually spawned into the worlds + are hookable by the game
+        check(get_nodes_in_group("tix_coin").size() >= 20, "tix coins spawned across places")
 
         # --- avatar rig: the real retroblox_anims.fbx with 6 parts + clips ---
         var rig_script: Script = load("res://scripts/player/avatar_rig.gd")
@@ -117,9 +150,10 @@ func _run_all() -> void:
         check(sfx_node != null and sfx_node.get("_fall") != null, "falling wind sound loaded")
         check(sfx_node != null and sfx_node.get("_oof") != null, "original uuhhh oof loaded")
         check(sfx_node != null and sfx_node.get("_steps") != null, "authentic plastic footsteps loaded")
-        # settle on the spawn pad first (the worlds above are in the tree)
-        player.global_position = Vector3(0.0, 3.0, 6.0)
-        for i in range(10):
+        # settle on the baseplate far from every world's builds — the spot at
+        # the old (0,3,6) now sits under the Wobbly Tower's kill bricks!
+        player.global_position = Vector3(40.0, 1.2, -40.0)
+        for i in range(20):
                 player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false)
                 await physics_frame
         check(player.is_on_floor(), "player settled on the ground")

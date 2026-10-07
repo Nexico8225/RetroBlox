@@ -19,12 +19,15 @@ extends RefCounted
 ##   { type="pipe", p=[x,y,z], h=6 }                  classic green pipe
 ##   { type="arch", p=[x,y,z], yaw=deg }              NEW GAMES portal arch
 ##   { type="snow", p=[x,y,z], s=[w,h,d] }            snow mound (sphere-ish)
+##   { type="coin", p=[x,y,z] }                       collectible Tix (coin.gd)
 ##
 ## Everything gets the classic stud texture via world triplanar mapping —
 ## one stud per unit, tinted by the part color, generated procedurally at
 ## runtime so the client needs zero texture files.
 
 const StudColorEdge := Color("000000", 0.10)
+
+const CoinScript := preload("res://scripts/world/coin.gd")
 
 static var _stud_tex: ImageTexture
 
@@ -165,7 +168,32 @@ static func _build_part(root: Node3D, part: Dictionary, tex: ImageTexture, spawn
                 _spawn_pad_visual(root, pos, size)
         if group == "checkpoint":
                 body.set_meta("spawn", pos + Vector3(0.0, size.y * 0.5 + 0.2, 0.0))
+        if group == "goal":
+                _goal_sparkle(root, pos + Vector3(0.0, size.y * 0.5 + 0.6, 0.0))
         root.add_child(body)
+
+
+## Gold sparkles idling above a goal pad — the prize should look like one.
+static func _goal_sparkle(root: Node3D, at: Vector3) -> void:
+        var fx := CPUParticles3D.new()
+        fx.name = "GoalSparkle"
+        fx.amount = 14
+        fx.lifetime = 1.6
+        fx.preprocess = 1.2
+        fx.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+        fx.emission_sphere_radius = 2.2
+        fx.direction = Vector3.UP
+        fx.spread = 30.0
+        fx.initial_velocity_min = 0.6
+        fx.initial_velocity_max = 1.6
+        fx.gravity = Vector3.ZERO
+        fx.scale_amount_min = 0.06
+        fx.scale_amount_max = 0.16
+        fx.mesh = BoxMesh.new()
+        (fx.mesh as BoxMesh).size = Vector3.ONE
+        fx.color = Color("ffe37a")
+        fx.position = at
+        root.add_child(fx)
 
 
 # ------------------------------------------------------------------ props
@@ -202,6 +230,11 @@ static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> vo
                 "snow":
                         var ss: Array = prop.get("s", [5, 2, 5])
                         _snow(root, pos, Vector3(float(ss[0]), float(ss[1]), float(ss[2])))
+                "coin":
+                        # script .new() so the coin's _init runs (group + shape)
+                        var coin: Area3D = CoinScript.new()
+                        coin.position = pos
+                        root.add_child(coin)
 
 
 static func _tree(root: Node3D, pos: Vector3, h: float) -> void:

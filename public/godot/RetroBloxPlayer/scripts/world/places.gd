@@ -7,7 +7,7 @@ extends RefCounted
 
 
 static func all() -> Array:
-        return [cloud_kingdom(), baseplate(), obby(), skylands()]
+        return [cloud_kingdom(), baseplate(), obby(), skylands(), tower()]
 
 
 static func by_id(id: String) -> Dictionary:
@@ -34,6 +34,7 @@ static func cloud_kingdom() -> Dictionary:
                 "sky_ground": "b8d4ea",
                 "void_y": -45.0,
                 "cloud_deck": true,
+                "wind": true,
                 "parts": [
                         # ---- main island: grass top + layered dirt underside ----
                         { "p": [0, -1, 0], "s": [48, 2, 48], "c": "58b64c" },
@@ -139,6 +140,15 @@ static func cloud_kingdom() -> Dictionary:
                         { "type": "cloud", "p": [-24, 3, 34], "s": 7 },
                         { "type": "cloud", "p": [44, 10, -28], "s": 7 },
                         { "type": "cloud", "p": [0, 26, 8], "s": 10 },
+                        # ---- collectible Tix (touch to chime + count) ----
+                        { "type": "coin", "p": [4, 1.4, 0] },
+                        { "type": "coin", "p": [-8, 1.4, 7] },
+                        { "type": "coin", "p": [21, 2.2, 8] },
+                        { "type": "coin", "p": [34, 1.4, 6] },
+                        { "type": "coin", "p": [0, 1.4, -34] },
+                        { "type": "coin", "p": [-20, 9.2, 26] },
+                        { "type": "coin", "p": [28, 14, 12] },
+                        { "type": "coin", "p": [30, 24.8, -20] },
                 ],
         }
 
@@ -181,6 +191,12 @@ static func baseplate() -> Dictionary:
                         # metal shed (shiny!)
                         { "p": [8, 2, -20], "s": [6, 4, 6], "c": "aab4bd", "m": "metal" },
                         { "p": [8, 4.6, -20], "s": [7, 0.6, 7], "c": "8fa0ac", "m": "metal" },
+                ],
+                "props": [
+                        # ---- collectible Tix ----
+                        { "type": "coin", "p": [0, 2, -8] },
+                        { "type": "coin", "p": [-18, 10, 24] },
+                        { "type": "coin", "p": [24, 12, 10] },
                 ],
         }
 
@@ -226,6 +242,12 @@ static func obby() -> Dictionary:
                         # THE GOLD GOAL
                         { "p": [0, 17.5, 130], "s": [5, 1, 5], "c": "ffd700", "m": "metal", "g": "goal" },
                 ],
+                "props": [
+                        # ---- collectible Tix ----
+                        { "type": "coin", "p": [0, 3.8, 16] },
+                        { "type": "coin", "p": [0, 6.6, 60] },
+                        { "type": "coin", "p": [-3, 10.2, 113] },
+                ],
         }
 
 
@@ -242,6 +264,7 @@ static func skylands() -> Dictionary:
                 "sky_top": "2a6fb8",
                 "sky_horizon": "cfe6f7",
                 "void_y": -40.0,
+                "wind": true,
                 "parts": [
                         # island one (spawn)
                         { "p": [0, 0, 0], "s": [20, 1, 20], "c": "4caf50" },
@@ -266,5 +289,66 @@ static func skylands() -> Dictionary:
                         { "p": [0, 11, 82], "s": [12, 1, 12], "c": "4caf50" },
                         { "p": [0, 9, 82], "s": [9, 2, 9], "c": "795548" },
                         { "p": [0, 11.5, 82], "s": [5, 1, 5], "c": "ffd700", "m": "metal", "g": "goal" },
+                ],
+                "props": [
+                        # ---- collectible Tix ----
+                        { "type": "coin", "p": [0, 2.6, 20] },
+                        { "type": "coin", "p": [4, 3.2, 44] },
+                        { "type": "coin", "p": [0, 13.4, 68] },
+                ],
+        }
+
+
+## ---------------------------------------------------------------- Wobbly Tower
+## A sunset climb: zig-zag steps over kill bricks, a truss ladder for the
+## final pull, a bounce-pad shortcut and the gold goal on the summit.
+
+static func tower() -> Dictionary:
+        return {
+                "id": "tower",
+                "name": "Wobbly Tower",
+                "desc": "Zig-zag up the sunset steps, dodge the kill bricks, reach the summit gold.",
+                "tile": "b8b8c4",
+                "sky_top": "4a3a8f",
+                "sky_horizon": "e8895a",
+                "sky_ground": "5a3a52",
+                "void_y": -30.0,
+                "wind": true,
+                "parts": [
+                        # base island
+                        { "p": [0, -1, 0], "s": [22, 2, 22], "c": "8a8a96" },
+                        { "p": [0, -4.5, 0], "s": [17, 5, 17], "c": "6d5a63", "no_studs": true },
+                        { "p": [0, 0.5, 6], "s": [5, 1, 5], "c": "cfd4da", "g": "spawn" },
+                        # ---- zig-zag steps up (each rise 2, run 6-8) ----
+                        { "p": [0, 2, 13], "s": [5, 1, 5], "c": "c9856a" },
+                        { "p": [5, 4, 19], "s": [5, 1, 5], "c": "c9856a" },
+                        { "p": [0, 6, 25], "s": [5, 1, 5], "c": "c9856a" },
+                        { "p": [-5, 8, 19], "s": [5, 1, 5], "c": "c9856a" },
+                        { "p": [0, 10, 13], "s": [6, 1, 6], "c": "98a1a8", "g": "checkpoint" },
+                        { "p": [-5, 12, 7], "s": [5, 1, 5], "c": "c9856a" },
+                        { "p": [0, 14, 1], "s": [5, 1, 5], "c": "c9856a" },
+                        # kill bricks guard the last stretch
+                        { "p": [0, 13.2, 6.5], "s": [1.6, 0.8, 1.6], "c": "c0392b", "g": "kill" },
+                        { "p": [-2.6, 15.2, 3.4], "s": [1.6, 0.8, 1.6], "c": "c0392b", "g": "kill" },
+                        # truss ladder: ledge (top 14) up to the summit deck (top 20)
+                        { "p": [4.9, 17, 1], "s": [1.5, 7, 0.6], "c": "6b6f74", "g": "ladder" },
+                        # summit deck + THE GOLD
+                        { "p": [0, 19.5, 0], "s": [12, 1, 12], "c": "7e3040" },
+                        { "p": [0, 20.6, 0], "s": [5, 1, 5], "c": "ffd700", "m": "metal", "g": "goal" },
+                        # bounce-pad shortcut from the base to step one-two
+                        { "p": [-8, 0.6, -6], "s": [5, 1.2, 5], "c": "2f9e44", "m": "neon", "g": "bounce" },
+                ],
+                "props": [
+                        # flags on the summit corners
+                        { "type": "fence", "p": [-4.5, 20, -4.5], "s": [2, 1.4, 0.35], "yaw": 45 },
+                        { "type": "fence", "p": [4.5, 20, 4.5], "s": [2, 1.4, 0.35], "yaw": 45 },
+                        # the tower's welcome board
+                        { "type": "sign", "p": [8, 3, 8], "yaw": 225, "title": "WOBBLY TOWER", "title_c": "ffd400", "text": "20 studs up.\nDo not look down.\nCollect the Tix on the way!", "w": 10, "h": 5 },
+                        # ---- collectible Tix up the zig-zag ----
+                        { "type": "coin", "p": [0, 3.4, 13] },
+                        { "type": "coin", "p": [5, 5.4, 19] },
+                        { "type": "coin", "p": [0, 7.4, 25] },
+                        { "type": "coin", "p": [-5, 11.4, 7] },
+                        { "type": "coin", "p": [0, 21.8, -2] },
                 ],
         }

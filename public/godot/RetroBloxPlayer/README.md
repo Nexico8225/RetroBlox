@@ -33,12 +33,21 @@ The game remembers you — next launch signs you in automatically.
 | Shift Lock | **Shift** toggles it live (toast confirms), or the Settings toggle. Locked on, the character squares up to the camera — look right / left / back and the body follows. While locked, ladders are off: you walk straight past them. |
 | Jump off a ladder | Space while climbing — you leap off the rungs and can't re-grab for a beat |
 | Chat | Enter (or the chat pill button) — Enter sends |
+| Chat commands | `/help`, `/e sit`, `/e stop` — local, never sent to the server |
 | Menu / Players / Settings | Esc or the pill buttons |
+
+### Tix — collectibles in every place
+
+Every place hides spinning golden **Tix** coins. Touch one: it chimes, pops
+in a sparkle burst and the gold **Tix x / N** chip (top-right) counts it.
+Sweep the place clean for the victory fanfare + a chat shout-out. Coins
+respawn next launch.
 
 ### The HUD (the reference-video layout, original RetroBlox skin)
 
 - **Top-left pill** — RetroBlox logo, menu, chat (with a red unread badge
   while the chat log is collapsed) and players.
+- **Top-right** — the gold **Tix x / N** collector chip.
 - **Right edge** — the vertical **Health** bar with the value chip; it
   drains red as you take fall damage and refills with the classic 1%/s regen.
 - **Bottom-center** — your hotbar slot, the **Tix Bag**.
@@ -51,11 +60,19 @@ The game remembers you — next launch signs you in automatically.
 Everything applies live and persists to `user://retroblox_settings.cfg`:
 
 - Mouse sensitivity, camera FOV
-- Master volume, sound-effect volume
-- Sun shadows on/off
+- Master volume, sound-effect volume, **music volume**
+- Sun shadows on/off, **Fullscreen**
 - Shift-lock default
 - **Animations** buttons — pose your character with the rig's own clips
   (Sit / Climb / Walk / Jump / Idle); moving cancels the pose.
+
+### Music + ambience (original, synthesized in-house)
+
+A soft **music-box loop** (C / Am / F / G at 112 BPM) plays in the hub and
+every place, on its own **Music** audio bus. The sky places (Cloud Kingdom,
+Skylands, Wobbly Tower) add an airy **wind ambience** bed. Both are original
+compositions synthesized for this kit — no copyrighted audio anywhere — and
+both respect their volume sliders live.
 
 ### Sounds
 
@@ -75,13 +92,21 @@ sounds automatically — every screen, no wiring needed.
 | Happy Baseplate | The classic sandbox: brick pile, stairs fort, truss tower, trampoline, metal shed. |
 | Classic Obby | Jumps, kill bricks, narrow plank, truss climb, trampoline finish. |
 | Skylands | Islands in the sky — bridges, launches, a kill-plank finale. |
+| **Wobbly Tower** | NEW — a sunset zig-zag climb over kill bricks, a truss pull for the last stretch, a bounce-pad shortcut and the summit gold. |
 
 Places are pure data (`scripts/world/places.gd`) turned into 3D by
 `scripts/world/world_builder.gd`: boxes/cylinders/spheres with the
 procedural 1-stud-per-unit texture, plus props (trees, flowers, fences,
-crates, clouds, walkable cloud pads, signs, pipes, arches, houses, snow).
-Groups make the gameplay: `spawn`, `kill`, `ladder`, `goal`, `checkpoint`,
-`bounce`.
+crates, clouds, walkable cloud pads, signs, pipes, arches, houses, snow,
+Tix coins). Groups make the gameplay: `spawn`, `kill`, `ladder`, `goal`,
+`checkpoint`, `bounce`.
+
+### Feel: dust + sparkles
+
+Little touches that make it play like a real game: **dust puffs** on
+takeoffs, hard landings, bounces and respawns; **gold sparkles** idling
+above every goal pad; a **coin burst** wherever a Tix gets collected.
+All CPUParticles3D — no shaders, runs on potato PCs.
 
 ### The avatar uses retroblox_anims.fbx
 
@@ -106,7 +131,7 @@ in-game.
 With Godot on PATH (or edit the paths):
 
 ```bash
-godot --headless --path . -s tests/smoke.gd       # 40+ checks: scripts, places, rig, player, chat, dresser
+godot --headless --path . -s tests/smoke.gd       # 70+ checks: scripts, places, coins, music, rig, player, chat, dresser
 godot --headless --path . -s tests/check_rig.gd   # rig loads the FBX + clips
 ```
 
