@@ -40,6 +40,7 @@ var _menu_open := false
 var _chat_badge: Label
 var _unread := 0
 var _toast_box: VBoxContainer
+var _shift_check: CheckButton
 
 
 func _ready() -> void:
@@ -134,6 +135,17 @@ func _unhandled_input(event: InputEvent) -> void:
                         get_viewport().set_input_as_handled()
         elif event.is_action_pressed("toggle_players"):
                 _open_menu("players")
+                get_viewport().set_input_as_handled()
+        elif event.is_action_pressed("shift_lock"):
+                # classic SHIFT toggle — squares the character up to the camera
+                var on: bool = not camera_rig.shift_locked
+                camera_rig.shift_locked = on
+                var st: Node = get_node_or_null("/root/Settings")
+                if st != null:
+                        st.call("set_key", "shift_lock", on)
+                if _shift_check != null and is_instance_valid(_shift_check):
+                        _shift_check.set_pressed_no_signal(on)
+                _notify("Shift lock ON — character follows the camera, ladders off" if on else "Shift lock OFF")
                 get_viewport().set_input_as_handled()
         elif event is InputEventMouseButton and event.is_pressed():
                 # click the world to recapture the mouse after menus / chat
@@ -630,6 +642,7 @@ func _build_settings_tab() -> VBoxContainer:
                         settings.set_key("shift_lock", on)
                 camera_rig.shift_locked = on)
         right.add_child(shift)
+        _shift_check = shift
 
         var anim_title := Label.new()
         anim_title.text = "Animations"

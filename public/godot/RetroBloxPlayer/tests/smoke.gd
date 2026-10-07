@@ -37,7 +37,10 @@ func _run_all() -> void:
                 "res://scripts/ui/login.gd", "res://scripts/ui/hub.gd",
                 "res://scripts/ui/retro_theme.gd",
         ]:
-                check(load(path) != null, "script loads: " + path)
+                # load() returns a resource even for a broken script —
+                # can_instantiate() is the real parse/compile gate
+                var s: Script = load(path)
+                check(s != null and s.can_instantiate(), "script loads: " + path)
 
         # --- settings autoload: keys clamp + persist + buses exist ---
         var settings: Node = root.get_node("/root/Settings")
@@ -108,6 +111,12 @@ func _run_all() -> void:
         check(player.get_node_or_null("Avatar") != null, "player has an avatar")
         check(player.get_node_or_null("Footsteps") != null, "footsteps loop exists")
         check(player.get_node_or_null("ClimbLoop") != null, "climb loop exists")
+        check(player.get_node_or_null("FallingLoop") != null, "falling wind loop exists")
+        var sfx_node: Node = root.get_node_or_null("/root/Sfx")
+        check(sfx_node != null and sfx_node.get("_land") != null, "landing thud sound loaded")
+        check(sfx_node != null and sfx_node.get("_fall") != null, "falling wind sound loaded")
+        check(sfx_node != null and sfx_node.get("_oof") != null, "original uuhhh oof loaded")
+        check(sfx_node != null and sfx_node.get("_steps") != null, "authentic plastic footsteps loaded")
         # settle on the spawn pad first (the worlds above are in the tree)
         player.global_position = Vector3(0.0, 3.0, 6.0)
         for i in range(10):
@@ -116,6 +125,31 @@ func _run_all() -> void:
         check(player.is_on_floor(), "player settled on the ground")
         player.call("drive", 0.016, Vector2.ZERO, 0.0, true, false)
         check(player.velocity.y > 10.0, "jump launches (v=%.1f)" % player.velocity.y)
+
+        # --- ladder dismount: jump while climbing must launch you OFF ---
+        for i in range(10):
+                player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false)
+                await physics_frame
+        player.set("_ladder_count", 1)
+        # climb for a few frames (W pressed: forward = up the rungs)
+        for i in range(4):
+                player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
+        check(player.get("climbing"), "climb engages on a ladder")
+        # jump OFF — dismount timer must fire and hold the launch
+        player.call("drive", 0.016, Vector2.ZERO, 0.0, true, false)
+        check(player.get("_ladder_dismount") > 0.0, "ladder dismount timer set")
+        check(player.velocity.y > 20.0, "ladder jump launches (v=%.1f)" % player.velocity.y)
+        check(not player.get("climbing"), "jumping off stops climbing")
+        # during the dismount window even W cannot re-grab the rungs
+        for i in range(4):
+                player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
+        check(not player.get("climbing"), "no re-grab during dismount window")
+
+        # --- shift lock disables climbing entirely ---
+        player.set("_ladder_dismount", 0.0)
+        player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, true)
+        check(not player.get("climbing"), "shift lock ON ignores ladders")
+        player.set("_ladder_count", 0)
 
         # --- chat box: lines render, unread badge counts when collapsed ---
         var chat_script: Script = load("res://scripts/game/chat_box.gd")

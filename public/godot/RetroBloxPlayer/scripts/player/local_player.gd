@@ -30,6 +30,10 @@ const STEP_VISUAL_SPEED := 46.0
 
 const CLIMB_SPEED := 9.0           # ladders: forward = up, back = down, jump = let go
 const LADDER_JUMP := 34.0
+const LADDER_DISMOUNT := 0.35      # after a ladder jump you fly FREE this long
+
+const LAND_SOUND_FALL := 22.0      # impact speed that triggers the landing thud
+const FALL_WIND_SPEED := 34.0      # downward speed where the wind loop kicks in
 
 const MAX_HEALTH := 100.0
 const REGEN_DELAY := 5.0
@@ -66,6 +70,9 @@ var _time := 0.0
 var _was_grounded := true
 var _steps_loop: AudioStreamPlayer3D
 var _climb_loop: AudioStreamPlayer3D
+var _fall_loop: AudioStreamPlayer3D
+var _ladder_dismount := 0.0
+var _last_vy := 0.0
 
 
 func _init() -> void:
@@ -117,6 +124,7 @@ func _setup_character_sfx() -> void:
                 return
         _steps_loop = sfx.call("make_loop_3d", "Footsteps", self)
         _climb_loop = sfx.call("make_loop_3d", "ClimbLoop", self)
+        _fall_loop = sfx.call("make_loop_3d", "FallingLoop", self)
         if _climb_loop != null:
                 _climb_loop.pitch_scale = 1.25
 
@@ -162,14 +170,23 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         elif _coyote > 0.0:
                 _coyote -= delta
 
+        if _ladder_dismount > 0.0:
+                _ladder_dismount -= delta
+
         climbing = false
-        if _ladder_count > 0:
+        # shift lock OFF grabs ladders; ON walks straight past them (Roblox
+        # feel), and for a beat after a ladder jump you fly free, off the rungs
+        if _ladder_count > 0 and not use_shiftlock and _ladder_dismount <= 0.0:
                 _drive_ladder(wish, delta)
         else:
                 _drive_ground_air(wish, delta)
 
         move_and_slide()
+        var was_grounded := grounded
         grounded = is_on_floor()
+        # landing thud after real air time (Roblox plays jump_land on impact)
+        if grounded and not was_grounded and _last_vy < -LAND_SOUND_FALL:
+                _play_land_sound()
         if grounded and is_on_wall():
                 _attempt_step_up()
 
@@ -190,6 +207,7 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         elif health < MAX_HEALTH:
                 health = minf(health + REGEN_RATE, MAX_HEALTH)
                 health_changed.emit(health, MAX_HEALTH)
+        _last_vy = velocity.y
         avatar.rotation.y = heading
         # rig clips: Idle / Walk / Jump / Climb — driven by THIS player's state
         var hspeed := Vector2(velocity.x, velocity.z).length()
@@ -201,9 +219,11 @@ func _drive_ladder(wish: Vector3, delta: float) -> void:
         var forward_amount := -wish.z  # -Z is forward after rotation
         if _jump_buffer_left > 0.0:
                 _jump_buffer_left = 0.0
+                _ladder_dismount = LADDER_DISMOUNT   # fly free, no instant re-grab
                 velocity.y = LADDER_JUMP
-                velocity.x = -wish.x * 6.0
-                velocity.z = -wish.z * 6.0
+                velocity.x = -wish.x * 8.0           # push AWAY from the rungs
+                velocity.z = -wish.z * 8.0
+                climbing = false
         elif forward_amount > 0.2:
                 velocity.y = CLIMB_SPEED
                 climbing = true
@@ -344,6 +364,7 @@ func respawn_at(pos: Vector3) -> void:
         _regen_wait = 0.0
         _falling = false
         climbing = false
+        _ladder_dismount = 0.0
         _step_visual = 0.0
         _bubble_left = 0.0
         _bubble.visible = false
@@ -375,8 +396,15 @@ func _play_jump_sound(_pitch := 1.0) -> void:
                 sfx.call("play_jump_3d", self)
 
 
-## Loops update: footsteps only while moving on the floor, climb loop only on
-## ladders. The climb pitch rides the climb speed like the classic client.
+func _play_land_sound() -> void:
+        var sfx: Node = get_node_or_null("/root/Sfx")
+        if sfx != null:
+                sfx.call("play_land_3d", self)
+
+
+## Loops update: footsteps only while moving on the floor (Roblox Running
+## spec: plastic steps at ~1.85), climb loop on ladders, wind loop in a
+## real fall. Everything positions 3D at the player.
 func _update_loops() -> void:
         if _steps_loop == null or _climb_loop == null:
                 return
@@ -386,8 +414,12 @@ func _update_loops() -> void:
         var walking := alive and grounded and not climbing and hspeed > 2.0
         _steps_loop.playing = walking
         if walking:
-                _steps_loop.pitch_scale = clampf(0.85 + hspeed / WALK_SPEED * 0.35, 0.85, 1.3)
+                # Roblox runs the plastic loop at 1.85; scale a little with speed
+                _steps_loop.pitch_scale = clampf(1.85 * (0.9 + hspeed / WALK_SPEED * 0.2), 1.4, 2.2)
         _climb_loop.playing = alive and climbing
+        if _fall_loop != null and is_instance_valid(_fall_loop):
+                var plummeting := alive and not grounded and not climbing and velocity.y < -FALL_WIND_SPEED
+                _fall_loop.playing = plummeting
 
 
 # ---------------------------------------------------------------- sensors

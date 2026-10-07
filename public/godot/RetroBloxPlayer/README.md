@@ -30,7 +30,8 @@ The game remembers you — next launch signs you in automatically.
 | Move | WASD / arrow keys |
 | Jump | Space |
 | Orbit / zoom | Mouse + wheel (click the world to re-capture) |
-| Shift Lock | Shift, or the Settings toggle |
+| Shift Lock | **Shift** toggles it live (toast confirms), or the Settings toggle. Locked on, the character squares up to the camera — look right / left / back and the body follows. While locked, ladders are off: you walk straight past them. |
+| Jump off a ladder | Space while climbing — you leap off the rungs and can't re-grab for a beat |
 | Chat | Enter (or the chat pill button) — Enter sends |
 | Menu / Players / Settings | Esc or the pill buttons |
 
@@ -59,8 +60,10 @@ Everything applies live and persists to `user://retroblox_settings.cfg`:
 ### Sounds
 
 All wired through the `SFX` audio bus (so the volume slider hits exactly
-these): the classic **jump** whoosh, **plastic footsteps** while you walk
-and the **climb** loop on ladders, the original **oof** on death, and
+these): the authentic Roblox client files — the classic **jump** whoosh,
+the **landing thud** after real air time, **plastic footsteps** at the
+official 1.85 running pitch, the **climb** loop on ladders, the **wind
+loop** in a long fall, the original **uuhhh oof** on death, and
 click / hover ticks + a join chime on every UI surface. Buttons get the
 sounds automatically — every screen, no wiring needed.
 

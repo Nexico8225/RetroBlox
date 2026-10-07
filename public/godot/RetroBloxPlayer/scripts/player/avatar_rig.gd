@@ -273,7 +273,11 @@ func burst(world: Node3D, impulse_seed: int) -> void:
 
 func _get_oof_audio() -> AudioStream:
         if _oof_audio == null:
-                _oof_audio = load("res://assets/oof.wav")
+                # the ORIGINAL classic death sound straight from the client
+                if ResourceLoader.exists("res://assets/rbx_uuhhh.mp3"):
+                        _oof_audio = load("res://assets/rbx_uuhhh.mp3")
+                else:
+                        _oof_audio = load("res://assets/oof.wav")
         return _oof_audio
 
 

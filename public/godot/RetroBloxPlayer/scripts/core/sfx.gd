@@ -2,23 +2,47 @@ extends Node
 ## Sfx — every sound the UI and character make, from ONE place.
 ## Autoload "Sfx".
 ##
+## CHARACTER SOUNDS = the authentic Roblox client files (2018 client dump,
+## the same files the official RbxCharacterSounds script plays):
+##   jump      = action_jump.mp3            (the classic whoosh)
+##   land      = action_jump_land.mp3       (landing thud)
+##   footsteps = action_footsteps_plastic.mp3 @ ~1.85 (Roblox Running spec)
+##   climb     = action_footsteps_plastic.mp3 looped, higher pitch
+##   falling   = action_falling.mp3         (wind loop, Roblox FreeFalling)
+##   oof       = uuhhh.mp3                  (THE original death sound)
 ## UI: the classic button CLICK and a soft HOVER tick play on every Button in
 ## the whole client (login, hub, HUD) — wired automatically via node_added.
-## World: one-shot 3D sounds (jump) and looped 3D loops (footsteps / climb)
-## are played by the player controller through the helpers here, so every
-## player hears them positioned in the world.
 
 const CLICK := "res://assets/sfx_click.mp3"
 const HOVER := "res://assets/ui_hover.wav"
 const JOIN := "res://assets/ui_join.wav"
-const JUMP := "res://assets/sfx_jump.mp3"
-const FOOTSTEPS := "res://assets/sfx_footsteps.mp3"
+const JUMP_PREFS: Array[String] = [
+        "res://assets/rbx_action_jump.mp3",      # authentic client file
+        "res://assets/sfx_jump.mp3",             # older kit fallback
+]
+const STEPS_PREFS: Array[String] = [
+        "res://assets/rbx_action_footsteps_plastic.mp3",
+        "res://assets/sfx_footsteps.mp3",
+]
+const LAND_PREFS: Array[String] = [
+        "res://assets/rbx_action_jump_land.mp3",
+]
+const FALL_PREFS: Array[String] = [
+        "res://assets/rbx_action_falling.mp3",
+]
+const OOF_PREFS: Array[String] = [
+        "res://assets/rbx_uuhhh.mp3",            # the original oof
+        "res://assets/oof.wav",
+]
 
 var _click: AudioStream
 var _hover: AudioStream
 var _join: AudioStream
 var _jump: AudioStream
 var _steps: AudioStream
+var _land: AudioStream
+var _fall: AudioStream
+var _oof: AudioStream
 var _pool: Array[AudioStreamPlayer] = []
 
 
@@ -26,8 +50,11 @@ func _ready() -> void:
         _click = _load(CLICK)
         _hover = _load(HOVER)
         _join = _load(JOIN)
-        _jump = _load(JUMP)
-        _steps = _load(FOOTSTEPS)
+        _jump = _load_first(JUMP_PREFS)
+        _steps = _load_first(STEPS_PREFS)
+        _land = _load_first(LAND_PREFS)
+        _fall = _load_first(FALL_PREFS)
+        _oof = _load_first(OOF_PREFS)
         for i in range(6):
                 var p := AudioStreamPlayer.new()
                 p.bus = "SFX"
@@ -39,6 +66,14 @@ func _ready() -> void:
 func _load(path: String) -> AudioStream:
         if ResourceLoader.exists(path):
                 return load(path)
+        return null
+
+
+func _load_first(paths: Array[String]) -> AudioStream:
+        for path in paths:
+                var s := _load(path)
+                if s != null:
+                        return s
         return null
 
 
@@ -86,30 +121,50 @@ func play_join() -> void:
 
 ## One-shot 3D jump sound, parented at the jumping player.
 func play_jump_3d(at: Node3D) -> void:
-        if _jump == null or at == null or not is_instance_valid(at):
+        _play_one_shot_3d(_jump, "JumpSfx", at, -2.0)
+
+
+## One-shot 3D landing thud (Roblox plays this after air time).
+func play_land_3d(at: Node3D) -> void:
+        _play_one_shot_3d(_land, "LandSfx", at, -6.0)
+
+
+## The original oof, positioned at the broken avatar.
+func play_oof_3d(at: Node3D) -> void:
+        _play_one_shot_3d(_oof, "OofSfx", at, -1.0)
+
+
+func _play_one_shot_3d(stream: AudioStream, kind: String, at: Node3D, db: float) -> void:
+        if stream == null or at == null or not is_instance_valid(at):
                 return
         var p := AudioStreamPlayer3D.new()
-        p.name = "JumpSfx"
-        p.stream = _jump
+        p.name = kind
+        p.stream = stream
         p.bus = "SFX"
         p.max_distance = 60.0
         p.unit_size = 8.0
-        p.volume_db = -2.0
+        p.volume_db = db
         at.add_child(p)
         p.play()
         p.finished.connect(p.queue_free)
 
 
-## A looped 3D loop (footsteps / climb). Caller keeps the node and sets
-## playing on/off — volume_db and pitch stay under the caller's control.
+## A looped 3D loop (footsteps / climb / falling wind). Caller keeps the node
+## and sets playing on/off — pitch and volume stay under the caller's control.
 func make_loop_3d(kind: String, at: Node3D) -> AudioStreamPlayer3D:
         var p := AudioStreamPlayer3D.new()
         p.name = kind
         p.bus = "SFX"
-        if _steps != null:
-                p.stream = _steps
-        p.max_distance = 45.0
-        p.unit_size = 7.0
-        p.volume_db = -14.0
+        match kind:
+                "FallingLoop":
+                        p.stream = _fall
+                        p.volume_db = -10.0
+                        p.max_distance = 50.0
+                        p.unit_size = 9.0
+                _:
+                        p.stream = _steps
+                        p.volume_db = -14.0
+                        p.max_distance = 45.0
+                        p.unit_size = 7.0
         at.add_child(p)
         return p

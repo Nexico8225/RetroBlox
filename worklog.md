@@ -1117,3 +1117,22 @@ Work Log:
 
 Stage Summary:
 - End-to-end verified in the REAL scene, not just the replica rig; zip current with the fix
+
+---
+Task ID: godot-video-2
+Agent: Super Z (main)
+Task: Continuation pass — re-verify the reference-video build against fresh video frames, close the remaining 1:1 gaps
+
+Work Log:
+- Verified uploaded RetroBlox Anims.fbx is byte-identical (md5 7f4e0fd55ac0e9b6e57170ec46c3e63e) to the integrated rig; working tree was clean (filemode noise silenced via core.filemode false)
+- Re-downloaded Godot 4.5.1 headless; full pipeline re-validated: import OK, smoke SMOKE_OK all checks
+- Rendered real-game HUD + settings screenshots under Xvfb (real_game_shot.gd got a user://shots mkdir fix); compared frame-by-frame against 11 fresh video frames
+- GAPS FOUND + FIXED: (1) video's signature cloud-sea horizon — world_builder got a cloud_deck place flag: 900x3x900 white deck at y=-36.5, 26 deterministic big puffs riding it, fog (density 0.0042, sky affect 0.28); (2) video's brown lawn crosswalks — 3 brown path tiles across the spawn plaza; (3) video's striped bridge — wood bridge replaced with green/cyan/navy/cyan slabs; (4) video's big red letters island — RETROBLOX red-on-white board on the garden island; (5) health chip green -> cyan 00d6c2 like the video readout
+- Validated: edited scripts parse OK (game.gd standalone-check "Session" error confirmed pre-existing, autoload-only), smoke SMOKE_OK, screenshots re-rendered showing deck+fog+paths+stripes+chip
+- Rebuilt public/godot/retroblox-godot-player.zip (94 files, 1.0MB); fresh unzip -> import + smoke SMOKE_OK
+- Fixed make_godot_kit_zip.py stale paths (pre-repo-move)
+- Pushed 999c0d4..c05470a to main -> Vercel auto-deploy
+
+Stage Summary:
+- Cloud Kingdom now matches the reference video's signature look (cloud-sea horizon, lawn paths, striped bridge, red letters, cyan health chip) with original RetroBlox UI
+- Zip is current; players should re-download from the site
