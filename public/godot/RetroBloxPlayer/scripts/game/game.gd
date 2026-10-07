@@ -337,7 +337,8 @@ func _build_health() -> void:
 
 func _chip_style() -> StyleBoxFlat:
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color("3fd432")
+        # cyan chip like the video's health readout
+        sb.bg_color = Color("00d6c2")
         sb.set_corner_radius_all(8)
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0

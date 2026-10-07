@@ -49,6 +49,12 @@ static func build(def: Dictionary) -> Dictionary:
         env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
         env.ambient_light_energy = 1.0
         env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+        if bool(def.get("cloud_deck", false)):
+                # the reference video's look: horizon melts into a white cloud sea
+                env.fog_enabled = true
+                env.fog_light_color = Color("eef6fd")
+                env.fog_density = 0.0042
+                env.fog_sky_affect = 0.28
         var world_env := WorldEnvironment.new()
         world_env.environment = env
         root.add_child(world_env)
@@ -66,6 +72,10 @@ static func build(def: Dictionary) -> Dictionary:
                 settings.changed.connect(func(key: String, value: Variant) -> void:
                         if key == "shadows" and is_instance_valid(sun):
                                 sun.shadow_enabled = bool(value))
+
+        # ---- sea of clouds under the islands (the video signature) ----
+        if bool(def.get("cloud_deck", false)):
+                _cloud_deck(root)
 
         # ---- parts ----
         var spawns: Array[Vector3] = []
@@ -345,6 +355,28 @@ static func _cloud(root: Node3D, pos: Vector3, scale: float) -> void:
                 ball.material_override = m
                 ball.position = off * scale * 0.35
                 group.add_child(ball)
+
+
+## A vast white cloud-sea far below the islands + big puffs drifting on it,
+## like the reference video where every island floats on endless clouds.
+static func _cloud_deck(root: Node3D) -> void:
+        var deck := MeshInstance3D.new()
+        var dm := BoxMesh.new()
+        dm.size = Vector3(900.0, 3.0, 900.0)
+        deck.mesh = dm
+        var m := _flat_mat(Color("f6fbff"), 1.0)
+        deck.material_override = m
+        deck.position = Vector3(0.0, -36.5, 0.0)
+        deck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        root.add_child(deck)
+        # deterministic scatter of large puffs riding the deck
+        var rng := RandomNumberGenerator.new()
+        rng.seed = 20250704
+        for i in range(26):
+                var ang := rng.randf() * TAU
+                var dist := rng.randf_range(55.0, 330.0)
+                var pos := Vector3(cos(ang) * dist, rng.randf_range(-34.0, -27.0), sin(ang) * dist)
+                _cloud(root, pos, rng.randf_range(9.0, 17.0))
 
 
 ## A WALKABLE cloud platform: solid box (studs on top) hidden under white

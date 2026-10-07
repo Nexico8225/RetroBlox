@@ -4,6 +4,7 @@ extends SceneTree
 ## real HUD (game.gd's _build_hud, not a replica).
 
 func _initialize() -> void:
+        DirAccess.make_dir_recursive_absolute("user://shots")
         await process_frame
         var session: Node = root.get_node("/root/Session")
         session.call("set_guest")

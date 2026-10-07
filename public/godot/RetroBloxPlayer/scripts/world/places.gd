@@ -33,6 +33,7 @@ static func cloud_kingdom() -> Dictionary:
                 "sky_horizon": "cfe6f7",
                 "sky_ground": "b8d4ea",
                 "void_y": -45.0,
+                "cloud_deck": true,
                 "parts": [
                         # ---- main island: grass top + layered dirt underside ----
                         { "p": [0, -1, 0], "s": [48, 2, 48], "c": "58b64c" },
@@ -42,6 +43,10 @@ static func cloud_kingdom() -> Dictionary:
                         # classic spawn: grey base + black pad on top (like the video)
                         { "p": [0, 0.5, 6], "s": [9, 1, 9], "c": "a8adb3", "g": "spawn" },
                         { "p": [0, 1.15, 6], "s": [5.6, 0.4, 5.6], "c": "23262b", "no_studs": true },
+                        # brown lawn paths crossing the plaza (video's town crosswalks)
+                        { "p": [0, 0.06, -2], "s": [10, 0.14, 46], "c": "8a5f3d" },
+                        { "p": [-13, 0.06, 7], "s": [22, 0.14, 8], "c": "8a5f3d" },
+                        { "p": [14, 0.06, -4], "s": [18, 0.14, 8], "c": "8a5f3d" },
                         # ---- portal island (north) ----
                         { "p": [0, -1, -36], "s": [20, 2, 18], "c": "58b64c" },
                         { "p": [0, -4.5, -36], "s": [16, 5, 14], "c": "7c5230", "no_studs": true },
@@ -50,8 +55,11 @@ static func cloud_kingdom() -> Dictionary:
                         # ---- garden island (east, small) ----
                         { "p": [34, -1, 8], "s": [16, 2, 16], "c": "58b64c" },
                         { "p": [34, -4, 8], "s": [12, 4, 12], "c": "7c5230", "no_studs": true },
-                        # wood bridge main -> garden
-                        { "p": [22, 0, 8], "s": [12, 1, 4], "c": "a1665e", "m": "wood" },
+                        # striped bridge main -> garden (video's green/cyan/navy stripes)
+                        { "p": [17.5, 0, 8], "s": [3, 1, 4], "c": "58b64c" },
+                        { "p": [20.5, 0, 8], "s": [3, 1, 4], "c": "38e5e5" },
+                        { "p": [23.5, 0, 8], "s": [3, 1, 4], "c": "1c2f8f" },
+                        { "p": [26.5, 0, 8], "s": [3, 1, 4], "c": "38e5e5" },
                         # ---- high green island (northeast, reached via clouds) ----
                         { "p": [38, 16, -6], "s": [24, 2, 24], "c": "58b64c" },
                         { "p": [38, 12.5, -6], "s": [18, 5, 18], "c": "7c5230", "no_studs": true },
@@ -119,6 +127,8 @@ static func cloud_kingdom() -> Dictionary:
                         # My House — wood box + roof + door + label
                         { "type": "house", "p": [14, 0, -16] },
                         { "type": "sign", "p": [14, 5.6, -13.1], "yaw": 0, "title": "My House", "title_c": "ffffff", "w": 8, "h": 1.6 },
+                        # giant RETROBLOX letters board on the garden island (video's big red letters)
+                        { "type": "sign", "p": [34, 4.2, 14.5], "yaw": 250, "title": "RETROBLOX", "title_c": "e2231a", "c": "ffffff", "w": 13, "h": 3.4 },
                         # NEW GAMES portal on the north island
                         { "type": "arch", "p": [0, 0, -41], "yaw": 0 },
                         # decor clouds drifting around
