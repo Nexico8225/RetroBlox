@@ -1136,3 +1136,26 @@ Work Log:
 Stage Summary:
 - Cloud Kingdom now matches the reference video's signature look (cloud-sea horizon, lawn paths, striped bridge, red letters, cyan health chip) with original RetroBlox UI
 - Zip is current; players should re-download from the site
+
+---
+Task ID: godot-player-pass3
+Agent: Super Z (main)
+Task: "do your to dos" + jump off ladder + shiftlock (right/left/back look, disables climb) + authentic oof/jump/climb sounds; re-confirm chat/bubbles/health/settings
+
+Work Log:
+- AUDIT: old todo list all delivered (chat, chat bubbles, health, settings, video HUD, UGC forwards, sounds, Cloud Kingdom) — screenshots re-verified
+- SHIFT LOCK: project.godot had a shift_lock action (KEY_SHIFT) that NO script read — wired it in game.gd _unhandled_input: toggles camera_rig.shift_locked live, persists via Settings, syncs the settings checkbox (set_pressed_no_signal), toasts "Shift lock ON/OFF". Character already squares to camera while locked (right/left/back look) via drive() heading lerp
+- SHIFTLOCK DISABLES CLIMB: drive() now takes ladders only when use_shiftlock is false — locked-on players walk straight past trusses
+- JUMP OFF LADDER (real bug): the ladder jump impulse was overwritten the next frame by climb re-grab while still inside the ladder Area3D. Added LADDER_DISMOUNT 0.35s window: jump sets timer + LADDER_JUMP + push away (-wish*8); during the window ladder drive is skipped entirely
+- SOUNDS: pulled the AUTHENTIC 2018 Roblox client sound files from a public client archive (roblonium.com client dump, byte-real content/sounds): rbx_uuhhh.mp3 (THE original oof), rbx_action_jump.mp3, rbx_action_jump_land.mp3 (landing thud), rbx_action_falling.mp3 (wind loop), rbx_action_footsteps_plastic.mp3. Verified against Roblox's own RbxCharacterSounds.lua (Roblox-Client-Tracker): Running=footsteps@1.85, Climbing=footsteps looped, Died=uuhhh
+- sfx.gd rewritten: preference-chain loader (authentic file first, old kit file fallback), play_land_3d/play_oof_3d, FallingLoop 3D loop; local_player: footsteps pitch now follows the official 1.85 spec scaled with speed, climb loop 1.25, landing thud on impact speed < -22, wind loop while plummeting (< -34)
+- avatar_rig._get_oof_audio prefers rbx_uuhhh.mp3
+- SMOKE: hardened script-load gate (can_instantiate() — load() alone passes broken scripts, which is exactly how a game.gd parse error slipped past once; caught + fixed: "var on: bool" type annotation), added checks: falling/landing/oof/footsteps loaded, climb engages, dismount timer + launch v>20, no re-grab in window, shiftlock ignores ladders -> SMOKE_OK 60 checks
+- Real-game boot re-verified under Xvfb (HUD true, 6 children) after fixing the parse error
+- Zip rebuilt (104 files, 1.2MB); fresh unzip -> import + smoke SMOKE_OK; pushed c05470a..e9f72fe
+
+Stage Summary:
+- Shift = live shiftlock toggle (character follows camera right/left/back, ladders off while locked)
+- Space = jump off ladders properly (dismount window, no re-grab)
+- All character sounds are now the byte-authentic Roblox client files incl. the original oof, landing thud + falling wind as bonus
+- Chat, chat bubbles, health, settings re-verified live in the real scene
