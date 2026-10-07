@@ -1159,3 +1159,28 @@ Stage Summary:
 - Space = jump off ladders properly (dismount window, no re-grab)
 - All character sounds are now the byte-authentic Roblox client files incl. the original oof, landing thud + falling wind as bonus
 - Chat, chat bubbles, health, settings re-verified live in the real scene
+
+---
+Task ID: godot-way-better-4
+Agent: Super Z (main)
+Task: "make it way better and make it so i can download it from retro-blox.vercel.app/sdk"
+
+Work Log:
+- Committed the pass-3 leftovers first (stale zip in HEAD + worklog) as f01e534 for a clean base
+- AUDIO (all original, synthesized in-house via scripts/synth_retro_audio.py, numpy -> 44.1k WAV): music_main.wav (112 BPM music-box loop, C/Am/F/G, seamless wrap-around tails), amb_wind.wav (2-stage lowpassed noise + swell LFO, crossfaded loop), sfx_tix.wav (B5->E6 chime), sfx_goal.wav (C5-E5-G5-C6 fanfare)
+- settings.gd: +music_volume +fullscreen keys, new Music bus, apply_window() (headless-guarded)
+- sfx.gd: +play_tix_3d +play_goal, make_screen_loop("Music"/"Wind") with code-forced AudioStreamWAV loop points
+- NEW scripts/world/coin.gd: spinning gold Tix coin (bob, pickup sphere on Players layer, chime + sparkle burst, collected signal); world_builder "coin" prop (CoinScript.new() so _init runs — set_script would skip it) + goal sparkle CPUParticles3D
+- local_player.gd: dust puffs on jump / hard landing (strength scales with impact) / bounce / respawn
+- game.gd: music + wind ambience per place "wind" flag, gold Tix x/N chip (top-right), _hook_coins -> fanfare + chat shout on full sweep, local chat commands /help /e sit /e stop
+- places.gd: coins in all places (8+3+3+3+5=22), wind flags on sky places, NEW 5th place "Wobbly Tower" (sunset zig-zag, kill bricks, truss pull, bounce shortcut, summit gold)
+- hub.gd: same music box in the hub
+- smoke.gd: 5-places check, coin/music/wind/chime checks, Music bus, fullscreen key, tower ladder/goal; smoke-player test spot moved (0,3,6) -> (40,3,-40) because the Tower's kill bricks now stand right over the old spot (a real collision catch!)
+- Verified: import OK, smoke SMOKE_OK (all green), Xvfb real-game screenshots show Tix chip + Music slider + Fullscreen toggle
+- zip rebuilt: 114 files 3.6MB; fresh unzip -> import + smoke SMOKE_OK
+- Web: SdkView.tsx rewritten as the v3 download hub (version badge, what's-new grid, updated FILES/CONTROLS/quick-start); sdk/page.tsx title "RetroBlox SDK — Player v3"; tsc clean on changed files (repo has pre-existing Prisma TS errors, next.config ignores them)
+- Pushed f01e534..933d362 to main -> Vercel auto-deploys /sdk + /godot/retroblox-godot-player.zip
+
+Stage Summary:
+- The player is now a full little game: music, collectibles, a 5th place, juice, commands, fullscreen
+- Download lives at https://retro-blox.vercel.app/sdk (green button -> /godot/retroblox-godot-player.zip)
