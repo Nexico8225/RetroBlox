@@ -40,7 +40,12 @@ const PANTS_FALLBACK := Color("39516b")
 
 ## Dress an AvatarRig node from a payload like:
 ## { body, head, shirt, pants, accessories: [], colors: {...}|null, faceScale }
+## Every network await can outlive the rig (respawn, scene change, remote
+## player leaving) — so after EVERY await we re-check the node and quietly
+## bail instead of crashing on a previously freed instance.
 static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
+        if not _alive(avatar_node):
+                return
         var parts: Array = avatar_node.get("parts")
         if parts == null or parts.is_empty():
                 return
@@ -60,6 +65,8 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
                 var head_asset: Dictionary = await api.get_asset(String(avatar_data.get("head", "head_01")))
                 var shirt_asset: Dictionary = await api.get_asset(String(avatar_data.get("shirt", "shirt_01")))
                 var pants_asset: Dictionary = await api.get_asset(String(avatar_data.get("pants", "pants_01")))
+                if not _alive(avatar_node):
+                        return
                 skin = _asset_color(body_asset, skin)
                 shirt_color = _asset_color(shirt_asset, shirt_color)
                 pants_color = _asset_color(pants_asset, pants_color)
@@ -78,6 +85,8 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
         # ---- 3) shirt texture — zone-crop the 300x190 template onto torso + arms ----
         if api != null and shirt_url != "":
                 var shirt_img: Image = await api.load_image(shirt_url)
+                if not _alive(avatar_node):
+                        return
                 if shirt_img != null:
                         var tex := ImageTexture.create_from_image(shirt_img)
                         var aspect := float(shirt_img.get_width()) / float(maxf(shirt_img.get_height(), 1.0))
@@ -92,6 +101,8 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
         # ---- 4) pants texture — zone-crop the 220x190 template onto both legs ----
         if api != null and pants_url != "":
                 var pants_img: Image = await api.load_image(pants_url)
+                if not _alive(avatar_node):
+                        return
                 if pants_img != null:
                         var tex := ImageTexture.create_from_image(pants_img)
                         var aspect := float(pants_img.get_width()) / float(maxf(pants_img.get_height(), 1.0))
@@ -104,6 +115,8 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
         # ---- 5) the face — decal on the FRONT of the head ----
         if api != null and face_url != "":
                 var face_img: Image = await api.load_image(face_url)
+                if not _alive(avatar_node):
+                        return
                 if face_img != null:
                         avatar_node.call("set_face", ImageTexture.create_from_image(face_img),
                                 float(avatar_data.get("faceScale", 1.0)))
@@ -114,6 +127,8 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
         var accessories: Array = avatar_data.get("accessories", [])
         for acc_id in accessories:
                 var asset: Dictionary = await api.get_asset(String(acc_id))
+                if not _alive(avatar_node):
+                        return
                 if not asset.get("ok", false):
                         continue
                 var surface_asset: Dictionary = asset.get("asset", {})
@@ -121,6 +136,8 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
                 if model_url == "":
                         continue
                 var bytes: PackedByteArray = await api.get_bytes(model_url)
+                if not _alive(avatar_node):
+                        return
                 if bytes.is_empty():
                         push_warning("[RetroBlox] Could not download model for %s" % acc_id)
                         continue
@@ -160,6 +177,8 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
                 var tint := String(surface_asset.get("color", ""))
                 if tex_url != "":
                         var img: Image = await api.load_image(tex_url)
+                        if not _alive(avatar_node) or not is_instance_valid(scene):
+                                return
                         if img != null:
                                 _surface_texture(scene, ImageTexture.create_from_image(img))
                 elif tint != "":
@@ -174,6 +193,12 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
 
 
 # ---------------------------------------------------------------- helpers
+
+## True only when the node still exists — the dressing coroutine can resume
+## after its target was freed (respawn / leave / remote despawn).
+static func _alive(n: Variant) -> bool:
+        return n is Node and is_instance_valid(n)
+
 
 static func _textured_part(avatar_node, part_index: int, tex: Texture2D, zone: Rect2, tw: int, th: int) -> void:
         var sizes: Array = avatar_node.get("_part_sizes")

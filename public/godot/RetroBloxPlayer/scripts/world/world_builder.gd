@@ -433,7 +433,7 @@ static func _cloud_deck(root: Node3D) -> void:
 
 ## A WALKABLE cloud platform: solid box (studs on top) hidden under white
 ## puff spheres so players stand ON a cloud, not on a floating box.
-static func _cloudpad(root: Node3D, pos: Vector3, size: Vector2, tex: ImageTexture) -> void:
+static func _cloudpad(root: Node3D, pos: Vector3, size: Vector2, _tex: ImageTexture) -> void:
         var body := StaticBody3D.new()
         body.position = pos
         body.collision_layer = 1
@@ -457,7 +457,6 @@ static func _cloudpad(root: Node3D, pos: Vector3, size: Vector2, tex: ImageTextu
         rng.seed = int(pos.x * 7.0 + pos.z * 13.0) + 977
         var perim := int((size.x + size.y) * 0.5 / STUD)
         for i in range(perim * 2):
-                var t := float(i) / float(perim * 2)
                 var px := lerpf(-size.x * 0.5, size.x * 0.5, rng.randf())
                 var pz := lerpf(-size.y * 0.5, size.y * 0.5, rng.randf())
                 if absf(px) < size.x * 0.42 and absf(pz) < size.y * 0.42:
@@ -571,13 +570,13 @@ static func _arch(root: Node3D, pos: Vector3, yaw_deg: float) -> void:
         top.material_override = _flat_mat(brick, 0.85)
         top.position = Vector3(0.0, 10.8, 0.0)
         group.add_child(top)
-        var sign := MeshInstance3D.new()
+        var board_mesh := MeshInstance3D.new()
         var sm := BoxMesh.new()
         sm.size = Vector3(5.2, 1.1, 0.5)
-        sign.mesh = sm
-        sign.material_override = _flat_mat(Color("20232a"), 0.7)
-        sign.position = Vector3(0.0, 12.4, 0.0)
-        group.add_child(sign)
+        board_mesh.mesh = sm
+        board_mesh.material_override = _flat_mat(Color("20232a"), 0.7)
+        board_mesh.position = Vector3(0.0, 12.4, 0.0)
+        group.add_child(board_mesh)
         var sign_text := Label3D.new()
         sign_text.text = "NEW GAMES"
         sign_text.font_size = 96

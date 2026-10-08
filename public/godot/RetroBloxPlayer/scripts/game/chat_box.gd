@@ -24,7 +24,6 @@ var _input_panel: PanelContainer
 var is_open := false
 var log_collapsed := false
 var _unread := 0
-var _known_ids: Dictionary = {}
 
 
 func _init() -> void:
@@ -182,7 +181,7 @@ func _esc(text: String) -> String:
 func _color_for(username: String, requested: String) -> String:
         if requested != "":
                 return requested.lstrip("#")
-        var hash := 0
+        var h := 0
         for i in range(username.length()):
-                hash = (hash * 31 + username.unicode_at(i)) % 100000
-        return String(NAME_COLORS[hash % NAME_COLORS.size()])
+                h = (h * 31 + username.unicode_at(i)) % 100000
+        return String(NAME_COLORS[h % NAME_COLORS.size()])

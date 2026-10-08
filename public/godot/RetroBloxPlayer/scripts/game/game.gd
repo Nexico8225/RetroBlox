@@ -30,7 +30,6 @@ var _players_tab: VBoxContainer
 var _settings_tab: VBoxContainer
 var _remotes: Dictionary = {}      # userId -> RemotePlayer
 var _seen_messages: Dictionary = {} # message id -> true
-var _spawn_index := 0
 var _spawns: Array[Vector3] = []
 var _respawning := false
 var _finished := false

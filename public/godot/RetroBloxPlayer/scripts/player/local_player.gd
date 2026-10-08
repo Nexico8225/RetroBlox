@@ -92,7 +92,6 @@ var _bubble: Label3D
 var _bubble_left := 0.0
 var _bounce_cd := 0.0
 var _time := 0.0
-var _was_grounded := true
 var _steps_loop: AudioStreamPlayer3D
 var _climb_loop: AudioStreamPlayer3D
 var _fall_loop: AudioStreamPlayer3D
