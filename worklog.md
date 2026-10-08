@@ -1229,3 +1229,21 @@ Work Log:
 Stage Summary:
 - One kit, three URLs: downloading "the SDK" = downloading the Godot player, anywhere on the site
 - Pending: user hits Redeploy in Vercel; then verify live md5 == d35666c234291f5589c8a443ce0ed83a
+
+---
+Task ID: godot-error-fix
+Agent: main (Super Z)
+Task: fix in-game errors (Godot 4.7.2 screenshot: add_child on previously freed + 13 warnings), relax stud-scale concern, make WEB download serve the new game
+
+Work Log:
+- Crash root cause: AvatarDresser.apply() adds children to avatar_node after multiple awaits; freed rig (respawn/leave/scene switch) = 'add_child on previously freed'. Added _alive() guard after EVERY await
+- Cleaned all Godot 4.7 warnings: removed dead vars (_was_grounded/_known_ids/_spawn_index/unused t), renamed shadowers (hash->h, sign->board_mesh, tex->_tex)
+- Discovered local repo was RESET to e9f72fe mid-session; cherry-picked fixes onto origin/main (625c23f) as bff8a68
+- Discovered HEAD kit referenced music_main/amb_wind/sfx_tix/sfx_goal wavs missing from disk+cache; restored from 933d362 blobs (smoke was failing on 'music box loop loaded' etc.); committed fb23ad5
+- Rebuilt zip 114 files md5 b4f90d2e; project smoke OK; fresh-unzip smoke OK; download/ copy refreshed
+- Stood up production server (standalone, port 3000): /sdk 200, zip md5 == b4f90d2e verified, legacy /sdk/retroblox-sdk.zip also 200
+
+Stage Summary:
+- Kit zip now carries: stud-scale + climbing + login + anims + music/wind/tix/goal audio + crash fix + zero-warning scripts
+- Web download truth: retro-blox.vercel.app still stale (dead Git integration); local server + GitHub raw serve the real kit; owner must Redeploy Vercel to fix the vercel domain itself
+- Next Task ID suggestion: godot-deploy-verify (after owner redeploys, verify live zip md5 == b4f90d2ed939388e536cd5050f36210e)
