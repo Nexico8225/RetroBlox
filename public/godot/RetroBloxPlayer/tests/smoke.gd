@@ -142,7 +142,7 @@ func _run_all() -> void:
                         "%s clip loops (anims play forever)" % clip)
         var ja := ap.get_animation("Jump")
         check(ja != null and ja.loop_mode == Animation.LOOP_NONE, "Jump clip stays single-shot")
-        check(is_equal_approx(float(rig.RIG_HEIGHT), 5.0 * 0.28), "rig is 5 studs = 1.4 units tall")
+        check(is_equal_approx(float(rig.RIG_HEIGHT), 5.0), "rig is 5 studs tall (1 stud = 1 unit)")
 
         # --- local player: capsule + sfx loops + jump physics ---
         var player_script: Script = load("res://scripts/player/local_player.gd")
@@ -151,10 +151,10 @@ func _run_all() -> void:
         player.call("setup", "SmokeTester")
         await process_frame
         await process_frame
-        # --- SCALE: 1 stud = 0.28 units, player = 5 studs = 1.4 units ---
-        check(is_equal_approx(float(player_script.WALK_SPEED), 16.0 * 0.28), "WalkSpeed 16 studs/s = 4.48 u/s")
-        check(is_equal_approx(float(player_script.JUMP_SPEED), 50.0 * 0.28), "JumpPower 50 studs/s = 14 u/s")
-        check(is_equal_approx(float(player_script.GRAVITY), 196.2 * 0.28), "gravity 196.2 studs/s^2 scaled")
+        # --- SCALE: 1 stud = 1 unit (classic size), player = 5 studs tall ---
+        check(is_equal_approx(float(player_script.WALK_SPEED), 16.0), "WalkSpeed 16 studs/s")
+        check(is_equal_approx(float(player_script.JUMP_SPEED), 50.0), "JumpPower 50 studs/s")
+        check(is_equal_approx(float(player_script.GRAVITY), 196.2), "gravity 196.2 studs/s^2")
         var world_root: Node3D = root.get_node("World")
         var pad_body: StaticBody3D = null
         for body in world_root.find_children("*", "StaticBody3D", true, false):
@@ -167,8 +167,8 @@ func _run_all() -> void:
                 for child in pad_body.get_children():
                         if child is CollisionShape3D and (child as CollisionShape3D).shape is BoxShape3D:
                                 pad_shape = (child as CollisionShape3D).shape as BoxShape3D
-                check(pad_shape != null and is_equal_approx(pad_shape.size.x, 9.0 * 0.28),
-                        "9-stud spawn pad is 2.52 units wide (1 stud = 0.28)")
+                check(pad_shape != null and is_equal_approx(pad_shape.size.x, 9.0),
+                        "9-stud spawn pad is 9 units wide (1 stud = 1 unit)")
         check(player.get_node_or_null("Avatar") != null, "player has an avatar")
         check(player.get_node_or_null("Footsteps") != null, "footsteps loop exists")
         check(player.get_node_or_null("ClimbLoop") != null, "climb loop exists")
@@ -180,7 +180,7 @@ func _run_all() -> void:
         check(sfx_node != null and sfx_node.get("_steps") != null, "authentic plastic footsteps loaded")
         # settle FAR from every world's builds — all five worlds share the
         # tree, so the spot must only touch the baseplate (140 studs wide)
-        player.global_position = Vector3(40.0, 3.0, -40.0) * 0.28
+        player.global_position = Vector3(40.0, 3.0, -40.0)
         for i in range(20):
                 player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false)
                 await physics_frame

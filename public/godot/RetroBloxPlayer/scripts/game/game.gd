@@ -37,7 +37,6 @@ var _poll_left := 0.6
 var _beat_left := 1.2
 var _menu_open := false
 var _chat_badge: Label
-var _unread := 0
 var _toast_box: VBoxContainer
 var _shift_check: CheckButton
 var _tix_label: Label

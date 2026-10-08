@@ -133,7 +133,7 @@ func _build() -> void:
         _avatar_viewport.add_child(sky_env)
         var sun := DirectionalLight3D.new()
         sun.rotation_degrees = Vector3(-45.0, -30.0, 0.0)
-        sun.light_energy = 1.1
+        sun.light_energy = 0.85
         _avatar_viewport.add_child(sun)
         var cam := Camera3D.new()
         cam.position = Vector3(0.0, 3.6, 9.0)

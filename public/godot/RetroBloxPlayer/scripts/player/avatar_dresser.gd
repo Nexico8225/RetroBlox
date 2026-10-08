@@ -197,7 +197,9 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
 ## True only when the node still exists — the dressing coroutine can resume
 ## after its target was freed (respawn / leave / remote despawn).
 static func _alive(n: Variant) -> bool:
-        return n is Node and is_instance_valid(n)
+        # validity FIRST — Godot 4.7 throws "Left operand of 'is' is a
+        # previously freed instance" when `is` touches a freed object
+        return is_instance_valid(n) and n is Node
 
 
 static func _textured_part(avatar_node, part_index: int, tex: Texture2D, zone: Rect2, tw: int, th: int) -> void:
@@ -241,11 +243,11 @@ static func zone_box(size: Vector3, zone: Rect2, tw: int, th: int) -> ArrayMesh:
                 var hu := absf(u_axis.x) * half.x + absf(u_axis.y) * half.y + absf(u_axis.z) * half.z
                 var hv := absf(v_axis.x) * half.x + absf(v_axis.y) * half.y + absf(v_axis.z) * half.z
                 var tl := center - u_axis * hu - v_axis * hv
-                var tr := center + u_axis * hu - v_axis * hv
+                var t_r := center + u_axis * hu - v_axis * hv
                 var br := center + u_axis * hu + v_axis * hv
                 var bl := center - u_axis * hu + v_axis * hv
                 var base := verts.size()
-                for corner in [tl, tr, br, bl]:
+                for corner in [tl, t_r, br, bl]:
                         verts.push_back(corner)
                 for _i in range(4):
                         norms.push_back(normal)

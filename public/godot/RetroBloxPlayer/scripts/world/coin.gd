@@ -7,8 +7,8 @@ extends Area3D
 signal collected(coin: Area3D)
 
 const SPIN_SPEED := 2.6          # radians / second
-## 1 stud = 0.28 units — the coin is a ~2-stud disc, pickup range in studs
-const STUD := 0.28
+## 1 stud = 1 unit — the coin is a ~2-stud disc, pickup range in studs
+const STUD := 1.0
 const BOB_HEIGHT := 0.35 * STUD
 const BOB_RATE := 2.2
 

@@ -30,15 +30,15 @@ const StudColorEdge := Color("000000", 0.10)
 const CoinScript := preload("res://scripts/world/coin.gd")
 
 ## SCALE — place definitions are authored in STUDS (classic Roblox units);
-## they are converted here at the build boundary: 1 stud = 0.28 Godot units.
-## A 5-stud avatar is 1.4 units tall and every part keeps its stud numbers.
-const STUD := 0.28
+## they are built 1 stud = 1 Godot unit — the classic size.
+## A 5-stud avatar is 5 units tall and every part keeps its stud numbers.
+const STUD := 1.0
 
 static var _stud_tex: ImageTexture
 
 
 ## Visual-only containers (props) build in stud units inside a group node
-## scaled by STUD — zero risk of missing a literal, exact 0.28x everywhere.
+## scaled by STUD — zero risk of missing a literal, exact scale everywhere.
 static func _scaled_group(root: Node3D, pos_units: Vector3) -> Node3D:
         var g := Node3D.new()
         g.position = pos_units
@@ -65,7 +65,7 @@ static func build(def: Dictionary) -> Dictionary:
         env.background_mode = Environment.BG_SKY
         env.sky = sky
         env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-        env.ambient_light_energy = 1.0
+        env.ambient_light_energy = 0.55
         env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
         if bool(def.get("cloud_deck", false)):
                 # the reference video's look: horizon melts into a white cloud sea
@@ -80,7 +80,7 @@ static func build(def: Dictionary) -> Dictionary:
         var sun := DirectionalLight3D.new()
         sun.name = "Sun"
         sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-        sun.light_energy = 1.15
+        sun.light_energy = 0.85
         sun.shadow_enabled = true
         sun.directional_shadow_max_distance = 80.0
         root.add_child(sun)
@@ -712,7 +712,7 @@ static func _part_material(color: Color, kind: String, tex: ImageTexture, no_stu
                 m.albedo_texture = tex
                 m.uv1_triplanar = true
                 m.uv1_world_triplanar = true
-                # 1 stud tile per 0.28 units = one stud per stud after the scale
+                # one stud tile per unit = one stud per stud at STUD 1.0
                 m.uv1_scale = Vector3.ONE / STUD
                 m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
         return m

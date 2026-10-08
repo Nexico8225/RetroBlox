@@ -2,8 +2,8 @@ class_name LocalPlayer
 extends CharacterBody3D
 ## The local player — brand-new classic controller for the new player system.
 ##
-## SCALE — the real Roblox conversion: 1 stud = 0.28 Godot units. The avatar
-## is 5 studs = 1.4 units tall, and every constant here is authored in studs
+## SCALE — the classic size: 1 stud = 1 Godot unit. The avatar is 5 studs
+## tall, and every constant here is authored in studs
 ## and multiplied by STUD, so the classic numbers still rule the feel:
 ## WalkSpeed 16, JumpPower 50, workspace gravity 196.2.
 ##
@@ -19,9 +19,9 @@ signal health_changed(health: float, max_health: float)
 signal health_depleted
 signal touched_group(group: String, node: Node3D)
 
-## One stud in Godot units — the official conversion, shared by the world
-## builder, camera and avatar rig. A player is 5 studs = 1.4 units tall.
-const STUD := 0.28
+## One stud in Godot units — shared by the world
+## builder, camera and avatar rig. A player is 5 studs tall.
+const STUD := 1.0
 
 const WALK_SPEED := 16.0 * STUD   # studs / second (classic WalkSpeed)
 const JUMP_SPEED := 50.0 * STUD   # studs / second (classic JumpPower)
@@ -315,7 +315,7 @@ func _update_climb(wish: Vector3, delta: float) -> void:
 
 ## One climb physics step: W = up, S = down, nothing pressed = hug, Space =
 ## jump OFF (same jump-off as always). Gravity does not apply on the surface.
-func _drive_climb(wish: Vector3, delta: float) -> void:
+func _drive_climb(wish: Vector3, _delta: float) -> void:
         var up_amount := wish.dot(_climb_face)
         if _jump_buffer_left > 0.0:
                 _jump_buffer_left = 0.0

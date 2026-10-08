@@ -11,7 +11,6 @@ const VERSION := "2.1"
 var _mode := "login"   # login | signup
 var _user: LineEdit
 var _pass: LineEdit
-var _action: Button
 var _status: Label
 var _go: Button
 var _offline: Button

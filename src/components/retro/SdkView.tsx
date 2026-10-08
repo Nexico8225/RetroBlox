@@ -9,11 +9,12 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.1 "Stud-Scale"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.1'
+const VERSION = 'v3.2 "Classic Size"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.2'
 
 const NEW_STUFF: [string, string][] = [
-  ['True stud scale (1 stud = 0.28u)', 'The whole world was rebuilt at authentic Roblox scale — one stud is 0.28 Godot units and the avatar stands 5 studs (1.4u) tall. Stairs, bricks, ladders and gaps all feel like 2007 again.'],
+  ['Back to the classic size', 'The world is built 1 stud = 1 unit again — the avatar stands a proper 5 studs tall and UGC hats sit right on the head, exactly the size you placed them on the site. Crash fixes included: the freed-avatar error is gone and the scripts load warning-free.'],
+  ['Softer, warmer lighting', 'Sun and sky ambient toned down — no more washed-out white; colors pop the way they should while Cloud Kingdom keeps its bright-blue feel.'],
   ['Roblox edge + ladder climbing', 'Walk into a 1–3 stud ledge or ladder rung FACING it and you grab; look away mid-climb and you drop; Space jumps off. Gaps of 1–3 studs between ladders still climb through.'],
   ['Log in once — stay logged in', 'The game remembers you: sign in (or sign up, or go guest) one time and every future launch signs you in automatically — even offline. Log Out from the menu clears it.'],
   ['Real FBX animations', 'The retroblox_anims.fbx clips (Idle / Walk / Climb / Fall) drive the avatar directly and loop cleanly — no more frozen poses.'],
@@ -37,7 +38,7 @@ const FILES = [
   ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: beveled panels, chunky buttons'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
-  ['scripts/player/local_player.gd', 'Classic controller at true stud scale: WalkSpeed 16, step-up stairs, ladders + stud-edge grabs (face-to-climb, look-away = fall), trampolines, fall damage, dust'],
+  ['scripts/player/local_player.gd', 'Classic controller at the classic size: WalkSpeed 16, step-up stairs, ladders + stud-edge grabs (face-to-climb, look-away = fall), trampolines, fall damage, dust'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, procedural stud texture, goal sparkles'],
   ['scripts/world/places.gd', 'The five built-in places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
@@ -93,10 +94,10 @@ export function SdkView() {
         <div style={{ padding: 14 }}>
           <div style={{ fontSize: 17, color: '#1c2733' }}>Load your avatar. Play five places. Collect Tix. Chat with everyone online.</div>
           <div style={{ fontSize: 11, color: '#41586c', marginTop: 4, maxWidth: 660 }}>
-            The RetroBlox SDK is the official <b style={{ fontWeight: 400 }}>RetroBlox Player (v3.1)</b> —
+            The RetroBlox SDK is the official <b style={{ fontWeight: 400 }}>RetroBlox Player (v3.2)</b> —
             log in once and the game <b style={{ fontWeight: 400 }}>remembers you forever</b>: your account avatar loads from the platform —
             body colors, shirts, pants, face and every 3D UGC accessory placed exactly where its creator left it. Play five
-            built-in places at true Roblox stud scale (1 stud = 0.28 units, 5-stud avatar) with classic climbing —
+            built-in places at the classic size (1 stud = 1 unit, 5-stud avatar) with classic climbing —
             ladders AND platform edges, Shift Lock, Tix collectibles, music and the authentic classic sounds — and chat with
             anyone in the same place <b style={{ fontWeight: 400 }}>across the internet</b>, with live
             presence so you see other players walking around. No LAN needed, ever.

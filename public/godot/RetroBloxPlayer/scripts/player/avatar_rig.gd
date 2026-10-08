@@ -20,9 +20,9 @@ const LEG_R := 5
 const HEAD_INDEX := 0
 
 const RIG_SCENE_PATH := "res://assets/models/retroblox_anims.fbx"
-## 1 stud = 0.28 Godot units — the official conversion. The rig is 5 studs
-## tall = 1.4 units, matching the world and the player capsule exactly.
-const STUD := 0.28
+## The rig is 5 studs tall, built 1 stud = 1 Godot unit — the classic size.
+## UGC hats and creator placements are authored in this same 5-stud space.
+const STUD := 1.0
 const RIG_HEIGHT := 5.0 * STUD
 const SITE_RIG_HEIGHT := 5.0
 
@@ -214,7 +214,7 @@ func play_emote(clip: String) -> void:
                 _anim_player.play(anim_name, 0.2)
 
 
-func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var movement := clampf(absf(speed) / (5.0 * STUD), 0.0, 1.0)
         var walk_rate := 4.8 + movement * 2.0
         var swing := sin(_time * walk_rate) * movement
@@ -349,12 +349,12 @@ func _try_r6ik() -> bool:
                 part_boxes[index] = box
                 raw_bounds = box if not have_bounds else raw_bounds.merge(box)
                 have_bounds = true
-        var scale := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
+        var fit := RIG_HEIGHT / maxf(raw_bounds.size.y, 0.0001)
         var raw_center := raw_bounds.get_center()
         var model := Node3D.new()
         model.name = "R6IKModel"
-        model.scale = Vector3.ONE * scale
-        model.position = Vector3(-raw_center.x * scale, -raw_bounds.position.y * scale, -raw_center.z * scale)
+        model.scale = Vector3.ONE * fit
+        model.position = Vector3(-raw_center.x * fit, -raw_bounds.position.y * fit, -raw_center.z * fit)
         model.add_child(inst)
         add_child(model)
 

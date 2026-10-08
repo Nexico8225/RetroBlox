@@ -32,7 +32,7 @@ func _init() -> void:
         bubble.width = 220.0
         bubble.outline_modulate = Color(0, 0, 0, 0.9)
         bubble.visible = false
-        bubble.position = Vector3(0.0, 6.8 * 0.28, 0.0)
+        bubble.position = Vector3(0.0, 6.8, 0.0)
         add_child(bubble)
 
 

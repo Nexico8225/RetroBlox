@@ -3,7 +3,7 @@ extends Node3D
 ## collision-aware spring arm, scroll zoom, and classic Shift Lock (the
 ## character squares up to the camera and it parks on the right shoulder).
 
-const STUD := 0.28            # 1 stud = 0.28 Godot units (Roblox conversion)
+const STUD := 1.0            # 1 stud = 1 Godot unit — the classic size
 const PIVOT_HEIGHT := 4.6 * STUD      # look from just above the head (5-stud rig)
 const MIN_ZOOM := 6.0 * STUD
 const MAX_ZOOM := 26.0 * STUD
