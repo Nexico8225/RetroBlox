@@ -1199,3 +1199,18 @@ Work Log:
 Stage Summary:
 - The client now plays at authentic Roblox scale with real looping animations and Roblox-style truss + stud-edge climbing; zip (104 files) rebuilt + verified; pushed as godot-stud-scale-1
 
+
+---
+Task ID: godot-stud-scale-2 (v3 merge)
+Agent: Super Z (main)
+Task: rebase the stud-scale/climb/login pass on top of v3 (Tix, Wobbly Tower, music) and ship one consistent build
+
+Work Log:
+- Remote had moved on (v3 'way better' pass: Tix collectibles, Wobbly Tower, music/wind, /sdk hub) built at the OLD scale — rebased 96e7f97 onto a3f3c9f and resolved all conflicts (local_player, world_builder, smoke, zip, worklog)
+- Rescaled every v3 feature to 1 stud = 0.28: Tix coin disc 1.9 studs + pickup sphere 1.7 studs + bob/burst (coin.gd), goal sparkles, landing/jump dust puffs (intensity divisor now 40*STUD), checkpoint/goal spawn offsets
+- Smoke settle spot moved to (40,3,-40) studs on the baseplate (all five worlds share the test tree); kept all 12 climb/scale/anim/login checks + all v3 checks
+- Verified: import clean, SMOKE_OK in-repo AND fresh-unzip of the shipped zip; Xvfb screenshot shows correct scale + Tix 0/8 chip + right-sized coin
+- zip rebuilt from merged source: 114 files 3.6MB; pushed 5310e35 -> Vercel auto-deploys /sdk + /godot/retroblox-godot-player.zip
+
+Stage Summary:
+- One consistent client: authentic stud scale, looping FBX anims, Roblox-style ladder + stud-edge climbing, login-once gate, PLUS all v3 juice (music, Tix, tower, dust) at the correct scale
