@@ -106,6 +106,9 @@ export function SdkView() {
             <a className="rb-btn rb-btn-green" href={ZIP_URL} download style={{ textDecoration: 'none', fontSize: 14, padding: '10px 18px' }}>
               ⬇ Download the RetroBlox Player {VERSION} (.zip)
             </a>
+            <a href="https://raw.githubusercontent.com/Nexico8225/RetroBlox/main/public/godot/retroblox-godot-player.zip" download style={{ fontSize: 11, color: '#41586c', textDecoration: 'underline', marginLeft: 12 }}>
+              mirror: direct from GitHub (always the latest build)
+            </a>
             <Link className="rb-btn" href="/avatar" style={{ textDecoration: 'none' }}>Dress your avatar first</Link>
             <Link className="rb-btn" href="/create" style={{ textDecoration: 'none' }}>Publish a game</Link>
           </div>
