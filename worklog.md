@@ -1214,3 +1214,18 @@ Work Log:
 
 Stage Summary:
 - One consistent client: authentic stud scale, looping FBX anims, Roblox-style ladder + stud-edge climbing, login-once gate, PLUS all v3 juice (music, Tix, tower, dust) at the correct scale
+
+---
+Task ID: godot-sdk-download-fix
+Agent: main (Super Z)
+Task: make every /sdk download serve the Godot player; locate the player system; stale-production investigation
+
+Work Log:
+- Rebuilt public/godot/retroblox-godot-player.zip (114 files) and overwrote legacy retroblox-sdk.zip + retroblox-player-system.zip with the SAME kit
+- next.config.ts: attachment + must-revalidate headers for the three zip URLs; cache-busted ?v=3.1 download links in SdkView + HomeView
+- SdkView rebranded v3.1 "Stud-Scale" with stud-scale/climb/login/anims grid; npm run build exit 0; commit b328364 pushed
+- Deploy investigation: production frozen at Oct 6 13:43 build (live zip 61 files md5 2abf534e, live README + /sdk HTML differ from main); Vercel Git integration dead, owner must Redeploy
+
+Stage Summary:
+- One kit, three URLs: downloading "the SDK" = downloading the Godot player, anywhere on the site
+- Pending: user hits Redeploy in Vercel; then verify live md5 == d35666c234291f5589c8a443ce0ed83a
