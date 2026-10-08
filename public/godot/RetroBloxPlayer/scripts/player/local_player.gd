@@ -2,49 +2,70 @@ class_name LocalPlayer
 extends CharacterBody3D
 ## The local player — brand-new classic controller for the new player system.
 ##
-## STUDS: 1 Godot unit = 1 Roblox stud. The avatar is 5 studs tall, the
-## capsule matches, and every constant is the classic number players remember:
+## SCALE — the real Roblox conversion: 1 stud = 0.28 Godot units. The avatar
+## is 5 studs = 1.4 units tall, and every constant here is authored in studs
+## and multiplied by STUD, so the classic numbers still rule the feel:
 ## WalkSpeed 16, JumpPower 50, workspace gravity 196.2.
 ##
 ## Features: crisp ground accel + air control, 2.5-stud step-up (stairs),
-## TrussPart-style ladders, trampolines, fall damage with the classic 1%/s
-## regen, death breakup with the original oof, chat bubbles, nameplate.
+## TrussPart-style ladders (even ones built from segments with 1-3 stud gaps
+## between them — the climb grace carries you across the gap), stud-edge
+## climbing (walk into any studded platform edge while FACING it and W climbs
+## it, Roblox style), mantle over the top lip, face away mid-climb and you
+## let go and fall, Space jumps off, trampolines, fall damage with the
+## classic 1%/s regen, death breakup with the original oof, chat bubbles.
 
 signal health_changed(health: float, max_health: float)
 signal health_depleted
 signal touched_group(group: String, node: Node3D)
 
-const WALK_SPEED := 16.0           # studs / second (classic WalkSpeed)
-const JUMP_SPEED := 50.0           # studs / second (classic JumpPower)
-const GRAVITY := 196.2             # studs / s^2 (classic workspace gravity)
-const ACCEL_GROUND := 145.0        # reach full speed in ~0.11s: crisp, not slippery
-const ACCEL_AIR := 62.0            # real air control — you can steer mid-jump
-const BRAKE_GROUND := 170.0        # stop on release, classic style
-const COYOTE_TIME := 0.08          # grace window after walking off a ledge
-const JUMP_BUFFER := 0.12          # pressing jump just before landing still jumps
+## One stud in Godot units — the official conversion, shared by the world
+## builder, camera and avatar rig. A player is 5 studs = 1.4 units tall.
+const STUD := 0.28
 
-const MAX_STEP := 2.5              # walk over anything up to this height (stairs!)
-const MIN_STEP := 0.05
-const STEP_FORWARD := 0.6
-const STEP_VISUAL_SPEED := 46.0
+const WALK_SPEED := 16.0 * STUD   # studs / second (classic WalkSpeed)
+const JUMP_SPEED := 50.0 * STUD   # studs / second (classic JumpPower)
+const GRAVITY := 196.2 * STUD     # studs / s^2 (classic workspace gravity)
+const ACCEL_GROUND := 145.0 * STUD  # reach full speed in ~0.11s: crisp
+const ACCEL_AIR := 62.0 * STUD    # real air control — you can steer mid-jump
+const BRAKE_GROUND := 170.0 * STUD  # stop on release, classic style
+const COYOTE_TIME := 0.08         # grace window after walking off a ledge
+const JUMP_BUFFER := 0.12         # pressing jump just before landing still jumps
 
-const CLIMB_SPEED := 9.0           # ladders: forward = up, back = down, jump = let go
-const LADDER_JUMP := 34.0
-const LADDER_DISMOUNT := 0.35      # after a ladder jump you fly FREE this long
+const MAX_STEP := 2.5 * STUD      # walk over anything up to this height (stairs!)
+const MIN_STEP := 0.05 * STUD
+const STEP_FORWARD := 0.6 * STUD
+const STEP_VISUAL_SPEED := 46.0 * STUD
 
-const LAND_SOUND_FALL := 22.0      # impact speed that triggers the landing thud
-const FALL_WIND_SPEED := 34.0      # downward speed where the wind loop kicks in
+const CLIMB_SPEED := 9.0 * STUD   # ladders + stud edges: W = up, S = down
+const LADDER_JUMP := 34.0 * STUD  # jump-off launch
+const LADDER_DISMOUNT := 0.35     # after a climb jump you fly FREE this long
+
+## CLIMB FACING — you must FACE the surface to climb it (Roblox truss rule).
+const CLIMB_FACE_START := 0.5     # dot(heading, to surface) needed to grab
+const CLIMB_FACE_STAY := 0.35     # fall below this while climbing = let go + fall
+const CLIMB_GRACE := 0.45         # seconds the climb survives rung/gap stretches
+const WALL_REACH := 3.0 * STUD    # probe ray length for stud edges
+const HUG_PRESSURE := 1.2 * STUD  # gentle push into the surface while climbing
+## Heights (studs above the feet) of the vertical probe rays — spread so
+## plate towers with gaps always have at least one ray on a plate.
+const WALL_PROBE_HS: Array = [0.5, 1.7, 2.9, 4.1]
+
+const LAND_SOUND_FALL := 22.0 * STUD  # impact speed that triggers the landing thud
+const FALL_WIND_SPEED := 34.0 * STUD  # downward speed where the wind loop kicks in
 
 const MAX_HEALTH := 100.0
 const REGEN_DELAY := 5.0
 const REGEN_RATE := 1.0            # per second (1% of max, the classic default)
-const FALL_SAFE_HEIGHT := 45.0
+const FALL_SAFE_HEIGHT := 45.0     # studs — below this, no damage
 const FALL_DMG_PER_STUD := 4.0
-const BOUNCE_POWER := 72.0         # trampolines
+const BOUNCE_POWER := 72.0 * STUD  # trampolines
 const BOUNCE_COOLDOWN := 0.35
 
 const AvatarRigScript := preload("res://scripts/player/avatar_rig.gd")
 const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
+
+enum ClimbKind { NONE, LADDER, WALL }
 
 var display_name := "Guest"
 var avatar: Node3D
@@ -60,7 +81,10 @@ var dust_enabled := true        # landing / jump dust puffs (the game can turn t
 var _regen_wait := 0.0
 var _falling := false
 var _fall_peak_y := 0.0
-var _ladder_count := 0
+var _ladder_areas: Array[Area3D] = []
+var _climb_kind: int = ClimbKind.NONE
+var _climb_face := Vector3.ZERO  # direction to FACE to stay on the surface
+var _climb_grace := 0.0
 var _coyote := 0.0
 var _jump_buffer_left := 0.0
 var _step_visual := 0.0
@@ -80,15 +104,15 @@ func _init() -> void:
         name = "LocalPlayer"
         collision_layer = 4
         collision_mask = 1
-        floor_snap_length = 0.5
+        floor_snap_length = 0.5 * STUD
         floor_max_angle = deg_to_rad(50.0)
 
         var col := CollisionShape3D.new()
         var capsule := CapsuleShape3D.new()
-        capsule.radius = 1.2
-        capsule.height = 5.2
+        capsule.radius = 1.2 * STUD
+        capsule.height = 5.2 * STUD
         col.shape = capsule
-        col.position = Vector3(0.0, 2.6, 0.0)
+        col.position = Vector3(0.0, 2.6 * STUD, 0.0)
         add_child(col)
 
         avatar = AvatarRigScript.new()
@@ -98,15 +122,15 @@ func _init() -> void:
         _bubble = Label3D.new()
         _bubble.name = "ChatBubble"
         _bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-        _bubble.pixel_size = 0.010
-        _bubble.font_size = 40
+        _bubble.pixel_size = 0.008
+        _bubble.font_size = 30
         _bubble.outline_size = 8
-        _bubble.width = 420.0
+        _bubble.width = 220.0
         _bubble.modulate = Color.WHITE
         _bubble.outline_modulate = Color(0, 0, 0, 0.9)
         _bubble.visible = false
         add_child(_bubble)
-        _bubble.position = Vector3(0.0, 6.8, 0.0)
+        _bubble.position = Vector3(0.0, 6.8 * STUD, 0.0)
 
         _setup_ladder_sensor()
         _setup_touch_sensor()
@@ -174,11 +198,23 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         if _ladder_dismount > 0.0:
                 _ladder_dismount -= delta
 
-        climbing = false
-        # shift lock OFF grabs ladders; ON walks straight past them (Roblox
-        # feel), and for a beat after a ladder jump you fly free, off the rungs
-        if _ladder_count > 0 and not use_shiftlock and _ladder_dismount <= 0.0:
-                _drive_ladder(wish, delta)
+        # facing — shift lock squares up to the camera, otherwise face the run.
+        # Runs BEFORE the climb step so turning away (S / A / D, or swinging
+        # the camera in shift lock) rotates the body and breaks the climb grip.
+        if use_shiftlock:
+                heading = lerp_angle(heading, cam_yaw, 1.0 - exp(-14.0 * delta))
+        elif wish.length_squared() > 0.005:
+                heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
+
+        _update_climb(wish, delta)
+        if _climb_kind != ClimbKind.NONE:
+                _drive_climb(wish, delta)
+                # FACE CHECK — face off while climbing and you simply let go
+                # and fall. `forward` is where the body is looking right now.
+                var forward := Vector3(-sin(heading), 0.0, -cos(heading))
+                if forward.dot(_climb_face) < CLIMB_FACE_STAY:
+                        _stop_climb()
+                        velocity.y -= GRAVITY * delta
         else:
                 _drive_ground_air(wish, delta)
 
@@ -188,15 +224,9 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         # landing thud after real air time (Roblox plays jump_land on impact)
         if grounded and not was_grounded and _last_vy < -LAND_SOUND_FALL:
                 _play_land_sound()
-                _dust(clampf(-_last_vy / 40.0, 1.0, 1.8))
-        if grounded and is_on_wall():
+                _dust(clampf(-_last_vy / (40.0 * STUD), 1.0, 1.8))
+        if grounded and is_on_wall() and _climb_kind == ClimbKind.NONE:
                 _attempt_step_up()
-
-        # facing — shift lock squares up to the camera, otherwise face the run
-        if use_shiftlock:
-                heading = lerp_angle(heading, cam_yaw, 1.0 - exp(-14.0 * delta))
-        elif wish.length_squared() > 0.005:
-                heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
 
         # the avatar eases onto ledges after a step — stairs look smooth
         if _step_visual != 0.0:
@@ -213,30 +243,177 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         avatar.rotation.y = heading
         # rig clips: Idle / Walk / Jump / Climb — driven by THIS player's state
         var hspeed := Vector2(velocity.x, velocity.z).length()
-        avatar.call("animate", delta, hspeed, grounded, climbing)
+        var anim_speed := absf(velocity.y) if climbing else hspeed
+        avatar.call("animate", delta, anim_speed, grounded, climbing)
 
 
-func _drive_ladder(wish: Vector3, delta: float) -> void:
-        # classic truss: hug the ladder, forward climbs up, back slides down
-        var forward_amount := -wish.z  # -Z is forward after rotation
+# ---------------------------------------------------------------- climbing
+
+## Decide whether this frame climbs — ladders (TrussPart volumes) or stud
+## edges (any vertical wall you walk into while facing it). Holding W into
+## the surface grabs on; the grace window carries you across 1-3 stud gaps
+## between ladder segments or rung plates without dropping.
+func _update_climb(wish: Vector3, delta: float) -> void:
+        if _climb_kind == ClimbKind.LADDER:
+                if not _ladder_areas.is_empty():
+                        var lad: Area3D = _nearest_ladder()
+                        var face := _toward(lad)
+                        if face != Vector3.ZERO:
+                                _climb_face = face
+                        _climb_grace = CLIMB_GRACE
+                        return
+                        # still inside the rungs — all good
+                # left the volume: a gap between segments, or the top of the
+                # ladder. Hold the grip for CLIMB_GRACE while still facing in.
+                _climb_grace -= delta
+                if wish.dot(_climb_face) > 0.2 and _try_mantle():
+                        return
+                if _climb_grace <= 0.0 or wish.dot(_climb_face) < -0.2:
+                        _stop_climb()
+                return
+
+        if _climb_kind == ClimbKind.WALL:
+                var normal := _wall_hit_along(_climb_face)
+                if normal != Vector3.ZERO:
+                        _climb_face = -normal
+                        _climb_grace = CLIMB_GRACE
+                        return
+                # past the lip (top of the platform) — mantle onto it, Roblox style
+                _climb_grace -= delta
+                if wish.dot(_climb_face) > 0.2 and _try_mantle():
+                        return
+                if _climb_grace <= 0.0 or wish.dot(_climb_face) < -0.2:
+                        _stop_climb()
+                return
+
+        # --- not climbing: can we grab on? ---
+        if _ladder_dismount > 0.0:
+                return
+        # ladders first: touching a rung volume + pressing into it + facing it
+        if not _ladder_areas.is_empty():
+                var lad: Area3D = _nearest_ladder()
+                var face := _toward(lad)
+                if face != Vector3.ZERO and wish.dot(face) > 0.25:
+                        var forward := Vector3(-sin(heading), 0.0, -cos(heading))
+                        if forward.dot(face) >= CLIMB_FACE_START:
+                                _climb_kind = ClimbKind.LADDER
+                                _climb_face = face
+                                _climb_grace = CLIMB_GRACE
+                                return
+        # stud edges: probing along the walk direction finds a vertical face.
+        # Only faces reaching chest height count (>= ~2 studs) — low steps
+        # are handled by the 2.5-stud step-up, not the climb grip.
+        if wish.length_squared() > 0.04:
+                var normal := _wall_hit_along(wish, 1.7)
+                if normal != Vector3.ZERO:
+                        var face := -normal
+                        var forward := Vector3(-sin(heading), 0.0, -cos(heading))
+                        if wish.dot(face) > 0.3 and forward.dot(face) >= CLIMB_FACE_START:
+                                _climb_kind = ClimbKind.WALL
+                                _climb_face = face
+                                _climb_grace = CLIMB_GRACE
+
+
+## One climb physics step: W = up, S = down, nothing pressed = hug, Space =
+## jump OFF (same jump-off as always). Gravity does not apply on the surface.
+func _drive_climb(wish: Vector3, delta: float) -> void:
+        var up_amount := wish.dot(_climb_face)
         if _jump_buffer_left > 0.0:
                 _jump_buffer_left = 0.0
                 _ladder_dismount = LADDER_DISMOUNT   # fly free, no instant re-grab
                 velocity.y = LADDER_JUMP
-                velocity.x = -wish.x * 8.0           # push AWAY from the rungs
-                velocity.z = -wish.z * 8.0
-                climbing = false
-        elif forward_amount > 0.2:
+                velocity.x = -_climb_face.x * 8.0 * STUD  # push OFF the surface
+                velocity.z = -_climb_face.z * 8.0 * STUD
+                _stop_climb()
+        elif up_amount > 0.2:
                 velocity.y = CLIMB_SPEED
                 climbing = true
-        elif forward_amount < -0.2:
+        elif up_amount < -0.2:
                 velocity.y = -CLIMB_SPEED
                 climbing = true
         else:
                 velocity.y = 0.0
                 climbing = true
-        velocity.x = move_toward(velocity.x, 0.0, ACCEL_GROUND * delta)
-        velocity.z = move_toward(velocity.z, 0.0, ACCEL_GROUND * delta)
+        # hug the surface — a whisper of pressure keeps the body glued on
+        velocity.x = _climb_face.x * HUG_PRESSURE
+        velocity.z = _climb_face.z * HUG_PRESSURE
+
+
+func _stop_climb() -> void:
+        _climb_kind = ClimbKind.NONE
+        climbing = false
+        _climb_grace = 0.0
+
+
+func _nearest_ladder() -> Area3D:
+        var best: Area3D = null
+        var best_d := INF
+        for lad in _ladder_areas:
+                if not is_instance_valid(lad):
+                        continue
+                var d := lad.global_position.distance_squared_to(global_position)
+                if d < best_d:
+                        best_d = d
+                        best = lad
+        return best
+
+
+## Horizontal unit vector from the body toward a ladder volume (the way you
+## must FACE to climb it). ZERO when standing inside it.
+func _toward(lad: Area3D) -> Vector3:
+        var to := lad.global_position - global_position
+        to.y = 0.0
+        if to.length_squared() < 0.0016:
+                return Vector3.ZERO
+        return to.normalized()
+
+
+## Probe a few rays spread up the body along `dir`; the first vertical face
+## they find (a stud platform edge, a plate in a gapped rung tower) wins.
+## `min_h` (studs) skips low probes — used when STARTING a climb so shallow
+## steps (1 stud) keep using the step-up instead of the climb grip.
+func _wall_hit_along(dir: Vector3, min_h := 0.0) -> Vector3:
+        var d := Vector3(dir.x, 0.0, dir.z)
+        if d.length_squared() < 0.001:
+                return Vector3.ZERO
+        d = d.normalized()
+        var space := get_world_3d().direct_space_state
+        if space == null:
+                return Vector3.ZERO
+        for raw_h: float in WALL_PROBE_HS:
+                if raw_h < min_h:
+                        continue
+                var from := global_position + Vector3.UP * (raw_h * STUD)
+                var query := PhysicsRayQueryParameters3D.create(from, from + d * WALL_REACH, collision_mask)
+                var hit := space.intersect_ray(query)
+                if hit.is_empty():
+                        continue
+                var normal: Vector3 = hit["normal"]
+                if absf(normal.y) < 0.4:
+                        return normal
+        return Vector3.ZERO
+
+
+## Climbed past the top lip: pop up onto the platform, Roblox style.
+func _try_mantle() -> bool:
+        var f := Vector3(_climb_face.x, 0.0, _climb_face.z).normalized()
+        var space := get_world_3d().direct_space_state
+        if space == null:
+                return false
+        var over := global_position + f * STEP_FORWARD + Vector3.UP * MAX_STEP
+        var down := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * MAX_STEP, collision_mask)
+        var hit := space.intersect_ray(down)
+        if hit.is_empty():
+                return false
+        var lip: float = float(hit["position"].y) - global_position.y
+        if lip < MIN_STEP or lip > MAX_STEP + 0.01:
+                return false
+        move_and_collide(Vector3.UP * (lip + 0.06))
+        move_and_collide(f * STEP_FORWARD * 2.0)
+        velocity = Vector3.ZERO
+        _stop_climb()
+        grounded = true
+        return true
 
 
 func _drive_ground_air(wish: Vector3, delta: float) -> void:
@@ -276,11 +453,11 @@ func _dust(strength := 1.0) -> void:
         puff.explosiveness = 0.92
         puff.direction = Vector3.UP
         puff.spread = 75.0
-        puff.initial_velocity_min = 2.0 * strength
-        puff.initial_velocity_max = 5.0 * strength
-        puff.gravity = Vector3(0.0, -7.0, 0.0)
-        puff.scale_amount_min = 0.16
-        puff.scale_amount_max = 0.34
+        puff.initial_velocity_min = 2.0 * strength * STUD
+        puff.initial_velocity_max = 5.0 * strength * STUD
+        puff.gravity = Vector3(0.0, -7.0 * STUD, 0.0)
+        puff.scale_amount_min = 0.16 * STUD
+        puff.scale_amount_max = 0.34 * STUD
         var ring := SphereMesh.new()
         ring.radius = 0.5
         ring.height = 1.0
@@ -289,7 +466,7 @@ func _dust(strength := 1.0) -> void:
         puff.mesh = ring
         puff.color = Color(0.92, 0.9, 0.84, 0.8)
         world.add_child(puff)
-        puff.global_position = global_position + Vector3(0.0, 0.25, 0.0)
+        puff.global_position = global_position + Vector3(0.0, 0.25 * STUD, 0.0)
         var timer := get_tree().create_timer(1.0)
         timer.timeout.connect(puff.queue_free)
 
@@ -306,8 +483,8 @@ func _attempt_step_up() -> void:
                 return
         var feet := global_position.y
         var probe := PhysicsRayQueryParameters3D.create(
-                global_position + Vector3(0.0, MIN_STEP + 0.15, 0.0),
-                global_position + Vector3(0.0, MIN_STEP + 0.15, 0.0) + dir * 1.4,
+                global_position + Vector3(0.0, MIN_STEP + 0.15 * STUD, 0.0),
+                global_position + Vector3(0.0, MIN_STEP + 0.15 * STUD, 0.0) + dir * 1.4 * STUD,
                 collision_mask)
         if space.intersect_ray(probe).is_empty():
                 return
@@ -315,7 +492,7 @@ func _attempt_step_up() -> void:
                 return
         var over := global_position + Vector3.UP * MAX_STEP + dir * STEP_FORWARD
         var down_ray := PhysicsRayQueryParameters3D.create(
-                over, over + Vector3.DOWN * (MAX_STEP + 0.4), collision_mask)
+                over, over + Vector3.DOWN * (MAX_STEP + 0.4 * STUD), collision_mask)
         var hit := space.intersect_ray(down_ray)
         if hit.is_empty():
                 return
@@ -324,7 +501,7 @@ func _attempt_step_up() -> void:
                 return
         move_and_collide(Vector3.UP * (lip + 0.06))
         move_and_collide(dir * STEP_FORWARD)
-        var settle := move_and_collide(Vector3.DOWN * (lip + 0.2))
+        var settle := move_and_collide(Vector3.DOWN * (lip + 0.2 * STUD))
         if settle != null and velocity.y < 0.0:
                 velocity.y = 0.0
         grounded = true
@@ -340,8 +517,9 @@ func _update_fall_damage() -> void:
                 if _falling:
                         _falling = false
                         var drop := _fall_peak_y - global_position.y
-                        if drop > FALL_SAFE_HEIGHT:
-                                hurt((drop - FALL_SAFE_HEIGHT) * FALL_DMG_PER_STUD)
+                        var drop_studs := drop / STUD
+                        if drop_studs > FALL_SAFE_HEIGHT:
+                                hurt((drop_studs - FALL_SAFE_HEIGHT) * FALL_DMG_PER_STUD)
         else:
                 _fall_peak_y = maxf(_fall_peak_y, global_position.y) if _falling else global_position.y
                 _falling = true
@@ -391,6 +569,7 @@ func die(world: Node3D) -> void:
         health = 0.0
         health_changed.emit(health, MAX_HEALTH)
         velocity = Vector3.ZERO
+        _stop_climb()
         _bubble.visible = false
         avatar.call("burst", world, randi())
 
@@ -400,7 +579,7 @@ func respawn_at(pos: Vector3) -> void:
         health = MAX_HEALTH
         _regen_wait = 0.0
         _falling = false
-        climbing = false
+        _stop_climb()
         _ladder_dismount = 0.0
         _step_visual = 0.0
         _bubble_left = 0.0
@@ -442,15 +621,15 @@ func _play_land_sound() -> void:
 
 
 ## Loops update: footsteps only while moving on the floor (Roblox Running
-## spec: plastic steps at ~1.85), climb loop on ladders, wind loop in a
-## real fall. Everything positions 3D at the player.
+## spec: plastic steps at ~1.85), climb loop on ladders and stud edges, wind
+## loop in a real fall. Everything positions 3D at the player.
 func _update_loops() -> void:
         if _steps_loop == null or _climb_loop == null:
                 return
         if not is_instance_valid(_steps_loop) or not is_instance_valid(_climb_loop):
                 return
         var hspeed := Vector2(velocity.x, velocity.z).length()
-        var walking := alive and grounded and not climbing and hspeed > 2.0
+        var walking := alive and grounded and not climbing and hspeed > 2.0 * STUD
         _steps_loop.playing = walking
         if walking:
                 # Roblox runs the plastic loop at 1.85; scale a little with speed
@@ -464,6 +643,8 @@ func _update_loops() -> void:
 # ---------------------------------------------------------------- sensors
 
 ## TrussPart-style ladders are Area3D nodes on layer 16 in the "ladder" group.
+## They are tracked (not counted) so the climb can keep its grip across the
+## 1-3 stud gaps between ladder segments.
 func _setup_ladder_sensor() -> void:
         var area := Area3D.new()
         area.name = "LadderSensor"
@@ -472,18 +653,17 @@ func _setup_ladder_sensor() -> void:
         area.monitorable = false
         var shape_node := CollisionShape3D.new()
         var shape := CapsuleShape3D.new()
-        shape.radius = 1.15
-        shape.height = 5.2
+        shape.radius = 1.15 * STUD
+        shape.height = 5.2 * STUD
         shape_node.shape = shape
-        shape_node.position = Vector3(0.0, 2.6, 0.0)
+        shape_node.position = Vector3(0.0, 2.6 * STUD, 0.0)
         area.add_child(shape_node)
         add_child(area)
         area.area_entered.connect(func(other: Area3D) -> void:
-                if other.is_in_group("ladder"):
-                        _ladder_count += 1)
+                if other.is_in_group("ladder") and not _ladder_areas.has(other):
+                        _ladder_areas.append(other))
         area.area_exited.connect(func(other: Area3D) -> void:
-                if other.is_in_group("ladder"):
-                        _ladder_count = maxi(_ladder_count - 1, 0))
+                _ladder_areas.erase(other))
 
 
 ## Touch sensor for special parts: kill bricks, goals, checkpoints, bouncy
@@ -496,10 +676,10 @@ func _setup_touch_sensor() -> void:
         area.monitorable = false
         var shape_node := CollisionShape3D.new()
         var shape := CapsuleShape3D.new()
-        shape.radius = 1.45
-        shape.height = 5.4
+        shape.radius = 1.45 * STUD
+        shape.height = 5.4 * STUD
         shape_node.shape = shape
-        shape_node.position = Vector3(0.0, 2.6, 0.0)
+        shape_node.position = Vector3(0.0, 2.6 * STUD, 0.0)
         area.add_child(shape_node)
         add_child(area)
         area.body_entered.connect(func(other: Node3D) -> void:

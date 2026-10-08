@@ -133,6 +133,16 @@ func _run_all() -> void:
         rig.call("animate", 0.016, 6.0, true)
         rig.call("animate", 0.016, 0.0, true, false)
         check(true, "rig clips + animate ran")
+        # the FBX exports every clip play-once; the classic clips MUST loop
+        var ap: AnimationPlayer = rig.get("_anim_player")
+        check(ap != null, "rig has an AnimationPlayer")
+        for clip in ["Idle", "Walk", "Climb"]:
+                var a := ap.get_animation(clip)
+                check(a != null and a.loop_mode == Animation.LOOP_LINEAR,
+                        "%s clip loops (anims play forever)" % clip)
+        var ja := ap.get_animation("Jump")
+        check(ja != null and ja.loop_mode == Animation.LOOP_NONE, "Jump clip stays single-shot")
+        check(is_equal_approx(float(rig.RIG_HEIGHT), 5.0 * 0.28), "rig is 5 studs = 1.4 units tall")
 
         # --- local player: capsule + sfx loops + jump physics ---
         var player_script: Script = load("res://scripts/player/local_player.gd")
@@ -141,6 +151,24 @@ func _run_all() -> void:
         player.call("setup", "SmokeTester")
         await process_frame
         await process_frame
+        # --- SCALE: 1 stud = 0.28 units, player = 5 studs = 1.4 units ---
+        check(is_equal_approx(float(player_script.WALK_SPEED), 16.0 * 0.28), "WalkSpeed 16 studs/s = 4.48 u/s")
+        check(is_equal_approx(float(player_script.JUMP_SPEED), 50.0 * 0.28), "JumpPower 50 studs/s = 14 u/s")
+        check(is_equal_approx(float(player_script.GRAVITY), 196.2 * 0.28), "gravity 196.2 studs/s^2 scaled")
+        var world_root: Node3D = root.get_node("World")
+        var pad_body: StaticBody3D = null
+        for body in world_root.find_children("*", "StaticBody3D", true, false):
+                if (body as StaticBody3D).is_in_group("spawn"):
+                        pad_body = body
+                        break
+        check(pad_body != null, "spawn pad found in the built world")
+        if pad_body != null:
+                var pad_shape: BoxShape3D = null
+                for child in pad_body.get_children():
+                        if child is CollisionShape3D and (child as CollisionShape3D).shape is BoxShape3D:
+                                pad_shape = (child as CollisionShape3D).shape as BoxShape3D
+                check(pad_shape != null and is_equal_approx(pad_shape.size.x, 9.0 * 0.28),
+                        "9-stud spawn pad is 2.52 units wide (1 stud = 0.28)")
         check(player.get_node_or_null("Avatar") != null, "player has an avatar")
         check(player.get_node_or_null("Footsteps") != null, "footsteps loop exists")
         check(player.get_node_or_null("ClimbLoop") != null, "climb loop exists")
@@ -150,9 +178,9 @@ func _run_all() -> void:
         check(sfx_node != null and sfx_node.get("_fall") != null, "falling wind sound loaded")
         check(sfx_node != null and sfx_node.get("_oof") != null, "original uuhhh oof loaded")
         check(sfx_node != null and sfx_node.get("_steps") != null, "authentic plastic footsteps loaded")
-        # settle on the baseplate far from every world's builds — the spot at
-        # the old (0,3,6) now sits under the Wobbly Tower's kill bricks!
-        player.global_position = Vector3(40.0, 1.2, -40.0)
+        # settle FAR from every world's builds — all five worlds share the
+        # tree, so the spot must only touch the baseplate (140 studs wide)
+        player.global_position = Vector3(40.0, 3.0, -40.0) * 0.28
         for i in range(20):
                 player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false)
                 await physics_frame
@@ -160,30 +188,108 @@ func _run_all() -> void:
         player.call("drive", 0.016, Vector2.ZERO, 0.0, true, false)
         check(player.velocity.y > 10.0, "jump launches (v=%.1f)" % player.velocity.y)
 
-        # --- ladder dismount: jump while climbing must launch you OFF ---
-        for i in range(10):
+        # --- ladders: face the rungs + press W to grab; jump OFF; gaps OK ---
+        # land fully first (the previous jump is still airborne)
+        for i in range(60):
                 player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false)
+                if player.get("grounded"):
+                        break
                 await physics_frame
-        player.set("_ladder_count", 1)
-        # climb for a few frames (W pressed: forward = up the rungs)
+        player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false)
+        await physics_frame
+        # a REAL truss volume on layer 16, hugging the player (sensor reach is
+        # 1.15 studs = 0.32 units at the new scale)
+        var ladder := Area3D.new()
+        ladder.collision_layer = 16
+        ladder.add_to_group("ladder")
+        var lad_col := CollisionShape3D.new()
+        var lad_shape := BoxShape3D.new()
+        lad_shape.size = Vector3(0.5, 3.0, 0.5)
+        lad_col.shape = lad_shape
+        ladder.add_child(lad_col)
+        root.add_child(ladder)
+        ladder.global_position = player.global_position + Vector3(0.0, 1.0, -0.4)
+        await physics_frame
+        await physics_frame
+        check(not player.get("_ladder_areas").is_empty(), "ladder sensor tracks truss volumes")
+        # W (facing the rungs) grabs on
         for i in range(4):
                 player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
-        check(player.get("climbing"), "climb engages on a ladder")
+        check(player.get("climbing"), "facing the ladder + W engages the climb")
+        # a GAP between ladder segments: volume disappears, grip holds (grace)
+        ladder.global_position = Vector3(0.0, 500.0, 0.0)
+        await physics_frame
+        await physics_frame
+        check(player.get("_ladder_areas").is_empty(), "player left the truss volume")
+        player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
+        check(player.get("climbing"), "climb grace carries across segment gaps")
         # jump OFF — dismount timer must fire and hold the launch
         player.call("drive", 0.016, Vector2.ZERO, 0.0, true, false)
         check(player.get("_ladder_dismount") > 0.0, "ladder dismount timer set")
-        check(player.velocity.y > 20.0, "ladder jump launches (v=%.1f)" % player.velocity.y)
+        check(player.velocity.y > 6.0, "ladder jump launches (v=%.1f)" % player.velocity.y)
         check(not player.get("climbing"), "jumping off stops climbing")
         # during the dismount window even W cannot re-grab the rungs
+        ladder.global_position = player.global_position + Vector3(0.0, 1.0, -0.4)
+        await physics_frame
         for i in range(4):
                 player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
         check(not player.get("climbing"), "no re-grab during dismount window")
-
-        # --- shift lock disables climbing entirely ---
         player.set("_ladder_dismount", 0.0)
-        player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, true)
-        check(not player.get("climbing"), "shift lock ON ignores ladders")
-        player.set("_ladder_count", 0)
+        # FACE OFF = FALL: climbing again, then press S — the body turns away
+        # from the rungs, the grip breaks and you fall (no climb without facing)
+        for i in range(4):
+                player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
+        check(player.get("climbing"), "re-grab works once the dismount window ends")
+        for i in range(14):
+                player.call("drive", 0.016, Vector2(0.0, 1.0), 0.0, false, false)
+        check(not player.get("climbing"), "facing away mid-climb lets go and falls")
+        ladder.queue_free()
+        await physics_frame
+
+        # --- STUD EDGE climb: walk into a platform side while facing it ---
+        var floor_body := StaticBody3D.new()
+        var floor_col := CollisionShape3D.new()
+        var floor_shape := BoxShape3D.new()
+        floor_shape.size = Vector3(8.0, 0.2, 8.0)
+        floor_col.shape = floor_shape
+        floor_body.add_child(floor_col)
+        root.add_child(floor_body)
+        floor_body.global_position = Vector3(0.0, -0.1, 0.0)
+        var wall := StaticBody3D.new()
+        var wall_col := CollisionShape3D.new()
+        var wall_shape := BoxShape3D.new()
+        wall_shape.size = Vector3(0.6, 3.0, 6.0)
+        wall_col.shape = wall_shape
+        wall.add_child(wall_col)
+        root.add_child(wall)
+        wall.global_position = Vector3(2.0, 1.5, 0.0)   # face at x = 1.7
+        await physics_frame
+        player.global_position = Vector3(1.0, 0.05, 0.0)
+        player.set("heading", -PI / 2)   # face +X, straight at the platform edge
+        for i in range(4):
+                player.call("drive", 0.016, Vector2(0.0, -1.0), -PI / 2, false, false)
+        check(player.get("climbing"), "walking into a stud edge facing it climbs")
+        # face away (press S, body turns) -> let go and fall
+        for i in range(14):
+                player.call("drive", 0.016, Vector2(0.0, 1.0), -PI / 2, false, false)
+        check(not player.get("climbing"), "facing off a stud edge drops you")
+        # walk PAST the wall (parallel) must NOT grab it
+        player.global_position = Vector3(1.0, 0.05, 0.0)
+        player.set("heading", PI)   # face +Z, parallel to the wall face
+        for i in range(4):
+                player.call("drive", 0.016, Vector2(0.0, -1.0), PI, false, false)
+        check(not player.get("climbing"), "sliding along a wall does not grab it")
+        player.set("heading", 0.0)
+        wall.queue_free()
+        floor_body.queue_free()
+        await physics_frame
+
+        # --- login: account gate + once-only sign-in ---
+        var login_src := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
+        check(not login_src.contains("PLAY AS GUEST"), "login gate: no guest bypass button")
+        check(login_src.contains("_try_auto_login"), "login auto-signs saved sessions")
+        check(login_src.contains("401"),
+                "saved token survives network failures (only 401 clears it)")
 
         # --- chat box: lines render, unread badge counts when collapsed ---
         var chat_script: Script = load("res://scripts/game/chat_box.gd")

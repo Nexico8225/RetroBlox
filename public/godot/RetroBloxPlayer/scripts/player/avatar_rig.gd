@@ -20,7 +20,10 @@ const LEG_R := 5
 const HEAD_INDEX := 0
 
 const RIG_SCENE_PATH := "res://assets/models/retroblox_anims.fbx"
-const RIG_HEIGHT := 5.0
+## 1 stud = 0.28 Godot units — the official conversion. The rig is 5 studs
+## tall = 1.4 units, matching the world and the player capsule exactly.
+const STUD := 0.28
+const RIG_HEIGHT := 5.0 * STUD
 const SITE_RIG_HEIGHT := 5.0
 
 const ANIM_IDLE := &"Idle"
@@ -46,12 +49,12 @@ const PART_ALIASES: Array = [
 ]
 const RIG_NAME_CHARS := "abcdefghijklmnopqrstuvwxyz0123456789_"
 
-# classic R6 proportions (studs) for the code-built box body
-const BOX_LEG_H := 2.0
-const BOX_TORSO := Vector3(2.0, 2.0, 1.0)
-const BOX_ARM := Vector3(1.0, 2.0, 1.0)
-const BOX_LEG := Vector3(1.0, 2.0, 1.0)
-const BOX_HEAD := Vector3(1.15, 1.15, 1.15)
+# classic R6 proportions (studs) for the code-built box body — scaled by STUD
+const BOX_LEG_H := 2.0 * STUD
+const BOX_TORSO := Vector3(2.0, 2.0, 1.0) * STUD
+const BOX_ARM := Vector3(1.0, 2.0, 1.0) * STUD
+const BOX_LEG := Vector3(1.0, 2.0, 1.0) * STUD
+const BOX_HEAD := Vector3(1.15, 1.15, 1.15) * STUD
 
 var parts: Array[MeshInstance3D] = []
 var HEAD_PIVOT_Y := 0.0  # head center height, set by the active mode
@@ -164,7 +167,7 @@ func set_face(tex: Texture2D, face_scale: float) -> void:
         quad.material_override = material
         var host: Node3D = _mounts[HEAD_INDEX]
         host.add_child(quad)
-        quad.position = Vector3(0.0, head_size.y * 0.04, -head_size.z * 0.5 - 0.012)
+        quad.position = Vector3(0.0, head_size.y * 0.04, -head_size.z * 0.5 - 0.004)
         quad.rotation.y = PI
         _face_decal = quad
 
@@ -183,12 +186,12 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
         var rate := 1.0
         if climbing:
                 next = ANIM_CLIMB
-                rate = clampf(speed / 6.0, 0.5, 1.5)
+                rate = clampf(speed / (9.0 * STUD), 0.5, 1.5)
         elif not grounded:
                 next = ANIM_JUMP
-        elif speed > 1.2:
+        elif speed > 1.2 * STUD:
                 next = ANIM_WALK
-                rate = clampf(speed / 8.0, 0.8, 2.2)
+                rate = clampf(speed / (8.0 * STUD), 0.8, 2.2)
         if _current_anim != next:
                 _current_anim = next
                 _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
@@ -212,7 +215,7 @@ func play_emote(clip: String) -> void:
 
 
 func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
-        var movement := clampf(absf(speed) / 5.0, 0.0, 1.0)
+        var movement := clampf(absf(speed) / (5.0 * STUD), 0.0, 1.0)
         var walk_rate := 4.8 + movement * 2.0
         var swing := sin(_time * walk_rate) * movement
         if climbing:
@@ -257,14 +260,14 @@ func burst(world: Node3D, impulse_seed: int) -> void:
         for i in range(parts.size()):
                 var piece := _make_debris_piece(debris, i)
                 piece.linear_velocity = Vector3(
-                        rng.randf_range(-4.8, 4.8), rng.randf_range(4.0, 7.5), rng.randf_range(-4.8, 4.8))
+                        rng.randf_range(-4.8, 4.8), rng.randf_range(4.0, 7.5), rng.randf_range(-4.8, 4.8)) * STUD
                 piece.angular_velocity = Vector3(
                         rng.randf_range(-5.5, 5.5), rng.randf_range(-5.5, 5.5), rng.randf_range(-5.5, 5.5))
         var audio := AudioStreamPlayer3D.new()
         audio.name = "OriginalOof"
         audio.stream = _get_oof_audio()
-        audio.max_distance = 40.0
-        audio.unit_size = 10.0
+        audio.max_distance = 40.0 * STUD
+        audio.unit_size = 10.0 * STUD
         debris.add_child(audio)
         audio.play()
         var cleanup := world.get_tree().create_timer(5.0)
@@ -322,6 +325,13 @@ func _try_r6ik() -> bool:
                 var ap := node as AnimationPlayer
                 ap.autoplay = ""
                 ap.stop()
+                # the FBX exports EVERY clip as play-once — the classic clips
+                # must LOOP (idle/walk/climb/sit) or the character freezes
+                # after one second. Jump keeps its single-shot arc.
+                for clip in [ANIM_IDLE, ANIM_WALK, ANIM_CLIMB, ANIM_SIT]:
+                        var looped := ap.get_animation(clip)
+                        if looped != null:
+                                looped.loop_mode = Animation.LOOP_LINEAR
                 var jump_anim := ap.get_animation(ANIM_JUMP)
                 if jump_anim != null:
                         jump_anim.loop_mode = Animation.LOOP_NONE
@@ -371,7 +381,7 @@ func _try_r6ik() -> bool:
                 _pivots.append(null)
 
         _nameplate = _make_nameplate()
-        _nameplate.position = Vector3(0.0, RIG_HEIGHT + 0.9, 0.0)
+        _nameplate.position = Vector3(0.0, RIG_HEIGHT + 0.9 * STUD, 0.0)
         add_child(_nameplate)
         _nameplate.text = _display_name
 
@@ -391,14 +401,14 @@ func _build_boxes() -> void:
         if _face_decal != null and is_instance_valid(_face_decal):
                 _face_decal = null
 
-        # limbs hang from pivots at shoulder (y=4) / hip (y=2)
+        # limbs hang from pivots at shoulder (y=4) / hip (y=2) — studs * STUD
         var limb_defs: Array = [
-                [HEAD, Vector3(0, 4.0 + BOX_HEAD.y * 0.5 - 0.05, 0), BOX_HEAD, null],
-                [TORSO, Vector3(0, 3.0, 0), BOX_TORSO, null],
-                [ARM_L, Vector3(-1.5, 3.0, 0), BOX_ARM, Vector3(-1.5, 4.0, 0)],
-                [ARM_R, Vector3(1.5, 3.0, 0), BOX_ARM, Vector3(1.5, 4.0, 0)],
-                [LEG_L, Vector3(-0.5, 1.0, 0), BOX_LEG, Vector3(-0.5, 2.0, 0)],
-                [LEG_R, Vector3(0.5, 1.0, 0), BOX_LEG, Vector3(0.5, 2.0, 0)],
+                [HEAD, Vector3(0, 4.0 + 1.15 * 0.5 - 0.05, 0) * STUD, BOX_HEAD, null],
+                [TORSO, Vector3(0, 3.0, 0) * STUD, BOX_TORSO, null],
+                [ARM_L, Vector3(-1.5, 3.0, 0) * STUD, BOX_ARM, Vector3(-1.5, 4.0, 0) * STUD],
+                [ARM_R, Vector3(1.5, 3.0, 0) * STUD, BOX_ARM, Vector3(1.5, 4.0, 0) * STUD],
+                [LEG_L, Vector3(-0.5, 1.0, 0) * STUD, BOX_LEG, Vector3(-0.5, 2.0, 0) * STUD],
+                [LEG_R, Vector3(0.5, 1.0, 0) * STUD, BOX_LEG, Vector3(0.5, 2.0, 0) * STUD],
         ]
         for def in limb_defs:
                 var index: int = def[0]
@@ -445,10 +455,10 @@ func _build_boxes() -> void:
                 else:
                         mount.position = Vector3.ZERO
                 _mounts.append(mount)
-        HEAD_PIVOT_Y = 4.0 + BOX_HEAD.y * 0.5 - 0.05
+        HEAD_PIVOT_Y = (4.0 + 1.15 * 0.5 - 0.05) * STUD
 
         _nameplate = _make_nameplate()
-        _nameplate.position = Vector3(0.0, RIG_HEIGHT + 0.9, 0.0)
+        _nameplate.position = Vector3(0.0, RIG_HEIGHT + 0.9 * STUD, 0.0)
         add_child(_nameplate)
         _nameplate.text = _display_name
 
@@ -458,9 +468,9 @@ func _make_nameplate() -> Label3D:
         label.name = "Nameplate"
         label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
         label.no_depth_test = true
-        label.pixel_size = 0.012
-        label.font_size = 44
-        label.outline_size = 8
+        label.pixel_size = 0.007
+        label.font_size = 40
+        label.outline_size = 7
         label.modulate = Color.WHITE
         label.outline_modulate = Color(0, 0, 0, 0.85)
         label.text = _display_name

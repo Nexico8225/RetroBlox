@@ -7,7 +7,9 @@ extends Area3D
 signal collected(coin: Area3D)
 
 const SPIN_SPEED := 2.6          # radians / second
-const BOB_HEIGHT := 0.28
+## 1 stud = 0.28 units — the coin is a ~2-stud disc, pickup range in studs
+const STUD := 0.28
+const BOB_HEIGHT := 0.35 * STUD
 const BOB_RATE := 2.2
 
 var _phase := 0.0
@@ -26,9 +28,9 @@ func _init() -> void:
         var mesh_node := MeshInstance3D.new()
         mesh_node.name = "Disc"
         var cyl := CylinderMesh.new()
-        cyl.top_radius = 0.95
-        cyl.bottom_radius = 0.95
-        cyl.height = 0.22
+        cyl.top_radius = 0.95 * STUD
+        cyl.bottom_radius = 0.95 * STUD
+        cyl.height = 0.22 * STUD
         cyl.radial_segments = 24
         mesh_node.mesh = cyl
         mesh_node.rotation_degrees = Vector3(90.0, 0.0, 0.0)  # stand upright
@@ -47,9 +49,9 @@ func _init() -> void:
         var inner := MeshInstance3D.new()
         inner.name = "Inner"
         var inner_cyl := CylinderMesh.new()
-        inner_cyl.top_radius = 0.6
-        inner_cyl.bottom_radius = 0.6
-        inner_cyl.height = 0.26
+        inner_cyl.top_radius = 0.6 * STUD
+        inner_cyl.bottom_radius = 0.6 * STUD
+        inner_cyl.height = 0.26 * STUD
         inner_cyl.radial_segments = 20
         inner.mesh = inner_cyl
         inner.rotation_degrees = Vector3(90.0, 0.0, 0.0)
@@ -60,12 +62,12 @@ func _init() -> void:
         inner.material_override = imat
         mesh_node.add_child(inner)
 
-        # pickup range
+        # pickup range (studs)
         var shape_node := CollisionShape3D.new()
         var shape := SphereShape3D.new()
-        shape.radius = 1.7
+        shape.radius = 1.7 * STUD
         shape_node.shape = shape
-        shape_node.position = Vector3(0.0, 1.5, 0.0)
+        shape_node.position = Vector3(0.0, 1.5 * STUD, 0.0)
         add_child(shape_node)
 
 
@@ -110,11 +112,11 @@ func _sparkle() -> void:
         burst.explosiveness = 0.95
         burst.direction = Vector3.UP
         burst.spread = 180.0
-        burst.initial_velocity_min = 3.0
-        burst.initial_velocity_max = 6.5
-        burst.gravity = Vector3(0.0, -9.0, 0.0)
-        burst.scale_amount_min = 0.12
-        burst.scale_amount_max = 0.3
+        burst.initial_velocity_min = 3.0 * STUD
+        burst.initial_velocity_max = 6.5 * STUD
+        burst.gravity = Vector3(0.0, -9.0 * STUD, 0.0)
+        burst.scale_amount_min = 0.12 * STUD
+        burst.scale_amount_max = 0.3 * STUD
         burst.mesh = BoxMesh.new()
         (burst.mesh as BoxMesh).size = Vector3.ONE
         burst.color = Color("ffd23f")

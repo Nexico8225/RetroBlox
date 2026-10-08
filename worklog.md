@@ -1184,3 +1184,18 @@ Work Log:
 Stage Summary:
 - The player is now a full little game: music, collectibles, a 5th place, juice, commands, fullscreen
 - Download lives at https://retro-blox.vercel.app/sdk (green button -> /godot/retroblox-godot-player.zip)
+
+Task ID: godot-stud-scale-1
+Agent: Super Z (main)
+Task: real stud scale (1 stud = 0.28), working anims, Roblox climbing (ladders w/ gaps + stud-edge climb, face-to-climb), login gate with once-only sign-in
+
+Work Log:
+- Audited the FBX: every clip (Idle/Walk/Climb/Sit) exported LOOP_NONE — the character froze after 1s; now Idle/Walk/Climb/Sit loop LINEAR, Jump single-shot
+- Scale pass: 1 stud = 0.28 Godot units everywhere (player capsule 5.2 studs = 1.456u, WalkSpeed 16 studs/s = 4.48 u/s, gravity 196.2 studs/s^2); world builder converts at the _build_part boundary, visual props build inside STUD-scaled groups, stud texture uv1_scale 1/STUD keeps 1 stud per tile; camera zoom/pivot, HUD bubbles, nameplate, 3D audio ranges rescaled
+- Climb rework: unified ladder+wall system — face the rungs/edge + W to grab, W/S up/down, grace window carries across 1-3 stud ladder segment gaps and plate stacks, mantle pops you over the top lip, facing away mid-climb lets go and falls, Space jumps OFF (dismount window), stud-edge climb needs wall >= ~2 studs (smaller steps stay step-up)
+- Login gate: guest button removed (offline hatch only appears when the server is unreachable); auto-login only wipes the saved token on a real 401 — network hiccups keep you signed in; username remembered + Log Out button in the menu
+- Smoke test rebuilt around the new rules: 12 climb/scale/anim/login checks, SMOKE_OK in-repo and on a fresh unzip of the shipped zip
+
+Stage Summary:
+- The client now plays at authentic Roblox scale with real looping animations and Roblox-style truss + stud-edge climbing; zip (104 files) rebuilt + verified; pushed as godot-stud-scale-1
+

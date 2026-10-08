@@ -171,8 +171,8 @@ func _play_one_shot_3d(stream: AudioStream, kind: String, at: Node3D, db: float)
         p.name = kind
         p.stream = stream
         p.bus = "SFX"
-        p.max_distance = 60.0
-        p.unit_size = 8.0
+        p.max_distance = 24.0
+        p.unit_size = 3.2
         p.volume_db = db
         at.add_child(p)
         p.play()
@@ -189,13 +189,13 @@ func make_loop_3d(kind: String, at: Node3D) -> AudioStreamPlayer3D:
                 "FallingLoop":
                         p.stream = _fall
                         p.volume_db = -10.0
-                        p.max_distance = 50.0
-                        p.unit_size = 9.0
+                        p.max_distance = 20.0
+                        p.unit_size = 3.6
                 _:
                         p.stream = _steps
                         p.volume_db = -14.0
-                        p.max_distance = 45.0
-                        p.unit_size = 7.0
+                        p.max_distance = 18.0
+                        p.unit_size = 2.8
         at.add_child(p)
         return p
 

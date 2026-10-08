@@ -19,6 +19,7 @@ const SAVE_PATH := "user://retroblox_session.cfg"
 const VERSION := "2.0"
 
 var token: String = ""
+var saved_username: String = ""   # remembered so the login field pre-fills
 var _busy := 0
 
 signal busy_changed(count: int)
@@ -30,9 +31,15 @@ func _ready() -> void:
 
 # ---------------------------------------------------------------- session disk
 
-func save_session() -> void:
+## The token is what keeps you logged in — once saved, every future boot
+## auto-signs in with zero typing. The username is remembered too, just so
+## the login field pre-fills if the token ever expires.
+func save_session(p_username := "") -> void:
+        if p_username != "":
+                saved_username = p_username
         var cf := ConfigFile.new()
         cf.set_value("auth", "token", token)
+        cf.set_value("auth", "username", saved_username)
         cf.save(SAVE_PATH)
 
 
@@ -40,6 +47,7 @@ func _load_saved() -> void:
         var cf := ConfigFile.new()
         if cf.load(SAVE_PATH) == OK:
                 token = String(cf.get_value("auth", "token", ""))
+                saved_username = String(cf.get_value("auth", "username", ""))
 
 
 func clear_session() -> void:

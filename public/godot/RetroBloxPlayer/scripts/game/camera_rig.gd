@@ -3,11 +3,12 @@ extends Node3D
 ## collision-aware spring arm, scroll zoom, and classic Shift Lock (the
 ## character squares up to the camera and it parks on the right shoulder).
 
-const PIVOT_HEIGHT := 4.6      # look from just above the head
-const MIN_ZOOM := 6.0
-const MAX_ZOOM := 26.0
-const DEFAULT_ZOOM := 14.0
-const SHOULDER_OFFSET := 2.1   # shift-lock right-shoulder park
+const STUD := 0.28            # 1 stud = 0.28 Godot units (Roblox conversion)
+const PIVOT_HEIGHT := 4.6 * STUD      # look from just above the head (5-stud rig)
+const MIN_ZOOM := 6.0 * STUD
+const MAX_ZOOM := 26.0 * STUD
+const DEFAULT_ZOOM := 14.0 * STUD
+const SHOULDER_OFFSET := 2.1 * STUD   # shift-lock right-shoulder park
 
 var player: Node3D
 var yaw := 0.0
@@ -29,13 +30,13 @@ func _init() -> void:
         _arm = SpringArm3D.new()
         _arm.spring_length = DEFAULT_ZOOM
         _arm.collision_mask = 1
-        _arm.margin = 0.4
+        _arm.margin = 0.4 * STUD
         _pivot.add_child(_arm)
 
         _camera = Camera3D.new()
         _camera.fov = 70.0
-        _camera.near = 0.2
-        _camera.far = 900.0
+        _camera.near = 0.05
+        _camera.far = 600.0
         _camera.current = true
         _arm.add_child(_camera)
 
@@ -87,9 +88,9 @@ func _unhandled_input(event: InputEvent) -> void:
         elif event is InputEventMouseButton and event.is_pressed():
                 var mb := event as InputEventMouseButton
                 if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-                        distance = clampf(distance - 2.0, MIN_ZOOM, MAX_ZOOM)
+                        distance = clampf(distance - 2.0 * STUD, MIN_ZOOM, MAX_ZOOM)
                 elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-                        distance = clampf(distance + 2.0, MIN_ZOOM, MAX_ZOOM)
+                        distance = clampf(distance + 2.0 * STUD, MIN_ZOOM, MAX_ZOOM)
 
 
 func _process(_delta: float) -> void:

@@ -55,7 +55,7 @@ func _ready() -> void:
         add_child(built["root"])
         _spawns = built["spawns"]
         if _spawns.is_empty():
-                _spawns.append(Vector3(0.0, 6.0, 0.0))
+                _spawns.append(Vector3(0.0, 6.0, 0.0) * WorldBuilderScript.STUD)
 
         # ---- me ----
         player = LocalPlayerScript.new()
@@ -113,8 +113,8 @@ func _physics_process(delta: float) -> void:
         var jump := Input.is_action_just_pressed("jump")
         player.drive(delta, dir, camera_rig.drive_yaw(), jump, camera_rig.shift_locked)
 
-        # fall into the void -> die (the oof knows)
-        if player.alive and player.global_position.y < float(place.get("void_y", -40.0)):
+        # fall into the void -> die (the oof knows). void_y is authored in studs.
+        if player.alive and player.global_position.y < float(place.get("void_y", -40.0)) * WorldBuilderScript.STUD:
                 player.die(self)
                 _start_respawn()
 
@@ -656,6 +656,22 @@ func _build_menu() -> Control:
                 Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
                 get_tree().change_scene_to_file("res://scenes/hub.tscn"))
         actions.add_child(leave)
+
+        # LOG OUT — wipes the saved session and returns to the login gate
+        var logout := Button.new()
+        logout.text = "Log Out"
+        logout.custom_minimum_size = Vector2(110, 40)
+        logout.focus_mode = Control.FOCUS_NONE
+        logout.add_theme_stylebox_override("normal", _menu_btn_style(Color("4a3a55")))
+        logout.add_theme_stylebox_override("hover", _menu_btn_style(Color("5c4a6b")))
+        logout.add_theme_stylebox_override("pressed", _menu_btn_style(Color("3a2d44")))
+        logout.add_theme_color_override("font_color", Color.WHITE)
+        logout.pressed.connect(func() -> void:
+                Api.clear_session()
+                Session.reset()
+                Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+                get_tree().change_scene_to_file("res://scenes/login.tscn"))
+        actions.add_child(logout)
 
         var hint := Label.new()
         hint.text = "Chat with ENTER — everyone online sees it. Esc closes this menu."

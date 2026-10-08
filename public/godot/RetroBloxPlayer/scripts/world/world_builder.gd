@@ -29,7 +29,22 @@ const StudColorEdge := Color("000000", 0.10)
 
 const CoinScript := preload("res://scripts/world/coin.gd")
 
+## SCALE — place definitions are authored in STUDS (classic Roblox units);
+## they are converted here at the build boundary: 1 stud = 0.28 Godot units.
+## A 5-stud avatar is 1.4 units tall and every part keeps its stud numbers.
+const STUD := 0.28
+
 static var _stud_tex: ImageTexture
+
+
+## Visual-only containers (props) build in stud units inside a group node
+## scaled by STUD — zero risk of missing a literal, exact 0.28x everywhere.
+static func _scaled_group(root: Node3D, pos_units: Vector3) -> Node3D:
+        var g := Node3D.new()
+        g.position = pos_units
+        g.scale = Vector3.ONE * STUD
+        root.add_child(g)
+        return g
 
 
 ## Build a whole place. Returns { root, spawns: Array[Vector3] }.
@@ -67,7 +82,7 @@ static func build(def: Dictionary) -> Dictionary:
         sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
         sun.light_energy = 1.15
         sun.shadow_enabled = true
-        sun.directional_shadow_max_distance = 180.0
+        sun.directional_shadow_max_distance = 80.0
         root.add_child(sun)
         var settings: Node = Engine.get_main_loop().root.get_node_or_null("/root/Settings")
         if settings != null:
@@ -98,8 +113,9 @@ static func _build_part(root: Node3D, part: Dictionary, tex: ImageTexture, spawn
         var s: Array = part.get("s", [4, 1, 4])
         var group: String = part.get("g", "")
         var mat_kind: String = part.get("m", "plastic")
-        var pos := Vector3(float(p[0]), float(p[1]), float(p[2]))
-        var size := Vector3(float(s[0]), float(s[1]), float(s[2]))
+        # THE stud conversion: everything below lives in Godot units
+        var pos := Vector3(float(p[0]), float(p[1]), float(p[2])) * STUD
+        var size := Vector3(float(s[0]), float(s[1]), float(s[2])) * STUD
         var color := Color(part.get("c", "a3a2a5"))
         var shape: String = part.get("shape", "box")
 
@@ -164,12 +180,12 @@ static func _build_part(root: Node3D, part: Dictionary, tex: ImageTexture, spawn
         if group != "":
                 body.add_to_group(group)
         if group == "spawn":
-                spawns.append(pos + Vector3(0.0, size.y * 0.5 + 0.2, 0.0))
+                spawns.append(pos + Vector3(0.0, size.y * 0.5 + 0.2 * STUD, 0.0))
                 _spawn_pad_visual(root, pos, size)
         if group == "checkpoint":
-                body.set_meta("spawn", pos + Vector3(0.0, size.y * 0.5 + 0.2, 0.0))
+                body.set_meta("spawn", pos + Vector3(0.0, size.y * 0.5 + 0.2 * STUD, 0.0))
         if group == "goal":
-                _goal_sparkle(root, pos + Vector3(0.0, size.y * 0.5 + 0.6, 0.0))
+                _goal_sparkle(root, pos + Vector3(0.0, size.y * 0.5 + 0.6 * STUD, 0.0))
         root.add_child(body)
 
 
@@ -181,14 +197,14 @@ static func _goal_sparkle(root: Node3D, at: Vector3) -> void:
         fx.lifetime = 1.6
         fx.preprocess = 1.2
         fx.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-        fx.emission_sphere_radius = 2.2
+        fx.emission_sphere_radius = 2.2 * STUD
         fx.direction = Vector3.UP
         fx.spread = 30.0
-        fx.initial_velocity_min = 0.6
-        fx.initial_velocity_max = 1.6
+        fx.initial_velocity_min = 0.6 * STUD
+        fx.initial_velocity_max = 1.6 * STUD
         fx.gravity = Vector3.ZERO
-        fx.scale_amount_min = 0.06
-        fx.scale_amount_max = 0.16
+        fx.scale_amount_min = 0.06 * STUD
+        fx.scale_amount_max = 0.16 * STUD
         fx.mesh = BoxMesh.new()
         (fx.mesh as BoxMesh).size = Vector3.ONE
         fx.color = Color("ffe37a")
@@ -200,7 +216,9 @@ static func _goal_sparkle(root: Node3D, at: Vector3) -> void:
 
 static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> void:
         var p: Array = prop.get("p", [0, 0, 0])
-        var pos := Vector3(float(p[0]), float(p[1]), float(p[2]))
+        # prop origins convert to units here; sizes stay in studs for the
+        # wrap-scaled visual builders, or convert below for physics props
+        var pos := Vector3(float(p[0]), float(p[1]), float(p[2])) * STUD
         match String(prop.get("type", "")):
                 "tree":
                         _tree(root, pos, float(prop.get("h", 7.0)))
@@ -211,18 +229,18 @@ static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> vo
                         _fence(root, pos, Vector3(float(fs[0]), float(fs[1]), float(fs[2])), prop.get("yaw", 0.0))
                 "crate":
                         var cs: Array = prop.get("s", [2.4, 2.4, 2.4])
-                        _crate(root, pos, Vector3(float(cs[0]), float(cs[1]), float(cs[2])))
+                        _crate(root, pos, Vector3(float(cs[0]), float(cs[1]), float(cs[2])) * STUD)
                 "cloud":
                         _cloud(root, pos, float(prop.get("s", 6.0)))
                 "cloudpad":
                         var ps: Array = prop.get("s", [8, 8])
-                        _cloudpad(root, pos, Vector2(float(ps[0]), float(ps[1])), tex)
+                        _cloudpad(root, pos, Vector2(float(ps[0]), float(ps[1])) * STUD, tex)
                 "sign":
                         _sign(root, pos, String(prop.get("title", "")), String(prop.get("text", "")),
                                 Vector2(float(prop.get("w", 14.0)), float(prop.get("h", 7.0))),
                                 float(prop.get("yaw", 0.0)), prop.get("c", "27c7d8"), prop.get("title_c", "ffd400"))
                 "pipe":
-                        _pipe(root, pos, float(prop.get("h", 6.0)), float(prop.get("r", 2.0)))
+                        _pipe(root, pos, float(prop.get("h", 6.0)) * STUD, float(prop.get("r", 2.0)) * STUD)
                 "arch":
                         _arch(root, pos, float(prop.get("yaw", 0.0)))
                 "house":
@@ -238,7 +256,9 @@ static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> vo
 
 
 static func _tree(root: Node3D, pos: Vector3, h: float) -> void:
-        # trunk (cylinder) + 2-3 stacked green spheres — the classic look
+        # trunk (cylinder) + 2-3 stacked green spheres — the classic look.
+        # Built in stud units inside a STUD-scaled group.
+        var group := _scaled_group(root, pos)
         var trunk := MeshInstance3D.new()
         var tm := CylinderMesh.new()
         tm.height = h * 0.55
@@ -246,12 +266,12 @@ static func _tree(root: Node3D, pos: Vector3, h: float) -> void:
         tm.bottom_radius = 0.55
         trunk.mesh = tm
         trunk.material_override = _flat_mat(Color("8a5a33"), 0.92)
-        trunk.position = pos + Vector3(0.0, h * 0.275, 0.0)
-        root.add_child(trunk)
+        trunk.position = Vector3(0.0, h * 0.275, 0.0)
+        group.add_child(trunk)
         var leaf := Color("2e9e3e")
         var canopy := Node3D.new()
-        canopy.position = pos + Vector3(0.0, h * 0.55, 0.0)
-        root.add_child(canopy)
+        canopy.position = Vector3(0.0, h * 0.55, 0.0)
+        group.add_child(canopy)
         var blobs: Array = [
                 [Vector3(0.0, 1.4, 0.0), 2.6],
                 [Vector3(1.3, 0.6, 0.5), 1.9],
@@ -273,16 +293,17 @@ static func _tree(root: Node3D, pos: Vector3, h: float) -> void:
 static func _flower(root: Node3D, pos: Vector3, color: Color) -> void:
         # green stem + 4 petals (boxes in a cross) + yellow center — exactly
         # the little garden flowers every classic spawn town planted
+        var group := _scaled_group(root, pos)
         var stem := MeshInstance3D.new()
         var sm := BoxMesh.new()
         sm.size = Vector3(0.16, 1.1, 0.16)
         stem.mesh = sm
         stem.material_override = _flat_mat(Color("3e9b3e"), 0.85)
-        stem.position = pos + Vector3(0.0, 0.55, 0.0)
-        root.add_child(stem)
+        stem.position = Vector3(0.0, 0.55, 0.0)
+        group.add_child(stem)
         var head := Node3D.new()
-        head.position = pos + Vector3(0.0, 1.2, 0.0)
-        root.add_child(head)
+        head.position = Vector3(0.0, 1.2, 0.0)
+        group.add_child(head)
         var petal := Color(color)
         var yellow := Color("ffd400")
         for dir in [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]:
@@ -303,10 +324,8 @@ static func _flower(root: Node3D, pos: Vector3, color: Color) -> void:
 
 static func _fence(root: Node3D, pos: Vector3, size: Vector3, yaw_deg: float) -> void:
         var wood := Color("7a4b28")
-        var group := Node3D.new()
-        group.position = pos
+        var group := _scaled_group(root, pos)
         group.rotation_degrees.y = yaw_deg
-        root.add_child(group)
         var rail_len := size.x
         for off in [-0.28, 0.28]:
                 var rail := MeshInstance3D.new()
@@ -352,13 +371,13 @@ static func _crate(root: Node3D, pos: Vector3, size: Vector3) -> void:
                         var bar := MeshInstance3D.new()
                         var bm := BoxMesh.new()
                         if axis == 0:
-                                bm.size = Vector3(size.x * 1.02, 0.24, 0.24)
+                                bm.size = Vector3(size.x * 1.02, 0.24 * STUD, 0.24 * STUD)
                                 bar.position = Vector3(0.0, 0.0, sign_i * size.z * 0.51)
                         elif axis == 1:
-                                bm.size = Vector3(0.24, size.y * 1.02, 0.24)
+                                bm.size = Vector3(0.24 * STUD, size.y * 1.02, 0.24 * STUD)
                                 bar.position = Vector3(sign_i * size.x * 0.51, 0.0, 0.0)
                         else:
-                                bm.size = Vector3(0.24, 0.24, size.z * 1.02)
+                                bm.size = Vector3(0.24 * STUD, 0.24 * STUD, size.z * 1.02)
                                 bar.position = Vector3(0.0, sign_i * size.y * 0.51, 0.0)
                         bar.mesh = bm
                         bar.material_override = _flat_mat(frame, 0.9)
@@ -367,9 +386,7 @@ static func _crate(root: Node3D, pos: Vector3, size: Vector3) -> void:
 
 static func _cloud(root: Node3D, pos: Vector3, scale: float) -> void:
         # pure decoration cloud — 3-4 white spheres, no collision
-        var group := Node3D.new()
-        group.position = pos
-        root.add_child(group)
+        var group := _scaled_group(root, pos)
         var white := Color(1.0, 1.0, 1.0, 1.0)
         var puffs: Array = [
                 [Vector3(0, 0, 0), 2.6], [Vector3(2.2, -0.3, 0.6), 2.0],
@@ -393,6 +410,8 @@ static func _cloud(root: Node3D, pos: Vector3, scale: float) -> void:
 ## A vast white cloud-sea far below the islands + big puffs drifting on it,
 ## like the reference video where every island floats on endless clouds.
 static func _cloud_deck(root: Node3D) -> void:
+        # built in stud units inside one STUD-scaled group
+        var group := _scaled_group(root, Vector3.ZERO)
         var deck := MeshInstance3D.new()
         var dm := BoxMesh.new()
         dm.size = Vector3(900.0, 3.0, 900.0)
@@ -401,7 +420,7 @@ static func _cloud_deck(root: Node3D) -> void:
         deck.material_override = m
         deck.position = Vector3(0.0, -36.5, 0.0)
         deck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-        root.add_child(deck)
+        group.add_child(deck)
         # deterministic scatter of large puffs riding the deck
         var rng := RandomNumberGenerator.new()
         rng.seed = 20250704
@@ -409,7 +428,7 @@ static func _cloud_deck(root: Node3D) -> void:
                 var ang := rng.randf() * TAU
                 var dist := rng.randf_range(55.0, 330.0)
                 var pos := Vector3(cos(ang) * dist, rng.randf_range(-34.0, -27.0), sin(ang) * dist)
-                _cloud(root, pos, rng.randf_range(9.0, 17.0))
+                _cloud(group, pos, rng.randf_range(9.0, 17.0))
 
 
 ## A WALKABLE cloud platform: solid box (studs on top) hidden under white
@@ -421,12 +440,12 @@ static func _cloudpad(root: Node3D, pos: Vector3, size: Vector2, tex: ImageTextu
         body.collision_mask = 0
         var col := CollisionShape3D.new()
         var shape := BoxShape3D.new()
-        shape.size = Vector3(size.x, 1.2, size.y)
+        shape.size = Vector3(size.x, 1.2 * STUD, size.y)
         col.shape = shape
         body.add_child(col)
         var top := MeshInstance3D.new()
         var tm := BoxMesh.new()
-        tm.size = Vector3(size.x, 1.2, size.y)
+        tm.size = Vector3(size.x, 1.2 * STUD, size.y)
         top.mesh = tm
         var white := Color("ffffff")
         var m := _flat_mat(white, 1.0)
@@ -436,29 +455,27 @@ static func _cloudpad(root: Node3D, pos: Vector3, size: Vector2, tex: ImageTextu
         # puff borders
         var rng := RandomNumberGenerator.new()
         rng.seed = int(pos.x * 7.0 + pos.z * 13.0) + 977
-        var perim := int((size.x + size.y) * 0.5)
+        var perim := int((size.x + size.y) * 0.5 / STUD)
         for i in range(perim * 2):
                 var t := float(i) / float(perim * 2)
                 var px := lerpf(-size.x * 0.5, size.x * 0.5, rng.randf())
                 var pz := lerpf(-size.y * 0.5, size.y * 0.5, rng.randf())
                 if absf(px) < size.x * 0.42 and absf(pz) < size.y * 0.42:
                         continue
-                var r := rng.randf_range(1.1, 2.0)
+                var r := rng.randf_range(1.1, 2.0) * STUD
                 var ball := MeshInstance3D.new()
                 var bm := SphereMesh.new()
                 bm.radius = r
                 bm.height = r * 2.0
                 ball.mesh = bm
                 ball.material_override = _flat_mat(white, 1.0)
-                ball.position = Vector3(px, rng.randf_range(-0.9, -0.2), pz)
+                ball.position = Vector3(px, rng.randf_range(-0.9, -0.2) * STUD, pz)
                 body.add_child(ball)
 
 
 static func _sign(root: Node3D, pos: Vector3, title: String, body_text: String, board: Vector2, yaw_deg: float, board_color: String, title_color: String) -> void:
-        var group := Node3D.new()
-        group.position = pos
+        var group := _scaled_group(root, pos)
         group.rotation_degrees.y = yaw_deg
-        root.add_child(group)
         # two posts
         for sx in [-board.x * 0.38, board.x * 0.38]:
                 var post := MeshInstance3D.new()
@@ -525,21 +542,19 @@ static func _pipe(root: Node3D, pos: Vector3, h: float, r: float) -> void:
         # rim
         var rim := MeshInstance3D.new()
         var rm := CylinderMesh.new()
-        rm.height = 1.2
+        rm.height = 1.2 * STUD
         rm.top_radius = r * 1.16
         rm.bottom_radius = r * 1.16
         rim.mesh = rm
         rim.material_override = _flat_mat(green.darkened(0.05), 0.55)
-        rim.position = pos + Vector3(0.0, h - 0.4, 0.0)
+        rim.position = pos + Vector3(0.0, h - 0.4 * STUD, 0.0)
         root.add_child(rim)
 
 
 static func _arch(root: Node3D, pos: Vector3, yaw_deg: float) -> void:
         # the NEW GAMES portal: two brick pillars, arch top, sign, blue swirl
-        var group := Node3D.new()
-        group.position = pos
+        var group := _scaled_group(root, pos)
         group.rotation_degrees.y = yaw_deg
-        root.add_child(group)
         var brick := Color("c86a2e")
         for sx in [-3.2, 3.2]:
                 var pillar := MeshInstance3D.new()
@@ -586,9 +601,7 @@ static func _arch(root: Node3D, pos: Vector3, yaw_deg: float) -> void:
 
 static func _house(root: Node3D, pos: Vector3) -> void:
         # the classic tiny spawn-town house: wood walls, dark roof slab, door
-        var group := Node3D.new()
-        group.position = pos
-        root.add_child(group)
+        var group := _scaled_group(root, pos)
         var wall := Color("c9a06a")
         var walls := MeshInstance3D.new()
         var wm := BoxMesh.new()
@@ -630,14 +643,15 @@ static func _house(root: Node3D, pos: Vector3) -> void:
 
 
 static func _snow(root: Node3D, pos: Vector3, size: Vector3) -> void:
+        var group := _scaled_group(root, pos)
         var mound := MeshInstance3D.new()
         var sm := SphereMesh.new()
         sm.radius = size.x * 0.5
         sm.height = size.y * 2.0
         mound.mesh = sm
         mound.material_override = _flat_mat(Color("f4fbff"), 1.0)
-        mound.position = pos + Vector3(0.0, -size.y * 0.35, 0.0)
-        root.add_child(mound)
+        mound.position = Vector3(0.0, -size.y * 0.35, 0.0)
+        group.add_child(mound)
 
 
 # ---------------------------------------------------------------- materials
@@ -699,7 +713,8 @@ static func _part_material(color: Color, kind: String, tex: ImageTexture, no_stu
                 m.albedo_texture = tex
                 m.uv1_triplanar = true
                 m.uv1_world_triplanar = true
-                m.uv1_scale = Vector3.ONE
+                # 1 stud tile per 0.28 units = one stud per stud after the scale
+                m.uv1_scale = Vector3.ONE / STUD
                 m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
         return m
 
@@ -726,12 +741,12 @@ static func _ladder_visual(root: Node3D, pos: Vector3, size: Vector3) -> void:
 static func _spawn_pad_visual(root: Node3D, pos: Vector3, size: Vector3) -> void:
         var rim := MeshInstance3D.new()
         var rim_mesh := BoxMesh.new()
-        rim_mesh.size = Vector3(size.x + 0.4, 0.1, size.z + 0.4)
+        rim_mesh.size = Vector3(size.x + 0.4 * STUD, 0.1 * STUD, size.z + 0.4 * STUD)
         rim.mesh = rim_mesh
         var m := StandardMaterial3D.new()
         m.albedo_color = Color("d9dde2")
         m.metallic = 0.6
         m.roughness = 0.4
         rim.material_override = m
-        rim.position = pos + Vector3(0.0, size.y * 0.5 + 0.03, 0.0)
+        rim.position = pos + Vector3(0.0, size.y * 0.5 + 0.03 * STUD, 0.0)
         root.add_child(rim)
