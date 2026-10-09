@@ -1347,3 +1347,27 @@ Stage Summary:
 - prod signup 500 = Turso cloud write failure (env/quota), NOT code — owner must check Vercel logs + Turso dashboard; login-flow test script ready to rerun green once writes work
 - public repo no longer ships user DB / password hashes; fresh-clone builds verified
 - Next Task ID: rerun scripts/prod_login_flow_test.sh after owner restores cloud writes; candidate: history purge of db/custom.db blobs (owner decision, needs force-push)
+
+---
+Task ID: godot-v35-cursors-hop-stairs
+Agent: main (Super Z)
+Task: v3.5 — uploaded cursors+logos into the game/UI, hold-space bunny hop, avatar loads fast, remove coins, 1-2 stud steps walk like stairs, climb only from torso contact, remove Tix bag, FP mouse visible mid-screen, internet images for UI
+
+Work Log:
+- ENV RESET hit AGAIN mid-turn (origin/main fell back to e9f72fe, all v3.x code vanished locally, pointer PNG exports wiped); recovered via fetch + reset --hard origin/main (5c8f38e) — pushed commits were safe. Lesson applied: commit+push after every milestone
+- Uploaded assets parsed + shipped: RetroBlox Cursor.cur / Pointer.cur hand-decoded (ICO/CUR parser, 5 frames each, hotspots 32px=(2,1)/(3,1)) -> kit assets/ui/cursor_hand.png + cursor_pointer.png; RetroBlox.png wordmark + Retroblox R.png black->alpha -> kit wordmark.png + assets/icons/logo.png (replaced 48px topbar logo) + site public/images/{wordmark,r_logo}.png + src/app/icon.png AND public/retro/logo.png (favicon = red R)
+- Internet images: image-search wood/brick/stone rounds — wood planks CLEAN (kept, desaturated+darkened 0.62 -> assets/ui/wood_planks.jpg); brick candidates watermarked (depositphotos) / tutorial infographics / a Minecraft screenshot / a METAL SKULL — all rejected; steel+clouds+wood is the final texture set
+- Retro theme: apply_cursors() (ARROW=hand hot(2,1), POINTING_HAND/IBEAM=pointer hot(3,1), once-per-run) called from game/hub/login _ready; wood_style() StyleBoxTexture; ESC menu title is now the WORDMARK on a wooden signboard (pixel-label fallback kept); hub topbar label swapped for the wordmark (floating center version clipped behind panels — removed); login card header = wordmark on steel
+- HOLD-TO-JUMP: drive(..., jump_held) refills the jump buffer every grounded frame while held (climb-kind guarded); game passes Input.is_action_pressed; smoke: 330-frame hold produces >=3 takeoffs
+- STAIRS ROOT CAUSE FOUND BY THE NEW SMOKE TEST: _attempt_step_up read post-slide velocity — move_and_slide zeroes straight-into-wall velocity so the check early-returned (steps NEVER stepped up head-on); second bug: the down-ray probed STEP_FORWARD 0.6 < capsule radius 1.2 so it landed on the floor BEFORE the step. Fixes: probe the held walk wish (_step_dir) when velocity is zeroed + down-ray lands STEP_PROBE_AHEAD 1.7 studs out; smoke now walks a real 2-stud block: no climb + ends on top
+- CLIMB TRIGGER (torso rule): wall-grab start min_h 1.7 -> WALL_GRAB_MIN_H 2.7 (probe array gained 2.7) so 1-2 stud ledges never grip; ladder sensor capsule 5.2 -> 2.4 tall at y 2.9 = TORSO BAND (1.7..4.1) — legs-only truss contact tracked=false in smoke
+- COINS RETIRED: coin.gd + .uid + sfx_tix.wav deleted; world_builder coin branch + CoinScript preload gone; places.gd 22 coin props stripped; game.gd _hook_coins/_on_tix_collected/_update_tix/_build_tix_chip/_tix_style/_build_hotbar/_hotbar_style + _tix vars removed; sfx.gd TIX_PREFS/_tix/play_tix_3d removed; screenshot.gd hotbar replica removed; README coin sections rewritten (cursor/hold-jump section added)
+- FAST AVATAR: api.gd session caches (_asset_cache/_image_cache/_bytes_cache, 12MB per-item cap); dresser restructured — 4 slot JSONs resolve, colors paint immediately, then shirt/pants/face/each-accessory stream as PARALLEL detached tasks (_paint_shirt/_paint_pants/_paint_face/_apply_accessory) with _alive() guards; dress wall-time = slowest download instead of the sum; rejoin dresses from cache instantly
+- FIRST PERSON cursor: _build_center_cursor TextureRect (pointer texture, 32px, center, IGNORE) toggled by first_person_changed — the mouse visibly parks mid-screen
+- QA: import clean; smoke.gd extended (hold-jump, legs-only ladder, 2-stud stairs, no-coin/no-tix, cursors/wordmark/wood assets, caches, parallel dresser) SMOKE_OK in-tree AND fresh-unzip; Xvfb shots verified: HUD (no Tix chip/no hotbar/R logo pill/bubble/no coins), ESC menu (wordmark on wood signboard + no music slider + hint line), hub (wordmark topbar); fixed corrupted fake_pos line in real_game_shot.gd
+- Zip 126 files md5 739f8b98 (2.41MB); site v3.5 "Your Cursors" (SdkView news: cursors/hold-jump/coins gone/stairs/torso/fast avatar/wordmark/wood; HomeView ?v=3.5); npm build OK; commits 662b36a + c3e5fe6 pushed
+
+Stage Summary:
+- v3.5 = the user's own cursors + logos everywhere, hold-space hop, no coins/Tix, working stairs, torso-only climbing, fast avatars, wood+wordmark UI
+- The user's "remove the coins" was already true of v3.4 code — they were playing a stale download; v3.5 removes the Tix Bag too and bumps the cache-buster so the site forces the new kit
+- Next Task ID: none pending; candidates: real-account prod login flow test when Turso writes are restored, optional cursor size/scale setting
