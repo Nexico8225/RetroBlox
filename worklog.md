@@ -1327,3 +1327,23 @@ Work Log:
 Stage Summary:
 - v3.4 "Retro UI" is live end-to-end: site copy, both zip channels, and the chat API all verified on 2026-10-09
 - Next Task ID: none pending; candidates: delete probe_only_x prod account, optional music opt-in, real-account login flow test
+
+---
+Task ID: godot-resume-prod-diag
+Agent: main (Super Z)
+Task: "resume the task" — post-v3.4 verification round + prod signup regression diagnosis + repo hygiene
+
+Work Log:
+- ENV RESET again (repo back at e9f72fe, zips clobbered to 36b30458); git fetch + reset --hard origin/main restored v3.4 (zip f3f46b76, worklog 1329 lines, 63 entries); download/ copy refreshed
+- Godot kit re-verified in restored tree: full import + smoke.gd == SMOKE_OK all checks passed
+- Wrote scripts/prod_login_flow_test.sh (signup -> me -> logout -> login-again-uppercase -> me -> placechat POST -> feed round-trip -> wrong-password 401) for the "real account login flow test on prod" candidate
+- PROD REGRESSION FOUND: signup 500s ({"error":"Sign up failed. Try again."}), fast-fail 1.77s, no row created (check-username available:true for attempted names); evidence chain: ALL reads healthy (health/games/placechat/login no_user lookup 200-401 with proper bodies) while EVERY write to User fails; check-username?u=probe_only_x -> TAKEN (probe_only_x exists ONLY in the cloud DB, created on prod during v3.4 verify) => runtime is in libsql adapter mode reading the CLOUD DB; bundled db/custom.db is OLD schema (37 tables, no PlaceChatMessage/seqId — verified via bun:sqlite on git show HEAD:db/custom.db) so probe mode is ruled out; placechat 200 also impossible without cloud tables => cloud READS ok, cloud WRITES fast-fail = Turso-side: quota/storage exhausted or read-only token rotated. CODE IS NOT THE CAUSE (identical to the v3.4 commit that verified signup=200 earlier the same day). Owner actions: Vercel runtime logs line "signup error" shows the exact libsql error; Turso dashboard -> usage (storage/rows written) + token scope/expiry; fix = restore a write-capable token / free quota. No probe_resume account was created (signup failed), nothing to sweep; probe_only_x still deletable by owner via POST /api/admin/bots.
+- SECURITY HYGIENE: db/custom.db (16.8MB, 123 sessions, password hashes for Nexico8225/RetroBlox/RandomGuy/John Doe/iLoveWaffles — scrypt+salt so NOT trivially crackable) was TRACKED in the now-PUBLIC repo and bundled into every lambda; git rm --cached + .gitignore (db/custom.db, *.db-journal) + next.config outputFileTracingIncludes now conditional fs.existsSync so fresh clones still build; npm install (fresh env) + npm run build PASS without the file; correct libsql deployments never read the bundled copy (db.ts adapter mode) so prod behavior unchanged; local sandbox file kept for dev
+- Also tracked the generated hub_shot.gd.uid (repo convention: 24 .uid files committed)
+- Commits: 4a7cd82 (db untrack + conditional include), 7040563 (uid); pushed; Vercel auto-redeploys both
+
+Stage Summary:
+- v3.4 kit/site unchanged and live (zip f3f46b76); Godot smoke green in restored tree
+- prod signup 500 = Turso cloud write failure (env/quota), NOT code — owner must check Vercel logs + Turso dashboard; login-flow test script ready to rerun green once writes work
+- public repo no longer ships user DB / password hashes; fresh-clone builds verified
+- Next Task ID: rerun scripts/prod_login_flow_test.sh after owner restores cloud writes; candidate: history purge of db/custom.db blobs (owner decision, needs force-push)
