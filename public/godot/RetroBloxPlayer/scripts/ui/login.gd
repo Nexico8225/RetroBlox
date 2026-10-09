@@ -21,6 +21,7 @@ var _working := false
 
 func _ready() -> void:
         theme = RetroUI.shared
+        RetroUI.apply_cursors()
         _build()
         _try_auto_login()
 
@@ -44,15 +45,25 @@ func _build() -> void:
         box.custom_minimum_size = Vector2(380, 0)
         card.add_child(box)
 
-        # header band
+        # header band — YOUR uploaded ReTROBLOX wordmark on brushed steel
         var head := PanelContainer.new()
         head.theme_type_variation = "SteelHeader"
         box.add_child(head)
-        var head_label := Label.new()
-        head_label.text = "RETROBLOX"
-        head_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        head_label.theme_type_variation = "H1"
-        head_label.add_theme_color_override("font_color", RetroUI.TEXT_INV)
+        var head_label: Control = null
+        if ResourceLoader.exists("res://assets/ui/wordmark.png"):
+                var wm := TextureRect.new()
+                wm.texture = load("res://assets/ui/wordmark.png")
+                wm.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+                wm.custom_minimum_size = Vector2(360, 56)
+                wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                head_label = wm
+        else:
+                var lbl := Label.new()
+                lbl.text = "RETROBLOX"
+                lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+                lbl.theme_type_variation = "H1"
+                lbl.add_theme_color_override("font_color", RetroUI.TEXT_INV)
+                head_label = lbl
         head.add_child(head_label)
 
         var sub := Label.new()

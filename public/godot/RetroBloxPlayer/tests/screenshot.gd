@@ -77,33 +77,7 @@ func _build_hud() -> void:
         chat = ChatBoxScript.new()
         hud.add_child(chat)
 
-        # hotbar
-        var slot := PanelContainer.new()
-        var ss := StyleBoxFlat.new()
-        ss.bg_color = Color(0.05, 0.07, 0.09, 0.55)
-        ss.set_corner_radius_all(4)
-        ss.border_color = Color(1, 1, 1, 0.22)
-        ss.set_border_width_all(1)
-        slot.add_theme_stylebox_override("panel", ss)
-        slot.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-        slot.offset_left = -44
-        slot.offset_right = 44
-        slot.offset_top = -96
-        slot.offset_bottom = -8
-        hud.add_child(slot)
-        var v := VBoxContainer.new()
-        slot.add_child(v)
-        var num := Label.new()
-        num.text = "1"
-        num.add_theme_font_size_override("font_size", 11)
-        num.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
-        v.add_child(num)
-        var nm := Label.new()
-        nm.text = "Tix Bag"
-        nm.add_theme_font_size_override("font_size", 12)
-        nm.add_theme_color_override("font_color", Color.WHITE)
-        nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        v.add_child(nm)
+        # (the Tix Bag hotbar retired with the coins — bottom-center is clear)
 
         # toast
         var toast := PanelContainer.new()

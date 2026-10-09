@@ -19,15 +19,12 @@ extends RefCounted
 ##   { type="pipe", p=[x,y,z], h=6 }                  classic green pipe
 ##   { type="arch", p=[x,y,z], yaw=deg }              NEW GAMES portal arch
 ##   { type="snow", p=[x,y,z], s=[w,h,d] }            snow mound (sphere-ish)
-##   { type="coin", p=[x,y,z] }                       collectible Tix (coin.gd)
 ##
 ## Everything gets the classic stud texture via world triplanar mapping —
 ## one stud per unit, tinted by the part color, generated procedurally at
 ## runtime so the client needs zero texture files.
 
 const StudColorEdge := Color("000000", 0.10)
-
-const CoinScript := preload("res://scripts/world/coin.gd")
 
 ## SCALE — place definitions are authored in STUDS (classic Roblox units);
 ## they are built 1 stud = 1 Godot unit — the classic size.
@@ -248,11 +245,6 @@ static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> vo
                 "snow":
                         var ss: Array = prop.get("s", [5, 2, 5])
                         _snow(root, pos, Vector3(float(ss[0]), float(ss[1]), float(ss[2])))
-                "coin":
-                        # script .new() so the coin's _init runs (group + shape)
-                        var coin: Area3D = CoinScript.new()
-                        coin.position = pos
-                        root.add_child(coin)
 
 
 static func _tree(root: Node3D, pos: Vector3, h: float) -> void:

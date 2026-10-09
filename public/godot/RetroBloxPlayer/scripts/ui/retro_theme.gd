@@ -32,9 +32,14 @@ const LINK := Color("1b5e9e")
 
 const PIXEL_FONT_PATH := "res://assets/fonts/PressStart2P-Regular.ttf"
 const STEEL_TEXTURE_PATH := "res://assets/ui/steel_panel.jpg"
+const WOOD_TEXTURE_PATH := "res://assets/ui/wood_planks.jpg"
+const CURSOR_ARROW_PATH := "res://assets/ui/cursor_hand.png"      # uploaded RetroBlox Cursor
+const CURSOR_HAND_PATH := "res://assets/ui/cursor_pointer.png"   # uploaded RetroBlox Pointer
 
 static var _pixel_font: Font = null
 static var _steel_tex: Texture2D = null
+static var _wood_tex: Texture2D = null
+static var _cursors_applied := false
 
 
 ## The retro pixel voice — null when the font file is missing, so every
@@ -50,6 +55,50 @@ static func steel_texture() -> Texture2D:
         if _steel_tex == null and ResourceLoader.exists(STEEL_TEXTURE_PATH):
                 _steel_tex = load(STEEL_TEXTURE_PATH)
         return _steel_tex
+
+
+## The wooden signboard planks (an internet pixel-wood texture, darkened so
+## white ink reads on it) — null when the texture file is missing.
+static func wood_texture() -> Texture2D:
+        if _wood_tex == null and ResourceLoader.exists(WOOD_TEXTURE_PATH):
+                _wood_tex = load(WOOD_TEXTURE_PATH)
+        return _wood_tex
+
+
+## A wooden signboard StyleBoxTexture — used for the menu wordmark header.
+static func wood_style() -> StyleBox:
+        var tex := wood_texture()
+        if tex == null:
+                return _flat(Color("5a3a1e"), Color("2e1c0c"), 2, 6)
+        var sb := StyleBoxTexture.new()
+        sb.texture = tex
+        # stretch the whole plank image across the sign; border crops keep
+        # the plank edges from smearing when the box is a different aspect
+        sb.region_rect = Rect2(0, 0, tex.get_width(), tex.get_height())
+        sb.content_margin_left = 10.0
+        sb.content_margin_right = 10.0
+        sb.content_margin_top = 6.0
+        sb.content_margin_bottom = 6.0
+        return sb
+
+
+## The uploaded RetroBlox cursors: the white classic hand everywhere the
+## pointer normally is, and the Pointer variant on buttons/links. Applied
+## once per run (hub, login and game all call this on ready).
+static func apply_cursors() -> void:
+        if _cursors_applied:
+                return
+        if not (ResourceLoader.exists(CURSOR_ARROW_PATH) and ResourceLoader.exists(CURSOR_HAND_PATH)):
+                return
+        var arrow: Texture2D = load(CURSOR_ARROW_PATH)
+        var hand: Texture2D = load(CURSOR_HAND_PATH)
+        if arrow == null or hand == null:
+                return
+        # hotspots from the .cur files: hand points from its fingertip
+        Input.set_custom_mouse_cursor(arrow, Input.CURSOR_ARROW, Vector2(2, 1))
+        Input.set_custom_mouse_cursor(hand, Input.CURSOR_POINTING_HAND, Vector2(3, 1))
+        Input.set_custom_mouse_cursor(hand, Input.CURSOR_IBEAM, Vector2(3, 1))
+        _cursors_applied = true
 
 
 static func _flat(bg: Color, border: Color, width := 2, radius := 3) -> StyleBoxFlat:

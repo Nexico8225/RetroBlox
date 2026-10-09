@@ -36,21 +36,19 @@ The game remembers you — next launch signs you in automatically.
 | Chat commands | `/help`, `/e sit`, `/e stop` — local, never sent to the server |
 | Menu / Players / Settings | Esc or the pill buttons |
 
-### Tix — collectibles in every place
+### Cursors — the classic white hand
 
-Every place hides spinning golden **Tix** coins. Touch one: it chimes, pops
-in a sparkle burst and the gold **Tix x / N** chip (top-right) counts it.
-Sweep the place clean for the victory fanfare + a chat shout-out. Coins
-respawn next launch.
+The player uses the uploaded **RetroBlox Cursor / Pointer** everywhere the
+mouse shows, and in first person the pointer parks visibly in the MIDDLE of
+the screen so you always know where your aim is. Holding **Space** hops
+over and over; 1-2 stud steps are walked over like stairs.
 
 ### The HUD (the reference-video layout, original RetroBlox skin)
 
 - **Top-left pill** — RetroBlox logo, menu, chat (with a red unread badge
   while the chat log is collapsed) and players.
-- **Top-right** — the gold **Tix x / N** collector chip.
 - **Right edge** — the vertical **Health** bar with the value chip; it
   drains red as you take fall damage and refills with the classic 1%/s regen.
-- **Bottom-center** — your hotbar slot, the **Tix Bag**.
 - **Top-center** — black toast pills ("eh_raiderbomber joined you") when
   someone new appears in the place.
 - **Chat bubbles** appear over the head of whoever is talking — you too.
@@ -97,16 +95,15 @@ sounds automatically — every screen, no wiring needed.
 Places are pure data (`scripts/world/places.gd`) turned into 3D by
 `scripts/world/world_builder.gd`: boxes/cylinders/spheres with the
 procedural 1-stud-per-unit texture, plus props (trees, flowers, fences,
-crates, clouds, walkable cloud pads, signs, pipes, arches, houses, snow,
-Tix coins). Groups make the gameplay: `spawn`, `kill`, `ladder`, `goal`,
+crates, clouds, walkable cloud pads, signs, pipes, arches, houses, snow).
+Groups make the gameplay: `spawn`, `kill`, `ladder`, `goal`,
 `checkpoint`, `bounce`.
 
 ### Feel: dust + sparkles
 
 Little touches that make it play like a real game: **dust puffs** on
 takeoffs, hard landings, bounces and respawns; **gold sparkles** idling
-above every goal pad; a **coin burst** wherever a Tix gets collected.
-All CPUParticles3D — no shaders, runs on potato PCs.
+above every goal pad. All CPUParticles3D — no shaders, runs on potato PCs.
 
 ### The avatar uses retroblox_anims.fbx
 

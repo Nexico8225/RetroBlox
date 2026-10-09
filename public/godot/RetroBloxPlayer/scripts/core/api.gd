@@ -22,6 +22,12 @@ var token: String = ""
 var saved_username: String = ""   # remembered so the login field pre-fills
 var _busy := 0
 
+# session caches — the avatar dresses INSTANTLY on rejoin/respawn because
+# every asset json, image and model downloaded once is remembered here
+var _asset_cache: Dictionary = {}   # asset id -> resolve Dictionary
+var _image_cache: Dictionary = {}   # url -> Image
+var _bytes_cache: Dictionary = {}   # url -> PackedByteArray
+
 signal busy_changed(count: int)
 
 
@@ -152,8 +158,14 @@ func profile_of(p_user_id: String) -> Dictionary:
 
 
 ## Resolve an asset id into render data (colors, images, GLB models, finish).
+## Cached per session: the same asset asked twice costs zero network.
 func get_asset(asset_id: String) -> Dictionary:
-        return await get_json("/api/assets/%s" % asset_id)
+        if _asset_cache.has(asset_id):
+                return _asset_cache[asset_id]
+        var res: Dictionary = await get_json("/api/assets/%s" % asset_id)
+        if res.get("ok", false):
+                _asset_cache[asset_id] = res
+        return res
 
 
 # ---------------------------------------------------------------- place chat
@@ -178,7 +190,10 @@ func place_presence(place_id: String, pos: Vector3, heading: float) -> Dictionar
 # ---------------------------------------------------------------- raw data
 
 ## Download raw bytes (GLB models etc.) — pass the path the API returned.
+## Cached so a rejoin never re-downloads a model.
 func get_bytes(url_path: String) -> PackedByteArray:
+        if _bytes_cache.has(url_path):
+                return _bytes_cache[url_path]
         var http := HTTPRequest.new()
         http.timeout = 30.0
         http.use_threads = true
@@ -194,21 +209,31 @@ func get_bytes(url_path: String) -> PackedByteArray:
         var status: int = result[1]
         if status < 200 or status >= 300:
                 return PackedByteArray()
-        return result[3]
+        var bytes: PackedByteArray = result[3]
+        if bytes.size() <= 12 * 1024 * 1024:   # remember anything sane-sized
+                _bytes_cache[url_path] = bytes
+        return bytes
 
 
 ## Decode whatever the platform served into a Godot Image.
 ## Handles /api/files binaries (PNG/JPG/WEBP) AND the data: URLs the
-## built-in faces use (SVG / PNG base64).
+## built-in faces use (SVG / PNG base64). Cached per URL — a re-dress
+## paints from memory instead of the network.
 func load_image(url: String) -> Image:
         if url == "":
                 return null
+        if _image_cache.has(url):
+                return _image_cache[url]
+        var img: Image = null
         if url.begins_with("data:"):
-                return _decode_data_url(url)
-        var bytes := await get_bytes(url)
-        if bytes.is_empty():
-                return null
-        return image_from_bytes(bytes)
+                img = _decode_data_url(url)
+        else:
+                var bytes := await get_bytes(url)
+                if not bytes.is_empty():
+                        img = image_from_bytes(bytes)
+        if img != null:
+                _image_cache[url] = img
+        return img
 
 
 func image_from_bytes(bytes: PackedByteArray) -> Image:

@@ -37,6 +37,7 @@ const JUMP_BUFFER := 0.12         # pressing jump just before landing still jump
 const MAX_STEP := 2.5 * STUD      # walk over anything up to this height (stairs!)
 const MIN_STEP := 0.05 * STUD
 const STEP_FORWARD := 0.6 * STUD
+const STEP_PROBE_AHEAD := 1.7 * STUD  # down-ray lands BEYOND the capsule radius
 const STEP_VISUAL_SPEED := 46.0 * STUD
 
 const CLIMB_SPEED := 9.0 * STUD   # ladders + stud edges: W = up, S = down
@@ -49,9 +50,13 @@ const CLIMB_FACE_STAY := 0.35     # fall below this while climbing = let go + fa
 const CLIMB_GRACE := 0.45         # seconds the climb survives rung/gap stretches
 const WALL_REACH := 3.0 * STUD    # probe ray length for stud edges
 const HUG_PRESSURE := 1.2 * STUD  # gentle push into the surface while climbing
+## A climb only STARTS on faces that are TORSO-height or taller (2.7 studs):
+## 1-2 stud steps stay stairs (the step-up walks over them) — touching a low
+## step with your legs must NEVER put the body into the climb grip.
+const WALL_GRAB_MIN_H := 2.7 * STUD
 ## Heights (studs above the feet) of the vertical probe rays — spread so
 ## plate towers with gaps always have at least one ray on a plate.
-const WALL_PROBE_HS: Array = [0.5, 1.7, 2.9, 4.1]
+const WALL_PROBE_HS: Array = [0.5, 1.7, 2.7, 2.9, 4.1]
 
 const LAND_SOUND_FALL := 22.0 * STUD  # impact speed that triggers the landing thud
 const FALL_WIND_SPEED := 34.0 * STUD  # downward speed where the wind loop kicks in
@@ -92,6 +97,8 @@ var _climb_grace := 0.0
 var _coyote := 0.0
 var _jump_buffer_left := 0.0
 var _step_visual := 0.0
+var _step_dir := Vector3.ZERO     # last walk wish — step-ups probe THIS, not
+                                  # the slid velocity (a head-on wall zeroes it)
 var _bounce_cd := 0.0
 var _time := 0.0
 var _steps_loop: AudioStreamPlayer3D
@@ -173,9 +180,11 @@ func _physics_process(delta: float) -> void:
 
 
 ## One classic physics step. `direction.y < 0` = forward (W), cam_yaw orients
-## the input, `just_pressed` is the raw jump press this frame. `first_person`
-## locks the body to the camera yaw like shift lock, but ladders still climb.
-func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool, use_shiftlock: bool, first_person := false) -> void:
+## the input, `just_pressed` is the raw jump press this frame and `jump_held`
+## says the key is STILL down — holding Space hops over and over (classic
+## hold-to-jump). `first_person` locks the body to the camera yaw like shift
+## lock, but ladders still climb.
+func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool, use_shiftlock: bool, first_person := false, jump_held := false) -> void:
         if not alive:
                 return
         _input_shiftlock = use_shiftlock
@@ -183,9 +192,15 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         var wish := Vector3(direction.x, 0.0, direction.y).rotated(Vector3.UP, cam_yaw)
         if wish.length() > 1.0:
                 wish = wish.normalized()
+        if wish.length_squared() > 0.005:
+                _step_dir = wish.normalized()
 
-        # jump buffering + coyote time — responsive without feeling floaty
+        # jump buffering + coyote time — responsive without feeling floaty.
+        # HOLDING the key re-fills the buffer every grounded frame, so the
+        # player keeps hopping the moment they land (classic bunny hop)
         if just_pressed:
+                _jump_buffer_left = JUMP_BUFFER
+        elif jump_held and (grounded or _coyote > 0.0) and _climb_kind == ClimbKind.NONE:
                 _jump_buffer_left = JUMP_BUFFER
         elif _jump_buffer_left > 0.0:
                 _jump_buffer_left -= delta
@@ -316,10 +331,10 @@ func _update_climb(wish: Vector3, delta: float) -> void:
                                 _climb_grace = CLIMB_GRACE
                                 return
         # stud edges: probing along the walk direction finds a vertical face.
-        # Only faces reaching chest height count (>= ~2 studs) — low steps
-        # are handled by the 2.5-stud step-up, not the climb grip.
+        # Only faces that reach TORSO height (>= ~2.7 studs) count — a 1-2
+        # stud step under your legs is STAIRS (step-up), never the climb grip.
         if wish.length_squared() > 0.04:
-                var normal := _wall_hit_along(wish, 1.7)
+                var normal := _wall_hit_along(wish, WALL_GRAB_MIN_H / STUD)
                 if normal != Vector3.ZERO:
                         var face := -normal
                         var forward := Vector3(-sin(heading), 0.0, -cos(heading))
@@ -488,11 +503,19 @@ func _dust(strength := 1.0) -> void:
 
 ## STAIRS — walk over any ledge between MIN_STEP and MAX_STEP studs. Measure
 ## the lip with rays; if it is in range with headroom, rise + reach + settle.
+## The probe direction is the held WALK WISH (a head-on wall slides the
+## velocity to zero every frame, which used to fake-out this check), and the
+## down-ray lands 1.7 studs ahead — past the 1.2-stud capsule radius — so it
+## actually finds the step's top face instead of the floor before it.
 func _attempt_step_up() -> void:
         var hvel := Vector3(velocity.x, 0.0, velocity.z)
-        if hvel.length_squared() < 1.0:
+        var dir := Vector3.ZERO
+        if hvel.length_squared() >= 1.0:
+                dir = hvel.normalized()
+        elif _step_dir.length_squared() >= 0.5:
+                dir = _step_dir
+        else:
                 return
-        var dir := hvel.normalized()
         var space := get_world_3d().direct_space_state
         if space == null:
                 return
@@ -505,7 +528,7 @@ func _attempt_step_up() -> void:
                 return
         if test_move(global_transform, Vector3.UP * MAX_STEP):
                 return
-        var over := global_position + Vector3.UP * MAX_STEP + dir * STEP_FORWARD
+        var over := global_position + Vector3.UP * MAX_STEP + dir * STEP_PROBE_AHEAD
         var down_ray := PhysicsRayQueryParameters3D.create(
                 over, over + Vector3.DOWN * (MAX_STEP + 0.4 * STUD), collision_mask)
         var hit := space.intersect_ray(down_ray)
@@ -637,7 +660,10 @@ func _update_loops() -> void:
 
 ## TrussPart-style ladders are Area3D nodes on layer 16 in the "ladder" group.
 ## They are tracked (not counted) so the climb can keep its grip across the
-## 1-3 stud gaps between ladder segments.
+## 1-3 stud gaps between ladder segments. The sensor is a TORSO-BAND capsule
+## (waist to head, 1.7..4.1 studs) — NOT the whole body: brushing a low rung
+## or a 2-stud step with your LEGS must not put you into the climb grip.
+## Only when your TORSO reaches the volume does climbing engage (Roblox rule).
 func _setup_ladder_sensor() -> void:
         var area := Area3D.new()
         area.name = "LadderSensor"
@@ -647,9 +673,9 @@ func _setup_ladder_sensor() -> void:
         var shape_node := CollisionShape3D.new()
         var shape := CapsuleShape3D.new()
         shape.radius = 1.15 * STUD
-        shape.height = 5.2 * STUD
+        shape.height = 2.4 * STUD
         shape_node.shape = shape
-        shape_node.position = Vector3(0.0, 2.6 * STUD, 0.0)
+        shape_node.position = Vector3(0.0, 2.9 * STUD, 0.0)
         area.add_child(shape_node)
         add_child(area)
         area.area_entered.connect(func(other: Area3D) -> void:

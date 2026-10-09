@@ -43,6 +43,12 @@ const PANTS_FALLBACK := Color("39516b")
 ## Every network await can outlive the rig (respawn, scene change, remote
 ## player leaving) — so after EVERY await we re-check the node and quietly
 ## bail instead of crashing on a previously freed instance.
+##
+## FAST AVATAR: the four slot JSONs resolve first and the body colors paint
+## immediately; then EVERY texture / face / GLB accessory streams in its own
+## PARALLEL task — the whole dress takes as long as the slowest single
+## download instead of the sum of all of them. Together with the Api caches
+## a rejoin or respawn dresses from memory instantly.
 static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
         if not _alive(avatar_node):
                 return
@@ -53,28 +59,37 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
         if avatar_data.get("colors", null) is Dictionary:
                 colors = avatar_data["colors"]
 
-        # ---- 1) resolve the four slot assets (colors / images) ----
-        var skin := SKIN_FALLBACK
-        var shirt_color := SHIRT_FALLBACK
-        var pants_color := PANTS_FALLBACK
-        var shirt_url := ""
-        var face_url := ""
-        var pants_url := ""
-        if api != null:
-                var body_asset: Dictionary = await api.get_asset(String(avatar_data.get("body", "body_01")))
-                var head_asset: Dictionary = await api.get_asset(String(avatar_data.get("head", "head_01")))
-                var shirt_asset: Dictionary = await api.get_asset(String(avatar_data.get("shirt", "shirt_01")))
-                var pants_asset: Dictionary = await api.get_asset(String(avatar_data.get("pants", "pants_01")))
-                if not _alive(avatar_node):
-                        return
-                skin = _asset_color(body_asset, skin)
-                shirt_color = _asset_color(shirt_asset, shirt_color)
-                pants_color = _asset_color(pants_asset, pants_color)
-                shirt_url = _asset_image(shirt_asset)
-                face_url = _asset_image(head_asset)
-                pants_url = _asset_image(pants_asset)
+        if api == null:
+                # colors-only dry run (no network) — classic noob paint
+                _paint_colors(avatar_node, colors, SKIN_FALLBACK, SHIRT_FALLBACK, PANTS_FALLBACK)
+                return
 
-        # ---- 2) per-part colors (the site's Body Colors panel wins) ----
+        # ---- 1) resolve the four slot assets (small JSON round trips) ----
+        var body_asset: Dictionary = await api.get_asset(String(avatar_data.get("body", "body_01")))
+        var head_asset: Dictionary = await api.get_asset(String(avatar_data.get("head", "head_01")))
+        var shirt_asset: Dictionary = await api.get_asset(String(avatar_data.get("shirt", "shirt_01")))
+        var pants_asset: Dictionary = await api.get_asset(String(avatar_data.get("pants", "pants_01")))
+        if not _alive(avatar_node):
+                return
+
+        # ---- 2) paint the body colors RIGHT NOW (identity before textures) ----
+        _paint_colors(avatar_node, colors,
+                _asset_color(body_asset, SKIN_FALLBACK),
+                _asset_color(shirt_asset, SHIRT_FALLBACK),
+                _asset_color(pants_asset, PANTS_FALLBACK))
+
+        # ---- 3) stream every surface / face / model in PARALLEL ----
+        _paint_shirt(api, avatar_node, shirt_asset)
+        _paint_pants(api, avatar_node, pants_asset)
+        _paint_face(api, avatar_node, head_asset, float(avatar_data.get("faceScale", 1.0)))
+        var accessories: Array = avatar_data.get("accessories", [])
+        for acc_id in accessories:
+                _apply_accessory(api, avatar_node, String(acc_id))
+
+
+## The body colors: head + arms = skin, torso = shirt, legs = pants; the
+## site's Body Colors panel wins per part.
+static func _paint_colors(avatar_node, colors: Dictionary, skin: Color, shirt_color: Color, pants_color: Color) -> void:
         avatar_node.call("set_part_color", avatar_node.get("HEAD"), _pick(colors, "head", skin))
         avatar_node.call("set_part_color", avatar_node.get("TORSO"), _pick(colors, "torso", shirt_color))
         avatar_node.call("set_part_color", avatar_node.get("ARM_L"), _pick(colors, "armL", skin))
@@ -82,114 +97,124 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
         avatar_node.call("set_part_color", avatar_node.get("LEG_L"), _pick(colors, "legL", pants_color))
         avatar_node.call("set_part_color", avatar_node.get("LEG_R"), _pick(colors, "legR", pants_color))
 
-        # ---- 3) shirt texture — zone-crop the 300x190 template onto torso + arms ----
-        if api != null and shirt_url != "":
-                var shirt_img: Image = await api.load_image(shirt_url)
-                if not _alive(avatar_node):
-                        return
-                if shirt_img != null:
-                        var tex := ImageTexture.create_from_image(shirt_img)
-                        var aspect := float(shirt_img.get_width()) / float(maxf(shirt_img.get_height(), 1.0))
-                        var template := absf(aspect - float(SHIRT_W) / float(SHIRT_H)) < 0.06
-                        _textured_part(avatar_node, int(avatar_node.get("TORSO")), tex,
-                                SHIRT_TORSO if template else Rect2(), SHIRT_W, SHIRT_H)
-                        _textured_part(avatar_node, int(avatar_node.get("ARM_R")), tex,
-                                SHIRT_ARM_R if template else Rect2(), SHIRT_W, SHIRT_H)
-                        _textured_part(avatar_node, int(avatar_node.get("ARM_L")), tex,
-                                SHIRT_ARM_L if template else Rect2(), SHIRT_W, SHIRT_H)
 
-        # ---- 4) pants texture — zone-crop the 220x190 template onto both legs ----
-        if api != null and pants_url != "":
-                var pants_img: Image = await api.load_image(pants_url)
-                if not _alive(avatar_node):
-                        return
-                if pants_img != null:
-                        var tex := ImageTexture.create_from_image(pants_img)
-                        var aspect := float(pants_img.get_width()) / float(maxf(pants_img.get_height(), 1.0))
-                        var template := absf(aspect - float(PANTS_W) / float(PANTS_H)) < 0.06
-                        _textured_part(avatar_node, int(avatar_node.get("LEG_R")), tex,
-                                PANTS_LEG_R if template else Rect2(), PANTS_W, PANTS_H)
-                        _textured_part(avatar_node, int(avatar_node.get("LEG_L")), tex,
-                                PANTS_LEG_L if template else Rect2(), PANTS_W, PANTS_H)
-
-        # ---- 5) the face — decal on the FRONT of the head ----
-        if api != null and face_url != "":
-                var face_img: Image = await api.load_image(face_url)
-                if not _alive(avatar_node):
-                        return
-                if face_img != null:
-                        avatar_node.call("set_face", ImageTexture.create_from_image(face_img),
-                                float(avatar_data.get("faceScale", 1.0)))
-
-        # ---- 6) 3D UGC accessories — GLB, normalized, placed EXACTLY ----
-        if api == null:
+## Shirt texture — zone-crop the 300x190 template onto torso + arms.
+static func _paint_shirt(api, avatar_node, shirt_asset: Dictionary) -> void:
+        var shirt_url := _asset_image(shirt_asset)
+        if shirt_url == "":
                 return
-        var accessories: Array = avatar_data.get("accessories", [])
-        for acc_id in accessories:
-                var asset: Dictionary = await api.get_asset(String(acc_id))
-                if not _alive(avatar_node):
+        var shirt_img: Image = await api.load_image(shirt_url)
+        if not _alive(avatar_node):
+                return
+        if shirt_img != null:
+                var tex := ImageTexture.create_from_image(shirt_img)
+                var aspect := float(shirt_img.get_width()) / float(maxf(shirt_img.get_height(), 1.0))
+                var template := absf(aspect - float(SHIRT_W) / float(SHIRT_H)) < 0.06
+                _textured_part(avatar_node, int(avatar_node.get("TORSO")), tex,
+                        SHIRT_TORSO if template else Rect2(), SHIRT_W, SHIRT_H)
+                _textured_part(avatar_node, int(avatar_node.get("ARM_R")), tex,
+                        SHIRT_ARM_R if template else Rect2(), SHIRT_W, SHIRT_H)
+                _textured_part(avatar_node, int(avatar_node.get("ARM_L")), tex,
+                        SHIRT_ARM_L if template else Rect2(), SHIRT_W, SHIRT_H)
+
+
+## Pants texture — zone-crop the 220x190 template onto both legs.
+static func _paint_pants(api, avatar_node, pants_asset: Dictionary) -> void:
+        var pants_url := _asset_image(pants_asset)
+        if pants_url == "":
+                return
+        var pants_img: Image = await api.load_image(pants_url)
+        if not _alive(avatar_node):
+                return
+        if pants_img != null:
+                var tex := ImageTexture.create_from_image(pants_img)
+                var aspect := float(pants_img.get_width()) / float(maxf(pants_img.get_height(), 1.0))
+                var template := absf(aspect - float(PANTS_W) / float(PANTS_H)) < 0.06
+                _textured_part(avatar_node, int(avatar_node.get("LEG_R")), tex,
+                        PANTS_LEG_R if template else Rect2(), PANTS_W, PANTS_H)
+                _textured_part(avatar_node, int(avatar_node.get("LEG_L")), tex,
+                        PANTS_LEG_L if template else Rect2(), PANTS_W, PANTS_H)
+
+
+## Face decal on the FRONT of the head.
+static func _paint_face(api, avatar_node, head_asset: Dictionary, face_scale: float) -> void:
+        var face_url := _asset_image(head_asset)
+        if face_url == "":
+                return
+        var face_img: Image = await api.load_image(face_url)
+        if not _alive(avatar_node):
+                return
+        if face_img != null:
+                avatar_node.call("set_face", ImageTexture.create_from_image(face_img), face_scale)
+
+
+## One 3D UGC accessory: GLB, normalized, placed EXACTLY where its creator
+## left it. Runs as its own parallel task.
+static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
+        var asset: Dictionary = await api.get_asset(acc_id)
+        if not _alive(avatar_node):
+                return
+        if not asset.get("ok", false):
+                return
+        var surface_asset: Dictionary = asset.get("asset", {})
+        var model_url := String(surface_asset.get("modelUrl", ""))
+        if model_url == "":
+                return
+        var bytes: PackedByteArray = await api.get_bytes(model_url)
+        if not _alive(avatar_node):
+                return
+        if bytes.is_empty():
+                push_warning("[RetroBlox] Could not download model for %s" % acc_id)
+                return
+        var doc := GLTFDocument.new()
+        var state := GLTFState.new()
+        var err := doc.append_from_buffer(bytes, "", state)
+        if err != OK:
+                push_warning("[RetroBlox] GLB parse failed for %s (%d)" % [acc_id, err])
+                return
+        var scene: Node3D = doc.generate_scene(state) as Node3D
+        if scene == null:
+                return
+        _enable_vertex_colors(scene)
+        _normalize(scene, UGC_IMPORT_SIZE)
+        var inner := Node3D.new()
+        inner.name = "UGC_" + acc_id
+        inner.add_child(scene)
+        _apply_placement(inner, surface_asset.get("placement", null))
+        var holder := Node3D.new()
+        holder.name = "UGCScaled_" + acc_id
+        holder.scale = Vector3.ONE * UGC_SCALE
+        holder.add_child(inner)
+        # The website renders its rig FACING +Z (it turns the Blender
+        # model around after import); this rig faces -Z. UGC placement
+        # is authored in the site's +Z space, so without a correction
+        # every item lands MIRRORED — hats read backwards. A 180° yaw
+        # wrapper (the same trick loadRig() uses on the site) maps the
+        # whole placement — position AND rotation — into this rig's
+        # space, so items appear forwards here exactly like the site.
+        var yaw := Node3D.new()
+        yaw.name = "UGCYaw_" + acc_id
+        yaw.rotation.y = PI
+        yaw.add_child(holder)
+        avatar_node.add_child(yaw)
+        # creator texture / tint — THE ROBLOX RULE, DATA WINS
+        var tex_url := String(surface_asset.get("textureUrl", ""))
+        var tint := String(surface_asset.get("color", ""))
+        if tex_url != "":
+                var img: Image = await api.load_image(tex_url)
+                if not _alive(avatar_node) or not is_instance_valid(scene):
                         return
-                if not asset.get("ok", false):
-                        continue
-                var surface_asset: Dictionary = asset.get("asset", {})
-                var model_url := String(surface_asset.get("modelUrl", ""))
-                if model_url == "":
-                        continue
-                var bytes: PackedByteArray = await api.get_bytes(model_url)
-                if not _alive(avatar_node):
-                        return
-                if bytes.is_empty():
-                        push_warning("[RetroBlox] Could not download model for %s" % acc_id)
-                        continue
-                var doc := GLTFDocument.new()
-                var state := GLTFState.new()
-                var err := doc.append_from_buffer(bytes, "", state)
-                if err != OK:
-                        push_warning("[RetroBlox] GLB parse failed for %s (%d)" % [acc_id, err])
-                        continue
-                var scene: Node3D = doc.generate_scene(state) as Node3D
-                if scene == null:
-                        continue
-                _enable_vertex_colors(scene)
-                _normalize(scene, UGC_IMPORT_SIZE)
-                var inner := Node3D.new()
-                inner.name = "UGC_" + String(acc_id)
-                inner.add_child(scene)
-                _apply_placement(inner, surface_asset.get("placement", null))
-                var holder := Node3D.new()
-                holder.name = "UGCScaled_" + String(acc_id)
-                holder.scale = Vector3.ONE * UGC_SCALE
-                holder.add_child(inner)
-                # The website renders its rig FACING +Z (it turns the Blender
-                # model around after import); this rig faces -Z. UGC placement
-                # is authored in the site's +Z space, so without a correction
-                # every item lands MIRRORED — hats read backwards. A 180° yaw
-                # wrapper (the same trick loadRig() uses on the site) maps the
-                # whole placement — position AND rotation — into this rig's
-                # space, so items appear forwards here exactly like the site.
-                var yaw := Node3D.new()
-                yaw.name = "UGCYaw_" + String(acc_id)
-                yaw.rotation.y = PI
-                yaw.add_child(holder)
-                avatar_node.add_child(yaw)
-                # creator texture / tint — THE ROBLOX RULE, DATA WINS
-                var tex_url := String(surface_asset.get("textureUrl", ""))
-                var tint := String(surface_asset.get("color", ""))
-                if tex_url != "":
-                        var img: Image = await api.load_image(tex_url)
-                        if not _alive(avatar_node) or not is_instance_valid(scene):
-                                return
-                        if img != null:
-                                _surface_texture(scene, ImageTexture.create_from_image(img))
-                elif tint != "":
-                        var paint := Color.from_string(tint, Color.TRANSPARENT)
-                        if paint != Color.TRANSPARENT:
-                                _surface_texture(scene, null, paint)
-                # creator surface finish — the site's Metallic / Roughness sliders
-                var rough_v: Variant = surface_asset.get("roughness", null)
-                var metal_v: Variant = surface_asset.get("metallic", null)
-                if rough_v != null or metal_v != null:
-                        _surface_finish(scene, rough_v, metal_v)
+                if img != null:
+                        _surface_texture(scene, ImageTexture.create_from_image(img))
+        elif tint != "":
+                var paint := Color.from_string(tint, Color.TRANSPARENT)
+                if paint != Color.TRANSPARENT and is_instance_valid(scene):
+                        _surface_texture(scene, null, paint)
+        # creator surface finish — the site's Metallic / Roughness sliders
+        var rough_v: Variant = surface_asset.get("roughness", null)
+        var metal_v: Variant = surface_asset.get("metallic", null)
+        if rough_v != null or metal_v != null:
+                _surface_finish(scene, rough_v, metal_v)
 
 
 # ---------------------------------------------------------------- helpers

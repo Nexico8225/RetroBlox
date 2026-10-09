@@ -69,7 +69,7 @@ func _run_all() -> void:
         check(true, "sfx one-shots ran")
         check(sfx.get("_music") == null, "music removed (user asked — no more music box)")
         check(sfx.get("_wind") != null, "wind ambience loop loaded")
-        check(sfx.get("_tix") != null, "tix chime loaded")
+        check(sfx.get("_tix") == null, "tix chime retired with the coins")
         var music_player = sfx.call("make_screen_loop", "Music")
         check(music_player == null, "no screen music player builds anymore")
         var wind_player = sfx.call("make_screen_loop", "Wind")
@@ -82,7 +82,7 @@ func _run_all() -> void:
         check(places.size() == 5, "5 places ship")
         var cloud: Dictionary = load("res://scripts/world/places.gd").by_id("cloudkingdom")
         check(not cloud.is_empty() and String(cloud["id"]) == "cloudkingdom", "cloudkingdom place exists")
-        check(load("res://scripts/world/coin.gd").can_instantiate(), "coin script loads")
+        check(not FileAccess.file_exists("res://scripts/world/coin.gd"), "coin.gd removed from the kit (coins retired)")
         for def: Dictionary in places:
                 var built: Dictionary = load("res://scripts/world/world_builder.gd").build(def)
                 check(built["root"] != null and is_instance_valid(built["root"]), "world builds: %s" % String(def["id"]))
@@ -91,7 +91,7 @@ func _run_all() -> void:
                 for prop: Dictionary in def.get("props", []):
                         if String(prop.get("type", "")) == "coin":
                                 coins += 1
-                check(coins >= 3, "%s has Tix coins (%d)" % [String(def["id"]), coins])
+                check(coins == 0, "%s ships with NO coins (coins retired)" % String(def["id"]))
                 if String(def["id"]) == "cloudkingdom":
                         var parts: Array = def.get("parts", [])
                         var props: Array = def.get("props", [])
@@ -119,8 +119,8 @@ func _run_all() -> void:
                         check(tower_goals == 1, "tower has exactly one goal")
                 root.add_child(built["root"])
         await process_frame
-        # coins actually spawned into the worlds + are hookable by the game
-        check(get_nodes_in_group("tix_coin").size() >= 20, "tix coins spawned across places")
+        # the Tix coins are retired — none may spawn anywhere
+        check(get_nodes_in_group("tix_coin").is_empty(), "no tix coins exist (retired)")
 
         # --- avatar rig: the real retroblox_anims.fbx with 6 parts + clips ---
         var rig_script: Script = load("res://scripts/player/avatar_rig.gd")
@@ -194,6 +194,29 @@ func _run_all() -> void:
         # first person: the body turns with the camera even without shift lock
         player.call("drive", 0.016, Vector2.ZERO, 0.9, false, false, true)
         check(player.get("heading") > 0.05, "first person turns the body with the camera")
+
+        # --- HOLD-TO-JUMP: keeping Space down hops over and over ---
+        for i in range(90):
+                player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false, false, true)
+                if player.get("grounded"):
+                        break
+                await physics_frame
+        var hops := 0
+        var airborne := false
+        for i in range(330):
+                player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false, false, true)
+                await physics_frame
+                var in_air: bool = not bool(player.get("grounded"))
+                if in_air and not airborne:
+                        hops += 1
+                airborne = in_air
+        check(hops >= 3, "holding SPACE keeps hopping (%d takeoffs)" % hops)
+        # land fully before the ladder tests below
+        for i in range(90):
+                player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false, false, false)
+                if player.get("grounded"):
+                        break
+                await physics_frame
 
         # --- ladders: face the rungs + press W to grab; jump OFF; gaps OK ---
         # land fully first (the previous jump is still airborne)
@@ -300,6 +323,55 @@ func _run_all() -> void:
         floor_body.queue_free()
         await physics_frame
 
+        # --- TORSO-ONLY ladders: a low truss volume only the LEGS overlap
+        #     must never put the body into the climb grip (the Roblox rule
+        #     the user asked for: climb only when the TORSO touches) ---
+        var leg_lad := Area3D.new()
+        leg_lad.collision_layer = 16
+        leg_lad.add_to_group("ladder")
+        var ll_col := CollisionShape3D.new()
+        var ll_shape := BoxShape3D.new()
+        ll_shape.size = Vector3(0.5, 2.0, 0.5)
+        ll_col.shape = ll_shape
+        leg_lad.add_child(ll_col)
+        root.add_child(leg_lad)
+        leg_lad.global_position = player.global_position + Vector3(0.0, 0.0, -0.4)
+        await physics_frame
+        await physics_frame
+        check(player.get("_ladder_areas").is_empty(), "legs-only truss contact is NOT tracked (torso sensor)")
+        for i in range(4):
+                player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
+        check(not player.get("climbing"), "walking W into a leg-height truss does NOT climb")
+        leg_lad.queue_free()
+        await physics_frame
+
+        # --- STAIRS: a 2-stud block is walked OVER (step-up), never climbed ---
+        var step := StaticBody3D.new()
+        var step_col := CollisionShape3D.new()
+        var step_shape := BoxShape3D.new()
+        step_shape.size = Vector3(4.0, 2.0, 4.0)
+        step_col.shape = step_shape
+        step.add_child(step_col)
+        root.add_child(step)
+        step.global_position = Vector3(4.0, 1.0, 0.0)   # top at 2.0, face at x = 2.0
+        await physics_frame
+        player.global_position = Vector3(0.5, 0.05, 0.0)
+        player.set("heading", -PI / 2)   # face +X, straight at the 2-stud step
+        var saw_climb := false
+        var step_start_y: float = (player.get("global_position") as Vector3).y
+        for i in range(120):
+                player.call("drive", 0.016, Vector2(0.0, -1.0), -PI / 2, false, false)
+                await physics_frame
+                if bool(player.get("climbing")):
+                        saw_climb = true
+                if bool(player.get("grounded")) and (player.get("global_position") as Vector3).y > step_start_y + 1.5:
+                        break
+        check(not saw_climb, "2-stud block never engages the climb grip")
+        check((player.get("global_position") as Vector3).y > step_start_y + 1.5,
+                "player walks UP the 2-stud step like stairs")
+        step.queue_free()
+        await physics_frame
+
         # --- login: account gate + once-only sign-in ---
         var login_src := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
         check(not login_src.contains("PLAY AS GUEST"), "login gate: no guest bypass button")
@@ -378,4 +450,23 @@ func _run_all() -> void:
         var xf: Transform3D = holder.transform
         check(xf.origin.is_equal_approx(Vector3(1, 2, 3)), "UGC placement position verbatim")
         check(xf.basis.get_euler().is_equal_approx(Vector3(deg_to_rad(10), deg_to_rad(20), deg_to_rad(30))), "UGC placement rotation verbatim")
+
+        # --- v3.5: cursors, wordmark, wood, fast avatar, no Tix anywhere ---
+        check(ResourceLoader.exists("res://assets/ui/cursor_hand.png"), "uploaded RetroBlox Cursor ships")
+        check(ResourceLoader.exists("res://assets/ui/cursor_pointer.png"), "uploaded RetroBlox Pointer ships")
+        check(ResourceLoader.exists("res://assets/ui/wordmark.png"), "uploaded ReTROBLOX wordmark ships")
+        check(ResourceLoader.exists("res://assets/ui/wood_planks.jpg"), "wood signboard texture ships")
+        check(theme_src.contains("apply_cursors"), "classic cursors applied by the theme")
+        check(theme_src.contains("wood_style"), "wooden signboard style exists")
+        check(game_src.contains("_build_center_cursor"), "first person parks a visible cursor mid-screen")
+        check(game_src.contains("jump_held"), "game feeds held-jump input (hold SPACE hops)")
+        check(local_src.contains("jump_held"), "player accepts held-jump input")
+        check(not game_src.contains("Tix"), "no Tix UI left in the game")
+        check(not game_src.contains("tix_coin"), "no coin hooks left in the game")
+        var api_src := FileAccess.get_file_as_string("res://scripts/core/api.gd")
+        check(api_src.contains("_asset_cache") and api_src.contains("_image_cache"),
+                "Api caches assets + images (fast re-dress)")
+        var dresser_src := FileAccess.get_file_as_string("res://scripts/player/avatar_dresser.gd")
+        check(dresser_src.contains("_apply_accessory") and dresser_src.contains("_paint_shirt"),
+                "dresser streams shirt/face/accessories in parallel")
 

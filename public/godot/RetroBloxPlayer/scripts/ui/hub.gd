@@ -19,13 +19,14 @@ var _refresh_left := 0.0
 
 func _ready() -> void:
         theme = RetroUI.shared
+        RetroUI.apply_cursors()
         _build()
         _dress_preview()
         _refresh_online()
 
 
 # the music box is gone (you asked!) — the hub is quiet now, just wind-free
-# UI clicks and the occasional Tix chime
+# UI clicks (the Tix chime retired with the coins)
 
 
 func _process(delta: float) -> void:
@@ -54,6 +55,22 @@ func _build() -> void:
                 clouds.modulate = Color(0.7, 0.78, 0.9, 1.0)
                 clouds.mouse_filter = Control.MOUSE_FILTER_IGNORE
                 add_child(clouds)
+
+        # the owner's uploaded ReTROBLOX wordmark, proud over the clouds
+        if ResourceLoader.exists("res://assets/ui/wordmark.png"):
+                var brand := TextureRect.new()
+                brand.texture = load("res://assets/ui/wordmark.png")
+                brand.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                brand.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+                brand.set_anchors_preset(Control.PRESET_CENTER_TOP)
+                brand.custom_minimum_size = Vector2(320, 77)
+                brand.size = Vector2(320, 77)
+                brand.offset_left = -160.0
+                brand.offset_right = 160.0
+                brand.offset_top = 10.0
+                brand.offset_bottom = 87.0
+                brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                add_child(brand)
 
         var root := VBoxContainer.new()
         root.set_anchors_preset(Control.PRESET_FULL_RECT)

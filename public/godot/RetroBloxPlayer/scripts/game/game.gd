@@ -40,9 +40,7 @@ var _chat_badge: Label
 var _chat_badge_panel: PanelContainer
 var _toast_box: VBoxContainer
 var _shift_check: CheckButton
-var _tix_label: Label
-var _tix_total := 0
-var _tix_got := 0
+var _center_cursor: TextureRect   # the visible mouse parked mid-screen in first person
 
 
 func _ready() -> void:
@@ -68,8 +66,10 @@ func _ready() -> void:
         _dress_me()
 
         # ---- collectibles + sound bed ----
-        _hook_coins()
         _setup_audio()
+
+        # ---- the classic cursors (uploaded RetroBlox hand, everywhere) ----
+        RetroUI.apply_cursors()
 
         # ---- camera ----
         camera_rig = CameraRigScript.new()
@@ -111,7 +111,8 @@ func _physics_process(delta: float) -> void:
                 return
         var dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
         var jump := Input.is_action_just_pressed("jump")
-        player.drive(delta, dir, camera_rig.drive_yaw(), jump, camera_rig.shift_locked, camera_rig.first_person)
+        var jump_held := Input.is_action_pressed("jump")
+        player.drive(delta, dir, camera_rig.drive_yaw(), jump, camera_rig.shift_locked, camera_rig.first_person, jump_held)
 
         # fall into the void -> die (the oof knows). void_y is authored in studs.
         if player.alive and player.global_position.y < float(place.get("void_y", -40.0)) * WorldBuilderScript.STUD:
@@ -172,18 +173,22 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## First person: the camera becomes your eyes — hide the avatar (and its
-## nameplate) so it never blocks the view. Your own chat bubble hides too.
+## nameplate) so it never blocks the view. Your own chat bubble hides too,
+## and the mouse APPEARS parked in the middle of the screen so you always
+## know where your aim is.
 func _on_first_person(active: bool) -> void:
         if player != null and is_instance_valid(player):
                 player.avatar.visible = not active
                 player.bubble.visible = not active
+        if _center_cursor != null and is_instance_valid(_center_cursor):
+                _center_cursor.visible = active
 
 
 # ---------------------------------------------------------------- HUD
 
 ## The HUD from the reference video: a black rounded TOPBAR PILL (logo /
 ## menu / chat with unread badge) top-left, a VERTICAL HEALTH BAR on the
-## right, a hotbar slot bottom-center ("1 Tix Bag"), join toasts top-center,
+## right, join toasts top-center,
 ## translucent dark chat bottom-left, and a dark settings card in the menu.
 func _build_hud() -> void:
         hud = CanvasLayer.new()
@@ -201,8 +206,7 @@ func _build_hud() -> void:
 
         _build_topbar()
         _build_health()
-        _build_hotbar()
-        _build_tix_chip()
+        _build_center_cursor()
 
         # ---- top-center: join toasts ----
         _toast_box = VBoxContainer.new()
@@ -393,51 +397,28 @@ func _chip_style() -> StyleBoxFlat:
         return sb
 
 
-# ---- hotbar (bottom-center: 1 Tix Bag) ----------------------------------
+# ---- the first-person center cursor --------------------------------------
 
-func _build_hotbar() -> void:
-        var slot := Button.new()
-        slot.name = "HotbarSlot"
-        slot.focus_mode = Control.FOCUS_NONE
-        slot.tooltip_text = "Tix Bag — your classic wallet"
-        slot.add_theme_stylebox_override("normal", _hotbar_style())
-        slot.add_theme_stylebox_override("hover", _hotbar_style())
-        slot.add_theme_stylebox_override("pressed", _hotbar_style())
-        slot.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-        slot.offset_left = -44.0
-        slot.offset_right = 44.0
-        slot.offset_top = -96.0
-        slot.offset_bottom = -8.0
-        slot.pressed.connect(func() -> void: _notify("The Tix Bag jingles. Chat is free forever."))
-        hud.add_child(slot)
-        var num := Label.new()
-        num.text = "1"
-        num.add_theme_font_size_override("font_size", 11)
-        num.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
-        num.position = Vector2(6, 4)
-        num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        slot.add_child(num)
-        var name_label := Label.new()
-        name_label.text = "Tix Bag"
-        name_label.add_theme_font_size_override("font_size", 12)
-        name_label.add_theme_color_override("font_color", Color.WHITE)
-        name_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-        name_label.offset_top = -30.0
-        name_label.offset_bottom = -12.0
-        name_label.offset_left = -44.0
-        name_label.offset_right = 44.0
-        name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        slot.add_child(name_label)
-
-
-func _hotbar_style() -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.05, 0.07, 0.09, 0.55)
-        sb.set_corner_radius_all(4)
-        sb.border_color = Color(1, 1, 1, 0.22)
-        sb.set_border_width_all(1)
-        return sb
+## In first person the OS cursor is captured (hidden) so the camera can
+## turn — this draws the uploaded RetroBlox Pointer parked in the MIDDLE of
+## the screen, so your mouse visibly sits where you aim, exactly as asked.
+func _build_center_cursor() -> void:
+        _center_cursor = TextureRect.new()
+        _center_cursor.name = "CenterCursor"
+        var tex: Texture2D = load("res://assets/ui/cursor_pointer.png") if ResourceLoader.exists("res://assets/ui/cursor_pointer.png") else null
+        if tex != null:
+                _center_cursor.texture = tex
+        _center_cursor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        _center_cursor.custom_minimum_size = Vector2(32, 32)
+        _center_cursor.size = Vector2(32, 32)
+        _center_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        _center_cursor.set_anchors_preset(Control.PRESET_CENTER)
+        _center_cursor.offset_left = -16.0
+        _center_cursor.offset_right = 16.0
+        _center_cursor.offset_top = -16.0
+        _center_cursor.offset_bottom = 16.0
+        _center_cursor.visible = false
+        hud.add_child(_center_cursor)
 
 
 # ---- toasts (top-center black pills) ------------------------------------
@@ -463,49 +444,6 @@ func _notify(text: String, with_sound := false) -> void:
         tween.tween_callback(pill.queue_free)
 
 
-# ---- tix counter (top-right gold chip) ----------------------------------
-
-func _build_tix_chip() -> void:
-        var chip := PanelContainer.new()
-        chip.name = "TixChip"
-        chip.tooltip_text = "Collect every Tix hidden in the place!"
-        chip.add_theme_stylebox_override("panel", _tix_style())
-        chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-        chip.offset_left = -150.0
-        chip.offset_right = -14.0
-        chip.offset_top = 12.0
-        chip.offset_bottom = 42.0
-        var row := HBoxContainer.new()
-        row.add_theme_constant_override("separation", 7)
-        chip.add_child(row)
-        var icon := Label.new()
-        icon.text = "Tix"
-        icon.add_theme_font_size_override("font_size", 14)
-        icon.add_theme_color_override("font_color", Color("5a3c00"))
-        row.add_child(icon)
-        _tix_label = Label.new()
-        _tix_label.text = "0 / 0"
-        _tix_label.add_theme_font_size_override("font_size", 14)
-        _tix_label.add_theme_color_override("font_color", Color("3d2c00"))
-        row.add_child(_tix_label)
-        hud.add_child(chip)
-        _update_tix()
-
-
-func _tix_style() -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        # a little gold coin of a chip
-        sb.bg_color = Color("ffd23f")
-        sb.set_corner_radius_all(14)
-        sb.border_color = Color("b98a00")
-        sb.set_border_width_all(2)
-        sb.content_margin_left = 12.0
-        sb.content_margin_right = 12.0
-        sb.content_margin_top = 4.0
-        sb.content_margin_bottom = 4.0
-        return sb
-
-
 # ---------------------------------------------------------------- audio bed
 
 ## The wind bed on sky places (the music box is gone — you asked!). Loops
@@ -519,33 +457,6 @@ func _setup_audio() -> void:
                 if wind != null:
                         add_child(wind)
                         wind.call("play")
-
-
-# ---------------------------------------------------------------- tix coins
-
-## Every "coin" prop registers itself in the tix_coin group — count them,
-## wire the chime + counter, and fanfare when the place is swept clean.
-func _hook_coins() -> void:
-        for coin in get_tree().get_nodes_in_group("tix_coin"):
-                _tix_total += 1
-                coin.connect("collected", _on_tix_collected)
-        _update_tix()
-
-
-func _on_tix_collected(_coin: Area3D) -> void:
-        _tix_got += 1
-        _update_tix()
-        if _tix_total > 0 and _tix_got >= _tix_total:
-                var sfx: Node = get_node_or_null("/root/Sfx")
-                if sfx != null:
-                        sfx.call("play_goal")
-                chat.add_system("*** ALL %d TIX COLLECTED — you legend! ***" % _tix_total)
-                _notify("All Tix collected!", true)
-
-
-func _update_tix() -> void:
-        if _tix_label != null and is_instance_valid(_tix_label):
-                _tix_label.text = "%d / %d" % [_tix_got, _tix_total]
 
 
 # ---- the menu (dark card, Players + Settings tabs) ----------------------
@@ -583,18 +494,32 @@ func _build_menu() -> Control:
         box.add_theme_constant_override("separation", 10)
         _menu_card.add_child(box)
 
-        var title := Label.new()
-        title.text = "RETROBLOX"
-        title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        title.add_theme_color_override("font_color", Color.WHITE)
-        var pixel: Font = RetroUI.pixel_font()
-        if pixel != null:
-                title.add_theme_font_override("font", pixel)
-                title.add_theme_font_size_override("font_size", 15)
-                title.add_theme_color_override("font_color", Color("ffd23f"))
+        # the menu crown: YOUR uploaded ReTROBLOX wordmark (red-outlined
+        # classic letters) over a wooden signboard header — pure 2011 energy
+        var wordmark_path := "res://assets/ui/wordmark.png"
+        if ResourceLoader.exists(wordmark_path):
+                var sign := PanelContainer.new()
+                sign.add_theme_stylebox_override("panel", RetroUI.wood_style())
+                var wm := TextureRect.new()
+                wm.texture = load(wordmark_path)
+                wm.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+                wm.custom_minimum_size = Vector2(0, 56)
+                wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                sign.add_child(wm)
+                box.add_child(sign)
         else:
-                title.add_theme_font_size_override("font_size", 22)
-        box.add_child(title)
+                var title := Label.new()
+                title.text = "RETROBLOX"
+                title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+                title.add_theme_color_override("font_color", Color.WHITE)
+                var pixel: Font = RetroUI.pixel_font()
+                if pixel != null:
+                        title.add_theme_font_override("font", pixel)
+                        title.add_theme_font_size_override("font_size", 15)
+                        title.add_theme_color_override("font_color", Color("ffd23f"))
+                else:
+                        title.add_theme_font_size_override("font_size", 22)
+                box.add_child(title)
         var sub := Label.new()
         sub.text = String(place.get("name", "a classic place"))
         sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

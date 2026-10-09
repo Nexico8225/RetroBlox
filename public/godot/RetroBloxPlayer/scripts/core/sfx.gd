@@ -37,9 +37,6 @@ const OOF_PREFS: Array[String] = [
         "res://assets/rbx_uuhhh.mp3",            # the original oof
         "res://assets/oof.wav",
 ]
-const TIX_PREFS: Array[String] = [
-        "res://assets/sfx_tix.wav",              # original coin chime
-]
 const GOAL_PREFS: Array[String] = [
         "res://assets/sfx_goal.wav",             # original victory fanfare
 ]
@@ -52,7 +49,6 @@ var _steps: AudioStream
 var _land: AudioStream
 var _fall: AudioStream
 var _oof: AudioStream
-var _tix: AudioStream
 var _goal: AudioStream
 var _wind: AudioStream
 var _pool: Array[AudioStreamPlayer] = []
@@ -67,7 +63,6 @@ func _ready() -> void:
         _land = _load_first(LAND_PREFS)
         _fall = _load_first(FALL_PREFS)
         _oof = _load_first(OOF_PREFS)
-        _tix = _load_first(TIX_PREFS)
         _goal = _load_first(GOAL_PREFS)
         _wind = _load(WIND)
         for i in range(6):
@@ -147,11 +142,6 @@ func play_land_3d(at: Node3D) -> void:
 ## The original oof, positioned at the broken avatar.
 func play_oof_3d(at: Node3D) -> void:
         _play_one_shot_3d(_oof, "OofSfx", at, -1.0)
-
-
-## Coin chime at the collected Tix.
-func play_tix_3d(at: Node3D) -> void:
-        _play_one_shot_3d(_tix, "TixSfx", at, -2.0)
 
 
 ## Victory fanfare — non positional, it is YOUR win.

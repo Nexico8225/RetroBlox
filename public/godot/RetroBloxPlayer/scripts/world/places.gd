@@ -141,14 +141,6 @@ static func cloud_kingdom() -> Dictionary:
                         { "type": "cloud", "p": [44, 10, -28], "s": 7 },
                         { "type": "cloud", "p": [0, 26, 8], "s": 10 },
                         # ---- collectible Tix (touch to chime + count) ----
-                        { "type": "coin", "p": [4, 1.4, 0] },
-                        { "type": "coin", "p": [-8, 1.4, 7] },
-                        { "type": "coin", "p": [21, 2.2, 8] },
-                        { "type": "coin", "p": [34, 1.4, 6] },
-                        { "type": "coin", "p": [0, 1.4, -34] },
-                        { "type": "coin", "p": [-20, 9.2, 26] },
-                        { "type": "coin", "p": [28, 14, 12] },
-                        { "type": "coin", "p": [30, 24.8, -20] },
                 ],
         }
 
@@ -194,9 +186,6 @@ static func baseplate() -> Dictionary:
                 ],
                 "props": [
                         # ---- collectible Tix ----
-                        { "type": "coin", "p": [0, 2, -8] },
-                        { "type": "coin", "p": [-18, 10, 24] },
-                        { "type": "coin", "p": [24, 12, 10] },
                 ],
         }
 
@@ -244,9 +233,6 @@ static func obby() -> Dictionary:
                 ],
                 "props": [
                         # ---- collectible Tix ----
-                        { "type": "coin", "p": [0, 3.8, 16] },
-                        { "type": "coin", "p": [0, 6.6, 60] },
-                        { "type": "coin", "p": [-3, 10.2, 113] },
                 ],
         }
 
@@ -292,9 +278,6 @@ static func skylands() -> Dictionary:
                 ],
                 "props": [
                         # ---- collectible Tix ----
-                        { "type": "coin", "p": [0, 2.6, 20] },
-                        { "type": "coin", "p": [4, 3.2, 44] },
-                        { "type": "coin", "p": [0, 13.4, 68] },
                 ],
         }
 
@@ -345,10 +328,5 @@ static func tower() -> Dictionary:
                         # the tower's welcome board
                         { "type": "sign", "p": [8, 3, 8], "yaw": 225, "title": "WOBBLY TOWER", "title_c": "ffd400", "text": "20 studs up.\nDo not look down.\nCollect the Tix on the way!", "w": 10, "h": 5 },
                         # ---- collectible Tix up the zig-zag ----
-                        { "type": "coin", "p": [0, 3.4, 13] },
-                        { "type": "coin", "p": [5, 5.4, 19] },
-                        { "type": "coin", "p": [0, 7.4, 25] },
-                        { "type": "coin", "p": [-5, 11.4, 7] },
-                        { "type": "coin", "p": [0, 21.8, -2] },
                 ],
         }
