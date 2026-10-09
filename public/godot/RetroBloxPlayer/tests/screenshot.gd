@@ -33,7 +33,7 @@ func _ready() -> void:
         camera_rig = CameraRigScript.new()
         add_child(camera_rig)
         camera_rig.setup(player)
-        camera_rig.set_mouse_captured(true)
+        camera_rig.set_ui_blocked(true)   # keep the OS cursor during shots
         camera_rig.yaw = 0.35
         camera_rig.pitch = -0.22
         camera_rig.distance = 14.0
@@ -41,7 +41,6 @@ func _ready() -> void:
         _build_hud()
         chat.call("add_system", "Welcome to Cloud Kingdom!")
         chat.call("add_chat", "Nexico8225", 1, "Good game")
-        player.show_bubble("Good game")
         var settings: Node = get_node("/root/Settings")
         settings.set_key("fov", 70.0)
 

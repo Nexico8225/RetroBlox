@@ -11,9 +11,11 @@ extends CharacterBody3D
 ## TrussPart-style ladders (even ones built from segments with 1-3 stud gaps
 ## between them — the climb grace carries you across the gap), stud-edge
 ## climbing (walk into any studded platform edge while FACING it and W climbs
-## it, Roblox style), mantle over the top lip, face away mid-climb and you
-## let go and fall, Space jumps off, trampolines, fall damage with the
-## classic 1%/s regen, death breakup with the original oof, chat bubbles.
+## it, Roblox style), mantle over the top lip. While climbing the torso locks
+## onto the ladder / wall face — it never twists left or right — and the
+## Climb clip can't break from body spin. S climbs down, Space jumps off,
+## trampolines, fall damage with the
+## classic 1%/s regen, death breakup with the original oof.
 
 signal health_changed(health: float, max_health: float)
 signal health_depleted
@@ -88,14 +90,14 @@ var _climb_grace := 0.0
 var _coyote := 0.0
 var _jump_buffer_left := 0.0
 var _step_visual := 0.0
-var _bubble: Label3D
-var _bubble_left := 0.0
 var _bounce_cd := 0.0
 var _time := 0.0
 var _steps_loop: AudioStreamPlayer3D
 var _climb_loop: AudioStreamPlayer3D
 var _fall_loop: AudioStreamPlayer3D
 var _ladder_dismount := 0.0
+var _input_shiftlock := false     # live input flags (ladder-grip rules)
+var _input_first_person := false
 var _last_vy := 0.0
 
 
@@ -117,19 +119,6 @@ func _init() -> void:
         avatar = AvatarRigScript.new()
         avatar.name = "Avatar"
         add_child(avatar)
-
-        _bubble = Label3D.new()
-        _bubble.name = "ChatBubble"
-        _bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-        _bubble.pixel_size = 0.008
-        _bubble.font_size = 30
-        _bubble.outline_size = 8
-        _bubble.width = 220.0
-        _bubble.modulate = Color.WHITE
-        _bubble.outline_modulate = Color(0, 0, 0, 0.9)
-        _bubble.visible = false
-        add_child(_bubble)
-        _bubble.position = Vector3(0.0, 6.8 * STUD, 0.0)
 
         _setup_ladder_sensor()
         _setup_touch_sensor()
@@ -169,17 +158,17 @@ func _physics_process(delta: float) -> void:
         _time += delta
         if _bounce_cd > 0.0:
                 _bounce_cd -= delta
-        if _bubble_left > 0.0:
-                _bubble_left -= delta
-                _bubble.visible = alive and _bubble_left > 0.0
         _update_loops()
 
 
 ## One classic physics step. `direction.y < 0` = forward (W), cam_yaw orients
-## the input, `just_pressed` is the raw jump press this frame.
-func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool, use_shiftlock: bool) -> void:
+## the input, `just_pressed` is the raw jump press this frame. `first_person`
+## locks the body to the camera yaw like shift lock, but ladders still climb.
+func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool, use_shiftlock: bool, first_person := false) -> void:
         if not alive:
                 return
+        _input_shiftlock = use_shiftlock
+        _input_first_person = first_person
         var wish := Vector3(direction.x, 0.0, direction.y).rotated(Vector3.UP, cam_yaw)
         if wish.length() > 1.0:
                 wish = wish.normalized()
@@ -197,10 +186,14 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         if _ladder_dismount > 0.0:
                 _ladder_dismount -= delta
 
-        # facing — shift lock squares up to the camera, otherwise face the run.
-        # Runs BEFORE the climb step so turning away (S / A / D, or swinging
-        # the camera in shift lock) rotates the body and breaks the climb grip.
-        if use_shiftlock:
+        # facing — while CLIMBING the torso locks onto the ladder / wall face
+        # and NEVER twists left or right: A/D and S climb and duck without
+        # spinning the body, so the grip — and the Climb clip — cannot break
+        # from body spin. Shift lock / first person square up to the camera;
+        # otherwise face the run.
+        if _climb_kind != ClimbKind.NONE:
+                heading = lerp_angle(heading, atan2(-_climb_face.x, -_climb_face.z), 1.0 - exp(-22.0 * delta))
+        elif use_shiftlock or first_person:
                 heading = lerp_angle(heading, cam_yaw, 1.0 - exp(-14.0 * delta))
         elif wish.length_squared() > 0.005:
                 heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
@@ -208,8 +201,9 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         _update_climb(wish, delta)
         if _climb_kind != ClimbKind.NONE:
                 _drive_climb(wish, delta)
-                # FACE CHECK — face off while climbing and you simply let go
-                # and fall. `forward` is where the body is looking right now.
+                # FACE CHECK — now only a safety net (heading is locked to the
+                # surface): something truly shoving the view off the wall
+                # still lets go and falls.
                 var forward := Vector3(-sin(heading), 0.0, -cos(heading))
                 if forward.dot(_climb_face) < CLIMB_FACE_STAY:
                         _stop_climb()
@@ -253,11 +247,19 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 ## the surface grabs on; the grace window carries you across 1-3 stud gaps
 ## between ladder segments or rung plates without dropping.
 func _update_climb(wish: Vector3, delta: float) -> void:
+        # standing on the floor without pressing INTO the surface = not a
+        # climb: idle at a wall, or S down into the ground = simply let go
+        if _climb_kind != ClimbKind.NONE and grounded and wish.dot(_climb_face) <= 0.2:
+                _stop_climb()
+                return
         if _climb_kind == ClimbKind.LADDER:
                 if not _ladder_areas.is_empty():
                         var lad: Area3D = _nearest_ladder()
                         var face := _toward(lad)
-                        if face != Vector3.ZERO:
+                        # a volume the body has crossed through would report
+                        # the OPPOSITE face — keep the grabbed face instead
+                        # (the hug pressure pulls the body back onto the rungs)
+                        if face != Vector3.ZERO and face.dot(_climb_face) > -0.5:
                                 _climb_face = face
                         _climb_grace = CLIMB_GRACE
                         return
@@ -288,8 +290,11 @@ func _update_climb(wish: Vector3, delta: float) -> void:
         # --- not climbing: can we grab on? ---
         if _ladder_dismount > 0.0:
                 return
+        # shift lock walks straight past ladders (the classic feel) — first
+        # person and normal third person climb them like always
+        var ladder_ok := not _input_shiftlock or _input_first_person
         # ladders first: touching a rung volume + pressing into it + facing it
-        if not _ladder_areas.is_empty():
+        if ladder_ok and not _ladder_areas.is_empty():
                 var lad: Area3D = _nearest_ladder()
                 var face := _toward(lad)
                 if face != Vector3.ZERO and wish.dot(face) > 0.25:
@@ -524,25 +529,6 @@ func _update_fall_damage() -> void:
                 _falling = true
 
 
-func show_bubble(message: String) -> void:
-        # plain text only — markup cannot be injected
-        var words := message.split(" ")
-        var lines: Array[String] = []
-        var current := ""
-        for word in words:
-                if current.length() + word.length() > 26 and not current.is_empty():
-                        lines.append(current)
-                        current = ""
-                current += (" " if not current.is_empty() else "") + word.left(26)
-                if lines.size() >= 3:
-                        break
-        if lines.size() < 3 and not current.is_empty():
-                lines.append(current)
-        _bubble.text = "\n".join(lines)
-        _bubble_left = 5.5
-        _bubble.visible = alive
-
-
 func hurt(amount: float) -> void:
         if not alive or amount <= 0.0:
                 return
@@ -569,7 +555,6 @@ func die(world: Node3D) -> void:
         health_changed.emit(health, MAX_HEALTH)
         velocity = Vector3.ZERO
         _stop_climb()
-        _bubble.visible = false
         avatar.call("burst", world, randi())
 
 
@@ -581,8 +566,6 @@ func respawn_at(pos: Vector3) -> void:
         _stop_climb()
         _ladder_dismount = 0.0
         _step_visual = 0.0
-        _bubble_left = 0.0
-        _bubble.visible = false
         avatar.position.y = 0.0
         health_changed.emit(health, MAX_HEALTH)
         global_position = pos

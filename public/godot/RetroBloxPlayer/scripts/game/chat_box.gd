@@ -1,9 +1,10 @@
 extends Control
-## ChatBox — the bottom-left chat, dark translucent + rounded like the
-## reference client. Shows the last stretch of lines with colored names
-## (#seqId chips included), Enter opens the input, Enter again sends, Esc
-## closes. The LOG can collapse to nothing — unread messages then count on
-## the topbar chat button's red badge. Plain text only — nothing can inject
+## ChatBox — the TOP-LEFT chat, dark translucent + rounded like the modern
+## classic client: log under the topbar pill, input line always visible
+## underneath. Shows the last stretch of lines with colored names (#seqId
+## chips included), Enter opens the input, Enter again sends, Esc closes.
+## The LOG can collapse to nothing — unread messages then count on the
+## topbar chat button's red badge. Plain text only — nothing can inject
 ## markup.
 
 signal submitted(text: String)
@@ -27,19 +28,19 @@ var _unread := 0
 
 
 func _init() -> void:
-        set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+        # top-left corner, just under the topbar pill — where chatting lives
+        set_anchors_preset(Control.PRESET_TOP_LEFT)
         offset_left = 10.0
-        offset_bottom = -10.0
-        offset_top = -242.0
-        offset_right = 440.0
-        grow_vertical = Control.GROW_DIRECTION_BEGIN
+        offset_top = 54.0
+        offset_right = 404.0
+        offset_bottom = 288.0
 
         _panel = PanelContainer.new()
         _panel.name = "LogPanel"
         # dark translucent rounded log — the modern classic look
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.045, 0.06, 0.08, 0.62)
-        sb.set_corner_radius_all(8)
+        sb.bg_color = Color(0.045, 0.06, 0.08, 0.72)
+        sb.set_corner_radius_all(10)
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
         sb.content_margin_top = 7.0
@@ -64,7 +65,7 @@ func _init() -> void:
         _input_panel.name = "InputPanel"
         var isb := StyleBoxFlat.new()
         isb.bg_color = Color(0.05, 0.065, 0.085, 0.92)
-        isb.set_corner_radius_all(8)
+        isb.set_corner_radius_all(10)
         isb.border_color = Color(1, 1, 1, 0.14)
         isb.set_border_width_all(1)
         isb.content_margin_left = 8.0
@@ -74,12 +75,12 @@ func _init() -> void:
         _input_panel.add_theme_stylebox_override("panel", isb)
         _input_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
         _input_panel.offset_top = -36.0
-        _input_panel.visible = false
         add_child(_input_panel)
 
         _input = LineEdit.new()
         _input.placeholder_text = "To chat click here or press ENTER"
         _input.max_length = 240
+        _input.context_menu_enabled = false
         _input.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
         _input.add_theme_color_override("font_placeholder_color", Color(0.62, 0.68, 0.74))
         _input.add_theme_font_size_override("font_size", 14)
@@ -94,7 +95,6 @@ func open() -> void:
         is_open = true
         log_collapsed = false
         _panel.visible = true
-        _input_panel.visible = true
         _clear_unread()
         _input.grab_focus()
         opened.emit()
@@ -105,7 +105,6 @@ func close() -> void:
                 return
         is_open = false
         _input.text = ""
-        _input_panel.visible = false
         _input.release_focus()
         closed.emit()
 
@@ -131,7 +130,13 @@ func _on_submit(text: String) -> void:
 
 
 func _on_input_gui(event: InputEvent) -> void:
-        if event is InputEventKey and event.is_pressed() and not event.is_echo():
+        if event is InputEventMouseButton and event.is_pressed():
+                # clicking the always-visible input opens the chat (the log
+                # un-collapses so you can see what everyone is saying)
+                if not is_open:
+                        open()
+                        get_viewport().set_input_as_handled()
+        elif event is InputEventKey and event.is_pressed() and not event.is_echo():
                 var key := event as InputEventKey
                 if key.keycode == KEY_ESCAPE:
                         close()

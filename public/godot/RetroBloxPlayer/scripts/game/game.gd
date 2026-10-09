@@ -74,10 +74,11 @@ func _ready() -> void:
         camera_rig = CameraRigScript.new()
         add_child(camera_rig)
         camera_rig.setup(player)
-        camera_rig.set_mouse_captured(true)
+        camera_rig.set_ui_blocked(false)   # cursor free in third person
+        camera_rig.first_person_changed.connect(_on_first_person)
         var settings: Node = get_node_or_null("/root/Settings")
         if settings != null:
-                camera_rig.shift_locked = bool(settings.get("shift_lock"))
+                camera_rig.set_shift_locked(bool(settings.get("shift_lock")))
 
         _build_hud()
 
@@ -109,7 +110,7 @@ func _physics_process(delta: float) -> void:
                 return
         var dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
         var jump := Input.is_action_just_pressed("jump")
-        player.drive(delta, dir, camera_rig.drive_yaw(), jump, camera_rig.shift_locked)
+        player.drive(delta, dir, camera_rig.drive_yaw(), jump, camera_rig.shift_locked, camera_rig.first_person)
 
         # fall into the void -> die (the oof knows). void_y is authored in studs.
         if player.alive and player.global_position.y < float(place.get("void_y", -40.0)) * WorldBuilderScript.STUD:
@@ -136,26 +137,29 @@ func _unhandled_input(event: InputEvent) -> void:
         elif event.is_action_pressed("ui_text_submit") or (event is InputEventKey and event.is_pressed() and not event.is_echo() and (event as InputEventKey).keycode == KEY_ENTER):
                 if not _menu_open and not chat.is_open:
                         chat.open()
-                        camera_rig.set_mouse_captured(false)
+                        camera_rig.set_ui_blocked(true)
                         get_viewport().set_input_as_handled()
         elif event.is_action_pressed("toggle_players"):
                 _open_menu("players")
                 get_viewport().set_input_as_handled()
         elif event.is_action_pressed("shift_lock"):
                 # classic SHIFT toggle — squares the character up to the camera
-                var on: bool = not camera_rig.shift_locked
-                camera_rig.shift_locked = on
+                camera_rig.set_shift_locked(not camera_rig.shift_locked)
                 var st: Node = get_node_or_null("/root/Settings")
                 if st != null:
-                        st.call("set_key", "shift_lock", on)
+                        st.call("set_key", "shift_lock", camera_rig.shift_locked)
                 if _shift_check != null and is_instance_valid(_shift_check):
-                        _shift_check.set_pressed_no_signal(on)
-                _notify("Shift lock ON — character follows the camera, ladders off" if on else "Shift lock OFF")
+                        _shift_check.set_pressed_no_signal(camera_rig.shift_locked)
                 get_viewport().set_input_as_handled()
-        elif event is InputEventMouseButton and event.is_pressed():
-                # click the world to recapture the mouse after menus / chat
-                if not _menu_open and not chat.is_open and not camera_rig.is_mouse_captured():
-                        camera_rig.set_mouse_captured(true)
+        # NOTE: no click-to-capture — the cursor is ALWAYS usable in third
+        # person now; the camera orbits with the RIGHT mouse button instead.
+
+
+## First person: the camera becomes your eyes — hide the avatar (and its
+## nameplate) so it never blocks the view.
+func _on_first_person(active: bool) -> void:
+        if player != null and is_instance_valid(player):
+                player.avatar.visible = not active
 
 
 # ---------------------------------------------------------------- HUD
@@ -172,9 +176,10 @@ func _build_hud() -> void:
         # chat FIRST — the topbar's chat button + unread badge wire to it
         chat = ChatBoxScript.new()
         chat.submitted.connect(_on_chat_submit)
+        chat.opened.connect(func() -> void: camera_rig.set_ui_blocked(true))
         chat.closed.connect(func() -> void:
                 if not _menu_open:
-                        camera_rig.set_mouse_captured(true))
+                        camera_rig.set_ui_blocked(false))
         hud.add_child(chat)
 
         _build_topbar()
@@ -224,8 +229,7 @@ func _build_topbar() -> void:
                         chat.set_log_collapsed(not chat.log_collapsed)
                 else:
                         chat.set_log_collapsed(false)
-                        chat.open()
-                        camera_rig.set_mouse_captured(false))
+                        chat.open())
         chat.unread.connect(func(n: int) -> void:
                 _chat_badge.text = "" if n <= 0 else str(n))
         var badge_holder := Control.new()
@@ -843,10 +847,10 @@ func _toggle_menu() -> void:
         _menu_open = not _menu_open
         _menu.visible = _menu_open
         if _menu_open:
-                camera_rig.set_mouse_captured(false)
+                camera_rig.set_ui_blocked(true)
                 _refresh_player_list([])
         else:
-                camera_rig.set_mouse_captured(true)
+                camera_rig.set_ui_blocked(false)
 
 
 # ---------------------------------------------------------------- events
@@ -954,11 +958,6 @@ func _ingest_message(msg: Dictionary) -> void:
         var seq := int(msg.get("seqId", 0)) if msg.get("seqId") != null else 0
         var text := String(msg.get("text", ""))
         chat.add_chat(uname, seq, text, "", uid == Session.user_id)
-        # bubble over the right avatar
-        if uid == Session.user_id:
-                player.show_bubble(text)
-        elif _remotes.has(uid):
-                _remotes[uid].show_bubble(text)
 
 
 func _reconcile_players(players: Array) -> void:

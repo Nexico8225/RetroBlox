@@ -187,6 +187,9 @@ func _run_all() -> void:
         check(player.is_on_floor(), "player settled on the ground")
         player.call("drive", 0.016, Vector2.ZERO, 0.0, true, false)
         check(player.velocity.y > 10.0, "jump launches (v=%.1f)" % player.velocity.y)
+        # first person: the body turns with the camera even without shift lock
+        player.call("drive", 0.016, Vector2.ZERO, 0.9, false, false, true)
+        check(player.get("heading") > 0.05, "first person turns the body with the camera")
 
         # --- ladders: face the rungs + press W to grab; jump OFF; gaps OK ---
         # land fully first (the previous jump is still airborne)
@@ -197,8 +200,8 @@ func _run_all() -> void:
                 await physics_frame
         player.call("drive", 0.016, Vector2.ZERO, 0.0, false, false)
         await physics_frame
-        # a REAL truss volume on layer 16, hugging the player (sensor reach is
-        # 1.15 studs = 0.32 units at the new scale)
+        # a REAL truss volume on layer 16, hugging the player (sensor reach
+        # is 1.15 studs at the classic 1 stud = 1 unit scale)
         var ladder := Area3D.new()
         ladder.collision_layer = 16
         ladder.add_to_group("ladder")
@@ -235,14 +238,23 @@ func _run_all() -> void:
                 player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
         check(not player.get("climbing"), "no re-grab during dismount window")
         player.set("_ladder_dismount", 0.0)
-        # FACE OFF = FALL: climbing again, then press S — the body turns away
-        # from the rungs, the grip breaks and you fall (no climb without facing)
+        # TORSO LOCK: climbing again, then A/D — the body STAYS facing the
+        # rungs (it never looks left or right), the grip holds, and S simply
+        # climbs DOWN. This is the classic ladder feel.
         for i in range(4):
                 player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
         check(player.get("climbing"), "re-grab works once the dismount window ends")
-        for i in range(14):
-                player.call("drive", 0.016, Vector2(0.0, 1.0), 0.0, false, false)
-        check(not player.get("climbing"), "facing away mid-climb lets go and falls")
+        player.global_position.y += 5.0   # mid-air: no floor interference below
+        var grab_heading: float = player.get("heading")
+        for i in range(10):
+                player.call("drive", 0.016, Vector2(-1.0, 0.0), 0.0, false, false)
+        check(player.get("climbing"), "sideways input mid-climb does NOT break the climb")
+        check(absf(player.get("heading") - grab_heading) < 0.2,
+                "torso stays locked facing the ladder (no left/right look)")
+        player.call("drive", 0.016, Vector2(0.0, 1.0), 0.0, false, false)
+        check(player.get("climbing") and player.velocity.y < -1.0,
+                "S climbs DOWN while the torso stays facing the rungs")
+        player.call("_stop_climb")
         ladder.queue_free()
         await physics_frame
 
@@ -302,6 +314,34 @@ func _run_all() -> void:
         check(chat.get("log_collapsed") == true, "chat collapsed")
         chat.call("set_log_collapsed", false)
         check(chat.get("log_collapsed") == false, "chat expanded")
+        check(chat.offset_top >= 40.0 and chat.offset_left <= 16.0,
+                "chat sits top-left under the topbar")
+        var input_panel: Control = chat.get_node_or_null("InputPanel")
+        check(input_panel != null and input_panel.visible,
+                "chat input line is always visible")
+
+        # --- camera: huge zoom range + first person toggle ---
+        var cam_script: Script = load("res://scripts/game/camera_rig.gd")
+        check(float(cam_script.MAX_ZOOM) >= 120.0, "camera zooms out VERY far (MAX_ZOOM 120)")
+        check(float(cam_script.FIRST_PERSON_AT) > 0.0, "first-person zoom threshold exists")
+        var cam_rig_node: Node3D = cam_script.new()
+        root.add_child(cam_rig_node)
+        check(not bool(cam_rig_node.get("first_person")), "camera starts third person")
+        cam_rig_node.call("_zoom", -float(cam_script.MAX_ZOOM))
+        check(bool(cam_rig_node.get("first_person")), "zooming all the way in is FIRST PERSON")
+        cam_rig_node.call("_zoom", float(cam_script.MAX_ZOOM))
+        check(not bool(cam_rig_node.get("first_person")), "zooming out leaves first person")
+        cam_rig_node.queue_free()
+
+        # --- bubbles are gone (chat is the only message surface) ---
+        var game_src := FileAccess.get_file_as_string("res://scripts/game/game.gd")
+        check(not game_src.contains("show_bubble"), "no chat bubble wiring in game.gd")
+        var local_src := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
+        check(not local_src.contains("show_bubble") and not local_src.contains("ChatBubble"),
+                "no chat bubble on the local player")
+        var remote_src := FileAccess.get_file_as_string("res://scripts/player/remote_player.gd")
+        check(not remote_src.contains("bubble"), "no chat bubble on remote players")
+        check(not game_src.contains("Shift lock ON"), "no shift-lock toast notification")
 
         # --- dresser: placement applies verbatim ---
         var holder := Node3D.new()

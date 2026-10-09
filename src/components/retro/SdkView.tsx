@@ -9,13 +9,17 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.2 "Classic Size"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.2'
+const VERSION = 'v3.3 "Free Cursor"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.3'
 
 const NEW_STUFF: [string, string][] = [
+  ['Free cursor + true first person', 'Your cursor is ALWAYS usable in third person — hold the RIGHT mouse button to orbit the camera. Scroll all the way in for real first person (the camera becomes your eyes), and the cursor locks dead-center in first person and shift lock only.'],
+  ['Zoom out VERY far', 'The scroll wheel now zooms out to 120 studs — see the whole place at once. Steps grow with distance, so far-out zooming is quick and close zooming is precise.'],
+  ['Climbing that never breaks', 'While on a ladder or ledge your torso LOCKS onto the surface — it never twists left or right, sideways input keeps climbing, S climbs down, and the Climb animation can no longer glitch out mid-climb.'],
+  ['Chat moved top-left', 'The chat now lives in the top-left corner under the topbar, with the input line always visible — click it or press ENTER to type. No more speech bubbles over heads; the chat log is the one place for messages.'],
   ['Back to the classic size', 'The world is built 1 stud = 1 unit again — the avatar stands a proper 5 studs tall and UGC hats sit right on the head, exactly the size you placed them on the site. Crash fixes included: the freed-avatar error is gone and the scripts load warning-free.'],
   ['Softer, warmer lighting', 'Sun and sky ambient toned down — no more washed-out white; colors pop the way they should while Cloud Kingdom keeps its bright-blue feel.'],
-  ['Roblox edge + ladder climbing', 'Walk into a 1–3 stud ledge or ladder rung FACING it and you grab; look away mid-climb and you drop; Space jumps off. Gaps of 1–3 studs between ladders still climb through.'],
+  ['Roblox edge + ladder climbing', 'Walk into a 1–3 stud ledge or ladder rung FACING it and you grab; S climbs down, Space jumps off, and the top lip mantles you onto the platform. Gaps of 1–3 studs between ladders still climb through.'],
   ['Log in once — stay logged in', 'The game remembers you: sign in (or sign up, or go guest) one time and every future launch signs you in automatically — even offline. Log Out from the menu clears it.'],
   ['Real FBX animations', 'The retroblox_anims.fbx clips (Idle / Walk / Climb / Fall) drive the avatar directly and loop cleanly — no more frozen poses.'],
   ['Shift Lock (SHIFT)', 'The camera parks on your right shoulder and your character turns with it — look right, left, back, the body follows. While locked, ladders are off.'],
@@ -94,7 +98,7 @@ export function SdkView() {
         <div style={{ padding: 14 }}>
           <div style={{ fontSize: 17, color: '#1c2733' }}>Load your avatar. Play five places. Collect Tix. Chat with everyone online.</div>
           <div style={{ fontSize: 11, color: '#41586c', marginTop: 4, maxWidth: 660 }}>
-            The RetroBlox SDK is the official <b style={{ fontWeight: 400 }}>RetroBlox Player (v3.2)</b> —
+            The RetroBlox SDK is the official <b style={{ fontWeight: 400 }}>RetroBlox Player (v3.3)</b> —
             log in once and the game <b style={{ fontWeight: 400 }}>remembers you forever</b>: your account avatar loads from the platform —
             body colors, shirts, pants, face and every 3D UGC accessory placed exactly where its creator left it. Play five
             built-in places at the classic size (1 stud = 1 unit, 5-stud avatar) with classic climbing —
