@@ -61,3 +61,7 @@ scripts/godot-bin
 
 # local sqlite dev/test databases (never commit)
 prisma/db/
+
+# sqlite database files (stale user data must never ship in the repo)
+db/custom.db
+*.db-journal

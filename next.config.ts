@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import fs from "fs";
 
 // Netlify's @netlify/plugin-nextjs runtime rejects a user-set
 // `output: "standalone"` (it manages its own serverless bundling and the
@@ -17,10 +18,16 @@ const ZIP_HEADERS = [
 const nextConfig: NextConfig = {
   output: isServerlessPlatform ? undefined : "standalone",
   // Ship the SQLite database (and its schema) inside EVERY serverless
-  // function bundle. Without this, Netlify/Vercel lambdas have no
-  // db/custom.db at runtime and every account lookup 500s.
+  // function bundle — but only when a db file actually exists in the
+  // working tree. The tracked copy was removed from git (a 16.8MB stale
+  // user DB with password hashes has no place in a public repo); correct
+  // cloud deployments (DATABASE_URL = libsql://) never read the bundled
+  // file anyway, and with no file to trace fresh clones still build fine.
   outputFileTracingIncludes: {
-    "/**": ["./db/custom.db", "./prisma/schema.prisma"],
+    "/**": [
+      ...(fs.existsSync("./db/custom.db") ? ["./db/custom.db"] : []),
+      "./prisma/schema.prisma",
+    ],
   },
   // Every "SDK" download IS the Godot player kit — always force a real
   // download (never navigate/open) and never let an edge cache serve a
