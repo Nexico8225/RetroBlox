@@ -1312,3 +1312,18 @@ Stage Summary:
 - live channels: retro-blox.vercel.app zip AND raw.githubusercontent mirror both serve f3f46b76
 - climb-look during shiftlock intentionally untouched (user: "leave that alone we aint wasting our time on that")
 - Next Task ID: none pending; candidate follow-ups: real account login flow test on prod, delete probe_only_x, music return as opt-in if requested
+
+---
+Task ID: godot-camera-ui-v33-verify
+Agent: main (Super Z)
+Task: post-session verification of v3.3+v3.4 (messages 13+14 full task list) + final hygiene
+
+Work Log:
+- Re-verified every task from messages 13+14 is complete: zoom 0-120 studs, true first person (locked cursor), climb torso lock, free cursor in third person, shiftlock toast removed, chat bubbles BACK (chat_bubble.gd), chat box top-left retro steel UI with Press Start 2P + internet assets, music removed, ESC menu L=leave/R=reset/ESC=resume
+- Live channel check: Vercel zip content md5 = f3f46b76 (v3.4), raw.githubusercontent mirror = f3f46b76, local download/ copy = f3f46b76 (all three identical)
+- Screenshot bug (HTTP 500 in chat) re-verified FIXED on prod: /api/placechat/cloudkingdom = 200, /api/health = 200 (schema-drift root cause healed by sync-schema on deploy)
+- Hygiene: prisma/db/ (local 577KB test sqlite with probe accounts) was untracked-but-not-ignored -> added to .gitignore, commit 11b0071 pushed
+
+Stage Summary:
+- v3.4 "Retro UI" is live end-to-end: site copy, both zip channels, and the chat API all verified on 2026-10-09
+- Next Task ID: none pending; candidates: delete probe_only_x prod account, optional music opt-in, real-account login flow test
