@@ -1267,3 +1267,23 @@ Stage Summary:
 - v3.2 kit = classic size + soft lighting + zero errors/warnings; raw GitHub link is the reliable download while Vercel Git integration stays dead
 - NOTE: commit 88e1a16 accidentally replaced this worklog with the short container copy; restored in the next commit (this section re-appended verbatim)
 - Next Task ID: godot-deploy-verify (if owner fixes Vercel: live zip md5 should become 5fb58f8f)
+
+---
+Task ID: godot-camera-chat-v33
+Agent: main (Super Z)
+Task: zoom out very far + first person + climb torso lock + cursor per-mode (visible 3rd person, locked center in shiftlock/FP) + remove shiftlock toast + remove chat bubbles + chat top-left + UI polish
+
+Work Log:
+- ENV RESET again mid-session (repo back at e9f72fe); re-synced with git reset --hard origin/main (all prior work safe on origin, raw link had been serving it)
+- camera_rig.gd rewritten: cursor FREE in third person (RMB-drag orbits), scroll zoom 0..120 studs with distance-scaled steps, zooming under 2.0 studs = TRUE first person (camera at eye 4.5, avatar hidden via first_person_changed signal), MOUSE_MODE_CAPTURED only in shiftlock + first person; set_shift_locked()/set_ui_blocked() replace set_mouse_captured()
+- game.gd: drive() passes first_person; shiftlock toast deleted; click-to-capture deleted; chat/menu wiring on set_ui_blocked; _on_first_person hides avatar
+- local_player.gd: drive(..., first_person := false); CLIMB TORSO LOCK is the only heading controller while climbing (base facing skipped — it was fighting the lock at A/D, equilibrium 0.58 rad = the "climb breaks" bug); face-flip guard (crossed-through ladder volume no longer flips _climb_face 180°); grounded + not-pressing-in = release (S at floor lets go); show_bubble/_bubble removed; shiftlock-ladder rule restored (first person still climbs)
+- remote_player.gd: bubble + show_bubble removed; chat_box.gd: top-left under topbar (offsets 10,54..404,288), input line ALWAYS visible, click-to-open, radius 10 + slightly denser bg
+- tests/screenshot.gd updated (set_ui_blocked, no bubble); smoke.gd: 13 new checks (zoom range, FP toggle, chat anchors, input visible, no bubble strings, no shiftlock toast, first-person heading turn, torso lock via A-input while climbing, S descends, sideways climb holds); old "face off = fall" expectation replaced by torso-lock semantics
+- Debug journey: 2 rounds of headless repro (base-facing fight, then face flip) before green
+- zip 114 files md5 234d70df, project + fresh-unzip SMOKE_OK, Xvfb screenshot verified (chat top-left, no bubble, no toast); npm install (env reset) + build OK; site v3.3 "Free Cursor" + ?v=3.3; commit 2c8e62b pushed; download/ copy refreshed
+
+Stage Summary:
+- v3.3 = free cursor + first person + far zoom + unbreakable climb facing + clean top-left chat, all smoke-verified
+- raw.githubusercontent.com/Nexico8225/RetroBlox/main/public/godot/retroblox-godot-player.zip serves 234d70df (v3.3) without auth
+- Next Task ID: godot-deploy-verify (still needs owner Redeploy; live site frozen pre-v3.1)
