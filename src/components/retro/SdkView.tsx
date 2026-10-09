@@ -3,22 +3,29 @@
 /* ================= RetroBlox SDK page (/sdk) =================
    The developer door into the platform — download the official
    RETROBLOX PLAYER (Godot 4.5+): load your avatar, play five
-   built-in places with classic studs physics, collect Tix, use
-   Shift Lock, and CHAT with everyone online across the internet
+   built-in places with classic studs physics, hold Space to hop,
+   use your own cursors, Shift Lock, and CHAT with everyone online
    through the platform API. */
 
 import Link from 'next/link'
 
-const VERSION = 'v3.4 "Retro UI"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.4'
+const VERSION = 'v3.5 "Your Cursors"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.5'
 
 const NEW_STUFF: [string, string][] = [
+  ['Your cursors, in the game', 'The uploaded RetroBlox Cursor + Pointer hand now IS the mouse everywhere — and in first person the pointer parks visibly in the MIDDLE of the screen so you always know where your aim is.'],
+  ['HOLD Space to keep jumping', 'Keep the key down and you hop over and over — classic hold-to-jump, no re-pressing. Single taps still work exactly like before.'],
+  ['Coins + Tix Bag removed', 'Every spinning Tix coin, the Tix Bag hotbar and the gold counter chip are gone from all five places — clean world, clean HUD.'],
+  ['1-2 stud steps walk like STAIRS', 'Small ledges are walked over automatically again — the step-up probe had two hidden bugs (it read the slid-velocity and reached too short). Fixed and smoke-tested with a real 2-stud step.'],
+  ['Climb only when your TORSO touches', 'Brushing a low rung or a 2-stud part with your LEGS no longer snaps you into the climb grip — the ladder sensor is a torso band now, and walls only grab at 2.7+ studs.'],
+  ['The avatar loads FAST', 'Dressing was a queue of sequential downloads — now colors paint first and every texture, face and UGC model streams in PARALLEL, plus session caches make rejoining dress instantly from memory.'],
+  ['Your ReTROBLOX wordmark everywhere', 'The uploaded logo drives the ESC menu title on a wooden signboard, the hub topbar, the login card — and this site\'s favicon is the red R.'],
+  ['Wooden signboard UI', 'A real pixel-wood texture (internet-sourced) frames the menu wordmark, joining the brushed steel and pixel clouds from v3.4.'],
   ['Chat FIXED — no more HTTP 500', 'The place-chat backend was broken server-side: the chat tables went missing from the database, so every message bounced with "HTTP 500". They are restored — chat + presence now actually work across the internet. Sorry about that!'],
   ['Chat bubbles are BACK', 'You asked, they returned: every message pops the classic white bubble over the speaker\'s head (yours too), wraps to three short lines, and fades away after a few seconds.'],
   ['Music removed', 'The background music box is gone from the hub and every place — the world is quiet now, with only the soft sky wind on cloud places. Every sound effect stays.'],
-  ['Retro UI everywhere', 'Press Start 2P pixel type (an internet Google Font) on the headers, buttons and the menu; the ESC menu wears a real brushed-steel plate and the hub sits on a pixel-cloud sky — all internet-sourced images.'],
   ['ESC menu shortcuts', 'While the ESC menu is open: press L to LEAVE to the hub, R to RESET your character, ESC to resume — the buttons still work too.'],
-  ['Free cursor + true first person', 'Your cursor is ALWAYS usable in third person — hold the RIGHT mouse button to orbit the camera. Scroll all the way in for real first person (the camera becomes your eyes), and the cursor locks dead-center in first person and shift lock only.'],
+  ['Free cursor + true first person', 'Your cursor is ALWAYS usable in third person — hold the RIGHT mouse button to orbit the camera. Scroll all the way in for real first person (the camera becomes your eyes), and the cursor locks dead-center in shift lock.'],
   ['Zoom out VERY far', 'The scroll wheel now zooms out to 120 studs — see the whole place at once. Steps grow with distance, so far-out zooming is quick and close zooming is precise.'],
   ['Climbing that never breaks', 'While on a ladder or ledge your torso LOCKS onto the surface — it never twists left or right, sideways input keeps climbing, S climbs down, and the Climb animation can no longer glitch out mid-climb.'],
   ['Chat moved top-left', 'The chat lives in the top-left corner under the topbar, with the input line always visible — click it or press ENTER to type.'],

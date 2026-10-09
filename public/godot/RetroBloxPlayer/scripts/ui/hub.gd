@@ -56,22 +56,6 @@ func _build() -> void:
                 clouds.mouse_filter = Control.MOUSE_FILTER_IGNORE
                 add_child(clouds)
 
-        # the owner's uploaded ReTROBLOX wordmark, proud over the clouds
-        if ResourceLoader.exists("res://assets/ui/wordmark.png"):
-                var brand := TextureRect.new()
-                brand.texture = load("res://assets/ui/wordmark.png")
-                brand.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-                brand.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-                brand.set_anchors_preset(Control.PRESET_CENTER_TOP)
-                brand.custom_minimum_size = Vector2(320, 77)
-                brand.size = Vector2(320, 77)
-                brand.offset_left = -160.0
-                brand.offset_right = 160.0
-                brand.offset_top = 10.0
-                brand.offset_bottom = 87.0
-                brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
-                add_child(brand)
-
         var root := VBoxContainer.new()
         root.set_anchors_preset(Control.PRESET_FULL_RECT)
         root.offset_left = 16.0
@@ -81,18 +65,28 @@ func _build() -> void:
         root.add_theme_constant_override("separation", 12)
         add_child(root)
 
-        # ---- steel header ----
+        # ---- steel header: YOUR uploaded wordmark leads the pill ----
         var header := PanelContainer.new()
         header.theme_type_variation = "SteelHeader"
         root.add_child(header)
         var head_box := HBoxContainer.new()
         head_box.add_theme_constant_override("separation", 12)
         header.add_child(head_box)
-        var logo := Label.new()
-        logo.text = "RETROBLOX"
-        logo.theme_type_variation = "H1"
-        logo.add_theme_color_override("font_color", RetroUI.TEXT_INV)
-        head_box.add_child(logo)
+        if ResourceLoader.exists("res://assets/ui/wordmark.png"):
+                var brand := TextureRect.new()
+                brand.texture = load("res://assets/ui/wordmark.png")
+                brand.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                brand.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+                brand.custom_minimum_size = Vector2(128, 30)
+                brand.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+                brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                head_box.add_child(brand)
+        else:
+                var logo := Label.new()
+                logo.text = "RETROBLOX"
+                logo.theme_type_variation = "H1"
+                logo.add_theme_color_override("font_color", RetroUI.TEXT_INV)
+                head_box.add_child(logo)
         var tagline := Label.new()
         tagline.text = "places · avatar · chat"
         tagline.theme_type_variation = "InverseSmall"
