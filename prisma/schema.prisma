@@ -11,6 +11,7 @@ model User {
   id            String       @id @default(cuid())
   username      String       @unique
   usernameLower String?      @unique // case-insensitive uniqueness ("people can't have the same username")
+  seqId         Int?         @unique // sequential player number (#1, #2 ...) assigned in signup order
   passwordHash  String
   role          String       @default("user") // "user" | "admin" — admins can delete any game
   gender        String? // "male" | "female"
@@ -46,6 +47,17 @@ model User {
   videoComments VideoComment[]
   createdSubs   Sub[]
   musicTracks  MusicTrack[]
+  placeChats    PlaceChatMessage[]
+  placePresence PlacePresence?
+  presence      PlayerPresence[] @relation("presence")
+  tradesSent    Trade[]      @relation("tradesSent")
+  tradesRecv    Trade[]      @relation("tradesRecv")
+  notifications Notification[]
+  itemComments  ItemComment[]
+  ugcListings       UgcListing[]        @relation("ugcListings") // copies this user put up for sale
+  ugcListingsBought UgcListing[]        @relation("ugcListingsBought") // listings this user bought
+  ugcOffers         UgcOffer[]          @relation("ugcOffers") // offers this user sent on listings
+  ugcListingMsgs    UgcListingMessage[] @relation("ugcListingMessages") // haggle chat on listings
   avatarConfig  AvatarConfig?
   inventory     InventoryEntry[]
   ugcItems      AvatarItem[]
@@ -488,6 +500,9 @@ model AvatarItem {
   createdAt   DateTime @default(now())
   deletedAt   DateTime? // legacy soft-delete flag (unused since deletes became HARD deletes — kept so no migration is needed)
   ownedBy     InventoryEntry[]
+  comments    ItemComment[] // the classic item page comment wall
+  listings    UgcListing[] // active resale listings for this item
+  pricePoints UgcPricePoint[] // every real sale — powers the market history graph
 }
 
 // Who owns which UGC item (publishers get their item automatically; "Get" grants it too)
@@ -584,4 +599,196 @@ model GameData {
   updatedAt DateTime @updatedAt
 
   @@unique([gameId, userId, key])
+}
+
+// ---------------- In-game place chat + presence (the RetroBlox Player) ----------------
+// The Godot player polls GET /api/placechat/{placeId} every couple of seconds:
+// it returns the latest chat lines AND who is in the place right now (presence
+// rows updated in the last 30s). Places are the client's built-in maps, so
+// placeId is a slug ("baseplate", "obby", "skylands"), not a Game row id.
+// NOTE: these two models went missing from this schema during a rewrite and
+// every /api/placechat request 500'd because of it — keep them here.
+
+model PlaceChatMessage {
+  id        String   @id @default(cuid())
+  placeId   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([placeId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model PlacePresence {
+  id        String   @id @default(cuid())
+  userId    String   @unique // a player is in exactly one place at a time
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  placeId   String
+  x         Float    @default(0)
+  y         Float    @default(0)
+  z         Float    @default(0)
+  heading   Float    @default(0) // radians, the avatar's facing
+  updatedAt DateTime @updatedAt
+
+  @@index([placeId, updatedAt])
+}
+
+// ---------------- Web places (map JSON storage) + the older presence/chat pair ----------------
+// src/lib/places.ts + /api/game/* store maps as Place rows and run the
+// older presence/chat pair; the Godot client's /api/placechat uses the
+// slug-based PlaceChatMessage/PlacePresence above. Both stay.
+
+model Place {
+  id          String   @id @default(cuid())
+  slug        String   @unique // "baseplate" — stable id the game client asks for
+  name        String // "Baseplate"
+  description String   @default("")
+  dataJson    String   @default("{}") // map JSON: {parts:[],spawns:[],ladders[]} in studs
+  maxPlayers  Int      @default(12)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  updatedBy   String? // user id of the last editor (web side)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  presence    PlayerPresence[]
+  chat        PlaceChat[]
+}
+
+model PlayerPresence {
+  id        String   @id @default(cuid())
+  userId    String   @unique // one presence per account (two windows = same player)
+  user      User     @relation("presence", fields: [userId], references: [id], onDelete: Cascade)
+  placeId   String
+  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  username  String   @default("")
+  x         Float    @default(0)
+  y         Float    @default(10)
+  z         Float    @default(0)
+  yaw       Float    @default(0)
+  state     String   @default("idle") // idle | walk | jump | fall | climb
+  shiftlock Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([placeId, updatedAt])
+}
+
+model PlaceChat {
+  id        String   @id @default(cuid())
+  placeId   String
+  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  userId    String
+  username  String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([placeId, createdAt])
+}
+
+// ---------------- Trades + notifications + item comments ----------------
+
+model ItemComment {
+  id        String     @id @default(cuid())
+  text      String
+  itemId    String
+  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@index([itemId, createdAt])
+}
+
+model Trade {
+  id           String   @id @default(cuid())
+  fromUserId   String
+  fromUser     User     @relation("tradesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId     String
+  toUser       User     @relation("tradesRecv", fields: [toUserId], references: [id], onDelete: Cascade)
+  giveItemIds  String   @default("[]") // JSON array of AvatarItem ids the SENDER gives
+  takeItemIds  String   @default("[]") // JSON array of AvatarItem ids the sender WANTS
+  tix          Int      @default(0) // optional Tix attached to the offer (from the sender's wallet)
+  message      String   @default("") // the offer note
+  notesJson    String   @default("[]") // thread after creation: [{userId, text, at}]
+  status       String   @default("pending") // pending | accepted | declined | cancelled
+  createdAt    DateTime @default(now())
+  respondedAt  DateTime?
+
+  @@index([toUserId, status])
+  @@index([fromUserId, status])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // trade_offer | trade_accepted | trade_declined | trade_cancelled | item_comment | new_player ...
+  dataJson  String    @default("{}")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+// ---------------- UGC market (resale listings, offers, haggle chat, price history) ----------------
+
+model UgcListing {
+  id        String     @id @default(cuid())
+  itemId    String
+  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  sellerId  String
+  seller    User       @relation("ugcListings", fields: [sellerId], references: [id], onDelete: Cascade)
+  price     Int // asking price in Tix — the seller can lower it while haggling
+  title       String   @default("") // the seller's sales pitch on the market ("CHEAP Dominus, taking offers!")
+  description String   @default("") // longer pitch — what they accept, why they're selling
+  status    String     @default("active") // active | sold | cancelled
+  buyerId   String?
+  buyer     User?      @relation("ugcListingsBought", fields: [buyerId], references: [id], onDelete: SetNull)
+  soldPrice Int? // final amount paid (the asking price, or an accepted offer)
+  soldAt    DateTime?
+  createdAt DateTime   @default(now())
+  offers    UgcOffer[]
+  messages  UgcListingMessage[]
+
+  @@index([itemId, status])
+  @@index([sellerId, status])
+}
+
+model UgcOffer {
+  id          String     @id @default(cuid())
+  listingId   String
+  listing     UgcListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId     String
+  buyer       User       @relation("ugcOffers", fields: [buyerId], references: [id], onDelete: Cascade)
+  amount      Int // offered Tix
+  robux       Int  @default(0) // offered Robux on top of (or instead of) the Tix
+  offerItemIdsJson String @default("[]") // JSON array — UGC the buyer puts on the table alongside (or instead of) the Tix
+  status      String     @default("pending") // pending | accepted | declined | cancelled
+  createdAt   DateTime   @default(now())
+  respondedAt DateTime?
+}
+
+model UgcListingMessage {
+  id        String     @id @default(cuid())
+  listingId String
+  listing   UgcListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User       @relation("ugcListingMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime   @default(now())
+}
+
+model UgcPricePoint {
+  id        String     @id @default(cuid())
+  itemId    String
+  item      AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  price     Int
+  kind      String // mint | resale | trade
+  buyerId   String
+  sellerId  String?
+  createdAt DateTime   @default(now())
+
+  @@index([itemId, createdAt])
 }

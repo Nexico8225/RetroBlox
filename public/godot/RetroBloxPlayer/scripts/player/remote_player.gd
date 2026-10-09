@@ -6,10 +6,12 @@ extends Node3D
 
 const AvatarRigScript := preload("res://scripts/player/avatar_rig.gd")
 const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
+const ChatBubbleScript := preload("res://scripts/player/chat_bubble.gd")
 
 var user_id := ""
 var username := ""
 var avatar: Node3D
+var bubble: ChatBubble
 
 var _target_pos := Vector3.ZERO
 var _target_heading := 0.0
@@ -22,6 +24,9 @@ func _init() -> void:
         avatar = AvatarRigScript.new()
         avatar.name = "Avatar"
         add_child(avatar)
+        bubble = ChatBubbleScript.new()
+        bubble.name = "ChatBubble"
+        add_child(bubble)
 
 
 func setup(p_user_id: String, p_name: String) -> void:
@@ -58,6 +63,11 @@ func _process(delta: float) -> void:
         avatar.rotation.y = lerp_angle(avatar.rotation.y, _target_heading, 1.0 - exp(-10.0 * delta))
         var speed := before.distance_to(global_position) / maxf(delta, 0.0001)
         avatar.call("animate", delta, speed, true, false)
+
+
+## The classic white bubble over their head for a few seconds.
+func show_bubble(message: String) -> void:
+        bubble.show_text(message)
 
 
 func fade_out() -> void:

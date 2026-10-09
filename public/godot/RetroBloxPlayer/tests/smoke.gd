@@ -32,6 +32,7 @@ func _run_all() -> void:
                 "res://scripts/game/game.gd", "res://scripts/game/camera_rig.gd",
                 "res://scripts/game/chat_box.gd",
                 "res://scripts/player/local_player.gd", "res://scripts/player/remote_player.gd",
+                "res://scripts/player/chat_bubble.gd",
                 "res://scripts/player/avatar_rig.gd", "res://scripts/player/avatar_dresser.gd",
                 "res://scripts/world/world_builder.gd", "res://scripts/world/places.gd",
                 "res://scripts/ui/login.gd", "res://scripts/ui/hub.gd",
@@ -66,12 +67,15 @@ func _run_all() -> void:
         sfx.call("play_join")
         sfx.call("play_goal")
         check(true, "sfx one-shots ran")
-        check(sfx.get("_music") != null, "music box loop loaded")
+        check(sfx.get("_music") == null, "music removed (user asked — no more music box)")
         check(sfx.get("_wind") != null, "wind ambience loop loaded")
         check(sfx.get("_tix") != null, "tix chime loaded")
         var music_player = sfx.call("make_screen_loop", "Music")
-        check(music_player != null and music_player.stream != null, "screen music player builds")
-        check(music_player != null and music_player.stream is AudioStreamWAV and (music_player.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD, "music stream loops")
+        check(music_player == null, "no screen music player builds anymore")
+        var wind_player = sfx.call("make_screen_loop", "Wind")
+        check(wind_player != null and wind_player.stream is AudioStreamWAV \
+                        and (wind_player.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD,
+                "wind ambience still loops")
 
         # --- places: all five build; cloud kingdom matches the video ---
         var places: Array = load("res://scripts/world/places.gd").all()
@@ -333,15 +337,38 @@ func _run_all() -> void:
         check(not bool(cam_rig_node.get("first_person")), "zooming out leaves first person")
         cam_rig_node.queue_free()
 
-        # --- bubbles are gone (chat is the only message surface) ---
+        # --- chat bubbles are BACK (the classic white bubble over the speaker) ---
+        var bubble_script: Script = load("res://scripts/player/chat_bubble.gd")
+        check(bubble_script != null and bubble_script.can_instantiate(), "chat bubble script loads")
+        var bubble: Node3D = bubble_script.new()
+        root.add_child(bubble)
+        bubble.call("show_text", "hi from the smoke test, this is the classic bubble!")
+        var plate: Sprite3D = bubble.get("_sprite")
+        check(plate != null and plate.visible, "bubble pops on show_text")
+        check(plate.texture != null, "bubble plate texture is drawn in code")
+        var ink: Label3D = bubble.get("_label")
+        check(ink != null and ink.visible and ink.text.contains("classic"), "bubble ink shows the text")
         var game_src := FileAccess.get_file_as_string("res://scripts/game/game.gd")
-        check(not game_src.contains("show_bubble"), "no chat bubble wiring in game.gd")
+        check(game_src.contains("show_bubble"), "game routes chat lines to bubbles")
         var local_src := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
-        check(not local_src.contains("show_bubble") and not local_src.contains("ChatBubble"),
-                "no chat bubble on the local player")
+        check(local_src.contains("ChatBubble"), "chat bubble on the local player")
         var remote_src := FileAccess.get_file_as_string("res://scripts/player/remote_player.gd")
-        check(not remote_src.contains("bubble"), "no chat bubble on remote players")
+        check(remote_src.contains("bubble"), "chat bubble on remote players")
         check(not game_src.contains("Shift lock ON"), "no shift-lock toast notification")
+
+        # --- ESC menu shortcuts + the great music removal + retro assets ---
+        check(game_src.contains("KEY_L") and game_src.contains("KEY_R"),
+                "ESC menu shortcuts: L leaves, R resets")
+        check(game_src.contains("_leave_game"), "menu leave shares one helper")
+        check(not game_src.contains('"Music"'), "in-game music removed")
+        var hub_src := FileAccess.get_file_as_string("res://scripts/ui/hub.gd")
+        check(not hub_src.contains('"Music"'), "hub music removed")
+        check(not FileAccess.file_exists("res://assets/music_main.wav"), "music file gone from the kit")
+        check(ResourceLoader.exists("res://assets/fonts/PressStart2P-Regular.ttf"), "pixel font ships (Press Start 2P)")
+        check(ResourceLoader.exists("res://assets/ui/steel_panel.jpg"), "brushed-steel texture ships")
+        check(ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"), "pixel-cloud backdrop ships")
+        var theme_src := FileAccess.get_file_as_string("res://scripts/ui/retro_theme.gd")
+        check(theme_src.contains("PressStart2P"), "retro theme speaks in the pixel voice")
 
         # --- dresser: placement applies verbatim ---
         var holder := Node3D.new()

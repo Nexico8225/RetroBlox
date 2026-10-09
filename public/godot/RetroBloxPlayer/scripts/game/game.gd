@@ -37,6 +37,7 @@ var _poll_left := 0.6
 var _beat_left := 1.2
 var _menu_open := false
 var _chat_badge: Label
+var _chat_badge_panel: PanelContainer
 var _toast_box: VBoxContainer
 var _shift_check: CheckButton
 var _tix_label: Label
@@ -131,6 +132,21 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+        # ---- ESC menu keyboard shortcuts (classic and fast) ----
+        if _menu_open and event is InputEventKey and event.is_pressed() and not event.is_echo() \
+                        and not chat.is_open:
+                var mkey := (event as InputEventKey).keycode
+                if mkey == KEY_L:
+                        _leave_game()
+                        get_viewport().set_input_as_handled()
+                        return
+                if mkey == KEY_R:
+                        _toggle_menu()
+                        if player.alive:
+                                player.die(self)
+                        _start_respawn()
+                        get_viewport().set_input_as_handled()
+                        return
         if event.is_action_pressed("ui_cancel"):
                 _toggle_menu()
                 get_viewport().set_input_as_handled()
@@ -156,10 +172,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## First person: the camera becomes your eyes — hide the avatar (and its
-## nameplate) so it never blocks the view.
+## nameplate) so it never blocks the view. Your own chat bubble hides too.
 func _on_first_person(active: bool) -> void:
         if player != null and is_instance_valid(player):
                 player.avatar.visible = not active
+                player.bubble.visible = not active
 
 
 # ---------------------------------------------------------------- HUD
@@ -198,6 +215,9 @@ func _build_hud() -> void:
 
         # ---- center: esc menu with Players + Settings tabs ----
         _menu = _build_menu()
+        # the shared retro theme never reaches a CanvasLayer on its own —
+        # hand it over so the menu buttons speak in the pixel voice too
+        _menu.theme = RetroUI.shared
         hud.add_child(_menu)
 
 
@@ -231,7 +251,9 @@ func _build_topbar() -> void:
                         chat.set_log_collapsed(false)
                         chat.open())
         chat.unread.connect(func(n: int) -> void:
-                _chat_badge.text = "" if n <= 0 else str(n))
+                _chat_badge.text = "" if n <= 0 else str(n)
+                if _chat_badge_panel != null and is_instance_valid(_chat_badge_panel):
+                        _chat_badge_panel.visible = n > 0)
         var badge_holder := Control.new()
         badge_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
         badge_holder.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -252,6 +274,8 @@ func _build_topbar() -> void:
         badge_panel.offset_bottom = 10.0
         badge_panel.add_child(_chat_badge)
         badge_holder.add_child(badge_panel)
+        _chat_badge_panel = badge_panel
+        badge_panel.visible = false   # no unread yet — no red dot
         row.add_child(chat_btn)
 
         var people_btn := _pill_button("res://assets/icons/people.png", "Players (P)")
@@ -484,16 +508,12 @@ func _tix_style() -> StyleBoxFlat:
 
 # ---------------------------------------------------------------- audio bed
 
-## The music box everywhere, wind on the sky places. Both loop via code-set
-## WAV loop points and respect the Music / SFX volume sliders.
+## The wind bed on sky places (the music box is gone — you asked!). Loops
+## via code-set WAV loop points and respects the SFX volume slider.
 func _setup_audio() -> void:
         var sfx: Node = get_node_or_null("/root/Sfx")
         if sfx == null:
                 return
-        var music = sfx.call("make_screen_loop", "Music")
-        if music != null:
-                add_child(music)
-                music.call("play")
         if bool(place.get("wind", false)):
                 var wind = sfx.call("make_screen_loop", "Wind")
                 if wind != null:
@@ -566,8 +586,14 @@ func _build_menu() -> Control:
         var title := Label.new()
         title.text = "RETROBLOX"
         title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        title.add_theme_font_size_override("font_size", 22)
         title.add_theme_color_override("font_color", Color.WHITE)
+        var pixel: Font = RetroUI.pixel_font()
+        if pixel != null:
+                title.add_theme_font_override("font", pixel)
+                title.add_theme_font_size_override("font_size", 15)
+                title.add_theme_color_override("font_color", Color("ffd23f"))
+        else:
+                title.add_theme_font_size_override("font_size", 22)
         box.add_child(title)
         var sub := Label.new()
         sub.text = String(place.get("name", "a classic place"))
@@ -582,12 +608,12 @@ func _build_menu() -> Control:
         tabs.alignment = BoxContainer.ALIGNMENT_CENTER
         box.add_child(tabs)
         var players_btn := Button.new()
-        players_btn.text = "Players"
+        players_btn.text = "PLAYERS"
         players_btn.toggle_mode = true
         players_btn.custom_minimum_size = Vector2(120, 30)
         players_btn.focus_mode = Control.FOCUS_NONE
         var settings_btn := Button.new()
-        settings_btn.text = "Settings"
+        settings_btn.text = "SETTINGS"
         settings_btn.toggle_mode = true
         settings_btn.custom_minimum_size = Vector2(120, 30)
         settings_btn.focus_mode = Control.FOCUS_NONE
@@ -654,9 +680,7 @@ func _build_menu() -> Control:
         leave.add_theme_stylebox_override("hover", _menu_btn_style(Color("d13a30")))
         leave.add_theme_stylebox_override("pressed", _menu_btn_style(Color("8f1d17")))
         leave.add_theme_color_override("font_color", Color.WHITE)
-        leave.pressed.connect(func() -> void:
-                Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-                get_tree().change_scene_to_file("res://scenes/hub.tscn"))
+        leave.pressed.connect(_leave_game)
         actions.add_child(leave)
 
         # LOG OUT — wipes the saved session and returns to the login gate
@@ -676,13 +700,20 @@ func _build_menu() -> Control:
         actions.add_child(logout)
 
         var hint := Label.new()
-        hint.text = "Chat with ENTER — everyone online sees it. Esc closes this menu."
+        hint.text = "ENTER chat · ESC resume · R reset character · L leave"
         hint.add_theme_font_size_override("font_size", 11)
         hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         hint.add_theme_color_override("font_color", Color(0.55, 0.64, 0.72))
         box.add_child(hint)
         set_tab.call("players")
         return overlay
+
+
+## Leave the place — back to the hub. The Leave button and the menu's
+## L shortcut both land here.
+func _leave_game() -> void:
+        Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+        get_tree().change_scene_to_file("res://scenes/hub.tscn")
 
 
 var _menu_switch: Callable = func(_t: String) -> void: pass
@@ -732,11 +763,6 @@ func _build_settings_tab() -> VBoxContainer:
                 func(v: float) -> void:
                         if settings != null:
                                 settings.set_key("sfx_volume", v))
-        _slider_row(left, "Music", 0.0, 1.0,
-                float(settings.get("music_volume")) if settings != null else 0.7,
-                func(v: float) -> void:
-                        if settings != null:
-                                settings.set_key("music_volume", v))
 
         # right column: toggles + animations
         var right := VBoxContainer.new()
@@ -830,17 +856,29 @@ func _menu_btn_style(bg: Color) -> StyleBoxFlat:
         return sb
 
 
-func _card_style() -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.075, 0.10, 0.13, 0.97)
-        sb.set_corner_radius_all(10)
-        sb.border_color = Color(1, 1, 1, 0.08)
-        sb.set_border_width_all(1)
-        sb.content_margin_left = 18.0
-        sb.content_margin_right = 18.0
-        sb.content_margin_top = 14.0
-        sb.content_margin_bottom = 14.0
-        return sb
+func _card_style() -> StyleBox:
+        # the ESC menu wears the real brushed-steel plate (an internet image),
+        # darkened so the light text stays crisp — pure 2006 client vibes
+        var tex: Texture2D = RetroUI.steel_texture()
+        if tex != null:
+                var sb := StyleBoxTexture.new()
+                sb.texture = tex
+                sb.modulate_color = Color(0.6, 0.66, 0.76, 0.98)
+                sb.content_margin_left = 18.0
+                sb.content_margin_right = 18.0
+                sb.content_margin_top = 14.0
+                sb.content_margin_bottom = 14.0
+                return sb
+        var flat := StyleBoxFlat.new()
+        flat.bg_color = Color(0.075, 0.10, 0.13, 0.97)
+        flat.set_corner_radius_all(10)
+        flat.border_color = Color(1, 1, 1, 0.08)
+        flat.set_border_width_all(1)
+        flat.content_margin_left = 18.0
+        flat.content_margin_right = 18.0
+        flat.content_margin_top = 14.0
+        flat.content_margin_bottom = 14.0
+        return flat
 
 
 func _toggle_menu() -> void:
@@ -958,6 +996,14 @@ func _ingest_message(msg: Dictionary) -> void:
         var seq := int(msg.get("seqId", 0)) if msg.get("seqId") != null else 0
         var text := String(msg.get("text", ""))
         chat.add_chat(uname, seq, text, "", uid == Session.user_id)
+        # the classic bubble pops over the speaker's head
+        if uid == Session.user_id:
+                if player != null and is_instance_valid(player):
+                        player.show_bubble(text)
+        elif _remotes.has(uid):
+                var rp: Node3D = _remotes[uid]
+                if is_instance_valid(rp):
+                        rp.show_bubble(text)
 
 
 func _reconcile_players(players: Array) -> void:

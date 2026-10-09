@@ -18,6 +18,8 @@ const NAME_COLORS: Array = [
         "5ad1c0", "e85a9b", "a8e85a", "e8d05a", "8a9bb0",
 ]
 
+const RetroUI := preload("res://scripts/ui/retro_theme.gd")
+
 var _log: RichTextLabel
 var _input: LineEdit
 var _panel: PanelContainer
@@ -37,10 +39,12 @@ func _init() -> void:
 
         _panel = PanelContainer.new()
         _panel.name = "LogPanel"
-        # dark translucent rounded log — the modern classic look
+        # dark translucent log — squared-off retro steel, chunky border
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.045, 0.06, 0.08, 0.72)
-        sb.set_corner_radius_all(10)
+        sb.bg_color = Color(0.045, 0.06, 0.08, 0.78)
+        sb.set_corner_radius_all(3)
+        sb.border_color = Color(1, 1, 1, 0.13)
+        sb.set_border_width_all(2)
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
         sb.content_margin_top = 7.0
@@ -64,10 +68,10 @@ func _init() -> void:
         _input_panel = PanelContainer.new()
         _input_panel.name = "InputPanel"
         var isb := StyleBoxFlat.new()
-        isb.bg_color = Color(0.05, 0.065, 0.085, 0.92)
-        isb.set_corner_radius_all(10)
-        isb.border_color = Color(1, 1, 1, 0.14)
-        isb.set_border_width_all(1)
+        isb.bg_color = Color(0.05, 0.065, 0.085, 0.94)
+        isb.set_corner_radius_all(3)
+        isb.border_color = Color(1, 1, 1, 0.2)
+        isb.set_border_width_all(2)
         isb.content_margin_left = 8.0
         isb.content_margin_right = 8.0
         isb.content_margin_top = 4.0
@@ -83,7 +87,13 @@ func _init() -> void:
         _input.context_menu_enabled = false
         _input.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
         _input.add_theme_color_override("font_placeholder_color", Color(0.62, 0.68, 0.74))
-        _input.add_theme_font_size_override("font_size", 14)
+        # the typing line speaks in the retro pixel voice when it ships
+        var pixel: Font = RetroUI.pixel_font()
+        if pixel != null:
+                _input.add_theme_font_override("font", pixel)
+                _input.add_theme_font_size_override("font_size", 10)
+        else:
+                _input.add_theme_font_size_override("font_size", 14)
         _input.text_submitted.connect(_on_submit)
         _input.gui_input.connect(_on_input_gui)
         _input_panel.add_child(_input)

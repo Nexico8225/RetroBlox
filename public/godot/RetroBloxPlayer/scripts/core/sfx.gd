@@ -12,11 +12,12 @@ extends Node
 ##   oof       = uuhhh.mp3                  (THE original death sound)
 ## UI: the classic button CLICK and a soft HOVER tick play on every Button in
 ## the whole client (login, hub, HUD) — wired automatically via node_added.
+## NOTE: the music box is GONE (removed by popular demand) — only the sky
+## wind ambience remains of the screen loops.
 
 const CLICK := "res://assets/sfx_click.mp3"
 const HOVER := "res://assets/ui_hover.wav"
 const JOIN := "res://assets/ui_join.wav"
-const MUSIC := "res://assets/music_main.wav"        # original retro music-box loop
 const WIND := "res://assets/amb_wind.wav"           # sky ambience (cloud places)
 const JUMP_PREFS: Array[String] = [
         "res://assets/rbx_action_jump.mp3",      # authentic client file
@@ -53,7 +54,6 @@ var _fall: AudioStream
 var _oof: AudioStream
 var _tix: AudioStream
 var _goal: AudioStream
-var _music: AudioStream
 var _wind: AudioStream
 var _pool: Array[AudioStreamPlayer] = []
 
@@ -69,7 +69,6 @@ func _ready() -> void:
         _oof = _load_first(OOF_PREFS)
         _tix = _load_first(TIX_PREFS)
         _goal = _load_first(GOAL_PREFS)
-        _music = _load(MUSIC)
         _wind = _load(WIND)
         for i in range(6):
                 var p := AudioStreamPlayer.new()
@@ -200,24 +199,17 @@ func make_loop_3d(kind: String, at: Node3D) -> AudioStreamPlayer3D:
         return p
 
 
-## A NON-positional looped player for the whole-screen sounds: the music box
-## ("Music" bus) or the sky wind ambience ("SFX" bus). Caller adds it to the
-## scene and calls play(). Loop points are set on the stream itself.
+## A NON-positional looped player for the whole-screen ambience: the sky
+## wind ("SFX" bus). The "Music" kind intentionally returns null now — the
+## music box was removed. Loop points are set on the stream itself.
 func make_screen_loop(kind: String) -> AudioStreamPlayer:
+        if kind != "Wind":
+                return null
         var p := AudioStreamPlayer.new()
         p.name = kind
-        match kind:
-                "Music":
-                        p.stream = _looped(_music)
-                        p.bus = "Music"
-                        p.volume_db = -6.0
-                "Wind":
-                        p.stream = _looped(_wind)
-                        p.bus = "SFX"
-                        p.volume_db = -13.0
-                _:
-                        p.stream = _looped(_music)
-                        p.bus = "Music"
+        p.stream = _looped(_wind)
+        p.bus = "SFX"
+        p.volume_db = -13.0
         return p
 
 

@@ -66,11 +66,13 @@ const BOUNCE_COOLDOWN := 0.35
 
 const AvatarRigScript := preload("res://scripts/player/avatar_rig.gd")
 const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
+const ChatBubbleScript := preload("res://scripts/player/chat_bubble.gd")
 
 enum ClimbKind { NONE, LADDER, WALL }
 
 var display_name := "Guest"
 var avatar: Node3D
+var bubble: ChatBubble
 var alive := true
 var health := MAX_HEALTH
 var heading := 0.0
@@ -120,6 +122,10 @@ func _init() -> void:
         avatar.name = "Avatar"
         add_child(avatar)
 
+        bubble = ChatBubbleScript.new()
+        bubble.name = "ChatBubble"
+        add_child(bubble)
+
         _setup_ladder_sensor()
         _setup_touch_sensor()
 
@@ -145,6 +151,11 @@ func _setup_character_sfx() -> void:
 func setup(p_name: String) -> void:
         display_name = p_name
         avatar.call("setup", p_name)
+
+
+## The classic white bubble over YOUR head too — everyone's chat shows.
+func show_bubble(message: String) -> void:
+        bubble.show_text(message)
 
 
 ## Dress from a platform avatar payload (null payload = classic noob guest).

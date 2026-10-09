@@ -16,11 +16,14 @@
  * - Already-populated DB  -> every statement is CREATE ... IF NOT EXISTS,
  *   so existing tables AND their data are never touched, while tables
  *   added to the schema since the last deploy (new features) get created.
+ * - Missing COLUMNS on existing tables (e.g. User.seqId) get added with
+ *   ALTER TABLE ADD COLUMN — but ONLY nullable or defaulted columns:
+ *   that is the one ALTER SQLite can do without rebuilding the table,
+ *   so live data stays safe. NOT NULL-without-default is skipped loud.
  * - Local "file:" dev DB  -> no-op, nothing happens (Prisma pushes files).
  *
- * NOTE: this only creates MISSING TABLES. Adding a column to an existing
- * model needs a one-off migration (Turso does not ALTER here on purpose —
- * touching live columns is how data gets destroyed).
+ * NOTE: this creates MISSING TABLES and MISSING COLUMNS (additive only).
+ * It never drops, renames or rebuilds anything — that is how data dies.
  *
  * Token sources: ?authToken= inside DATABASE_URL, or LIBSQL_AUTH_TOKEN /
  * TURSO_AUTH_TOKEN env vars. Set for testing: SYNC_SCHEMA_URL overrides
@@ -92,6 +95,62 @@ try {
   // which models does the schema promise? (model X { ... } lines)
   const wanted = [...raw.matchAll(/^model (\w+)/gm)].map((m) => m[1])
   const missing = wanted.filter((t) => !known.has(t))
+
+  // ---- zero-downtime column sync (ADD COLUMN only) -----------------------
+  // Fresh tables below get the whole DDL, but EXISTING tables keep only
+  // the columns they were created with — new ones (User.seqId, ...)
+  // must be ALTERed in before the index DDL runs (indexes reference
+  // columns!). SQLite allows exactly one safe online ALTER: ADD COLUMN
+  // (nullable / with default). Anything else would need a table rebuild
+  // and is NOT done here, ever.
+  const alters = []
+  for (const block of raw.matchAll(/CREATE TABLE "([^"]+)" \(\n([\s\S]*?)\n\)/g)) {
+    const table = block[1]
+    if (!known.has(table)) continue // fresh table — DDL already made it whole
+    const body = block[2]
+    // split the body on top-level commas (parens-aware for nested defs)
+    const parts = []
+    let depth = 0
+    let cur = ''
+    for (const ch of body) {
+      if (ch === '(') depth++
+      if (ch === ')') depth--
+      if (ch === ',' && depth === 0) {
+        parts.push(cur)
+        cur = ''
+      } else {
+        cur += ch
+      }
+    }
+    if (cur.trim()) parts.push(cur)
+    const live = await client.execute(`PRAGMA table_info("${table}")`)
+    const have = new Set(live.rows.map((r) => String(r.name)))
+    for (const part of parts) {
+      const line = part.trim().replace(/,$/, '')
+      const col = line.match(/^"([^"]+)"\s+([\s\S]+)$/)
+      if (!col) continue // table-level constraint (FOREIGN KEY / UNIQUE / ...)
+      const name = col[1]
+      if (have.has(name)) continue
+      const def = col[2]
+      const safe =
+        !/\bNOT NULL\b/i.test(def) || /\bDEFAULT\b/i.test(def)
+      if (!safe) {
+        console.warn(
+          `[sync-schema] SKIP ${table}.${name}: NOT NULL without DEFAULT cannot be added online.`
+        )
+        continue
+      }
+      alters.push(`ALTER TABLE "${table}" ADD COLUMN "${name}" ${def}`)
+    }
+  }
+  if (alters.length > 0) {
+    await client.executeMultiple(alters.join(';\n'))
+    console.log(
+      `[sync-schema] added ${alters.length} missing column(s): ${alters
+        .map((a) => a.match(/ADD COLUMN "([^"]+)"/)?.[1])
+        .join(', ')}`
+    )
+  }
 
   await client.executeMultiple(ddl)
 

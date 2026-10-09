@@ -22,19 +22,10 @@ func _ready() -> void:
         _build()
         _dress_preview()
         _refresh_online()
-        _start_music()
 
 
-## The same music box that plays in the places — the hub should feel like
-## the lobby of a game, not a menu.
-func _start_music() -> void:
-        var sfx: Node = get_node_or_null("/root/Sfx")
-        if sfx == null:
-                return
-        var music = sfx.call("make_screen_loop", "Music")
-        if music != null:
-                add_child(music)
-                music.call("play")
+# the music box is gone (you asked!) — the hub is quiet now, just wind-free
+# UI clicks and the occasional Tix chime
 
 
 func _process(delta: float) -> void:
@@ -51,6 +42,18 @@ func _build() -> void:
         bg.color = RetroUI.BG
         bg.set_anchors_preset(Control.PRESET_FULL_RECT)
         add_child(bg)
+
+        # the pixel-cloud backdrop — a real internet image, darkened to sit
+        # under the steel UI like the old skybox menus used to
+        if ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"):
+                var clouds := TextureRect.new()
+                clouds.texture = load("res://assets/ui/clouds_bg.jpg")
+                clouds.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                clouds.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+                clouds.set_anchors_preset(Control.PRESET_FULL_RECT)
+                clouds.modulate = Color(0.7, 0.78, 0.9, 1.0)
+                clouds.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                add_child(clouds)
 
         var root := VBoxContainer.new()
         root.set_anchors_preset(Control.PRESET_FULL_RECT)

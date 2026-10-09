@@ -9,14 +9,19 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.3 "Free Cursor"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.3'
+const VERSION = 'v3.4 "Retro UI"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.4'
 
 const NEW_STUFF: [string, string][] = [
+  ['Chat FIXED — no more HTTP 500', 'The place-chat backend was broken server-side: the chat tables went missing from the database, so every message bounced with "HTTP 500". They are restored — chat + presence now actually work across the internet. Sorry about that!'],
+  ['Chat bubbles are BACK', 'You asked, they returned: every message pops the classic white bubble over the speaker\'s head (yours too), wraps to three short lines, and fades away after a few seconds.'],
+  ['Music removed', 'The background music box is gone from the hub and every place — the world is quiet now, with only the soft sky wind on cloud places. Every sound effect stays.'],
+  ['Retro UI everywhere', 'Press Start 2P pixel type (an internet Google Font) on the headers, buttons and the menu; the ESC menu wears a real brushed-steel plate and the hub sits on a pixel-cloud sky — all internet-sourced images.'],
+  ['ESC menu shortcuts', 'While the ESC menu is open: press L to LEAVE to the hub, R to RESET your character, ESC to resume — the buttons still work too.'],
   ['Free cursor + true first person', 'Your cursor is ALWAYS usable in third person — hold the RIGHT mouse button to orbit the camera. Scroll all the way in for real first person (the camera becomes your eyes), and the cursor locks dead-center in first person and shift lock only.'],
   ['Zoom out VERY far', 'The scroll wheel now zooms out to 120 studs — see the whole place at once. Steps grow with distance, so far-out zooming is quick and close zooming is precise.'],
   ['Climbing that never breaks', 'While on a ladder or ledge your torso LOCKS onto the surface — it never twists left or right, sideways input keeps climbing, S climbs down, and the Climb animation can no longer glitch out mid-climb.'],
-  ['Chat moved top-left', 'The chat now lives in the top-left corner under the topbar, with the input line always visible — click it or press ENTER to type. No more speech bubbles over heads; the chat log is the one place for messages.'],
+  ['Chat moved top-left', 'The chat lives in the top-left corner under the topbar, with the input line always visible — click it or press ENTER to type.'],
   ['Back to the classic size', 'The world is built 1 stud = 1 unit again — the avatar stands a proper 5 studs tall and UGC hats sit right on the head, exactly the size you placed them on the site. Crash fixes included: the freed-avatar error is gone and the scripts load warning-free.'],
   ['Softer, warmer lighting', 'Sun and sky ambient toned down — no more washed-out white; colors pop the way they should while Cloud Kingdom keeps its bright-blue feel.'],
   ['Roblox edge + ladder climbing', 'Walk into a 1–3 stud ledge or ladder rung FACING it and you grab; S climbs down, Space jumps off, and the top lip mantles you onto the platform. Gaps of 1–3 studs between ladders still climb through.'],
@@ -25,11 +30,11 @@ const NEW_STUFF: [string, string][] = [
   ['Shift Lock (SHIFT)', 'The camera parks on your right shoulder and your character turns with it — look right, left, back, the body follows. While locked, ladders are off.'],
   ['Jump off ladders (SPACE)', 'Climbing and want off? Space leaps you off the rungs — you fly free for a beat and cannot re-grab.'],
   ['Tix collectibles', 'Every place hides spinning golden Tix. Touch to chime + sparkle; the gold chip counts them; sweep the place clean for the fanfare.'],
-  ['Music + wind ambience', 'An original music-box loop on its own Music bus, plus airy wind on the sky places. Volume sliders included.'],
+  ['Music + wind ambience', 'Airy wind on the sky places (the music box retired in v3.4). SFX volume slider included.'],
   ['Wobbly Tower (new place)', 'A sunset zig-zag climb over kill bricks with a truss pull, a bounce shortcut and the summit gold — 5 places now ship.'],
   ['Authentic client sounds', 'The original uuhhh oof, the classic jump whoosh, the landing thud, plastic footsteps at the official 1.85 pitch, falling wind.'],
   ['Juice', 'Dust puffs on takeoffs, landings, bounces + respawns; gold sparkles over every goal; coin bursts.'],
-  ['More settings', 'Music volume, Fullscreen toggle, camera FOV, mouse sensitivity, sun shadows — all live + persisted.'],
+  ['More settings', 'SFX volume, Fullscreen toggle, camera FOV, mouse sensitivity, sun shadows — all live + persisted.'],
 ]
 
 const FILES = [
@@ -98,11 +103,11 @@ export function SdkView() {
         <div style={{ padding: 14 }}>
           <div style={{ fontSize: 17, color: '#1c2733' }}>Load your avatar. Play five places. Collect Tix. Chat with everyone online.</div>
           <div style={{ fontSize: 11, color: '#41586c', marginTop: 4, maxWidth: 660 }}>
-            The RetroBlox SDK is the official <b style={{ fontWeight: 400 }}>RetroBlox Player (v3.3)</b> —
+            The RetroBlox SDK is the official <b style={{ fontWeight: 400 }}>RetroBlox Player (v3.4)</b> —
             log in once and the game <b style={{ fontWeight: 400 }}>remembers you forever</b>: your account avatar loads from the platform —
             body colors, shirts, pants, face and every 3D UGC accessory placed exactly where its creator left it. Play five
             built-in places at the classic size (1 stud = 1 unit, 5-stud avatar) with classic climbing —
-            ladders AND platform edges, Shift Lock, Tix collectibles, music and the authentic classic sounds — and chat with
+            ladders AND platform edges, Shift Lock, Tix collectibles and the authentic classic sounds — and chat with
             anyone in the same place <b style={{ fontWeight: 400 }}>across the internet</b>, with live
             presence so you see other players walking around. No LAN needed, ever.
           </div>
