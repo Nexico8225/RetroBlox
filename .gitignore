@@ -58,3 +58,6 @@ server.log
 /shots/
 .godot/
 scripts/godot-bin
+
+# local sqlite dev/test databases (never commit)
+prisma/db/
