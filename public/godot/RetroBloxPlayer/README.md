@@ -34,19 +34,21 @@ The game remembers you — next launch signs you in automatically.
 | Jump off a ladder | Space while climbing — you leap off the rungs and can't re-grab for a beat |
 | Chat | Enter (or the chat pill button) — Enter sends |
 | Chat commands | `/help`, `/e sit`, `/e stop` — local, never sent to the server |
-| Menu / Players / Settings | Esc or the pill buttons |
+| Menu / Players / Settings | Esc opens the menu (P opens the player list) — the topbar carries only the logo + chat |
 
 ### Cursors — the classic white hand
 
 The player uses the uploaded **RetroBlox Cursor / Pointer** everywhere the
 mouse shows, and in first person the pointer parks visibly in the MIDDLE of
 the screen so you always know where your aim is. Holding **Space** hops
-over and over; 1-2 stud steps are walked over like stairs.
+over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
+the character eases up the step exactly like Roblox.
 
 ### The HUD (the reference-video layout, original RetroBlox skin)
 
-- **Top-left pill** — RetroBlox logo, menu, chat (with a red unread badge
-  while the chat is tucked away) and players.
+- **Top-left pill** — RetroBlox logo + chat (with a red unread badge while
+  the chat is tucked away). v3.7 trimmed it: no three-line menu button and
+  no people button — Esc opens the menu, P opens the player list.
 - The chat starts hidden — ENTER or the chat pill opens the log AND the
   type box together, and closing removes both. Messages said while it is
   hidden stack the badge.
@@ -54,7 +56,10 @@ over and over; 1-2 stud steps are walked over like stairs.
   drains red as you take fall damage and refills with the classic 1%/s regen.
 - **Top-center** — black toast pills ("eh_raiderbomber joined you") when
   someone new appears in the place.
-- **Chat bubbles** appear over the head of whoever is talking — you too.
+- **Chat bubbles** appear over the head of whoever is talking — you too —
+  and they STACK the Roblox way: every message is its own bubble, the
+  newest parks just above the head and older ones climb up, up to three
+  at a time.
 
 ### Settings (Esc → Settings)
 

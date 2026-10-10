@@ -5,48 +5,36 @@ extends Node3D
 ## the bubble for a few seconds, wrapped the classic way. The white rounded
 ## plate (with the little tail) is drawn once in code per line-count, so no
 ## extra asset files ride in the kit.
+##
+## v3.7: bubbles STACK the Roblox way — every message becomes its OWN
+## bubble. The newest parks just above the head and older bubbles climb
+## upward ("Good game" over "Oof"), each fading on its own clock. Up to
+## MAX_STACK bubbles show at once; a new message retires the oldest early
+## so the tower never grows forever.
 
 const SHOW_SECONDS := 4.5
 const MAX_LINES := 3
-const WRAP_AT := 18          # characters per line — the classic narrow bubble
-const MAX_CHARS := 110       # hard trim before wrapping
+const MAX_STACK := 3          # bubbles visible at once, Roblox-style
+const WRAP_AT := 18           # characters per line — the classic narrow bubble
+const MAX_CHARS := 110        # hard trim before wrapping
+const STACK_GAP := 0.24       # studs between stacked bubbles
+const REFLOW_SPEED := 16.0    # how fast bubbles glide into their stack slot
+const BASE_LIFT := 0.35       # newest bubble tail sits this far above the node
 
 ## Textures are cached per line count (1..MAX_LINES).
 static var _tex_cache: Dictionary = {}
 
-var _sprite: Sprite3D
-var _label: Label3D
-var _left := 0.0
+## Live stack, OLDEST first: {sprite, label, left, height, y}. y is the
+## current (gliding) local center height of the bubble.
+var _entries: Array[Dictionary] = []
 
 
 func _init() -> void:
         position = Vector3(0.0, 6.55, 0.0)   # just above the 5-stud avatar
 
-        _sprite = Sprite3D.new()
-        _sprite.name = "Plate"
-        _sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-        _sprite.pixel_size = 0.012           # 256 x ~154 px -> ~3.1 x ~1.85 studs
-        _sprite.shaded = false
-        _sprite.render_priority = 0
-        _sprite.visible = false
-        add_child(_sprite)
 
-        _label = Label3D.new()
-        _label.name = "Text"
-        _label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-        _label.pixel_size = 0.012
-        _label.font_size = 24
-        _label.outline_size = 0
-        _label.modulate = Color(0.13, 0.14, 0.16)   # near-black ink on white
-        _label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        _label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        _label.shaded = false
-        _label.render_priority = 1                  # ink always on top of the plate
-        _label.visible = false
-        add_child(_label)
-
-
-## Pop the bubble with a message. Wraps to max 3 short lines, classic style.
+## Pop a NEW bubble onto the stack (never replaces the old ones — they
+## climb up and fade in order, like Roblox).
 func show_text(message: String) -> void:
         var text := message.strip_edges()
         if text.length() > MAX_CHARS:
@@ -55,32 +43,98 @@ func show_text(message: String) -> void:
         if lines.is_empty():
                 return
 
-        _sprite.texture = _plate_texture(lines.size())
-        # squeeze the plate toward the text height (keeps the tail readable)
-        var squeeze := 0.62 + 0.38 * float(lines.size()) / float(MAX_LINES)
-        _sprite.scale = Vector3(1.0, squeeze, 1.0)
-        _label.text = "\n".join(lines)
+        # the tower never grows forever: retire the oldest bubble early
+        while _entries.size() >= MAX_STACK:
+                _retire(0)
 
-        _sprite.visible = true
-        _label.visible = true
-        _left = SHOW_SECONDS
-        _sprite.modulate = Color(1, 1, 1, 1)
-        _label.modulate.a = 1.0
+        var tex := _plate_texture(lines.size())
+        var squeeze := 0.62 + 0.38 * float(lines.size()) / float(MAX_LINES)
+        var height := tex.get_height() * 0.012 * squeeze
+
+        var sprite := Sprite3D.new()
+        sprite.name = "Plate"
+        sprite.texture = tex
+        sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+        sprite.pixel_size = 0.012           # 256 px wide -> ~3.1 studs
+        sprite.shaded = false
+        sprite.render_priority = 0
+        sprite.scale = Vector3(1.0, squeeze, 1.0)
+        sprite.modulate = Color(1, 1, 1, 0.0)   # fades in over the first beat
+        add_child(sprite)
+
+        var label := Label3D.new()
+        label.name = "Text"
+        label.text = "\n".join(lines)
+        label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+        label.pixel_size = 0.012
+        label.font_size = 24
+        label.outline_size = 0
+        label.modulate = Color(0.13, 0.14, 0.16, 0.0)
+        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        label.shaded = false
+        label.render_priority = 1           # ink always on top of the plate
+        add_child(label)
+
+        # spawn at the head slot (0.0) and glide up to wherever the stack
+        # puts it — new bubbles feel like they POP out of the character
+        _entries.append({
+                "sprite": sprite, "label": label,
+                "left": SHOW_SECONDS, "height": height, "y": 0.0,
+        })
 
 
 func _process(delta: float) -> void:
-        if _left <= 0.0:
+        if _entries.is_empty():
                 return
-        _left -= delta
-        if _left <= 0.0:
-                _sprite.visible = false
-                _label.visible = false
+        # lifetimes + per-bubble fade
+        var died: Array[int] = []
+        for i in range(_entries.size()):
+                var e: Dictionary = _entries[i]
+                e["left"] = float(e["left"]) - delta
+                var a := 1.0
+                if float(e["left"]) < 0.0:
+                        died.append(i)
+                        a = 0.0
+                elif float(e["left"]) < 0.4:
+                        a = float(e["left"]) / 0.4   # gentle fade at the very end
+                elif float(e["left"]) > SHOW_SECONDS - 0.12:
+                        a = (SHOW_SECONDS - float(e["left"])) / 0.12   # pop in
+                var spr: Sprite3D = e["sprite"]
+                spr.modulate.a = a
+                var lab: Label3D = e["label"]
+                lab.modulate.a = a
+        for i in range(died.size() - 1, -1, -1):
+                _retire(died[i])
+        if _entries.is_empty():
                 return
-        # gentle fade at the very end
-        if _left < 0.4:
-                var a := _left / 0.4
-                _sprite.modulate.a = a
-                _label.modulate.a = a
+
+        # stack slots: the NEWEST bubble owns the spot just above the head,
+        # every older one sits a bubble + gap higher (Roblox "Good game"/"Oof")
+        var cursor := 0.0
+        for k in range(_entries.size() - 1, -1, -1):
+                var e: Dictionary = _entries[k]
+                var h: float = e["height"]
+                var target := cursor + BASE_LIFT + h * 0.5
+                # glide toward the slot — the whole tower reflows smoothly
+                var y: float = lerpf(float(e["y"]), target, 1.0 - exp(-REFLOW_SPEED * delta))
+                e["y"] = y
+                var spr: Sprite3D = e["sprite"]
+                spr.position = Vector3(0.0, y, 0.0)
+                var lab: Label3D = e["label"]
+                lab.position = Vector3(0.0, y, 0.0)
+                cursor += h + STACK_GAP
+
+
+func _retire(index: int) -> void:
+        var e: Dictionary = _entries[index]
+        _entries.remove_at(index)
+        var spr: Sprite3D = e["sprite"]
+        if spr != null and is_instance_valid(spr):
+                spr.queue_free()
+        var lab: Label3D = e["label"]
+        if lab != null and is_instance_valid(lab):
+                lab.queue_free()
 
 
 ## Word-wrap into at most MAX_LINES short lines ("…" marks a cut).

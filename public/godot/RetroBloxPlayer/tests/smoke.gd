@@ -438,17 +438,25 @@ func _run_all() -> void:
         check(not bool(cam_rig_node.get("first_person")), "zooming out leaves first person")
         cam_rig_node.queue_free()
 
-        # --- chat bubbles are BACK (the classic white bubble over the speaker) ---
+        # --- chat bubbles STACK now (the classic white plate, Roblox-style) ---
         var bubble_script: Script = load("res://scripts/player/chat_bubble.gd")
         check(bubble_script != null and bubble_script.can_instantiate(), "chat bubble script loads")
         var bubble: Node3D = bubble_script.new()
         root.add_child(bubble)
         bubble.call("show_text", "hi from the smoke test, this is the classic bubble!")
-        var plate: Sprite3D = bubble.get("_sprite")
-        check(plate != null and plate.visible, "bubble pops on show_text")
+        var entries: Array = bubble.get("_entries")
+        check(entries != null and entries.size() == 1, "bubble pops on show_text")
+        var first: Dictionary = entries[0]
+        var plate: Sprite3D = first.get("sprite")
+        check(plate != null and plate.visible, "stacked bubble owns a plate")
         check(plate.texture != null, "bubble plate texture is drawn in code")
-        var ink: Label3D = bubble.get("_label")
+        var ink: Label3D = first.get("label")
         check(ink != null and ink.visible and ink.text.contains("classic"), "bubble ink shows the text")
+        bubble.call("show_text", "Good game!")
+        bubble.call("show_text", "Oof")
+        check(bubble.get("_entries").size() == 3, "bubbles STACK like Roblox (3 live at once)")
+        bubble.call("show_text", "one message too many")
+        check(bubble.get("_entries").size() == 3, "the stack caps at MAX_STACK (oldest retires)")
         var game_src := FileAccess.get_file_as_string("res://scripts/game/game.gd")
         check(game_src.contains("show_bubble"), "game routes chat lines to bubbles")
         var local_src := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
@@ -486,6 +494,34 @@ func _run_all() -> void:
                 "stairs probe the walk wish FIRST (diagonals step up)")
         check(player_src.contains("CLIMB_FACE_START := 0.65"),
                 "climb grab is deliberate (no more brushing grabs)")
+
+        # --- v3.7: trimmed topbar, stacked bubbles, SMOOTH stairs, retro menu ---
+        check(not game_src.contains('"res://assets/icons/menu.png"'),
+                "topbar: the three-line menu icon button is gone (ESC opens the menu)")
+        check(not game_src.contains('"res://assets/icons/people.png"'),
+                "topbar: the people/invite button is gone (players live in the menu)")
+        check(not FileAccess.file_exists("res://assets/icons/menu.png"),
+                "menu icon asset removed from the kit")
+        check(not FileAccess.file_exists("res://assets/icons/people.png"),
+                "people icon asset removed from the kit")
+        check(player_src.contains("STEP_RISE_SPEED") and player_src.contains("_rise_left"),
+                "stairs GLIDE now — the rise animates over ~0.1s")
+        # scope: only the STAIR code (_attempt_step_up.._update_fall_damage) —
+        # the climb mantle at the top of a ladder is a separate vault move
+        var stair_code: String = player_src.get_slice("func _attempt_step_up", 1).split("func _update_fall_damage")[0]
+        check(stair_code.contains("_rise_left = lip + 0.06")
+                and not stair_code.contains("move_and_collide(Vector3.UP * (lip"),
+                "no more stair teleport — the rise is an eased glide now")
+        check(player_src.contains("func _update_step_rise"),
+                "the stair glide has its own eased rise step")
+        var bubble_src := FileAccess.get_file_as_string("res://scripts/player/chat_bubble.gd")
+        check(bubble_src.contains("MAX_STACK := 3"),
+                "chat bubbles stack (Roblox-style tower, capped at 3)")
+        check(game_src.contains("_bevel_btn") and game_src.contains("_menu_frame_style")
+                and game_src.contains("_tab_bevel"),
+                "ESC menu wears the v3.7 retro keycap + case design")
+        check(game_src.contains("8a6d1d"),
+                "the retro case has the dark-gold pinline")
         check(ResourceLoader.exists("res://assets/fonts/PressStart2P-Regular.ttf"), "pixel font ships (Press Start 2P)")
         check(ResourceLoader.exists("res://assets/ui/steel_panel.jpg"), "brushed-steel texture ships")
         check(ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"), "pixel-cloud backdrop ships")

@@ -38,7 +38,10 @@ const MAX_STEP := 2.5 * STUD      # walk over anything up to this height (stairs
 const MIN_STEP := 0.05 * STUD
 const STEP_FORWARD := 0.6 * STUD
 const STEP_PROBE_AHEAD := 1.7 * STUD  # down-ray lands BEYOND the capsule radius
-const STEP_VISUAL_SPEED := 46.0 * STUD
+## v3.7 SMOOTH STAIRS — the vertical glide speed that replaced the teleport.
+## A 2-stud step takes ~0.09s to climb; the collider, avatar and camera all
+## rise together, exactly how Roblox eases you up a staircase.
+const STEP_RISE_SPEED := 22.0 * STUD
 
 const CLIMB_SPEED := 9.0 * STUD   # ladders + stud edges: W = up, S = down
 const LADDER_JUMP := 34.0 * STUD  # jump-off launch
@@ -99,7 +102,9 @@ var _climb_face := Vector3.ZERO  # direction to FACE to stay on the surface
 var _climb_grace := 0.0
 var _coyote := 0.0
 var _jump_buffer_left := 0.0
-var _step_visual := 0.0
+var _rise_left := 0.0        # v3.7: studs left in the smooth stair glide
+var _rise_dir := Vector3.ZERO
+var _rise_lip := 0.0
 var _step_dir := Vector3.ZERO     # last walk wish — step-ups probe THIS, not
                                   # the slid velocity (a head-on wall zeroes it)
 var _bounce_cd := 0.0
@@ -242,18 +247,15 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 
         move_and_slide()
         var was_grounded := grounded
-        grounded = is_on_floor()
+        # the stair glide keeps you "grounded" (walk anim, no fall damage)
+        grounded = is_on_floor() or _rise_left > 0.0
         # landing thud after real air time (Roblox plays jump_land on impact)
         if grounded and not was_grounded and _last_vy < -LAND_SOUND_FALL:
                 _play_land_sound()
                 _dust(clampf(-_last_vy / (40.0 * STUD), 1.0, 1.8))
-        if grounded and is_on_wall() and _climb_kind == ClimbKind.NONE:
+        _update_step_rise(delta)
+        if grounded and is_on_wall() and _climb_kind == ClimbKind.NONE and _rise_left <= 0.0:
                 _attempt_step_up()
-
-        # the avatar eases onto ledges after a step — stairs look smooth
-        if _step_visual != 0.0:
-                _step_visual = move_toward(_step_visual, 0.0, STEP_VISUAL_SPEED * delta)
-                avatar.position.y = _step_visual
 
         _update_fall_damage()
         if _regen_wait > 0.0:
@@ -460,11 +462,13 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
         else:
                 velocity.x = move_toward(velocity.x, target.x, accel * delta)
                 velocity.z = move_toward(velocity.z, target.z, accel * delta)
-        if not is_on_floor():
+        if _rise_left > 0.0:
+                velocity.y = 0.0   # v3.7: the stair glide owns the vertical axis
+        elif not is_on_floor():
                 velocity.y -= GRAVITY * delta
         elif velocity.y < 0.0:
                 velocity.y = 0.0
-        if _jump_buffer_left > 0.0 and (is_on_floor() or _coyote > 0.0):
+        if _rise_left <= 0.0 and _jump_buffer_left > 0.0 and (is_on_floor() or _coyote > 0.0):
                 _jump_buffer_left = 0.0
                 _coyote = 0.0
                 velocity.y = JUMP_SPEED
@@ -547,16 +551,32 @@ func _step_along(dir: Vector3) -> bool:
         var lip: float = float(hit["position"].y) - feet
         if lip < MIN_STEP or lip > MAX_STEP + 0.01:
                 return false
-        move_and_collide(Vector3.UP * (lip + 0.06))
-        move_and_collide(dir * STEP_FORWARD)
-        var settle := move_and_collide(Vector3.DOWN * (lip + 0.2 * STUD))
-        if settle != null and velocity.y < 0.0:
-                velocity.y = 0.0
-        grounded = true
-        _step_visual = minf(_step_visual - lip, -lip)
-        if _step_visual < -MAX_STEP:
-                _step_visual = -MAX_STEP
+        # v3.7 SMOOTH STAIRS — no teleport: start a short glide. The probe and
+        # lip checks above are unchanged (they make the step reliable, even
+        # diagonally); the rise itself now animates over ~0.1s in
+        # _update_step_rise, so the character EASES up the stair like Roblox.
+        _rise_left = lip + 0.06
+        _rise_lip = lip
+        _rise_dir = dir
         return true
+
+
+## The v3.7 stair glide: climb the lip at STEP_RISE_SPEED over a few frames —
+## collider, avatar and camera rise together (no snap) — then glide forward
+## onto the tread and settle down onto it, exactly like the old snap did but
+## spread across time.
+func _update_step_rise(delta: float) -> void:
+        if _rise_left <= 0.0:
+                return
+        var step_up := minf(_rise_left, STEP_RISE_SPEED * delta)
+        move_and_collide(Vector3.UP * step_up)
+        _rise_left -= step_up
+        velocity.y = maxf(velocity.y, 0.0)
+        if _rise_left <= 0.0:
+                move_and_collide(_rise_dir * STEP_FORWARD)
+                var settle := move_and_collide(Vector3.DOWN * (_rise_lip + 0.2 * STUD))
+                if settle != null and velocity.y < 0.0:
+                        velocity.y = 0.0
 
 
 func _update_fall_damage() -> void:
@@ -610,7 +630,7 @@ func respawn_at(pos: Vector3) -> void:
         _falling = false
         _stop_climb()
         _ladder_dismount = 0.0
-        _step_visual = 0.0
+        _rise_left = 0.0
         avatar.position.y = 0.0
         health_changed.emit(health, MAX_HEALTH)
         global_position = pos

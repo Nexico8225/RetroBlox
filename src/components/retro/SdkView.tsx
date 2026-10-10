@@ -9,10 +9,14 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.6 "Sign In & Play"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.6'
+const VERSION = 'v3.7 "Retro Menu & Smooth Stairs"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.7'
 
 const NEW_STUFF: [string, string][] = [
+  ['Trimmed topbar — logo + chat only', 'The three-line menu button and the people/invite button are GONE from the topbar pill. Esc opens the menu, P opens the player list - the pill now carries just the RetroBlox logo and chat, like the classic client.'],
+  ['Chat bubbles STACK like Roblox', 'Every message is its own bubble now: the newest parks just above the speaker\'s head and older ones climb upward ("Good game" over "Oof"), up to three at a time, each fading on its own clock.'],
+  ['Buttery-smooth stairs', 'No more teleport up steps: the character now GLIDES up the lip over ~0.1s - collider, avatar and camera rise together, exactly how Roblox eases you up a staircase. The step-up probe from v3.6 is untouched, so diagonal approaches still work.'],
+  ['All-new retro ESC menu', 'The menu was redesigned: a deep-navy client shell with a dark-gold pinline and soft shadow wraps the brushed-steel plate, tabs are chunky keycaps (green when selected), every button is a bevel keycap with a hard drop shadow that SINKS when pressed, and the wordmark sign got a gold trim line.'],
   ['No game picker - sign in and PLAY', 'The place-select hub is retired: logging in drops you STRAIGHT into the classic baseplate. This is a platform for building games - you spawn into the world immediately now.'],
   ['Chat toggle FIXED', 'Pressing the chat button now closes the ENTIRE chat - the type box used to stay behind after the log vanished. The chat starts tucked away, and the red badge counts anything said while it is hidden.'],
   ['Typing freezes your character', 'While the chat box has the keyboard, WASD and Space type letters instead of moving you - the classic chat behavior your character always deserved.'],
@@ -21,8 +25,6 @@ const NEW_STUFF: [string, string][] = [
   ['Climbing is deliberate now', 'Brushing past a wall at an angle no longer yanks you into the climb grip mid-run - you must face the surface AND press clearly into it, closer to how Roblox feels.'],
   ['Your cursors, in the game', 'The uploaded RetroBlox Cursor + Pointer hand now IS the mouse everywhere - and in first person the pointer parks visibly in the MIDDLE of the screen so you always know where your aim is.'],
   ['HOLD Space to keep jumping', 'Keep the key down and you hop over and over - classic hold-to-jump, no re-pressing. Single taps still work exactly like before.'],
-  ['Coins + Tix Bag removed', 'Every spinning Tix coin, the Tix Bag hotbar and the gold counter chip are gone from every place - clean world, clean HUD.'],
-  ['Climb only when your TORSO touches', 'Brushing a low rung or a 2-stud part with your LEGS no longer snaps you into the climb grip - the ladder sensor is a torso band now, and walls only grab at 2.7+ studs.'],
   ['The avatar loads FAST', 'Dressing streams every texture, face and UGC model in PARALLEL, and session caches make rejoining dress instantly from memory.'],
   ['Your ReTROBLOX wordmark everywhere', 'The uploaded logo drives the ESC menu title on a wooden signboard, the loading veil and the login card - and this site\'s favicon is the red R.'],
 ]
@@ -31,21 +33,20 @@ const FILES = [
   ['scripts/core/api.gd', 'The one HTTP door to the platform — auth, avatars, assets, place chat + presence'],
   ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache — and the saved login that signs you in automatically next launch'],
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
-  ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, Tix chime, fanfare, UI'],
+  ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The in-game login / SIGN UP card — server URL locked, guests welcome'],
-  ['scripts/ui/hub.gd', 'Place browser with a live 3D avatar preview + online counts + the music box'],
-  ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: beveled panels, chunky buttons'],
+  ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: beveled panels, chunky buttons, wood signboards, your cursors'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
-  ['scripts/player/local_player.gd', 'Classic controller at the classic size: WalkSpeed 16, step-up stairs, ladders + stud-edge grabs (face-to-climb, look-away = fall), trampolines, fall damage, dust'],
+  ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — they STACK the Roblox way, up to three live'],
+  ['scripts/player/local_player.gd', 'Classic controller at the classic size: WalkSpeed 16, SMOOTH gliding stairs, ladders + stud-edge grabs (face-to-climb, look-away = fall), trampolines, fall damage, dust'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, procedural stud texture, goal sparkles'],
-  ['scripts/world/places.gd', 'The five built-in places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/world/coin.gd', 'The Tix: spinning collectible coins with chime + burst'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, Tix counter, respawn flow'],
-  ['scripts/game/chat_box.gd', 'The classic chat log + bubbles, injection-proof'],
+  ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the retro ESC menu, respawn flow'],
+  ['scripts/game/chat_box.gd', 'The classic chat log + type box that open and close as ONE widget, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, and Shift Lock shoulder park'],
-  ['assets/*.wav|mp3', 'Music box loop, wind ambience, Tix chime, goal fanfare + the authentic client sounds'],
+  ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],
 ]
 
 const ENDPOINTS = [

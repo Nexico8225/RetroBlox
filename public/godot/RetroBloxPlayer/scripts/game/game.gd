@@ -275,9 +275,11 @@ func _on_first_person(active: bool) -> void:
 # ---------------------------------------------------------------- HUD
 
 ## The HUD from the reference video: a black rounded TOPBAR PILL (logo /
-## menu / chat with unread badge) top-left, a VERTICAL HEALTH BAR on the
+## chat with unread badge) top-left, a VERTICAL HEALTH BAR on the
 ## right, join toasts top-center,
-## translucent dark chat bottom-left, and a dark settings card in the menu.
+## translucent dark chat top-left, and the retro ESC menu card in the center.
+## v3.7: the pill is TRIMMED — logo + chat only. The menu lives on the ESC
+## key ("esc menu"), no more three-line button or people button.
 func _build_hud() -> void:
         hud = CanvasLayer.new()
         hud.name = "HUD"
@@ -330,10 +332,8 @@ func _build_topbar() -> void:
                 _notify("RetroBlox — %s" % String(place.get("name", "a classic place"))))
         row.add_child(logo_btn)
 
-        var menu_btn := _pill_button("res://assets/icons/menu.png", "Menu (ESC)")
-        menu_btn.pressed.connect(func() -> void: _toggle_menu())
-        row.add_child(menu_btn)
-
+        # v3.7: just the chat button — ESC opens the menu, P opens the player
+        # list, no three-line icon and no people/invite button on the pill
         var chat_btn := _pill_button("res://assets/icons/chat.png", "Chat (ENTER)")
         chat_btn.pressed.connect(func() -> void:
                 # v3.6: a clean TOGGLE — the chat (log + type box together)
@@ -370,10 +370,8 @@ func _build_topbar() -> void:
         badge_panel.visible = false   # no unread yet — no red dot
         row.add_child(chat_btn)
 
-        var people_btn := _pill_button("res://assets/icons/people.png", "Players (P)")
-        people_btn.pressed.connect(func() -> void:
-                _open_menu("players"))
-        row.add_child(people_btn)
+        # v3.7: the people/invite button is GONE — the player list lives in
+        # the ESC menu (Players tab, still opens with P)
 
 
 func _pill_button(icon_path: String, tip: String) -> Button:
@@ -568,15 +566,22 @@ func _build_menu() -> Control:
         overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.visible = false
         var dim := ColorRect.new()
-        dim.color = Color(0.02, 0.05, 0.09, 0.6)
+        dim.color = Color(0.02, 0.05, 0.09, 0.68)
         dim.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.add_child(dim)
+        # v3.7 RETRO MENU — the steel plate now sits inside a chunky "client
+        # shell": a deep-navy case with a gold pinline, sharp corners, and
+        # keycap-bevel buttons that sink when pressed. Pure 2006.
+        var frame := PanelContainer.new()
+        frame.name = "MenuFrame"
+        frame.add_theme_stylebox_override("panel", _menu_frame_style())
+        frame.set_anchors_preset(Control.PRESET_CENTER)
+        frame.grow_horizontal = Control.GROW_DIRECTION_BOTH
+        frame.grow_vertical = Control.GROW_DIRECTION_BOTH
+        overlay.add_child(frame)
         _menu_card = PanelContainer.new()
         _menu_card.add_theme_stylebox_override("panel", _card_style())
-        _menu_card.set_anchors_preset(Control.PRESET_CENTER)
-        _menu_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
-        _menu_card.grow_vertical = Control.GROW_DIRECTION_BOTH
-        overlay.add_child(_menu_card)
+        frame.add_child(_menu_card)
         var box := VBoxContainer.new()
         box.custom_minimum_size = Vector2(460, 0)
         box.add_theme_constant_override("separation", 10)
@@ -595,6 +600,12 @@ func _build_menu() -> Control:
                 wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
                 sign.add_child(wm)
                 box.add_child(sign)
+                # the gold pinline under the sign — the retro case's trim line
+                var trim := ColorRect.new()
+                trim.color = Color("ffd23f")
+                trim.custom_minimum_size = Vector2(0, 2)
+                trim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                box.add_child(trim)
         else:
                 var title := Label.new()
                 title.text = "RETROBLOX"
@@ -611,11 +622,16 @@ func _build_menu() -> Control:
         var sub := Label.new()
         sub.text = String(place.get("name", "a classic place"))
         sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        sub.add_theme_font_size_override("font_size", 12)
-        sub.add_theme_color_override("font_color", Color(0.62, 0.72, 0.8))
+        sub.add_theme_color_override("font_color", Color("9fc1d4"))
+        var sub_pixel: Font = RetroUI.pixel_font()
+        if sub_pixel != null:
+                sub.add_theme_font_override("font", sub_pixel)
+                sub.add_theme_font_size_override("font_size", 9)
+        else:
+                sub.add_theme_font_size_override("font_size", 12)
         box.add_child(sub)
 
-        # ---- tabs ----
+        # ---- tabs — chunky retro keycaps, green when selected ----
         var tabs := HBoxContainer.new()
         tabs.add_theme_constant_override("separation", 6)
         tabs.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -623,13 +639,19 @@ func _build_menu() -> Control:
         var players_btn := Button.new()
         players_btn.text = "PLAYERS"
         players_btn.toggle_mode = true
-        players_btn.custom_minimum_size = Vector2(120, 30)
+        players_btn.custom_minimum_size = Vector2(126, 34)
         players_btn.focus_mode = Control.FOCUS_NONE
         var settings_btn := Button.new()
         settings_btn.text = "SETTINGS"
         settings_btn.toggle_mode = true
-        settings_btn.custom_minimum_size = Vector2(120, 30)
+        settings_btn.custom_minimum_size = Vector2(126, 34)
         settings_btn.focus_mode = Control.FOCUS_NONE
+        for tab_btn in [players_btn, settings_btn]:
+                tab_btn.add_theme_stylebox_override("normal", _tab_bevel(false))
+                tab_btn.add_theme_stylebox_override("hover", _tab_bevel(false, true))
+                tab_btn.add_theme_stylebox_override("pressed", _tab_bevel(true))
+                tab_btn.add_theme_stylebox_override("hover_pressed", _tab_bevel(true))
+                tab_btn.add_theme_font_size_override("font_size", 10)
         tabs.add_child(players_btn)
         tabs.add_child(settings_btn)
 
@@ -661,23 +683,25 @@ func _build_menu() -> Control:
         var resume := Button.new()
         resume.text = "Resume"
         resume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        resume.custom_minimum_size = Vector2(0, 40)
+        resume.custom_minimum_size = Vector2(0, 44)
         resume.focus_mode = Control.FOCUS_NONE
-        resume.add_theme_stylebox_override("normal", _menu_btn_style(Color("2f9e44")))
-        resume.add_theme_stylebox_override("hover", _menu_btn_style(Color("37b64f")))
-        resume.add_theme_stylebox_override("pressed", _menu_btn_style(Color("278139")))
+        resume.add_theme_stylebox_override("normal", _bevel_btn(Color("2f9e44")))
+        resume.add_theme_stylebox_override("hover", _bevel_btn(Color("37b64f")))
+        resume.add_theme_stylebox_override("pressed", _bevel_btn(Color("278139"), true))
         resume.add_theme_color_override("font_color", Color.WHITE)
+        resume.add_theme_font_size_override("font_size", 11)
         resume.pressed.connect(_toggle_menu)
         actions.add_child(resume)
 
         var respawn := Button.new()
         respawn.text = "Reset Character"
-        respawn.custom_minimum_size = Vector2(150, 40)
+        respawn.custom_minimum_size = Vector2(150, 44)
         respawn.focus_mode = Control.FOCUS_NONE
-        respawn.add_theme_stylebox_override("normal", _menu_btn_style(Color("3a4b58")))
-        respawn.add_theme_stylebox_override("hover", _menu_btn_style(Color("48606f")))
-        respawn.add_theme_stylebox_override("pressed", _menu_btn_style(Color("2c3944")))
+        respawn.add_theme_stylebox_override("normal", _bevel_btn(Color("3a4b58")))
+        respawn.add_theme_stylebox_override("hover", _bevel_btn(Color("48606f")))
+        respawn.add_theme_stylebox_override("pressed", _bevel_btn(Color("2c3944"), true))
         respawn.add_theme_color_override("font_color", Color.WHITE)
+        respawn.add_theme_font_size_override("font_size", 11)
         respawn.pressed.connect(func() -> void:
                 _toggle_menu()
                 if player.alive:
@@ -687,24 +711,26 @@ func _build_menu() -> Control:
 
         var leave := Button.new()
         leave.text = "Leave"
-        leave.custom_minimum_size = Vector2(110, 40)
+        leave.custom_minimum_size = Vector2(110, 44)
         leave.focus_mode = Control.FOCUS_NONE
-        leave.add_theme_stylebox_override("normal", _menu_btn_style(Color("b3261e")))
-        leave.add_theme_stylebox_override("hover", _menu_btn_style(Color("d13a30")))
-        leave.add_theme_stylebox_override("pressed", _menu_btn_style(Color("8f1d17")))
+        leave.add_theme_stylebox_override("normal", _bevel_btn(Color("b3261e")))
+        leave.add_theme_stylebox_override("hover", _bevel_btn(Color("d13a30")))
+        leave.add_theme_stylebox_override("pressed", _bevel_btn(Color("8f1d17"), true))
         leave.add_theme_color_override("font_color", Color.WHITE)
+        leave.add_theme_font_size_override("font_size", 11)
         leave.pressed.connect(_leave_game)
         actions.add_child(leave)
 
         # LOG OUT — wipes the saved session and returns to the login gate
         var logout := Button.new()
         logout.text = "Log Out"
-        logout.custom_minimum_size = Vector2(110, 40)
+        logout.custom_minimum_size = Vector2(110, 44)
         logout.focus_mode = Control.FOCUS_NONE
-        logout.add_theme_stylebox_override("normal", _menu_btn_style(Color("4a3a55")))
-        logout.add_theme_stylebox_override("hover", _menu_btn_style(Color("5c4a6b")))
-        logout.add_theme_stylebox_override("pressed", _menu_btn_style(Color("3a2d44")))
+        logout.add_theme_stylebox_override("normal", _bevel_btn(Color("4a3a55")))
+        logout.add_theme_stylebox_override("hover", _bevel_btn(Color("5c4a6b")))
+        logout.add_theme_stylebox_override("pressed", _bevel_btn(Color("3a2d44"), true))
         logout.add_theme_color_override("font_color", Color.WHITE)
+        logout.add_theme_font_size_override("font_size", 11)
         logout.pressed.connect(func() -> void:
                 Api.clear_session()
                 Session.reset()
@@ -714,9 +740,14 @@ func _build_menu() -> Control:
 
         var hint := Label.new()
         hint.text = "ENTER chat · ESC resume · R reset character · L leave"
-        hint.add_theme_font_size_override("font_size", 11)
         hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         hint.add_theme_color_override("font_color", Color(0.55, 0.64, 0.72))
+        var hint_pixel: Font = RetroUI.pixel_font()
+        if hint_pixel != null:
+                hint.add_theme_font_override("font", hint_pixel)
+                hint.add_theme_font_size_override("font_size", 8)
+        else:
+                hint.add_theme_font_size_override("font_size", 11)
         box.add_child(hint)
         set_tab.call("players")
         return overlay
@@ -825,12 +856,13 @@ func _build_settings_tab() -> VBoxContainer:
         for anim in ["Sit", "Climb", "Walk", "Jump", "Idle", "Stop"]:
                 var b := Button.new()
                 b.text = anim
-                b.custom_minimum_size = Vector2(64, 26)
+                b.custom_minimum_size = Vector2(64, 28)
                 b.focus_mode = Control.FOCUS_NONE
-                b.add_theme_stylebox_override("normal", _menu_btn_style(Color("3a4b58")))
-                b.add_theme_stylebox_override("hover", _menu_btn_style(Color("48606f")))
-                b.add_theme_stylebox_override("pressed", _menu_btn_style(Color("2c3944")))
+                b.add_theme_stylebox_override("normal", _bevel_btn(Color("3a4b58")))
+                b.add_theme_stylebox_override("hover", _bevel_btn(Color("48606f")))
+                b.add_theme_stylebox_override("pressed", _bevel_btn(Color("2c3944"), true))
                 b.add_theme_color_override("font_color", Color.WHITE)
+                b.add_theme_font_size_override("font_size", 9)
                 var clip: String = "" if anim == "Stop" else anim
                 b.pressed.connect(func() -> void:
                         if player != null and is_instance_valid(player):
@@ -858,14 +890,50 @@ func _slider_row(parent: VBoxContainer, label_text: String, minv: float, maxv: f
         parent.add_child(s)
 
 
-func _menu_btn_style(bg: Color) -> StyleBoxFlat:
+## v3.7 RETRO KEYCAP — chunky bevel button: sharp corners, a thick darker
+## bottom edge and a hard drop shadow; `pushed` sinks the keycap for the
+## pressed state. This is the signature look of the new ESC menu.
+func _bevel_btn(bg: Color, pushed := false) -> StyleBoxFlat:
         var sb := StyleBoxFlat.new()
         sb.bg_color = bg
-        sb.set_corner_radius_all(8)
-        sb.content_margin_left = 12.0
-        sb.content_margin_right = 12.0
+        sb.set_corner_radius_all(2)
+        sb.border_color = bg.darkened(0.5)
+        sb.set_border_width_all(2)
+        sb.border_width_bottom = 3 if pushed else 6   # the keycap edge
+        sb.shadow_color = Color(0, 0, 0, 0.4)
+        sb.shadow_size = 0
+        sb.shadow_offset = Vector2(0, 1) if pushed else Vector2(0, 3)
+        sb.content_margin_left = 14.0
+        sb.content_margin_right = 14.0
+        sb.content_margin_top = 7.0
+        sb.content_margin_bottom = 6.0 if pushed else 8.0
+        return sb
+
+
+## v3.7 RETRO TAB — the menu's tab keycaps: steel when idle, classic green
+## when selected, both with the chunky bottom edge.
+func _tab_bevel(on: bool, hovered := false) -> StyleBoxFlat:
+        var sb := _bevel_btn(Color("2f9e44") if on else (Color("42586a") if hovered else Color("1d2833")))
         sb.content_margin_top = 6.0
-        sb.content_margin_bottom = 6.0
+        sb.content_margin_bottom = 5.0
+        return sb
+
+
+## v3.7 RETRO CASE — the menu now sits in a deep-navy shell with a dark-gold
+## pinline and a wide soft shadow, like a 2006 client window.
+func _menu_frame_style() -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(0.045, 0.062, 0.09)
+        sb.set_corner_radius_all(4)
+        sb.border_color = Color("8a6d1d")
+        sb.set_border_width_all(3)
+        sb.shadow_color = Color(0, 0, 0, 0.55)
+        sb.shadow_size = 16
+        sb.shadow_offset = Vector2(0, 5)
+        sb.content_margin_left = 5.0
+        sb.content_margin_right = 5.0
+        sb.content_margin_top = 5.0
+        sb.content_margin_bottom = 5.0
         return sb
 
 
