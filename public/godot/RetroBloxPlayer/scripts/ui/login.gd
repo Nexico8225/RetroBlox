@@ -216,7 +216,9 @@ func _on_action() -> void:
 
 func _finish_login(me: Dictionary) -> void:
         Session.sign_in(me, String(me["userId"]), String(me["username"]), String(me.get("role", "user")))
-        get_tree().change_scene_to_file("res://scenes/hub.tscn")
+        # v3.6: the game-select hub is retired — sign in and you are instantly
+        # playing the classic baseplate
+        get_tree().change_scene_to_file("res://scenes/game.tscn")
 
 
 ## Last resort when the platform is unreachable: classic noob, offline chat.
@@ -224,4 +226,4 @@ func _on_offline() -> void:
         if _working:
                 return
         Session.set_guest()
-        get_tree().change_scene_to_file("res://scenes/hub.tscn")
+        get_tree().change_scene_to_file("res://scenes/game.tscn")

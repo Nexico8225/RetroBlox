@@ -41,18 +41,28 @@ var _chat_badge_panel: PanelContainer
 var _toast_box: VBoxContainer
 var _shift_check: CheckButton
 var _center_cursor: TextureRect   # the visible mouse parked mid-screen in first person
+var _loading: Control             # the v3.6 loading veil (no more load hitch)
 
 
 func _ready() -> void:
         place = Session.current_place
         if place.is_empty():
+                # the hub is retired: signing in drops you straight into the classic
+                # baseplate — sign in and just play
                 place = PlacesScript.by_id("baseplate")
+
+        # ---- the loading veil goes up FIRST: the world + avatar + HUD are
+        # built across a few frames now (no one-frame freeze) and this covers it
+        _show_loading()
+        await get_tree().process_frame
 
         var built: Dictionary = WorldBuilderScript.build(place)
         add_child(built["root"])
         _spawns = built["spawns"]
         if _spawns.is_empty():
                 _spawns.append(Vector3(0.0, 6.0, 0.0) * WorldBuilderScript.STUD)
+        # a frame between the world and the player splits the spike
+        await get_tree().process_frame
 
         # ---- me ----
         player = LocalPlayerScript.new()
@@ -89,6 +99,77 @@ func _ready() -> void:
         else:
                 chat.add_system("Chat + players are live across the internet. Say hi!")
 
+        # let a frame fully DRAW the scene behind the veil (world shaders compile
+        # while it is up), then lift it — the game appears smooth and ready
+        await get_tree().process_frame
+        await RenderingServer.frame_post_draw
+        _hide_loading()
+
+
+## The v3.6 loading veil: dark steel + your wordmark + a status line. It
+## hides the world/avatar/HUD build so loading feels instant instead of
+## freezing for a beat.
+func _show_loading() -> void:
+        _loading = Control.new()
+        _loading.name = "LoadingVeil"
+        _loading.set_anchors_preset(Control.PRESET_FULL_RECT)
+        _loading.mouse_filter = Control.MOUSE_FILTER_STOP
+        var layer := CanvasLayer.new()
+        layer.name = "LoadingLayer"
+        layer.layer = 90
+        layer.add_child(_loading)
+        add_child(layer)
+
+        var bg := ColorRect.new()
+        bg.name = "Bg"
+        bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+        bg.color = Color(0.055, 0.07, 0.09)
+        _loading.add_child(bg)
+
+        var box := VBoxContainer.new()
+        box.set_anchors_preset(Control.PRESET_CENTER)
+        box.alignment = BoxContainer.ALIGNMENT_CENTER
+        box.add_theme_constant_override("separation", 14)
+        _loading.add_child(box)
+
+        var wm_path := "res://assets/ui/wordmark.png"
+        if ResourceLoader.exists(wm_path):
+                var wm := TextureRect.new()
+                wm.texture = load(wm_path)
+                wm.custom_minimum_size = Vector2(280, 76)
+                wm.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                wm.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+                wm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+                box.add_child(wm)
+        else:
+                var t := Label.new()
+                t.text = "RETROBLOX"
+                box.add_child(t)
+
+        var status := Label.new()
+        status.name = "Status"
+        status.text = "Loading the classic place…"
+        status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        status.add_theme_color_override("font_color", Color(0.66, 0.74, 0.82))
+        if RetroUI.pixel_font() != null:
+                status.add_theme_font_override("font", RetroUI.pixel_font())
+                status.add_theme_font_size_override("font_size", 12)
+        box.add_child(status)
+
+
+func _hide_loading() -> void:
+        if _loading == null or not is_instance_valid(_loading):
+                return
+        var veil := _loading
+        _loading = null
+        var tween := create_tween()
+        tween.tween_property(veil, "modulate:a", 0.0, 0.3)
+        tween.tween_callback(func() -> void:
+                var layer := veil.get_parent()
+                veil.queue_free()
+                if layer != null and is_instance_valid(layer):
+                        layer.queue_free())
+
 
 # ---------------------------------------------------------------- dressing
 
@@ -109,10 +190,17 @@ func _dress_me() -> void:
 func _physics_process(delta: float) -> void:
         if _menu_open:
                 return
-        var dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-        var jump := Input.is_action_just_pressed("jump")
-        var jump_held := Input.is_action_pressed("jump")
-        player.drive(delta, dir, camera_rig.drive_yaw(), jump, camera_rig.shift_locked, camera_rig.first_person, jump_held)
+        # staged loading: _ready awaits across a few frames — the player may
+        # not exist yet, sit tight until it does
+        if player == null or not is_instance_valid(player):
+                return
+        # TYPING FREEZES YOU — while the chat box has the keyboard, WASD and
+        # Space mean letters, not movement (classic chat behavior)
+        var typing: bool = chat != null and is_instance_valid(chat) and chat.is_open
+        var dir := Vector2.ZERO if typing else Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+        var jump := false if typing else Input.is_action_just_pressed("jump")
+        var jump_held := false if typing else Input.is_action_pressed("jump")
+        player.drive(delta, dir, camera_rig.drive_yaw() if camera_rig != null else 0.0, jump, camera_rig.shift_locked if camera_rig != null else false, camera_rig.first_person if camera_rig != null else false, jump_held)
 
         # fall into the void -> die (the oof knows). void_y is authored in studs.
         if player.alive and player.global_position.y < float(place.get("void_y", -40.0)) * WorldBuilderScript.STUD:
@@ -152,7 +240,7 @@ func _unhandled_input(event: InputEvent) -> void:
                 _toggle_menu()
                 get_viewport().set_input_as_handled()
         elif event.is_action_pressed("ui_text_submit") or (event is InputEventKey and event.is_pressed() and not event.is_echo() and (event as InputEventKey).keycode == KEY_ENTER):
-                if not _menu_open and not chat.is_open:
+                if not _menu_open and chat != null and is_instance_valid(chat) and not chat.is_open:
                         chat.open()
                         camera_rig.set_ui_blocked(true)
                         get_viewport().set_input_as_handled()
@@ -248,11 +336,11 @@ func _build_topbar() -> void:
 
         var chat_btn := _pill_button("res://assets/icons/chat.png", "Chat (ENTER)")
         chat_btn.pressed.connect(func() -> void:
+                # v3.6: a clean TOGGLE — the chat (log + type box together)
+                # opens and closes as one thing, nothing left dangling
                 if chat.is_open:
                         chat.close()
-                        chat.set_log_collapsed(not chat.log_collapsed)
                 else:
-                        chat.set_log_collapsed(false)
                         chat.open())
         chat.unread.connect(func(n: int) -> void:
                 _chat_badge.text = "" if n <= 0 else str(n)
@@ -634,11 +722,11 @@ func _build_menu() -> Control:
         return overlay
 
 
-## Leave the place — back to the hub. The Leave button and the menu's
-## L shortcut both land here.
+## Leave the place — with the hub retired, Leave rejoins the classic place
+## fresh (a full scene reload). The menu's L shortcut lands here too.
 func _leave_game() -> void:
         Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-        get_tree().change_scene_to_file("res://scenes/hub.tscn")
+        get_tree().change_scene_to_file("res://scenes/game.tscn")
 
 
 var _menu_switch: Callable = func(_t: String) -> void: pass
@@ -807,6 +895,8 @@ func _card_style() -> StyleBox:
 
 
 func _toggle_menu() -> void:
+        if _menu == null or not is_instance_valid(_menu):
+                return
         _menu_open = not _menu_open
         _menu.visible = _menu_open
         if _menu_open:

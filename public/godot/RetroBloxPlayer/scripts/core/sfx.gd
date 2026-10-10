@@ -11,7 +11,7 @@ extends Node
 ##   falling   = action_falling.mp3         (wind loop, Roblox FreeFalling)
 ##   oof       = uuhhh.mp3                  (THE original death sound)
 ## UI: the classic button CLICK and a soft HOVER tick play on every Button in
-## the whole client (login, hub, HUD) — wired automatically via node_added.
+## the whole client (login, HUD, loading veil) — wired automatically via node_added.
 ## NOTE: the music box is GONE (removed by popular demand) — only the sky
 ## wind ambience remains of the screen loops.
 

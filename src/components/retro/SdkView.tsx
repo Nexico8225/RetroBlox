@@ -9,39 +9,22 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.5 "Your Cursors"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.5'
+const VERSION = 'v3.6 "Sign In & Play"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.6'
 
 const NEW_STUFF: [string, string][] = [
-  ['Your cursors, in the game', 'The uploaded RetroBlox Cursor + Pointer hand now IS the mouse everywhere — and in first person the pointer parks visibly in the MIDDLE of the screen so you always know where your aim is.'],
-  ['HOLD Space to keep jumping', 'Keep the key down and you hop over and over — classic hold-to-jump, no re-pressing. Single taps still work exactly like before.'],
-  ['Coins + Tix Bag removed', 'Every spinning Tix coin, the Tix Bag hotbar and the gold counter chip are gone from all five places — clean world, clean HUD.'],
-  ['1-2 stud steps walk like STAIRS', 'Small ledges are walked over automatically again — the step-up probe had two hidden bugs (it read the slid-velocity and reached too short). Fixed and smoke-tested with a real 2-stud step.'],
-  ['Climb only when your TORSO touches', 'Brushing a low rung or a 2-stud part with your LEGS no longer snaps you into the climb grip — the ladder sensor is a torso band now, and walls only grab at 2.7+ studs.'],
-  ['The avatar loads FAST', 'Dressing was a queue of sequential downloads — now colors paint first and every texture, face and UGC model streams in PARALLEL, plus session caches make rejoining dress instantly from memory.'],
-  ['Your ReTROBLOX wordmark everywhere', 'The uploaded logo drives the ESC menu title on a wooden signboard, the hub topbar, the login card — and this site\'s favicon is the red R.'],
-  ['Wooden signboard UI', 'A real pixel-wood texture (internet-sourced) frames the menu wordmark, joining the brushed steel and pixel clouds from v3.4.'],
-  ['Chat FIXED — no more HTTP 500', 'The place-chat backend was broken server-side: the chat tables went missing from the database, so every message bounced with "HTTP 500". They are restored — chat + presence now actually work across the internet. Sorry about that!'],
-  ['Chat bubbles are BACK', 'You asked, they returned: every message pops the classic white bubble over the speaker\'s head (yours too), wraps to three short lines, and fades away after a few seconds.'],
-  ['Music removed', 'The background music box is gone from the hub and every place — the world is quiet now, with only the soft sky wind on cloud places. Every sound effect stays.'],
-  ['ESC menu shortcuts', 'While the ESC menu is open: press L to LEAVE to the hub, R to RESET your character, ESC to resume — the buttons still work too.'],
-  ['Free cursor + true first person', 'Your cursor is ALWAYS usable in third person — hold the RIGHT mouse button to orbit the camera. Scroll all the way in for real first person (the camera becomes your eyes), and the cursor locks dead-center in shift lock.'],
-  ['Zoom out VERY far', 'The scroll wheel now zooms out to 120 studs — see the whole place at once. Steps grow with distance, so far-out zooming is quick and close zooming is precise.'],
-  ['Climbing that never breaks', 'While on a ladder or ledge your torso LOCKS onto the surface — it never twists left or right, sideways input keeps climbing, S climbs down, and the Climb animation can no longer glitch out mid-climb.'],
-  ['Chat moved top-left', 'The chat lives in the top-left corner under the topbar, with the input line always visible — click it or press ENTER to type.'],
-  ['Back to the classic size', 'The world is built 1 stud = 1 unit again — the avatar stands a proper 5 studs tall and UGC hats sit right on the head, exactly the size you placed them on the site. Crash fixes included: the freed-avatar error is gone and the scripts load warning-free.'],
-  ['Softer, warmer lighting', 'Sun and sky ambient toned down — no more washed-out white; colors pop the way they should while Cloud Kingdom keeps its bright-blue feel.'],
-  ['Roblox edge + ladder climbing', 'Walk into a 1–3 stud ledge or ladder rung FACING it and you grab; S climbs down, Space jumps off, and the top lip mantles you onto the platform. Gaps of 1–3 studs between ladders still climb through.'],
-  ['Log in once — stay logged in', 'The game remembers you: sign in (or sign up, or go guest) one time and every future launch signs you in automatically — even offline. Log Out from the menu clears it.'],
-  ['Real FBX animations', 'The retroblox_anims.fbx clips (Idle / Walk / Climb / Fall) drive the avatar directly and loop cleanly — no more frozen poses.'],
-  ['Shift Lock (SHIFT)', 'The camera parks on your right shoulder and your character turns with it — look right, left, back, the body follows. While locked, ladders are off.'],
-  ['Jump off ladders (SPACE)', 'Climbing and want off? Space leaps you off the rungs — you fly free for a beat and cannot re-grab.'],
-  ['Tix collectibles', 'Every place hides spinning golden Tix. Touch to chime + sparkle; the gold chip counts them; sweep the place clean for the fanfare.'],
-  ['Music + wind ambience', 'Airy wind on the sky places (the music box retired in v3.4). SFX volume slider included.'],
-  ['Wobbly Tower (new place)', 'A sunset zig-zag climb over kill bricks with a truss pull, a bounce shortcut and the summit gold — 5 places now ship.'],
-  ['Authentic client sounds', 'The original uuhhh oof, the classic jump whoosh, the landing thud, plastic footsteps at the official 1.85 pitch, falling wind.'],
-  ['Juice', 'Dust puffs on takeoffs, landings, bounces + respawns; gold sparkles over every goal; coin bursts.'],
-  ['More settings', 'SFX volume, Fullscreen toggle, camera FOV, mouse sensitivity, sun shadows — all live + persisted.'],
+  ['No game picker - sign in and PLAY', 'The place-select hub is retired: logging in drops you STRAIGHT into the classic baseplate. This is a platform for building games - you spawn into the world immediately now.'],
+  ['Chat toggle FIXED', 'Pressing the chat button now closes the ENTIRE chat - the type box used to stay behind after the log vanished. The chat starts tucked away, and the red badge counts anything said while it is hidden.'],
+  ['Typing freezes your character', 'While the chat box has the keyboard, WASD and Space type letters instead of moving you - the classic chat behavior your character always deserved.'],
+  ['Smoother loading - no hitch', 'The world, your avatar and the HUD now build across a few frames behind a RETROBLOX loading veil (with your wordmark) instead of freezing in one giant frame.'],
+  ['Stairs work at ANY angle', 'The REAL stairs bug found: the step-up probe read the slid velocity, which move-and-slide bends to run ALONG walls - so diagonal approaches never stepped up. It probes your actual walk direction first now, and a diagonal smoke test proves it.'],
+  ['Climbing is deliberate now', 'Brushing past a wall at an angle no longer yanks you into the climb grip mid-run - you must face the surface AND press clearly into it, closer to how Roblox feels.'],
+  ['Your cursors, in the game', 'The uploaded RetroBlox Cursor + Pointer hand now IS the mouse everywhere - and in first person the pointer parks visibly in the MIDDLE of the screen so you always know where your aim is.'],
+  ['HOLD Space to keep jumping', 'Keep the key down and you hop over and over - classic hold-to-jump, no re-pressing. Single taps still work exactly like before.'],
+  ['Coins + Tix Bag removed', 'Every spinning Tix coin, the Tix Bag hotbar and the gold counter chip are gone from every place - clean world, clean HUD.'],
+  ['Climb only when your TORSO touches', 'Brushing a low rung or a 2-stud part with your LEGS no longer snaps you into the climb grip - the ladder sensor is a torso band now, and walls only grab at 2.7+ studs.'],
+  ['The avatar loads FAST', 'Dressing streams every texture, face and UGC model in PARALLEL, and session caches make rejoining dress instantly from memory.'],
+  ['Your ReTROBLOX wordmark everywhere', 'The uploaded logo drives the ESC menu title on a wooden signboard, the loading veil and the login card - and this site\'s favicon is the red R.'],
 ]
 
 const FILES = [

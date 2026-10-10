@@ -13,7 +13,7 @@ var seq_id := 0
 var role := ""
 var avatar: Dictionary = {}        # own /api/platform/me payload ({} for guests)
 var avatar_cache: Dictionary = {}  # userId -> avatar payload (remote players)
-var current_place: Dictionary = {} # the PlaceDef picked in the hub
+var current_place: Dictionary = {} # legacy hub pick — empty now: login drops you straight into baseplate
 
 
 func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role: String) -> void:
@@ -49,7 +49,7 @@ func cached_avatar(p_user_id: String) -> Dictionary:
         return hit if hit is Dictionary else {}
 
 
-## The name chip shown in the hub + player list: "Nexico8225 #1".
+## The name chip shown in the player list: "Nexico8225 #1".
 func display_tag() -> String:
         if is_guest or seq_id <= 0:
                 return username

@@ -45,8 +45,11 @@ const LADDER_JUMP := 34.0 * STUD  # jump-off launch
 const LADDER_DISMOUNT := 0.35     # after a climb jump you fly FREE this long
 
 ## CLIMB FACING — you must FACE the surface to climb it (Roblox truss rule).
-const CLIMB_FACE_START := 0.5     # dot(heading, to surface) needed to grab
-const CLIMB_FACE_STAY := 0.35     # fall below this while climbing = let go + fall
+## v3.6: grabbing is DELIBERATE now — you have to be squared up to the face
+## AND clearly pressing into it. Brushing a wall at an angle just walks past
+## (that grab-on-touch was the big jank: it yanked you off your run).
+const CLIMB_FACE_START := 0.65   # dot(heading, to surface) needed to grab
+const CLIMB_FACE_STAY := 0.35    # fall below this while climbing = let go + fall
 const CLIMB_GRACE := 0.45         # seconds the climb survives rung/gap stretches
 const WALL_REACH := 3.0 * STUD    # probe ray length for stud edges
 const HUG_PRESSURE := 1.2 * STUD  # gentle push into the surface while climbing
@@ -323,7 +326,7 @@ func _update_climb(wish: Vector3, delta: float) -> void:
         if ladder_ok and not _ladder_areas.is_empty():
                 var lad: Area3D = _nearest_ladder()
                 var face := _toward(lad)
-                if face != Vector3.ZERO and wish.dot(face) > 0.25:
+                if face != Vector3.ZERO and wish.dot(face) > 0.4:
                         var forward := Vector3(-sin(heading), 0.0, -cos(heading))
                         if forward.dot(face) >= CLIMB_FACE_START:
                                 _climb_kind = ClimbKind.LADDER
@@ -333,12 +336,14 @@ func _update_climb(wish: Vector3, delta: float) -> void:
         # stud edges: probing along the walk direction finds a vertical face.
         # Only faces that reach TORSO height (>= ~2.7 studs) count — a 1-2
         # stud step under your legs is STAIRS (step-up), never the climb grip.
+        # v3.6: the press must be CLEARLY into the face (> 0.5) — strolling
+        # past at an angle never grabs anymore.
         if wish.length_squared() > 0.04:
                 var normal := _wall_hit_along(wish, WALL_GRAB_MIN_H / STUD)
                 if normal != Vector3.ZERO:
                         var face := -normal
                         var forward := Vector3(-sin(heading), 0.0, -cos(heading))
-                        if wish.dot(face) > 0.3 and forward.dot(face) >= CLIMB_FACE_START:
+                        if wish.dot(face) > 0.5 and forward.dot(face) >= CLIMB_FACE_START:
                                 _climb_kind = ClimbKind.WALL
                                 _climb_face = face
                                 _climb_grace = CLIMB_GRACE
@@ -503,40 +508,45 @@ func _dust(strength := 1.0) -> void:
 
 ## STAIRS — walk over any ledge between MIN_STEP and MAX_STEP studs. Measure
 ## the lip with rays; if it is in range with headroom, rise + reach + settle.
-## The probe direction is the held WALK WISH (a head-on wall slides the
-## velocity to zero every frame, which used to fake-out this check), and the
-## down-ray lands 1.7 studs ahead — past the 1.2-stud capsule radius — so it
-## actually finds the step's top face instead of the floor before it.
+## v3.6 ROOT FIX for "stairs don't work": the probe now tries the WALK WISH
+## first (your intent) and the slid velocity second. The old order read the
+## slid velocity FIRST — move_and_slide bends it to run ALONG a wall, so any
+## diagonal approach probed parallel to the step and never found the lip.
 func _attempt_step_up() -> void:
         var hvel := Vector3(velocity.x, 0.0, velocity.z)
-        var dir := Vector3.ZERO
-        if hvel.length_squared() >= 1.0:
-                dir = hvel.normalized()
-        elif _step_dir.length_squared() >= 0.5:
-                dir = _step_dir
-        else:
+        var wish := _step_dir if _step_dir.length_squared() >= 0.5 else Vector3.ZERO
+        var slid := hvel.normalized() if hvel.length_squared() >= 1.0 else Vector3.ZERO
+        if wish == Vector3.ZERO and slid == Vector3.ZERO:
                 return
+        if wish != Vector3.ZERO and _step_along(wish):
+                return
+        if slid != Vector3.ZERO and slid.distance_to(wish) > 0.05 and _step_along(slid):
+                return
+
+
+## One direction probe + rise. TRUE when the step was walked over.
+func _step_along(dir: Vector3) -> bool:
         var space := get_world_3d().direct_space_state
         if space == null:
-                return
+                return false
         var feet := global_position.y
         var probe := PhysicsRayQueryParameters3D.create(
                 global_position + Vector3(0.0, MIN_STEP + 0.15 * STUD, 0.0),
                 global_position + Vector3(0.0, MIN_STEP + 0.15 * STUD, 0.0) + dir * 1.4 * STUD,
                 collision_mask)
         if space.intersect_ray(probe).is_empty():
-                return
+                return false
         if test_move(global_transform, Vector3.UP * MAX_STEP):
-                return
+                return false
         var over := global_position + Vector3.UP * MAX_STEP + dir * STEP_PROBE_AHEAD
         var down_ray := PhysicsRayQueryParameters3D.create(
                 over, over + Vector3.DOWN * (MAX_STEP + 0.4 * STUD), collision_mask)
         var hit := space.intersect_ray(down_ray)
         if hit.is_empty():
-                return
+                return false
         var lip: float = float(hit["position"].y) - feet
         if lip < MIN_STEP or lip > MAX_STEP + 0.01:
-                return
+                return false
         move_and_collide(Vector3.UP * (lip + 0.06))
         move_and_collide(dir * STEP_FORWARD)
         var settle := move_and_collide(Vector3.DOWN * (lip + 0.2 * STUD))
@@ -546,6 +556,7 @@ func _attempt_step_up() -> void:
         _step_visual = minf(_step_visual - lip, -lip)
         if _step_visual < -MAX_STEP:
                 _step_visual = -MAX_STEP
+        return true
 
 
 func _update_fall_damage() -> void:

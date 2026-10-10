@@ -1,10 +1,10 @@
 # RetroBlox Player (Godot)
 
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
-play as a guest) inside the game, wear your real account avatar, explore
-the built-in places, and chat with everyone online through the RetroBlox
-platform API. The HUD, the sounds and the places are built to match the
-2016-classic reference — with RetroBlox's own UI on top.
+play as a guest) inside the game, spawn STRAIGHT into the classic
+baseplate wearing your real account avatar, and chat with everyone online
+through the RetroBlox platform API. The HUD, the sounds and the world are
+built to match the 2016-classic reference — with RetroBlox's own UI on top.
 
 > One platform, every engine. Everything here is plain HTTP + JSON against
 > `https://retro-blox.vercel.app` — the same API the website and the future
@@ -46,7 +46,10 @@ over and over; 1-2 stud steps are walked over like stairs.
 ### The HUD (the reference-video layout, original RetroBlox skin)
 
 - **Top-left pill** — RetroBlox logo, menu, chat (with a red unread badge
-  while the chat log is collapsed) and players.
+  while the chat is tucked away) and players.
+- The chat starts hidden — ENTER or the chat pill opens the log AND the
+  type box together, and closing removes both. Messages said while it is
+  hidden stack the badge.
 - **Right edge** — the vertical **Health** bar with the value chip; it
   drains red as you take fall damage and refills with the classic 1%/s regen.
 - **Top-center** — black toast pills ("eh_raiderbomber joined you") when
@@ -58,19 +61,17 @@ over and over; 1-2 stud steps are walked over like stairs.
 Everything applies live and persists to `user://retroblox_settings.cfg`:
 
 - Mouse sensitivity, camera FOV
-- Master volume, sound-effect volume, **music volume**
+- Master volume, sound-effect volume
 - Sun shadows on/off, **Fullscreen**
 - Shift-lock default
 - **Animations** buttons — pose your character with the rig's own clips
   (Sit / Climb / Walk / Jump / Idle); moving cancels the pose.
 
-### Music + ambience (original, synthesized in-house)
+### Ambience
 
-A soft **music-box loop** (C / Am / F / G at 112 BPM) plays in the hub and
-every place, on its own **Music** audio bus. The sky places (Cloud Kingdom,
-Skylands, Wobbly Tower) add an airy **wind ambience** bed. Both are original
-compositions synthesized for this kit — no copyrighted audio anywhere — and
-both respect their volume sliders live.
+The sky places add an airy **wind ambience** bed, synthesized in-house —
+no copyrighted audio anywhere. (The old music box is retired: the world is
+quiet now by popular demand.)
 
 ### Sounds
 
@@ -82,17 +83,20 @@ loop** in a long fall, the original **uuhhh oof** on death, and
 click / hover ticks + a join chime on every UI surface. Buttons get the
 sounds automatically — every screen, no wiring needed.
 
-### The places
+### Where you spawn
 
-| Place | What it is |
-|---|---|
-| **Cloud Kingdom** | THE reference place — floating grass islands over a sea of clouds: gardens, the GLOBAL LEADERBOARD sign, the NEW GAMES portal, My House, trampolines up to walkable clouds, a neon zig-zag, grey steps, a truss climb and a maroon summit with the gold goal. |
-| Happy Baseplate | The classic sandbox: brick pile, stairs fort, truss tower, trampoline, metal shed. |
-| Classic Obby | Jumps, kill bricks, narrow plank, truss climb, trampoline finish. |
-| Skylands | Islands in the sky — bridges, launches, a kill-plank finale. |
-| **Wobbly Tower** | NEW — a sunset zig-zag climb over kill bricks, a truss pull for the last stretch, a bounce-pad shortcut and the summit gold. |
+Signing in (or going guest) drops you STRAIGHT into the **Happy
+Baseplate** — the classic sandbox with a brick pile, stairs fort, truss
+tower, trampoline and metal shed. There is no game-picker anymore: this
+player is the starting point for building your own games, so you are in
+the world the moment you log in.
 
-Places are pure data (`scripts/world/places.gd`) turned into 3D by
+More sample places (Cloud Kingdom, Classic Obby, Skylands, Wobbly Tower)
+are still defined in `scripts/world/places.gd` as reference material for
+builders — load one by id and pass it to `Session.current_place` before
+the game scene opens.
+
+Every place is pure data (`scripts/world/places.gd`) turned into 3D by
 `scripts/world/world_builder.gd`: boxes/cylinders/spheres with the
 procedural 1-stud-per-unit texture, plus props (trees, flowers, fences,
 crates, clouds, walkable cloud pads, signs, pipes, arches, houses, snow).

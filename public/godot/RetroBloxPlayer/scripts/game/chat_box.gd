@@ -12,6 +12,10 @@ signal opened
 signal closed
 signal unread(count: int)
 
+## v3.6: the chat button + ENTER fully TOGGLE the chat — closing hides the
+## LOG **and the typing line together** (they used to leave the input
+## dangling). While hidden, new messages still stack the red unread badge.
+
 const MAX_LINES := 60
 const NAME_COLORS: Array = [
         "ffd34e", "7ad154", "5aa8e8", "e8845a", "c07ae8",
@@ -98,24 +102,35 @@ func _init() -> void:
         _input.gui_input.connect(_on_input_gui)
         _input_panel.add_child(_input)
 
+        # v3.6: the chat starts TUCKED AWAY — you spawn into a clean world
+        # and the topbar badge counts anything said while it is hidden.
+        # ENTER or the chat button opens it (log + type box as one widget).
+        _panel.visible = false
+        _input_panel.visible = false
+
 
 func open() -> void:
         if is_open:
                 return
         is_open = true
         log_collapsed = false
+        visible = true
         _panel.visible = true
+        _input_panel.visible = true
         _clear_unread()
         _input.grab_focus()
         opened.emit()
 
 
+## The whole chat goes away — log AND the type box, nothing left dangling.
 func close() -> void:
         if not is_open:
                 return
         is_open = false
         _input.text = ""
         _input.release_focus()
+        _panel.visible = false
+        _input_panel.visible = false
         closed.emit()
 
 
@@ -163,7 +178,7 @@ func add_chat(username: String, seq_id: int, text: String, name_color: String = 
         if self_style:
                 line = "[i]" + line + "[/i]"
         _log.append_text(line + "\n")
-        if log_collapsed:
+        if log_collapsed or not is_open:
                 _unread += 1
                 unread.emit(_unread)
         _prune()
@@ -171,7 +186,7 @@ func add_chat(username: String, seq_id: int, text: String, name_color: String = 
 
 func add_system(text: String) -> void:
         _log.append_text("[color=#9fb6c8][i]%s[/i][/color]\n" % _esc(text))
-        if log_collapsed:
+        if log_collapsed or not is_open:
                 _unread += 1
                 unread.emit(_unread)
         _prune()

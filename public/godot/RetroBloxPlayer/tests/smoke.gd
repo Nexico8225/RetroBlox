@@ -35,7 +35,7 @@ func _run_all() -> void:
                 "res://scripts/player/chat_bubble.gd",
                 "res://scripts/player/avatar_rig.gd", "res://scripts/player/avatar_dresser.gd",
                 "res://scripts/world/world_builder.gd", "res://scripts/world/places.gd",
-                "res://scripts/ui/login.gd", "res://scripts/ui/hub.gd",
+                "res://scripts/ui/login.gd",
                 "res://scripts/ui/retro_theme.gd",
         ]:
                 # load() returns a resource even for a broken script —
@@ -369,6 +369,24 @@ func _run_all() -> void:
         check(not saw_climb, "2-stud block never engages the climb grip")
         check((player.get("global_position") as Vector3).y > step_start_y + 1.5,
                 "player walks UP the 2-stud step like stairs")
+
+        # --- STAIRS v3.6: the DIAGONAL approach (the old code probed the slid
+        # velocity, which runs ALONG the wall — diagonals never stepped up) ---
+        player.global_position = Vector3(0.5, 0.05, -0.5)
+        player.set("heading", -PI / 2)
+        var diag_start_y: float = (player.get("global_position") as Vector3).y
+        var saw_climb2 := false
+        for i in range(150):
+                # mostly forward, drifting sideways — a natural human approach
+                player.call("drive", 0.016, Vector2(0.3, -0.95), -PI / 2, false, false)
+                await physics_frame
+                if bool(player.get("climbing")):
+                        saw_climb2 = true
+                if bool(player.get("grounded")) and (player.get("global_position") as Vector3).y > diag_start_y + 1.5:
+                        break
+        check(not saw_climb2, "diagonal 2-stud approach never engages the climb grip")
+        check((player.get("global_position") as Vector3).y > diag_start_y + 1.5,
+                "DIAGONAL approach still walks up the 2-stud step")
         step.queue_free()
         await physics_frame
 
@@ -379,22 +397,33 @@ func _run_all() -> void:
         check(login_src.contains("401"),
                 "saved token survives network failures (only 401 clears it)")
 
-        # --- chat box: lines render, unread badge counts when collapsed ---
+        # --- chat box: starts tucked away, opens as ONE widget (log + type
+        # box together), closes the same way — nothing left dangling ---
         var chat_script: Script = load("res://scripts/game/chat_box.gd")
         var chat: Control = chat_script.new()
         root.add_child(chat)
-        chat.call("add_chat", "Ann", 3, "hello")
+        var log_panel: Control = chat.get_node_or_null("LogPanel")
+        var input_panel: Control = chat.get_node_or_null("InputPanel")
+        check(log_panel != null and input_panel != null and not log_panel.visible
+                and not input_panel.visible,
+                "chat starts fully tucked away (badge era)")
         chat.call("add_system", "welcome")
-        chat.call("set_log_collapsed", true)
-        chat.call("add_chat", "Bob", 4, "hidden line")
-        check(chat.get("log_collapsed") == true, "chat collapsed")
-        chat.call("set_log_collapsed", false)
-        check(chat.get("log_collapsed") == false, "chat expanded")
+        check(int(chat.get("_unread")) == 1, "hidden chat stacks the unread badge")
+        chat.call("open")
+        check(input_panel.visible and log_panel.visible and bool(chat.get("is_open")),
+                "opening shows the log AND the type box")
         check(chat.offset_top >= 40.0 and chat.offset_left <= 16.0,
                 "chat sits top-left under the topbar")
-        var input_panel: Control = chat.get_node_or_null("InputPanel")
-        check(input_panel != null and input_panel.visible,
-                "chat input line is always visible")
+        chat.call("add_chat", "Ann", 3, "hello")
+        chat.call("close")
+        check(not log_panel.visible and not input_panel.visible,
+                "closing hides the log AND the type box (nothing dangles)")
+        chat.call("add_chat", "Bob", 4, "psst")
+        check(int(chat.get("_unread")) == 1,
+                "messages arriving while hidden count for the badge")
+        chat.call("open")
+        check(int(chat.get("_unread")) == 0 and input_panel.visible,
+                "reopening clears the badge and shows the type box")
 
         # --- camera: huge zoom range + first person toggle ---
         var cam_script: Script = load("res://scripts/game/camera_rig.gd")
@@ -433,9 +462,30 @@ func _run_all() -> void:
                 "ESC menu shortcuts: L leaves, R resets")
         check(game_src.contains("_leave_game"), "menu leave shares one helper")
         check(not game_src.contains('"Music"'), "in-game music removed")
-        var hub_src := FileAccess.get_file_as_string("res://scripts/ui/hub.gd")
-        check(not hub_src.contains('"Music"'), "hub music removed")
         check(not FileAccess.file_exists("res://assets/music_main.wav"), "music file gone from the kit")
+
+        # --- v3.6: the game-select hub is retired — sign in and just play ---
+        check(not FileAccess.file_exists("res://scenes/hub.tscn"),
+                "game-select hub scene is gone")
+        check(not FileAccess.file_exists("res://scripts/ui/hub.gd"),
+                "hub script removed from the kit")
+        check(not FileAccess.file_exists("res://tests/hub_shot.gd"),
+                "hub screenshot tool removed")
+        check(login_src.contains("scenes/game.tscn") and not login_src.contains("hub.tscn"),
+                "login routes straight into the game")
+        var game_src2 := FileAccess.get_file_as_string("res://scripts/game/game.gd")
+        check(game_src2.contains("TYPING FREEZES YOU"),
+                "typing in chat freezes the character")
+        check(game_src2.contains("_show_loading") and game_src2.contains("frame_post_draw"),
+                "loading is staged behind a veil (no load hitch)")
+        var chat_src := FileAccess.get_file_as_string("res://scripts/game/chat_box.gd")
+        check(chat_src.contains("_input_panel.visible = false"),
+                "chat close hides the type box with the log")
+        var player_src := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
+        check(player_src.contains("v3.6 ROOT FIX"),
+                "stairs probe the walk wish FIRST (diagonals step up)")
+        check(player_src.contains("CLIMB_FACE_START := 0.65"),
+                "climb grab is deliberate (no more brushing grabs)")
         check(ResourceLoader.exists("res://assets/fonts/PressStart2P-Regular.ttf"), "pixel font ships (Press Start 2P)")
         check(ResourceLoader.exists("res://assets/ui/steel_panel.jpg"), "brushed-steel texture ships")
         check(ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"), "pixel-cloud backdrop ships")

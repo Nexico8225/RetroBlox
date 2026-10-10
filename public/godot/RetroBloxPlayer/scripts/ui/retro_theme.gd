@@ -84,7 +84,7 @@ static func wood_style() -> StyleBox:
 
 ## The uploaded RetroBlox cursors: the white classic hand everywhere the
 ## pointer normally is, and the Pointer variant on buttons/links. Applied
-## once per run (hub, login and game all call this on ready).
+## once per run (login and game both call this on ready).
 static func apply_cursors() -> void:
         if _cursors_applied:
                 return
