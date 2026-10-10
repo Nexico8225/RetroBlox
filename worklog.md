@@ -1388,3 +1388,22 @@ Work Log:
 Stage Summary:
 - v3.5 is fully live: game zip 4d4e462b (sign fix) replaces 739f8b98; site already on v3.5 news + ?v=3.5
 - The user's "did not do" list was mid-session state — everything was shipped; the only real gaps were the sign text + comments, now closed
+
+---
+Task ID: godot-v37-retro-menu-smooth-stairs
+Agent: Super Z (main)
+Task: v3.7 "Retro Menu & Smooth Stairs" — user asks with screenshots: keep only ESC menu + chat in the topbar (remove invite-friends/people button + three-line hamburger icon), chat bubbles stack like Roblox (screenshot: "Good game"/"Oof" tower), stairs must be smooth like Roblox (no teleport up), and a brand-new retro-looking ESC menu design
+
+Work Log:
+- Sandbox reset #4 hit between turns (tree back at 73bf199) — recovered via fetch + reset --hard origin/main (v3.6 commit 0273d2f was safe on the remote); npm install re-run
+- TOPBAR TRIMMED: menu_btn (three-line icon) + people_btn removed from _build_topbar — the pill now carries only the logo + chat with its unread badge; menu opens via ESC (L/R shortcuts intact), players list via P; dead assets menu.png/people.png (+.import) deleted from the kit
+- CHAT BUBBLES STACK: chat_bubble.gd rewritten as a stack manager — every show_text() spawns its OWN bubble (Sprite3D+Label3D per entry), newest rides just above the head and older bubbles climb upward like the user's Roblox screenshot, up to MAX_STACK 3 live, overflow retires the oldest early, per-bubble fade in/out + smooth reflow glide (REFLOW_SPEED), textures still drawn in code per line count; callers unchanged (local + remote show_bubble)
+- SMOOTH STAIRS: _step_along no longer teleports — it stores _rise_left/_rise_lip/_rise_dir and _update_step_rise() glides the collider up at STEP_RISE_SPEED 22 studs/s (~0.09s for a 2-stud step), then forward glide + settle; grounded forced during the glide (walk anim, no fall damage), gravity + jump suppressed mid-glide, no re-trigger while rising; dead _step_visual/STEP_VISUAL_SPEED sink mechanism removed; climb mantle (_try_mantle) intentionally untouched (separate vault move)
+- RETRO ESC MENU: new _menu_frame_style() deep-navy case with dark-gold pinline (8a6d1d), sharp corners + wide soft shadow wrapping the brushed-steel card; _bevel_btn() keycap style (2px border, 6px bottom edge, hard drop shadow, pressed state sinks the cap); tabs restyled as keycaps (_tab_bevel, green when selected, pixel font 10); Resume/Reset/Leave/Log Out + animation grid buttons all bevel; gold trim line under the wordmark sign; sub label + hint in Press Start 2P
+- smoke.gd: bubble section rewritten for the stack (1 -> 3 entries -> cap), new v3.7 checks (topbar buttons gone + assets gone, glide markers + exact teleport-form absence scoped to the stair code, MAX_STACK, retro menu markers); learned: get_slice-scoped source checks keep the climb mantle out of the stair assertion
+- README refreshed (topbar, controls row, smooth stairs, stacking bubbles); SdkView FILES list finally de-staled (hub.gd + coin.gd removed, Tix/music mentions cleaned) + 4 new v3.7 news entries; HomeView ?v=3.7
+- Pipeline: import + SMOKE_OK in-tree; zip rebuilt 117 files (121 - 4 icon files) md5 9440411e; fresh-unzip import + SMOKE_OK; npm build OK; pushed e3f0d8c; download copy refreshed
+
+Stage Summary:
+- v3.7 pushed to origin/main (e3f0d8c): logo+chat topbar, Roblox-style stacking bubbles, gliding stairs, retro keycap ESC menu
+- Zip retroblox-godot-player.zip md5 9440411e (117 files) live via Vercel auto-deploy
