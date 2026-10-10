@@ -26,7 +26,7 @@ func _ready() -> void:
 
 
 # the music box is gone (you asked!) — the hub is quiet now, just wind-free
-# UI clicks (the Tix chime retired with the coins)
+# UI clicks only (classic button click + hover blip)
 
 
 func _process(delta: float) -> void:

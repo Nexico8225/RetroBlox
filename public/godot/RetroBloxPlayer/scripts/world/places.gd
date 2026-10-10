@@ -326,7 +326,6 @@ static func tower() -> Dictionary:
                         { "type": "fence", "p": [-4.5, 20, -4.5], "s": [2, 1.4, 0.35], "yaw": 45 },
                         { "type": "fence", "p": [4.5, 20, 4.5], "s": [2, 1.4, 0.35], "yaw": 45 },
                         # the tower's welcome board
-                        { "type": "sign", "p": [8, 3, 8], "yaw": 225, "title": "WOBBLY TOWER", "title_c": "ffd400", "text": "20 studs up.\nDo not look down.\nCollect the Tix on the way!", "w": 10, "h": 5 },
-                        # ---- collectible Tix up the zig-zag ----
+                        { "type": "sign", "p": [8, 3, 8], "yaw": 225, "title": "WOBBLY TOWER", "title_c": "ffd400", "text": "20 studs up.\nDo not look down.\nReach the summit gold!", "w": 10, "h": 5 },
                 ],
         }

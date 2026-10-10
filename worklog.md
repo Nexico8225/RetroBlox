@@ -1371,3 +1371,20 @@ Stage Summary:
 - v3.5 = the user's own cursors + logos everywhere, hold-space hop, no coins/Tix, working stairs, torso-only climbing, fast avatars, wood+wordmark UI
 - The user's "remove the coins" was already true of v3.4 code — they were playing a stale download; v3.5 removes the Tix Bag too and bumps the cache-buster so the site forces the new kit
 - Next Task ID: none pending; candidates: real-account prod login flow test when Turso writes are restored, optional cursor size/scale setting
+
+---
+Task ID: godot-v35-sign-cleanup
+Agent: main (Super Z)
+Task: v3.5 verification pass after user todo screenshots — confirm every pushed item landed, fix the last player-visible leftover
+
+Work Log:
+- Sandbox reset #3 detected (nested repo back at e9f72fe, outer worklog truncated); recovered via fetch + reset --hard origin/main (bd00901) — all v3.5 commits (662b36a, c3e5fe6, bd00901) safe on origin
+- Verified pushed v3.5 line by line: custom cursors (retro_theme.apply_cursors ARROW/POINTING_HAND/IBEAM, hotspots 2,1/3,1), hold-space bunny hop (drive jump_held refill), coins/Tix spawner+HUD+hotbar+sfx gone, MAX_STEP 2.5-stud step-up (wish-probe + 1.7-stud ahead ray), torso-only climb (WALL_GRAB_MIN_H 2.7 + torso-band sensor 2.4 @ y2.9), fast avatar (api caches + parallel streaming dresser), FP center cursor (_build_center_cursor), wordmark + R logo + wood UI
+- Live check: retro-blox.vercel.app zip md5 739f8b98 == local; homepage preloads /retro/logo-wordmark.png (v3.5 build confirmed deployed)
+- FOUND + FIXED the leftover the user's screenshot flagged: Wobbly Tower welcome sign still said "Collect the Tix on the way!" -> now "Reach the summit gold!"; orphan Tix comment in places.gd + stale Tix comment in hub.gd cleaned
+- make_godot_kit_zip.py rebuilt (was wiped by the reset, layout mirrored: 126 files + dir entries, no .godot); re-import then smoke SMOKE_OK in-tree AND fresh-unzip; zip md5 4d4e462b (2.30MB)
+- Stale .godot cache after reset broke smoke once (local_player.gd .new() fail) — always re-import after a reset before smoking
+
+Stage Summary:
+- v3.5 is fully live: game zip 4d4e462b (sign fix) replaces 739f8b98; site already on v3.5 news + ?v=3.5
+- The user's "did not do" list was mid-session state — everything was shipped; the only real gaps were the sign text + comments, now closed
