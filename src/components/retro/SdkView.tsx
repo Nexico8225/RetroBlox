@@ -9,24 +9,23 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.7 "Retro Menu & Smooth Stairs"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.7'
+const VERSION = 'v3.8 "Classic Client Polish"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.8'
 
 const NEW_STUFF: [string, string][] = [
-  ['Trimmed topbar — logo + chat only', 'The three-line menu button and the people/invite button are GONE from the topbar pill. Esc opens the menu, P opens the player list - the pill now carries just the RetroBlox logo and chat, like the classic client.'],
+  ['R opens the ESC menu', 'Pressing R in the game now opens the menu (press R again inside to confirm the reset - the classic hotkeys keep their jobs).'],
+  ['Shift lock climbs ladders again', 'Walking into a truss with Shift Lock on used to ghost you straight THROUGH it - Roblox never does that. Shift Lock now grabs the rungs exactly like normal third person.'],
+  ['READABLE tabs + one pixel voice', 'The SETTINGS tab used to drown dark-on-dark: unselected tabs are now muted steel with white pixel ink, and every label in the menu - player list, settings, hints - speaks the same Press Start 2P voice.'],
+  ['True bevel keycaps', 'Buttons are drawn pixel-by-pixel now: near-black outline, LIGHT top/left edge, DARK bottom/right edge - the raised 2006 keycap look - and the bevel FLIPS so pressed keys sink.'],
+  ['Keycap hotkey hints', 'The bottom bar wears real keycap chips - [ENTER] chat / [ESC] resume / [R] menu / [L] leave - so the shortcuts scan at a glance.'],
+  ['Classic metallic menu frame', 'The thin gold border is gone: the menu sits in a grey metallic bevel plate (the old panel.png asset) around a dark translucent client window, with the steel card inside.'],
+  ['Blocky stud-wood signboard', 'The smooth wood behind the wordmark became a chunky pixel texture: hard plank seams and big square studs, drawn in code and rendered crisp (nearest).'],
+  ['Retro action icons', 'Resume wears the play triangle, Reset the circular arrow, Leave a red door, Log Out the power symbol - all drawn pixel-by-pixel, no new asset files.'],
+  ['Player list: heads + match stats', 'Every player row wears the classic yellow smiley head, and a TIME / PING / FPS readout fills the dead space, refreshing with every platform poll.'],
+  ['Health bar docked in a bevel plate', 'The vertical bar moved into a metallic plate flush with the right screen edge - same family as the menu frame, nothing floats loose anymore.'],
+  ['Trimmed topbar - logo + chat only', 'The three-line menu button and the people/invite button are GONE from the topbar pill. Esc opens the menu, P opens the player list - the pill now carries just the RetroBlox logo and chat, like the classic client.'],
   ['Chat bubbles STACK like Roblox', 'Every message is its own bubble now: the newest parks just above the speaker\'s head and older ones climb upward ("Good game" over "Oof"), up to three at a time, each fading on its own clock.'],
   ['Buttery-smooth stairs', 'No more teleport up steps: the character now GLIDES up the lip over ~0.1s - collider, avatar and camera rise together, exactly how Roblox eases you up a staircase. The step-up probe from v3.6 is untouched, so diagonal approaches still work.'],
-  ['All-new retro ESC menu', 'The menu was redesigned: a deep-navy client shell with a dark-gold pinline and soft shadow wraps the brushed-steel plate, tabs are chunky keycaps (green when selected), every button is a bevel keycap with a hard drop shadow that SINKS when pressed, and the wordmark sign got a gold trim line.'],
-  ['No game picker - sign in and PLAY', 'The place-select hub is retired: logging in drops you STRAIGHT into the classic baseplate. This is a platform for building games - you spawn into the world immediately now.'],
-  ['Chat toggle FIXED', 'Pressing the chat button now closes the ENTIRE chat - the type box used to stay behind after the log vanished. The chat starts tucked away, and the red badge counts anything said while it is hidden.'],
-  ['Typing freezes your character', 'While the chat box has the keyboard, WASD and Space type letters instead of moving you - the classic chat behavior your character always deserved.'],
-  ['Smoother loading - no hitch', 'The world, your avatar and the HUD now build across a few frames behind a RETROBLOX loading veil (with your wordmark) instead of freezing in one giant frame.'],
-  ['Stairs work at ANY angle', 'The REAL stairs bug found: the step-up probe read the slid velocity, which move-and-slide bends to run ALONG walls - so diagonal approaches never stepped up. It probes your actual walk direction first now, and a diagonal smoke test proves it.'],
-  ['Climbing is deliberate now', 'Brushing past a wall at an angle no longer yanks you into the climb grip mid-run - you must face the surface AND press clearly into it, closer to how Roblox feels.'],
-  ['Your cursors, in the game', 'The uploaded RetroBlox Cursor + Pointer hand now IS the mouse everywhere - and in first person the pointer parks visibly in the MIDDLE of the screen so you always know where your aim is.'],
-  ['HOLD Space to keep jumping', 'Keep the key down and you hop over and over - classic hold-to-jump, no re-pressing. Single taps still work exactly like before.'],
-  ['The avatar loads FAST', 'Dressing streams every texture, face and UGC model in PARALLEL, and session caches make rejoining dress instantly from memory.'],
-  ['Your ReTROBLOX wordmark everywhere', 'The uploaded logo drives the ESC menu title on a wooden signboard, the loading veil and the login card - and this site\'s favicon is the red R.'],
 ]
 
 const FILES = [
@@ -35,7 +34,7 @@ const FILES = [
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The in-game login / SIGN UP card — server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: beveled panels, chunky buttons, wood signboards, your cursors'],
+  ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: TRUE bevel keycaps + pixel-art icons and heads drawn in code, blocky stud-wood signboards, beveled panels, your cursors'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — they STACK the Roblox way, up to three live'],

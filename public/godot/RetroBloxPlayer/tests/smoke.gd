@@ -265,6 +265,15 @@ func _run_all() -> void:
                 player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, false)
         check(not player.get("climbing"), "no re-grab during dismount window")
         player.set("_ladder_dismount", 0.0)
+        # v3.8: SHIFT LOCK grabs ladders — walking into the rungs climbs. The
+        # old shift-lock exemption made the body ghost straight THROUGH trusses.
+        player.call("_stop_climb")
+        player.set("_ladder_dismount", 0.0)
+        for i in range(4):
+                player.call("drive", 0.016, Vector2(0.0, -1.0), 0.0, false, true)
+        check(player.get("climbing"), "SHIFT LOCK climbs ladders (no phasing through)")
+        player.call("_stop_climb")
+        player.set("_ladder_dismount", 0.0)
         # TORSO LOCK: climbing again, then A/D — the body STAYS facing the
         # rungs (it never looks left or right), the grip holds, and S simply
         # climbs DOWN. This is the classic ladder feel.
@@ -519,14 +528,34 @@ func _run_all() -> void:
                 "chat bubbles stack (Roblox-style tower, capped at 3)")
         check(game_src.contains("_bevel_btn") and game_src.contains("_menu_frame_style")
                 and game_src.contains("_tab_bevel"),
-                "ESC menu wears the v3.7 retro keycap + case design")
-        check(game_src.contains("8a6d1d"),
-                "the retro case has the dark-gold pinline")
+                "ESC menu wears the retro keycap + case design")
+        check(game_src.contains("_window_style") and game_src.contains("panel.png"),
+                "the menu frame is the classic metallic bevel + dark client window")
         check(ResourceLoader.exists("res://assets/fonts/PressStart2P-Regular.ttf"), "pixel font ships (Press Start 2P)")
         check(ResourceLoader.exists("res://assets/ui/steel_panel.jpg"), "brushed-steel texture ships")
         check(ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"), "pixel-cloud backdrop ships")
         var theme_src := FileAccess.get_file_as_string("res://scripts/ui/retro_theme.gd")
         check(theme_src.contains("PressStart2P"), "retro theme speaks in the pixel voice")
+
+        # --- v3.8: R opens the menu + the gemini polish pass ---
+        check(game_src.count("KEY_R") >= 2,
+                "R opens the ESC menu from the game (and still resets inside it)")
+        check(game_src.contains("_hint_chip"),
+                "menu hotkeys wear keycap chips ([ENTER] chat / [ESC] resume / [R] / [L])")
+        check(game_src.contains("_stats_text") and game_src.contains("PING"),
+                "players tab shows the TIME / PING / FPS readout")
+        check(game_src.contains("head_icon"),
+                "player rows wear the classic yellow head")
+        check(game_src.contains("51697c"),
+                "unselected tabs are readable muted steel (no more dark-on-dark)")
+        check(game_src.contains("icon_texture"),
+                "action buttons wear retro icons (play / reset arrow / door / power)")
+        check(theme_src.contains("bevel_texture"),
+                "keycaps are TRUE bevels (light top/left, dark bottom/right)")
+        check(theme_src.contains("wood_stud_style"),
+                "the signboard wears the BLOCKY pixel stud wood")
+        check(player_src.contains("SHIFT LOCK climbs ladders"),
+                "shift lock no longer phases through ladders")
 
         # --- dresser: placement applies verbatim ---
         var holder := Node3D.new()

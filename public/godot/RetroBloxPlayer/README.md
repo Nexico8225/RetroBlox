@@ -30,11 +30,11 @@ The game remembers you — next launch signs you in automatically.
 | Move | WASD / arrow keys |
 | Jump | Space |
 | Orbit / zoom | Mouse + wheel (click the world to re-capture) |
-| Shift Lock | **Shift** toggles it live (toast confirms), or the Settings toggle. Locked on, the character squares up to the camera — look right / left / back and the body follows. While locked, ladders are off: you walk straight past them. |
+| Shift Lock | **Shift** toggles it live, or the Settings toggle. Locked on, the character squares up to the camera — look right / left / back and the body follows. Ladders still grab when you walk into them (v3.8 fixed the old phase-through). |
 | Jump off a ladder | Space while climbing — you leap off the rungs and can't re-grab for a beat |
 | Chat | Enter (or the chat pill button) — Enter sends |
 | Chat commands | `/help`, `/e sit`, `/e stop` — local, never sent to the server |
-| Menu / Players / Settings | Esc opens the menu (P opens the player list) — the topbar carries only the logo + chat |
+| Menu / Players / Settings | Esc opens the menu, **R** also opens it (v3.8; R again inside confirms the reset) — P opens the player list; the topbar carries only the logo + chat |
 
 ### Cursors — the classic white hand
 
@@ -43,6 +43,22 @@ mouse shows, and in first person the pointer parks visibly in the MIDDLE of
 the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
+
+### The ESC menu — classic client polish (v3.8)
+
+The menu wears the classic framing now: a grey **metallic bevel plate**
+(the old `panel.png` asset) around a dark translucent client window holding
+the brushed-steel card. Every button is a TRUE bevel keycap — light
+top/left edge, dark bottom/right edge, drawn pixel-by-pixel — that SINKS
+when pressed, with retro icons: the play triangle on Resume, a circular
+arrow on Reset, a red door on Leave, the power symbol on Log Out. The
+hotkey hints at the bottom are real keycap chips (`[ENTER] chat · [ESC]
+resume · [R] menu · [L] leave`), unselected tabs are readable muted steel
+with white pixel ink, and the whole menu — player list, settings, hints —
+speaks one Press Start 2P voice. The wordmark signboard is a BLOCKY
+stud-wood texture, the player list wears classic yellow smiley heads plus
+a TIME / PING / FPS readout, and the vertical health bar docks in a
+matching bevel plate flush with the right screen edge.
 
 ### The HUD (the reference-video layout, original RetroBlox skin)
 

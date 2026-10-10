@@ -82,6 +82,221 @@ static func wood_style() -> StyleBox:
         return sb
 
 
+# ---------------------------------------------------------------- v3.8 polish
+
+static var _bevel_cache: Dictionary = {}
+
+## A TRUE classic bevel, drawn pixel by pixel (16x16, cached): 1px near-black
+## outline, a 2px LIGHT top/left edge and a 2px DARK bottom/right edge on
+## `bg` — the raised 2006 keycap look. `pressed` flips the bevel so the face
+## sinks (dark top/left, light bottom/right). Returned as a StyleBoxTexture
+## with 3px texture margins so the edges never smear when stretched.
+static func bevel_texture(bg: Color, pressed := false) -> StyleBoxTexture:
+        var key := "%s_%s" % [bg.to_html(false), pressed]
+        if _bevel_cache.has(key):
+                return _bevel_cache[key]
+        var w := 16
+        var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
+        var light := bg.lightened(0.34)
+        var light_hi := bg.lightened(0.52)
+        var dark := bg.darkened(0.46)
+        var dark_lo := bg.darkened(0.2)
+        var outline := Color(0.09, 0.11, 0.13)
+        for y in range(w):
+                for x in range(w):
+                        var col := bg
+                        if x == 0 or y == 0 or x == w - 1 or y == w - 1:
+                                col = outline
+                        elif pressed:
+                                # sunk keycap: dark bevel top/left, light below
+                                if x <= 2 or y <= 2:
+                                        col = dark
+                                elif x >= w - 3 or y >= w - 3:
+                                        col = light
+                        else:
+                                # raised keycap: light bevel top/left, dark below
+                                if x <= 1 or y <= 1:
+                                        col = light_hi
+                                elif x == 2 or y == 2:
+                                        col = light
+                                elif x >= w - 2 or y >= w - 2:
+                                        col = dark
+                                elif x == w - 3 or y == w - 3:
+                                        col = dark_lo
+                        img.set_pixel(x, y, col)
+        var sb := StyleBoxTexture.new()
+        sb.texture = ImageTexture.create_from_image(img)
+        for side in ["left", "right", "top", "bottom"]:
+                sb.set("texture_margin_" + side, 3.0)
+        _bevel_cache[key] = sb
+        return sb
+
+
+## The classic smiley HEAD — a chunky yellow blocky face with two black eyes
+## and a pixel smile, drawn in code. Player-list rows wear it as a headshot.
+static func head_icon() -> ImageTexture:
+        if _bevel_cache.has("head"):
+                return _bevel_cache["head"]
+        var w := 18
+        var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
+        var face := Color("f7c948")
+        var face_edge := Color("c79a2a")
+        var ink := Color(0.12, 0.1, 0.08)
+        for y in range(w):
+                for x in range(w):
+                        var p := Vector2(float(x) + 0.5, float(y) + 0.5)
+                        if not _in_rounded_px(p, Rect2(1, 1, 16, 16), 4.0):
+                                continue
+                        var col := face
+                        # a whisper of shading: darker bottom/right rim
+                        if x >= 13 or y >= 13:
+                                col = face_edge
+                        img.set_pixel(x, y, col)
+        for eye_x in [5, 11]:
+                for dy in range(3):
+                        img.set_pixel(eye_x, 6 + dy, ink)
+                        img.set_pixel(eye_x + 1, 6 + dy, ink)
+        # the smile: a chunky pixel arc
+        for sx in range(5, 13):
+                img.set_pixel(sx, 12, ink)
+        img.set_pixel(4, 11, ink)
+        img.set_pixel(13, 11, ink)
+        var tex := ImageTexture.create_from_image(img)
+        _bevel_cache["head"] = tex
+        return tex
+
+
+## Small retro ACTION icons, drawn pixel by pixel in white — a play triangle
+## (Resume), a reset arrow, a door (Leave) and a power symbol (Log Out).
+static func icon_texture(kind: String) -> ImageTexture:
+        if _bevel_cache.has("icon_" + kind):
+                return _bevel_cache["icon_" + kind]
+        var w := 18
+        var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
+        var ink := Color(1, 1, 1, 0.96)
+        match kind:
+                "play":
+                        # classic green-light play triangle
+                        for x in range(4, 14):
+                                var half := int(round(float(x - 4) * 5.0 / 9.0))
+                                for y in range(9 - half, 9 + half + 1):
+                                        img.set_pixel(x, y, ink)
+                "door":
+                        # a doorway with frame + knob
+                        for x in range(4, 14):
+                                img.set_pixel(x, 2, ink)
+                                img.set_pixel(x, 15, ink)
+                        for y in range(2, 16):
+                                img.set_pixel(4, y, ink)
+                                img.set_pixel(13, y, ink)
+                                img.set_pixel(6, y, ink)
+                        img.set_pixel(11, 9, ink)
+                        img.set_pixel(11, 10, ink)
+                "reset":
+                        # a circular arrow: arc + chunky arrowhead at the top
+                        var center := Vector2(9.0, 9.5)
+                        for y in range(w):
+                                for x in range(w):
+                                        var d := Vector2(float(x) + 0.5, float(y) + 0.5) - center
+                                        var r := d.length()
+                                        if r < 3.6 or r > 5.6:
+                                                continue
+                                        var ang := atan2(-d.y, d.x)   # 0 = right, CCW
+                                        if ang < 0:
+                                                ang += TAU
+                                        if ang > 0.55 and ang < 5.5:
+                                                img.set_pixel(x, y, ink)
+                        # the ↻ arrowhead: a wedge riding the top of the arc
+                        for ay in range(2, 7):
+                                for ax in range(8, 8 + ay - 1):
+                                        img.set_pixel(ax, ay, ink)
+                "power":
+                        var center := Vector2(9.0, 10.0)
+                        for y in range(w):
+                                for x in range(w):
+                                        var d := Vector2(float(x) + 0.5, float(y) + 0.5) - center
+                                        var r := d.length()
+                                        if r < 3.8 or r > 5.8:
+                                                continue
+                                        var ang := atan2(-d.y, d.x)
+                                        if absf(ang - PI / 2.0) < 0.6:
+                                                continue   # the gap at the TOP
+                                        img.set_pixel(x, y, ink)
+                        for y in range(2, 9):
+                                img.set_pixel(8, y, ink)
+                                img.set_pixel(9, y, ink)
+        var tex := ImageTexture.create_from_image(img)
+        _bevel_cache["icon_" + kind] = tex
+        return tex
+
+
+## Rounded-rect membership for the pixel-art helpers above.
+static func _in_rounded_px(p: Vector2, r: Rect2, rad: float) -> bool:
+        if p.x < r.position.x or p.x > r.end.x or p.y < r.position.y or p.y > r.end.y:
+                return false
+        var hw := r.size.x * 0.5 - rad
+        var hh := r.size.y * 0.5 - rad
+        var dx := absf(p.x - r.get_center().x) - hw
+        var dy := absf(p.y - r.get_center().y) - hh
+        dx = maxf(dx, 0.0)
+        dy = maxf(dy, 0.0)
+        return dx * dx + dy * dy <= rad * rad
+
+
+## The BLOCKY pixel wood-stud signboard: chunky planks with hard pixel seams
+## and big square studs — the 2008 topbar wood, generated in code so the kit
+## carries no extra file. Draw it with TEXTURE_FILTER_NEAREST for crispness.
+static func wood_stud_texture() -> ImageTexture:
+        if _bevel_cache.has("wood_stud"):
+                return _bevel_cache["wood_stud"]
+        var w := 64
+        var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
+        var rows := [Color("7a5530"), Color("6b4a2a"), Color("7d5a34"), Color("5f4023")]
+        var seam := Color("3a2712")
+        var stud := Color("4a3319")
+        var stud_hi := Color("8a6538")
+        for y in range(w):
+                var row := y / 16
+                for x in range(w):
+                        img.set_pixel(x, y, rows[row % rows.size()])
+                # the hard horizontal seam between planks
+                if y % 16 == 0:
+                        for x in range(w):
+                                img.set_pixel(x, y, seam)
+        # vertical plank breaks, offset per row
+        for row in range(4):
+                var bx := (row * 23 + 9) % w
+                for y in range(row * 16, row * 16 + 16):
+                        img.set_pixel(bx, y, seam)
+                        if bx + 1 < w:
+                                img.set_pixel(bx + 1, y, seam)
+        # big square studs: two per plank row, light top edge + dark body
+        for row in range(4):
+                for stud_x: int in [12, 40]:
+                        var ox := (stud_x + row * 13) % (w - 8)
+                        var oy := row * 16 + 5
+                        for sy in range(6):
+                                for sx in range(6):
+                                        var c := stud
+                                        if sy == 0 or sx == 0:
+                                                c = stud_hi
+                                        img.set_pixel(ox + sx, oy + sy, c)
+        var tex := ImageTexture.create_from_image(img)
+        _bevel_cache["wood_stud"] = tex
+        return tex
+
+
+## The blocky stud-wood StyleBox for the menu wordmark sign.
+static func wood_stud_style() -> StyleBox:
+        var sb := StyleBoxTexture.new()
+        sb.texture = wood_stud_texture()
+        sb.content_margin_left = 12.0
+        sb.content_margin_right = 12.0
+        sb.content_margin_top = 7.0
+        sb.content_margin_bottom = 7.0
+        return sb
+
+
 ## The uploaded RetroBlox cursors: the white classic hand everywhere the
 ## pointer normally is, and the Pointer variant on buttons/links. Applied
 ## once per run (login and game both call this on ready).

@@ -42,6 +42,9 @@ var _toast_box: VBoxContainer
 var _shift_check: CheckButton
 var _center_cursor: TextureRect   # the visible mouse parked mid-screen in first person
 var _loading: Control             # the v3.6 loading veil (no more load hitch)
+var _stats_label: Label           # v3.8: TIME / PING / FPS readout, players tab
+var _session_start_ms := 0        # v3.8: the match timer
+var _last_ping_ms := 0            # v3.8: last platform round-trip, shown as ping
 
 
 func _ready() -> void:
@@ -50,6 +53,7 @@ func _ready() -> void:
                 # the hub is retired: signing in drops you straight into the classic
                 # baseplate — sign in and just play
                 place = PlacesScript.by_id("baseplate")
+        _session_start_ms = Time.get_ticks_msec()
 
         # ---- the loading veil goes up FIRST: the world + avatar + HUD are
         # built across a few frames now (no one-frame freeze) and this covers it
@@ -244,6 +248,13 @@ func _unhandled_input(event: InputEvent) -> void:
                         chat.open()
                         camera_rig.set_ui_blocked(true)
                         get_viewport().set_input_as_handled()
+        elif event is InputEventKey and event.is_pressed() and not event.is_echo() \
+                        and (event as InputEventKey).keycode == KEY_R and not _menu_open \
+                        and not chat.is_open:
+                # v3.8: the R key opens the menu from the game (press R again
+                # inside it to confirm the reset — same classic hotkeys)
+                _open_menu("players")
+                get_viewport().set_input_as_handled()
         elif event.is_action_pressed("toggle_players"):
                 _open_menu("players")
                 get_viewport().set_input_as_handled()
@@ -417,29 +428,43 @@ func _badge_style() -> StyleBoxFlat:
         return sb
 
 
-# ---- vertical health bar (right edge, like the video) -------------------
+# ---- the health PLATE (right edge, docked like the topbar) --------------
 
 func _build_health() -> void:
+        # v3.8: the bar lives in a bevel PLATE docked to the right edge — the
+        # same metallic family as the menu frame, nothing floats loose anymore
+        var plate := PanelContainer.new()
+        plate.name = "HealthBar"
+        plate.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+        plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        plate.add_theme_stylebox_override("panel", RetroUI.bevel_texture(Color("263441")))
+        plate.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+        plate.offset_left = -88.0
+        plate.offset_right = -12.0
+        plate.offset_top = -106.0
+        plate.offset_bottom = 106.0
+        hud.add_child(plate)
         var holder := VBoxContainer.new()
-        holder.name = "HealthBar"
         holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        holder.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-        holder.offset_left = -74.0
-        holder.offset_right = -14.0
-        holder.offset_top = -120.0
-        holder.offset_bottom = 120.0
         holder.alignment = BoxContainer.ALIGNMENT_CENTER
-        holder.add_theme_constant_override("separation", 4)
-        hud.add_child(holder)
+        holder.add_theme_constant_override("separation", 6)
+        plate.add_child(holder)
 
-        # the bar: white track + green fill rising from the bottom
+        var label := Label.new()
+        label.text = "HEALTH"
+        _pix(label, 8, Color(0.66, 0.78, 0.88))
+        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        holder.add_child(label)
+
+        # the bar: dark well + green fill rising from the bottom
         var track_holder := Control.new()
-        track_holder.custom_minimum_size = Vector2(10, 150)
+        track_holder.custom_minimum_size = Vector2(14, 150)
         track_holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
         track_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
         holder.add_child(track_holder)
         var track := ColorRect.new()
-        track.color = Color(1, 1, 1, 0.85)
+        track.color = Color(0.045, 0.07, 0.1, 0.92)
         track.mouse_filter = Control.MOUSE_FILTER_IGNORE
         track.set_anchors_preset(Control.PRESET_FULL_RECT)
         track_holder.add_child(track)
@@ -450,23 +475,14 @@ func _build_health() -> void:
         _health_fill.offset_top = -150.0
         track_holder.add_child(_health_fill)
 
-        var label := Label.new()
-        label.text = "Health"
-        label.add_theme_font_size_override("font_size", 17)
-        label.add_theme_color_override("font_color", Color("1b3fbf"))
-        label.add_theme_color_override("font_outline_color", Color.WHITE)
-        label.add_theme_constant_override("outline_size", 6)
-        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        holder.add_child(label)
-
         _health_value = Label.new()
         _health_value.text = "100"
-        _health_value.add_theme_font_size_override("font_size", 14)
-        _health_value.add_theme_color_override("font_color", Color.WHITE)
+        _pix(_health_value, 8, Color(0.11, 0.16, 0.2))
         _health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         var chip := PanelContainer.new()
         chip.add_theme_stylebox_override("panel", _chip_style())
         chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+        chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
         chip.add_child(_health_value)
         holder.add_child(chip)
 
@@ -569,30 +585,46 @@ func _build_menu() -> Control:
         dim.color = Color(0.02, 0.05, 0.09, 0.68)
         dim.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.add_child(dim)
-        # v3.7 RETRO MENU — the steel plate now sits inside a chunky "client
-        # shell": a deep-navy case with a gold pinline, sharp corners, and
-        # keycap-bevel buttons that sink when pressed. Pure 2006.
+        # v3.8 RETRO MENU — the thin gold border is GONE. The menu now wears
+        # the classic framing: a grey METALLIC bevel plate (the old panel.png
+        # asset) wrapped around a dark translucent client window holding the
+        # steel card, with a soft drop shadow. Pure 2008 client.
+        var shadow := PanelContainer.new()
+        var sh_sb := StyleBoxFlat.new()
+        sh_sb.bg_color = Color(0, 0, 0, 0)
+        sh_sb.shadow_color = Color(0, 0, 0, 0.5)
+        sh_sb.shadow_size = 14
+        sh_sb.shadow_offset = Vector2(0, 5)
+        shadow.add_theme_stylebox_override("panel", sh_sb)
+        shadow.set_anchors_preset(Control.PRESET_CENTER)
+        shadow.grow_horizontal = Control.GROW_DIRECTION_BOTH
+        shadow.grow_vertical = Control.GROW_DIRECTION_BOTH
+        overlay.add_child(shadow)
         var frame := PanelContainer.new()
         frame.name = "MenuFrame"
+        frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         frame.add_theme_stylebox_override("panel", _menu_frame_style())
-        frame.set_anchors_preset(Control.PRESET_CENTER)
-        frame.grow_horizontal = Control.GROW_DIRECTION_BOTH
-        frame.grow_vertical = Control.GROW_DIRECTION_BOTH
-        overlay.add_child(frame)
+        shadow.add_child(frame)
+        var window := PanelContainer.new()
+        window.name = "MenuWindow"
+        window.add_theme_stylebox_override("panel", _window_style())
+        frame.add_child(window)
         _menu_card = PanelContainer.new()
         _menu_card.add_theme_stylebox_override("panel", _card_style())
-        frame.add_child(_menu_card)
+        window.add_child(_menu_card)
         var box := VBoxContainer.new()
         box.custom_minimum_size = Vector2(460, 0)
         box.add_theme_constant_override("separation", 10)
         _menu_card.add_child(box)
 
         # the menu crown: YOUR uploaded ReTROBLOX wordmark (red-outlined
-        # classic letters) over a wooden signboard header — pure 2011 energy
+        # classic letters) over a BLOCKY stud-wood signboard — pixel planks,
+        # hard seams, square studs (v3.8: no more smooth wood)
         var wordmark_path := "res://assets/ui/wordmark.png"
         if ResourceLoader.exists(wordmark_path):
                 var sign := PanelContainer.new()
-                sign.add_theme_stylebox_override("panel", RetroUI.wood_style())
+                sign.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+                sign.add_theme_stylebox_override("panel", RetroUI.wood_stud_style())
                 var wm := TextureRect.new()
                 wm.texture = load(wordmark_path)
                 wm.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -631,7 +663,8 @@ func _build_menu() -> Control:
                 sub.add_theme_font_size_override("font_size", 12)
         box.add_child(sub)
 
-        # ---- tabs — chunky retro keycaps, green when selected ----
+        # ---- tabs — chunky retro keycaps, READABLE steel when idle, classic
+        # green when selected (v3.8: white pixel ink on every state) ----
         var tabs := HBoxContainer.new()
         tabs.add_theme_constant_override("separation", 6)
         tabs.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -647,21 +680,24 @@ func _build_menu() -> Control:
         settings_btn.custom_minimum_size = Vector2(126, 34)
         settings_btn.focus_mode = Control.FOCUS_NONE
         for tab_btn in [players_btn, settings_btn]:
+                tab_btn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
                 tab_btn.add_theme_stylebox_override("normal", _tab_bevel(false))
                 tab_btn.add_theme_stylebox_override("hover", _tab_bevel(false, true))
                 tab_btn.add_theme_stylebox_override("pressed", _tab_bevel(true))
                 tab_btn.add_theme_stylebox_override("hover_pressed", _tab_bevel(true))
                 tab_btn.add_theme_font_size_override("font_size", 10)
+                for font_state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+                        tab_btn.add_theme_color_override(font_state, Color.WHITE)
         tabs.add_child(players_btn)
         tabs.add_child(settings_btn)
 
         # ---- pages ----
         var pages := Control.new()
-        pages.custom_minimum_size = Vector2(0, 260)
+        pages.custom_minimum_size = Vector2(0, 300)
         box.add_child(pages)
         _players_tab = VBoxContainer.new()
         _players_tab.set_anchors_preset(Control.PRESET_FULL_RECT)
-        _players_tab.add_theme_constant_override("separation", 4)
+        _players_tab.add_theme_constant_override("separation", 8)
         pages.add_child(_players_tab)
         _settings_tab = _build_settings_tab()
         _settings_tab.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -676,12 +712,15 @@ func _build_menu() -> Control:
         settings_btn.pressed.connect(func() -> void: set_tab.call("settings"))
         _menu_switch = set_tab
 
-        # ---- actions row ----
+        # ---- actions row — TRUE bevel keycaps with retro icons ----
         var actions := HBoxContainer.new()
         actions.add_theme_constant_override("separation", 8)
         box.add_child(actions)
         var resume := Button.new()
         resume.text = "Resume"
+        resume.icon = RetroUI.icon_texture("play")     # the green-light triangle
+        resume.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        resume.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         resume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         resume.custom_minimum_size = Vector2(0, 44)
         resume.focus_mode = Control.FOCUS_NONE
@@ -689,19 +728,26 @@ func _build_menu() -> Control:
         resume.add_theme_stylebox_override("hover", _bevel_btn(Color("37b64f")))
         resume.add_theme_stylebox_override("pressed", _bevel_btn(Color("278139"), true))
         resume.add_theme_color_override("font_color", Color.WHITE)
-        resume.add_theme_font_size_override("font_size", 11)
+        resume.add_theme_color_override("font_hover_color", Color.WHITE)
+        resume.add_theme_color_override("font_pressed_color", Color.WHITE)
+        resume.add_theme_font_size_override("font_size", 10)
         resume.pressed.connect(_toggle_menu)
         actions.add_child(resume)
 
         var respawn := Button.new()
         respawn.text = "Reset Character"
+        respawn.icon = RetroUI.icon_texture("reset")   # the circular arrow
+        respawn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        respawn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         respawn.custom_minimum_size = Vector2(150, 44)
         respawn.focus_mode = Control.FOCUS_NONE
         respawn.add_theme_stylebox_override("normal", _bevel_btn(Color("3a4b58")))
         respawn.add_theme_stylebox_override("hover", _bevel_btn(Color("48606f")))
         respawn.add_theme_stylebox_override("pressed", _bevel_btn(Color("2c3944"), true))
         respawn.add_theme_color_override("font_color", Color.WHITE)
-        respawn.add_theme_font_size_override("font_size", 11)
+        respawn.add_theme_color_override("font_hover_color", Color.WHITE)
+        respawn.add_theme_color_override("font_pressed_color", Color.WHITE)
+        respawn.add_theme_font_size_override("font_size", 10)
         respawn.pressed.connect(func() -> void:
                 _toggle_menu()
                 if player.alive:
@@ -711,26 +757,36 @@ func _build_menu() -> Control:
 
         var leave := Button.new()
         leave.text = "Leave"
+        leave.icon = RetroUI.icon_texture("door")      # the red-door exit
+        leave.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        leave.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         leave.custom_minimum_size = Vector2(110, 44)
         leave.focus_mode = Control.FOCUS_NONE
         leave.add_theme_stylebox_override("normal", _bevel_btn(Color("b3261e")))
         leave.add_theme_stylebox_override("hover", _bevel_btn(Color("d13a30")))
         leave.add_theme_stylebox_override("pressed", _bevel_btn(Color("8f1d17"), true))
         leave.add_theme_color_override("font_color", Color.WHITE)
-        leave.add_theme_font_size_override("font_size", 11)
+        leave.add_theme_color_override("font_hover_color", Color.WHITE)
+        leave.add_theme_color_override("font_pressed_color", Color.WHITE)
+        leave.add_theme_font_size_override("font_size", 10)
         leave.pressed.connect(_leave_game)
         actions.add_child(leave)
 
         # LOG OUT — wipes the saved session and returns to the login gate
         var logout := Button.new()
         logout.text = "Log Out"
+        logout.icon = RetroUI.icon_texture("power")    # the power symbol
+        logout.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        logout.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         logout.custom_minimum_size = Vector2(110, 44)
         logout.focus_mode = Control.FOCUS_NONE
         logout.add_theme_stylebox_override("normal", _bevel_btn(Color("4a3a55")))
         logout.add_theme_stylebox_override("hover", _bevel_btn(Color("5c4a6b")))
         logout.add_theme_stylebox_override("pressed", _bevel_btn(Color("3a2d44"), true))
         logout.add_theme_color_override("font_color", Color.WHITE)
-        logout.add_theme_font_size_override("font_size", 11)
+        logout.add_theme_color_override("font_hover_color", Color.WHITE)
+        logout.add_theme_color_override("font_pressed_color", Color.WHITE)
+        logout.add_theme_font_size_override("font_size", 10)
         logout.pressed.connect(func() -> void:
                 Api.clear_session()
                 Session.reset()
@@ -738,19 +794,45 @@ func _build_menu() -> Control:
                 get_tree().change_scene_to_file("res://scenes/login.tscn"))
         actions.add_child(logout)
 
-        var hint := Label.new()
-        hint.text = "ENTER chat · ESC resume · R reset character · L leave"
-        hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        hint.add_theme_color_override("font_color", Color(0.55, 0.64, 0.72))
-        var hint_pixel: Font = RetroUI.pixel_font()
-        if hint_pixel != null:
-                hint.add_theme_font_override("font", hint_pixel)
-                hint.add_theme_font_size_override("font_size", 8)
-        else:
-                hint.add_theme_font_size_override("font_size", 11)
-        box.add_child(hint)
+        # ---- v3.8 hint bar: hotkeys wear KEYCAP CHIPS so they scan at a
+        # glance — [ENTER] chat  [ESC] resume  [R] menu  [L] leave ----
+        var hint_row := HBoxContainer.new()
+        hint_row.alignment = BoxContainer.ALIGNMENT_CENTER
+        hint_row.add_theme_constant_override("separation", 5)
+        box.add_child(hint_row)
+        _hint_chip(hint_row, "ENTER", "chat")
+        _hint_chip(hint_row, "ESC", "resume")
+        _hint_chip(hint_row, "R", "menu")
+        _hint_chip(hint_row, "L", "leave")
         set_tab.call("players")
         return overlay
+
+
+## v3.8: the menu's ONE pixel voice — every label goes through here, so the
+## player list, hint bar and settings all speak Press Start 2P consistently.
+func _pix(l: Label, size: int, color: Color) -> void:
+        var f: Font = RetroUI.pixel_font()
+        if f != null:
+                l.add_theme_font_override("font", f)
+        l.add_theme_font_size_override("font_size", size)
+        l.add_theme_color_override("font_color", color)
+
+
+## v3.8: one hotkey chip for the menu's bottom bar — a bevel keycap plus a
+## muted action word next to it.
+func _hint_chip(row: HBoxContainer, key: String, action: String) -> void:
+        var cap := PanelContainer.new()
+        cap.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+        cap.add_theme_stylebox_override("panel", RetroUI.bevel_texture(Color("43586a")))
+        var kl := Label.new()
+        kl.text = key
+        _pix(kl, 8, Color.WHITE)
+        cap.add_child(kl)
+        row.add_child(cap)
+        var al := Label.new()
+        al.text = action
+        _pix(al, 8, Color(0.62, 0.74, 0.84))
+        row.add_child(al)
 
 
 ## Leave the place — with the hub retired, Leave rejoins the classic place
@@ -845,8 +927,7 @@ func _build_settings_tab() -> VBoxContainer:
 
         var anim_title := Label.new()
         anim_title.text = "Animations"
-        anim_title.add_theme_font_size_override("font_size", 13)
-        anim_title.add_theme_color_override("font_color", Color(0.72, 0.8, 0.87))
+        _pix(anim_title, 9, Color(0.72, 0.8, 0.87))
         right.add_child(anim_title)
         var grid := GridContainer.new()
         grid.columns = 3
@@ -868,14 +949,19 @@ func _build_settings_tab() -> VBoxContainer:
                         if player != null and is_instance_valid(player):
                                 player.avatar.call("play_emote", clip))
                 grid.add_child(b)
+        # v3.8: the settings page speaks the same pixel voice as everything else
+        var pix: Font = RetroUI.pixel_font()
+        if pix != null:
+                for cb in [shadows, fullscreen, shift]:
+                        cb.add_theme_font_override("font", pix)
+                        cb.add_theme_font_size_override("font_size", 8)
         return tab
 
 
 func _slider_row(parent: VBoxContainer, label_text: String, minv: float, maxv: float, value: float, on_change: Callable) -> void:
         var l := Label.new()
         l.text = "%s  —  %.2f" % [label_text, value]
-        l.add_theme_font_size_override("font_size", 12)
-        l.add_theme_color_override("font_color", Color(0.8, 0.87, 0.92))
+        _pix(l, 8, Color(0.8, 0.87, 0.92))
         parent.add_child(l)
         var s := HSlider.new()
         s.min_value = minv
@@ -890,50 +976,53 @@ func _slider_row(parent: VBoxContainer, label_text: String, minv: float, maxv: f
         parent.add_child(s)
 
 
-## v3.7 RETRO KEYCAP — chunky bevel button: sharp corners, a thick darker
-## bottom edge and a hard drop shadow; `pushed` sinks the keycap for the
-## pressed state. This is the signature look of the new ESC menu.
-func _bevel_btn(bg: Color, pushed := false) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = bg
-        sb.set_corner_radius_all(2)
-        sb.border_color = bg.darkened(0.5)
-        sb.set_border_width_all(2)
-        sb.border_width_bottom = 3 if pushed else 6   # the keycap edge
-        sb.shadow_color = Color(0, 0, 0, 0.4)
-        sb.shadow_size = 0
-        sb.shadow_offset = Vector2(0, 1) if pushed else Vector2(0, 3)
+## v3.8 RETRO KEYCAP — a TRUE bevel now: the face is drawn pixel by pixel
+## (near-black outline, LIGHT top/left edge, DARK bottom/right edge — the
+## raised 2006 keycap) and `pushed` flips the bevel so the key sinks.
+func _bevel_btn(bg: Color, pushed := false) -> StyleBoxTexture:
+        var sb: StyleBoxTexture = RetroUI.bevel_texture(bg, pushed)
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
+        sb.content_margin_top = 8.0
+        sb.content_margin_bottom = 7.0 if pushed else 9.0
+        return sb
+
+
+## v3.8 RETRO TAB — the menu's tab keycaps: READABLE muted steel when idle
+## (they used to drown into the dark card), a lighter hover, classic green
+## when selected. Callers paint the ink white on every state.
+func _tab_bevel(on: bool, hovered := false) -> StyleBoxTexture:
+        var sb := _bevel_btn(Color("2f9e44") if on else (Color("6d8598") if hovered else Color("51697c")))
         sb.content_margin_top = 7.0
-        sb.content_margin_bottom = 6.0 if pushed else 8.0
+        sb.content_margin_bottom = 6.0
         return sb
 
 
-## v3.7 RETRO TAB — the menu's tab keycaps: steel when idle, classic green
-## when selected, both with the chunky bottom edge.
-func _tab_bevel(on: bool, hovered := false) -> StyleBoxFlat:
-        var sb := _bevel_btn(Color("2f9e44") if on else (Color("42586a") if hovered else Color("1d2833")))
-        sb.content_margin_top = 6.0
-        sb.content_margin_bottom = 5.0
+## v3.8 RETRO CASE — the thin gold border is gone. The outer plate is the
+## classic grey METALLIC bevel (the old panel.png asset, drawn nearest so
+## its light/dark edges stay crisp).
+func _menu_frame_style() -> StyleBoxTexture:
+        var sb := StyleBoxTexture.new()
+        sb.texture = load("res://assets/ui/panel.png")
+        for side in ["left", "right", "top", "bottom"]:
+                sb.set("texture_margin_" + side, 6.0)
+        sb.content_margin_left = 7.0
+        sb.content_margin_right = 7.0
+        sb.content_margin_top = 7.0
+        sb.content_margin_bottom = 7.0
         return sb
 
 
-## v3.7 RETRO CASE — the menu now sits in a deep-navy shell with a dark-gold
-## pinline and a wide soft shadow, like a 2006 client window.
-func _menu_frame_style() -> StyleBoxFlat:
+## The dark translucent client window between the metal plate and the card.
+func _window_style() -> StyleBoxFlat:
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.045, 0.062, 0.09)
-        sb.set_corner_radius_all(4)
-        sb.border_color = Color("8a6d1d")
-        sb.set_border_width_all(3)
-        sb.shadow_color = Color(0, 0, 0, 0.55)
-        sb.shadow_size = 16
-        sb.shadow_offset = Vector2(0, 5)
-        sb.content_margin_left = 5.0
-        sb.content_margin_right = 5.0
-        sb.content_margin_top = 5.0
-        sb.content_margin_bottom = 5.0
+        sb.bg_color = Color(0.05, 0.068, 0.095, 0.96)
+        sb.set_border_width_all(2)
+        sb.border_color = Color(0, 0, 0, 0.65)
+        sb.content_margin_left = 4.0
+        sb.content_margin_right = 4.0
+        sb.content_margin_top = 4.0
+        sb.content_margin_bottom = 4.0
         return sb
 
 
@@ -1061,7 +1150,10 @@ func _handle_command(command: String) -> void:
 
 
 func _poll_feed() -> void:
+        # v3.8: the round-trip of this poll IS the ping readout
+        var t0 := Time.get_ticks_msec()
         var res: Dictionary = await Api.place_chat_get(String(place["id"]))
+        _last_ping_ms = int(Time.get_ticks_msec() - t0)
         if not res.get("ok", false):
                 return
         for msg in res.get("messages", []):
@@ -1132,12 +1224,29 @@ func _dress_remote(rp: Node3D, uid: String) -> void:
 func _refresh_player_list(players: Array) -> void:
         for child in _players_tab.get_children():
                 child.queue_free()
-        var title := Label.new()
         var total := 1 + players.size()
+        var title := Label.new()
         title.text = "%d %s in %s" % [total, "player" if total == 1 else "players", String(place.get("name", "the place"))]
-        title.add_theme_font_size_override("font_size", 14)
-        title.add_theme_color_override("font_color", Color.WHITE)
+        _pix(title, 10, Color.WHITE)
         _players_tab.add_child(title)
+
+        # v3.8: the match readout — TIME / PING / FPS fills the dead space and
+        # refreshes with every platform poll
+        var stats_plate := PanelContainer.new()
+        var stats_sb := StyleBoxFlat.new()
+        stats_sb.bg_color = Color(0, 0, 0, 0.38)
+        stats_sb.set_border_width_all(1)
+        stats_sb.border_color = Color(1, 1, 1, 0.12)
+        stats_sb.content_margin_left = 10.0
+        stats_sb.content_margin_right = 10.0
+        stats_sb.content_margin_top = 6.0
+        stats_sb.content_margin_bottom = 6.0
+        stats_plate.add_theme_stylebox_override("panel", stats_sb)
+        _stats_label = Label.new()
+        _stats_label.text = _stats_text()
+        _pix(_stats_label, 8, Color(0.72, 0.84, 0.94))
+        stats_plate.add_child(_stats_label)
+        _players_tab.add_child(stats_plate)
         _add_player_row(Session.display_tag(), true)
         for p in players:
                 var uname := String(p.get("username", ""))
@@ -1146,17 +1255,28 @@ func _refresh_player_list(players: Array) -> void:
                 _add_player_row(uname, false)
 
 
+## TIME / PING / FPS — the little match readout on the players tab.
+func _stats_text() -> String:
+        var secs := int((Time.get_ticks_msec() - _session_start_ms) / 1000.0)
+        return "TIME %02d:%02d   PING %dms   FPS %d" % [
+                floori(secs / 60.0), secs % 60, _last_ping_ms, Engine.get_frames_per_second()]
+
+
 func _add_player_row(text: String, is_me: bool) -> void:
         var row := HBoxContainer.new()
         row.add_theme_constant_override("separation", 8)
-        var dot := ColorRect.new()
-        dot.custom_minimum_size = Vector2(10, 10)
-        dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-        dot.color = Color("3fd432") if is_me else Color("5aa8e8")
-        row.add_child(dot)
+        # v3.8: every row wears the classic yellow smiley HEAD (drawn in code)
+        var head := TextureRect.new()
+        head.texture = RetroUI.head_icon()
+        head.custom_minimum_size = Vector2(18, 18)
+        head.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        head.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        head.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+        head.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_child(head)
         var l := Label.new()
-        l.text = text + ("  (you)" if is_me else "")
-        l.add_theme_font_size_override("font_size", 13)
-        l.add_theme_color_override("font_color", Color(0.88, 0.93, 0.97))
+        l.text = text + (" (you)" if is_me else "")
+        _pix(l, 8, Color(0.97, 0.99, 1.0) if is_me else Color(0.85, 0.91, 0.96))
         row.add_child(l)
         _players_tab.add_child(row)

@@ -321,11 +321,12 @@ func _update_climb(wish: Vector3, delta: float) -> void:
         # --- not climbing: can we grab on? ---
         if _ladder_dismount > 0.0:
                 return
-        # shift lock walks straight past ladders (the classic feel) — first
-        # person and normal third person climb them like always
-        var ladder_ok := not _input_shiftlock or _input_first_person
+        # v3.8: SHIFT LOCK climbs ladders again — Roblox never lets shift lock
+        # phase through the rungs. The old shift-lock exemption made walking
+        # into a truss ghost straight THROUGH it; now walking into the volume
+        # + pressing W grabs on exactly like normal third person.
         # ladders first: touching a rung volume + pressing into it + facing it
-        if ladder_ok and not _ladder_areas.is_empty():
+        if not _ladder_areas.is_empty():
                 var lad: Area3D = _nearest_ladder()
                 var face := _toward(lad)
                 if face != Vector3.ZERO and wish.dot(face) > 0.4:
