@@ -49,7 +49,13 @@ const PANTS_FALLBACK := Color("39516b")
 ## PARALLEL task — the whole dress takes as long as the slowest single
 ## download instead of the sum of all of them. Together with the Api caches
 ## a rejoin or respawn dresses from memory instantly.
-static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
+##
+## await_all (v4.0): the gameplay path keeps the fire-and-forget streaming,
+## but the PORTRAIT path must pass true — the ESC menu photographs the rig
+## ONCE, and that one shot has to wait until the face, shirt, t-shirt and
+## every accessory actually landed (they used to race the snapshot and the
+## cards showed a half-dressed noob).
+static func apply(api, avatar_node, avatar_data: Dictionary, await_all := false) -> void:
         if not _alive(avatar_node):
                 return
         var parts: Array = avatar_node.get("parts")
@@ -78,13 +84,26 @@ static func apply(api, avatar_node, avatar_data: Dictionary) -> void:
                 _asset_color(shirt_asset, SHIRT_FALLBACK),
                 _asset_color(pants_asset, PANTS_FALLBACK))
 
-        # ---- 3) stream every surface / face / model in PARALLEL ----
-        _paint_shirt(api, avatar_node, shirt_asset)
-        _paint_pants(api, avatar_node, pants_asset)
-        _paint_face(api, avatar_node, head_asset, float(avatar_data.get("faceScale", 1.0)))
+        # ---- 3) stream every surface / face / model ----
+        # GAMEPLAY path (default): every stream fires in PARALLEL — the whole
+        # dress takes as long as the slowest single download.
+        # PORTRAIT path (await_all): the one-shot snapshot must wait, so each
+        # stream is AWAITED in turn — slower (the sum, not the max), but the
+        # Api caches make every reopen instant, and the photo is complete.
+        var face_scale := float(avatar_data.get("faceScale", 1.0))
         var accessories: Array = avatar_data.get("accessories", [])
-        for acc_id in accessories:
-                _apply_accessory(api, avatar_node, String(acc_id))
+        if await_all:
+                await _paint_shirt(api, avatar_node, shirt_asset)
+                await _paint_pants(api, avatar_node, pants_asset)
+                await _paint_face(api, avatar_node, head_asset, face_scale)
+                for acc_id in accessories:
+                        await _apply_accessory(api, avatar_node, String(acc_id))
+        else:
+                _paint_shirt(api, avatar_node, shirt_asset)
+                _paint_pants(api, avatar_node, pants_asset)
+                _paint_face(api, avatar_node, head_asset, face_scale)
+                for acc_id in accessories:
+                        _apply_accessory(api, avatar_node, String(acc_id))
 
 
 ## The body colors: head + arms = skin, torso = shirt, legs = pants; the
@@ -148,8 +167,10 @@ static func _paint_face(api, avatar_node, head_asset: Dictionary, face_scale: fl
                 avatar_node.call("set_face", ImageTexture.create_from_image(face_img), face_scale)
 
 
-## One 3D UGC accessory: GLB, normalized, placed EXACTLY where its creator
-## left it. Runs as its own parallel task.
+## One UGC accessory. 3D items ride the GLB path; 2D items (T-SHIRTS — an
+## image with no model, exactly like the site's decal) paint onto the torso
+## here, which is why your equipped t-shirt was MISSING in-game before v4.0.
+## Runs as its own parallel task.
 static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
         var asset: Dictionary = await api.get_asset(acc_id)
         if not _alive(avatar_node):
@@ -157,8 +178,19 @@ static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
         if not asset.get("ok", false):
                 return
         var surface_asset: Dictionary = asset.get("asset", {})
+        var kind := String(surface_asset.get("kind", ""))
         var model_url := String(surface_asset.get("modelUrl", ""))
         if model_url == "":
+                # ---- 2D accessory: the T-SHIRT decal (site rule: an image
+                # decal on the FRONT of the torso, 92% of the torso face) ----
+                if kind == "tshirt":
+                        var decal_url := String(surface_asset.get("imageUrl", ""))
+                        if decal_url != "":
+                                var decal_img: Image = await api.load_image(decal_url)
+                                if not _alive(avatar_node):
+                                        return
+                                if decal_img != null:
+                                        avatar_node.call("set_tshirt", ImageTexture.create_from_image(decal_img))
                 return
         var bytes: PackedByteArray = await api.get_bytes(model_url)
         if not _alive(avatar_node):

@@ -49,7 +49,12 @@ static func render(host: Node, api, payload: Dictionary) -> Texture2D:
         vp.add_child(rig)
         rig.call("setup", "")
         if not payload.is_empty():
-                await AvatarDresserScript.apply(api, rig, payload)
+                # v4.0: await_all=TRUE — the dresser streams shirt/face/UGC in
+                # parallel and used to return after the COLOR paint only, so
+                # the one-shot snapshot raced the downloads and the cards
+                # showed a plain noob (no face, no t-shirt, no hat). The shot
+                # now waits for every stream to land before it photographs.
+                await AvatarDresserScript.apply(api, rig, payload, true)
                 if not is_instance_valid(vp):
                         return null
         # the nameplate would photobomb the shot — keep it off
@@ -66,17 +71,21 @@ static func render(host: Node, api, payload: Dictionary) -> Texture2D:
         vp.add_child(env)
 
         var key := DirectionalLight3D.new()
-        key.rotation_degrees = Vector3(-32, -28, 0)   # front-left-top key
+        key.rotation_degrees = Vector3(-32, 152, 0)   # v4.0: front-left-top key (the rig faces -Z)
         key.light_energy = 1.15
         vp.add_child(key)
         var fill := DirectionalLight3D.new()
-        fill.rotation_degrees = Vector3(-12, 148, 0)  # soft back-right fill
+        fill.rotation_degrees = Vector3(-12, -28, 0)  # soft back-right rim fill
         fill.light_energy = 0.4
         vp.add_child(fill)
 
         var cam := Camera3D.new()
         cam.fov = 34.0
-        cam.position = Vector3(2.0, 3.3, 8.8)         # a hint of 3/4, full body in frame
+        # v4.0: the rig FACES -Z (its front wall — where the face decal and
+        # the t-shirt hang) — the old camera sat at +Z and photographed
+        # everyone's BACK. That's why the People cards never showed a face!
+        # Park at front-left 3/4 so the face, torso decal and UGC all read.
+        cam.position = Vector3(-2.0, 3.3, -8.8)
         vp.add_child(cam)
         cam.look_at_from_position(cam.position, Vector3(0.0, RIG_CENTER_Y, 0.0), Vector3.UP)
         cam.current = true

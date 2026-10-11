@@ -4,9 +4,10 @@ extends Control
 ## on every boot auto-signs in with zero typing — you log in once, ever.
 ## The server is LOCKED to the official RetroBlox platform: it is a label,
 ## not a field, so it can never be pointed somewhere else.
+## v4.0: the daylight skid — a clean white card on soft gray, blue accents.
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
-const VERSION := "2.1"
+const VERSION := "4.0"
 
 var _mode := "login"   # login | signup
 var _user: LineEdit
@@ -38,73 +39,88 @@ func _build() -> void:
 
         var card := PanelContainer.new()
         card.custom_minimum_size = Vector2(430, 0)
+        # v4.0: the clean white card — quiet border, soft daylight shadow
+        var card_sb := StyleBoxFlat.new()
+        card_sb.bg_color = Color(1, 1, 1, 0.98)
+        card_sb.set_corner_radius_all(14)
+        card_sb.border_color = RetroUI.EDGE_DARK
+        card_sb.set_border_width_all(1)
+        card_sb.shadow_color = Color(0.12, 0.2, 0.3, 0.14)
+        card_sb.shadow_size = 18
+        card_sb.shadow_offset = Vector2(0, 6)
+        card_sb.content_margin_left = 24.0
+        card_sb.content_margin_right = 24.0
+        card_sb.content_margin_top = 22.0
+        card_sb.content_margin_bottom = 20.0
+        card.add_theme_stylebox_override("panel", card_sb)
         center.add_child(card)
 
         var box := VBoxContainer.new()
-        box.add_theme_constant_override("separation", 8)
-        box.custom_minimum_size = Vector2(380, 0)
+        box.add_theme_constant_override("separation", 9)
+        box.custom_minimum_size = Vector2(360, 0)
         card.add_child(box)
 
-        # header band — YOUR uploaded ReTROBLOX wordmark on brushed steel
-        var head := PanelContainer.new()
-        head.theme_type_variation = "SteelHeader"
-        box.add_child(head)
-        var head_label: Control = null
+        # your uploaded ReTROBLOX wordmark, straight on white
         if ResourceLoader.exists("res://assets/ui/wordmark.png"):
                 var wm := TextureRect.new()
                 wm.texture = load("res://assets/ui/wordmark.png")
                 wm.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-                wm.custom_minimum_size = Vector2(360, 56)
+                wm.custom_minimum_size = Vector2(340, 64)
                 wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-                head_label = wm
+                box.add_child(wm)
         else:
                 var lbl := Label.new()
                 lbl.text = "RETROBLOX"
                 lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
                 lbl.theme_type_variation = "H1"
-                lbl.add_theme_color_override("font_color", RetroUI.TEXT_INV)
-                head_label = lbl
-        head.add_child(head_label)
+                box.add_child(lbl)
 
         var sub := Label.new()
         sub.text = "the classic player — v%s" % VERSION
         sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        sub.theme_type_variation = "Muted"
+        var retro: Font = RetroUI.pixel_font()
+        if retro != null:
+                sub.add_theme_font_override("font", retro)
+                sub.add_theme_font_size_override("font_size", 8)
+        sub.add_theme_color_override("font_color", RetroUI.MENU_FAINT)
         box.add_child(sub)
 
-        # mode tabs
+        # mode tabs — the segmented control: the active side wears the soft
+        # blue chip, the quiet side stays white
         var tabs := HBoxContainer.new()
-        tabs.add_theme_constant_override("separation", 8)
+        tabs.add_theme_constant_override("separation", 0)
         tabs.alignment = BoxContainer.ALIGNMENT_CENTER
         box.add_child(tabs)
         _tab_login = Button.new()
         _tab_login.text = "LOG IN"
         _tab_login.toggle_mode = true
-        _tab_login.custom_minimum_size = Vector2(150, 34)
+        _tab_login.custom_minimum_size = Vector2(170, 36)
+        _tab_login.focus_mode = Control.FOCUS_NONE
         _tab_login.pressed.connect(func() -> void: _set_mode("login"))
         tabs.add_child(_tab_login)
         _tab_signup = Button.new()
         _tab_signup.text = "SIGN UP"
         _tab_signup.toggle_mode = true
-        _tab_signup.custom_minimum_size = Vector2(150, 34)
+        _tab_signup.custom_minimum_size = Vector2(170, 36)
+        _tab_signup.focus_mode = Control.FOCUS_NONE
         _tab_signup.pressed.connect(func() -> void: _set_mode("signup"))
         tabs.add_child(_tab_signup)
 
         _user = LineEdit.new()
         _user.placeholder_text = "Username"
         _user.text = Api.saved_username   # remembered from last time
-        _user.custom_minimum_size = Vector2(0, 36)
+        _user.custom_minimum_size = Vector2(0, 40)
         box.add_child(_user)
 
         _pass = LineEdit.new()
         _pass.placeholder_text = "Password"
         _pass.secret = true
-        _pass.custom_minimum_size = Vector2(0, 36)
+        _pass.custom_minimum_size = Vector2(0, 40)
         box.add_child(_pass)
 
         _go = Button.new()
         _go.text = "LOG IN"
-        _go.theme_type_variation = "BtnGreen"
+        _go.theme_type_variation = "BtnBlue"
         _go.custom_minimum_size = Vector2(0, 46)
         _go.pressed.connect(_on_action)
         box.add_child(_go)
@@ -113,7 +129,7 @@ func _build() -> void:
         note.text = "You only log in ONCE — after that you are signed in\nevery time you open RetroBlox, automatically."
         note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         note.theme_type_variation = "Small"
-        note.add_theme_color_override("font_color", RetroUI.TEXT_MUTED)
+        note.add_theme_color_override("font_color", RetroUI.MENU_MUTED)
         box.add_child(note)
 
         _status = Label.new()
@@ -137,7 +153,7 @@ func _build() -> void:
         footer.text = "Server: retro-blox.vercel.app  ·  locked  ·  your avatar loads from your account"
         footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         footer.theme_type_variation = "Small"
-        footer.add_theme_color_override("font_color", RetroUI.TEXT_MUTED)
+        footer.add_theme_color_override("font_color", RetroUI.MENU_FAINT)
         box.add_child(footer)
 
         _user.text_submitted.connect(func(_t: String) -> void: _pass.grab_focus())
@@ -151,12 +167,29 @@ func _set_mode(mode: String) -> void:
         _tab_signup.button_pressed = mode == "signup"
         _go.text = "LOG IN" if mode == "login" else "CREATE ACCOUNT"
         _status.text = ""
+        # the segmented-tab read: active = soft blue chip + ink, quiet = white
+        for pair in [[_tab_login, "login"], [_tab_signup, "signup"]]:
+                var b: Button = pair[0]
+                var on: bool = pair[1] == mode
+                var sb := StyleBoxFlat.new()
+                sb.bg_color = RetroUI.MENU_ACCENT_SOFT if on else Color("ffffff")
+                sb.set_corner_radius_all(9)
+                sb.border_color = RetroUI.MENU_ACCENT if on else RetroUI.EDGE_DARK
+                sb.set_border_width_all(1 if on else 1)
+                sb.content_margin_top = 6.0
+                sb.content_margin_bottom = 6.0
+                for st in ["normal", "hover", "pressed", "hover_pressed"]:
+                        b.add_theme_stylebox_override(st, sb)
+                for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+                        b.add_theme_color_override(st, RetroUI.MENU_ACCENT_DARK if on else RetroUI.MENU_MUTED)
+                if RetroUI.clean_font() != null:
+                        b.add_theme_font_override("font", RetroUI.clean_font())
+                b.add_theme_font_size_override("font_size", 13)
 
 
 func _set_status(text: String, is_error := true) -> void:
         _status.text = text
         _status.add_theme_color_override("font_color", RetroUI.RED if is_error else RetroUI.GREEN_DARK)
-
 
 ## Auto sign-in on boot: the saved token (180-day server-side TTL) brings
 ## the whole account back. The token is ONLY wiped when the server itself

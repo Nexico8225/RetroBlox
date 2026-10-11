@@ -58,18 +58,21 @@ static func build(def: Dictionary) -> Dictionary:
         sky_mat.ground_bottom_color = Color(def.get("sky_ground", "2a5d38"))
         sky_mat.ground_horizon_color = Color(def.get("sky_horizon", "bfe0f5"))
         sky_mat.sun_angle_max = 30.0
+        sky_mat.sun_curve = 0.12            # v4.0: a soft readable sun disc
         sky.sky_material = sky_mat
         env.background_mode = Environment.BG_SKY
         env.sky = sky
         env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-        env.ambient_light_energy = 0.55
+        env.ambient_light_energy = 0.62     # v4.0: lifted from 0.55 — colors read
+        env.ambient_light_sky_contribution = 0.7
         env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-        if bool(def.get("cloud_deck", false)):
-                # the reference video's look: horizon melts into a white cloud sea
+        # v4.0: a whisper of distance fog on EVERY sky place — islands and
+        # towers now melt into the horizon instead of cutting off hard
+        if bool(def.get("sky", true)) or bool(def.get("cloud_deck", false)):
                 env.fog_enabled = true
                 env.fog_light_color = Color("eef6fd")
-                env.fog_density = 0.0042
-                env.fog_sky_affect = 0.28
+                env.fog_density = 0.0028 if not bool(def.get("cloud_deck", false)) else 0.0042
+                env.fog_sky_affect = 0.24 if not bool(def.get("cloud_deck", false)) else 0.28
         var world_env := WorldEnvironment.new()
         world_env.environment = env
         root.add_child(world_env)
@@ -77,9 +80,11 @@ static func build(def: Dictionary) -> Dictionary:
         var sun := DirectionalLight3D.new()
         sun.name = "Sun"
         sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-        sun.light_energy = 0.85
+        sun.light_energy = 1.0             # v4.0: 0.85 -> 1.0, crisper faces
+        sun.light_color = Color("fff2dd")  # v4.0: the warm late-afternoon cast
         sun.shadow_enabled = true
-        sun.directional_shadow_max_distance = 80.0
+        sun.directional_shadow_max_distance = 90.0
+        sun.shadow_blur = 1.2              # v4.0: softer shadow edges
         root.add_child(sun)
         var settings: Node = Engine.get_main_loop().root.get_node_or_null("/root/Settings")
         if settings != null:

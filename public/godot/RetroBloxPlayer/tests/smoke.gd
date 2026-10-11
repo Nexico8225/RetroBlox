@@ -550,7 +550,7 @@ func _run_all() -> void:
         check(game_src.contains("_hint_chip"),
                 "menu hotkeys wear keycap chips ([ENTER] chat / [ESC] resume / [R] / [L])")
         check(game_src.contains("head_icon"),
-                "cards fall back to the mono head before the shot lands")
+                "cards fall back to the classic smiley before the shot lands")
         check(game_src.contains("icon_texture"),
                 "action + nav buttons wear retro icons (play / door / people / gear)")
         check(ResourceLoader.exists("res://assets/fonts/PressStart2P-Regular.ttf"), "pixel font ships (Press Start 2P)")
@@ -560,15 +560,21 @@ func _run_all() -> void:
         check(theme_src.contains("PressStart2P"), "retro theme speaks in the pixel voice")
         check(theme_src.contains("bevel_texture"),
                 "keycaps are TRUE bevels (light top/left, dark bottom/right)")
-        check(theme_src.contains("MENU_BG") and theme_src.contains("MENU_INK")
-                and theme_src.contains("MENU_EDGE_HI := Color(0.93"),
-                "the menu wears ONE monochrome palette (translucent ink, bold WHITE outline)")
+        # --- v4.0: THE SKID CLIENT — light & clean, 2016 daylight, blue accent ---
+        check(theme_src.contains("MENU_ACCENT := Color(\"00a2ff\")")
+                and theme_src.contains("MENU_INK := Color(\"1d2632\")")
+                and theme_src.contains("MENU_EDGE := Color(0.78"),
+                "the menu wears ONE light palette (white glass, ink, gray border, blue accent)")
+        check(theme_src.contains("clean_font") and theme_src.contains("LiberationSans-Bold.ttf"),
+                "the clean 2016 voice ships (Liberation Bold for titles + buttons)")
         check(theme_src.contains("mono_surface"),
-                "every menu surface is one mono glass (round corners, translucent)")
+                "every menu surface is one light card (round corners, quiet border)")
         check(theme_src.contains("\"people\"") and theme_src.contains("\"gear\""),
                 "nav icons drawn in code (people crowd + gear)")
-        check(game_src.contains("MENU_INK"),
-                "nav + toggles speak in white ink (no dark-on-dark anywhere)")
+        check(theme_src.contains("icon_texture(kind: String, ink"),
+                "icons draw in ANY ink (white on the blue key, ink on white keys)")
+        check(game_src.contains("MENU_ACCENT") and game_src.contains("MENU_INK"),
+                "nav + keys speak in ink with the blue accent (no dark-on-dark anywhere)")
 
         # --- v3.9: the wood is HISTORY ---
         check(not theme_src.contains("wood"),
@@ -580,8 +586,8 @@ func _run_all() -> void:
         check(not game_src.contains("panel.png"),
                 "the old metallic panel.png frame is gone from the menu")
 
-        # --- v3.11: MONO CLIENT — black & white only, round, translucent,
-        # ZERO gradients — plus the chat quality pass ---
+        # --- v4.0: THE SKID CLIENT — light & clean, ONE blue accent, plus
+        # the avatar pipeline that finally shows YOUR real look ---
         var portrait_src := FileAccess.get_file_as_string("res://scripts/ui/avatar_portrait.gd")
         check(not theme_src.contains("gloss_texture") and not theme_src.contains("gradient_panel"),
                 "the gloss/gradient engine is DELETED (no gradients anywhere)")
@@ -592,20 +598,49 @@ func _run_all() -> void:
                 and not FileAccess.file_exists("res://assets/ui/rbx_glass_btn.png"),
                 "the gradient plate + glass textures are OUT of the kit")
         check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
-                "the menu references zero texture helpers (flat mono)")
-        check(not game_src.contains("_gloss_btn") and game_src.contains("_mono_btn"),
-                "every menu key is the flat MONO button (round, white outline)")
-        check(game_src.contains("mono_surface(14"),
-                "the client window is translucent ink glass with ROUND corners")
-        check(not theme_src.contains("MENU_RED") and not game_src.contains("MENU_RED"),
-                "strict B/W menu: the red ring, red X and red notch are all white now")
-        check(not theme_src.contains("f7c948"),
-                "the fallback head is BLACK & WHITE now")
+                "the menu references zero texture helpers (flat light cards)")
+        check(not game_src.contains("_gloss_btn") and game_src.contains("_white_btn")
+                and game_src.contains("_accent_btn"),
+                "every menu key is a clean light key (white default, blue primary)")
+        check(game_src.contains("mono_surface(16"),
+                "the client window is white glass with ROUND corners")
+        check(game_src.contains("\"primary\")") and game_src.contains("\"danger\")"),
+                "Resume is the BLUE key, Leave speaks in red (functional color)")
+        check(theme_src.contains("MENU_RED :=") ,
+                "red exists ONLY as the danger voice (Leave, close-hover, badge)")
+        check(theme_src.contains("f5cd30"),
+                "the fallback head is the CLASSIC YELLOW smiley again")
         check(not theme_src.contains("checker_texture"),
-                "the checker well is replaced by translucent glass (avatar bg changed)")
+                "the checker well is replaced by soft daylight gray (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        # --- the chat quality pass ---
+        check(game_src.contains('ver.text = "v4.0"'), "the rail wears v4.0")
+        # --- the v4.0 AVATAR PIPELINE — the real site look, everywhere ---
+        var rig_src := FileAccess.get_file_as_string("res://scripts/player/avatar_rig.gd")
+        check(rig_src.contains("func set_tshirt"),
+                "the rig hangs a T-SHIRT decal on the torso front (site rule: 92%)")
+        var dresser_src := FileAccess.get_file_as_string("res://scripts/player/avatar_dresser.gd")
+        check(dresser_src.contains('kind == "tshirt"') and dresser_src.contains("set_tshirt"),
+                "image-only accessories (T-SHIRTS) paint the decal instead of bailing")
+        check(dresser_src.contains("await_all := false") and dresser_src.contains("await _apply_accessory"),
+                "the dresser can AWAIT every stream (the portrait path)")
+        check(portrait_src.contains("apply(api, rig, payload, true)"),
+                "the portrait awaits the FULL dress — face, t-shirt, hat all land before the shot")
+        check(game_src.contains("_dressed_signature") and game_src.contains("avatar_of(uid)"),
+                "the menu re-fetches MY look live and re-dresses the rig when it changed")
+        check(game_src.contains("_last_presence") and game_src.contains("if _menu_open:"),
+                "the People page rebuilds ONLY while open (presence snapshot on open)")
+        check(game_src.contains("RESPAWN_SECONDS := 2.0"), "respawn is snappier (2.0s)")
+        var cam_src := FileAccess.get_file_as_string("res://scripts/game/camera_rig.gd")
+        check(cam_src.contains("ZOOM_GLIDE") and cam_src.contains("_zoom_target"),
+                "the zoom GLIDES to the wheel's target (no teleport zoom)")
+        check(cam_src.contains("LAND_DIP_MAX") and cam_src.contains("land_impact"),
+                "hard landings DIP the camera (game feel)")
+        var world_src := FileAccess.get_file_as_string("res://scripts/world/world_builder.gd")
+        check(world_src.contains("sun_curve") and world_src.contains("fff2dd"),
+                "the sky wears a soft sun disc + warm afternoon light")
+        check(world_src.contains("0.0028"), "every sky place gets a whisper of horizon fog")
+        # --- the chat quality pass (v3.11) + the v4.0 daylight chat ---
         check(game_src.contains("KEY_F") and chat_src.contains("toggle_read")
                 and chat_src.contains("is_reading"),
                 "F READS the chat — no keyboard grab, you keep moving (ESC closes)")
@@ -617,6 +652,10 @@ func _run_all() -> void:
                 "LEAVE closes the game now (web reloads the place)")
         check(game_src.contains('_pill_button("res://assets/icons/logo.png", "ESC Menu")'),
                 "the pill's R button OPENS the ESC menu")
+        check(chat_src.contains("1e2733") and chat_src.contains("c9d3dc"),
+                "the chat is daylight glass now (ink text, quiet border)")
+        check(game_src.contains('RetroUI.icon_texture("chat", RetroUI.MENU_INK)'),
+                "the white pill's chat key wears the code-drawn ink bubble")
         check(bubble_src.contains("SHOW_SECONDS := 9.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
                 "bubbles linger 9s and fade out SLOWLY")
         check(bubble_src.contains("_fade_out"),
@@ -626,9 +665,11 @@ func _run_all() -> void:
         var init_slice := portrait_src.get_slice("host.add_child(vp)", 0)
         check(not init_slice.contains("UPDATE_ONCE"),
                 "the portrait one-shot render arms AFTER the stage is built (avatars SHOW)")
-        check(game_src.contains('ver.text = "v3.11"'), "the rail wears v3.11")
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
+        var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
+        check(login_src4.contains('VERSION := "4.0"') and login_src4.contains("BtnBlue"),
+                "login wears the daylight skid card (v4.0, blue action key)")
 
         # --- v3.9: presence carries everyone's live stats ---
         var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")
@@ -659,7 +700,7 @@ func _run_all() -> void:
         var api_src := FileAccess.get_file_as_string("res://scripts/core/api.gd")
         check(api_src.contains("_asset_cache") and api_src.contains("_image_cache"),
                 "Api caches assets + images (fast re-dress)")
-        var dresser_src := FileAccess.get_file_as_string("res://scripts/player/avatar_dresser.gd")
-        check(dresser_src.contains("_apply_accessory") and dresser_src.contains("_paint_shirt"),
+        var dresser_src2 := FileAccess.get_file_as_string("res://scripts/player/avatar_dresser.gd")
+        check(dresser_src2.contains("_apply_accessory") and dresser_src2.contains("_paint_shirt"),
                 "dresser streams shirt/face/accessories in parallel")
 

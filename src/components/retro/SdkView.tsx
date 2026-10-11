@@ -9,16 +9,16 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.11 "Mono Client"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.11'
+const VERSION = 'v4.0 "Skid"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=4.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['BLACK & WHITE, exactly', 'The ESC menu is rebuilt one more time: strictly black and white - translucent ink glass panels, white pixel type, ONE bold white outline style, and the gradients are ALL deleted (the whole gloss engine is gone from the kit). Retro pixel voice, modern flat surfaces.'],
-  ['Round corners + smooth + translucent', 'The window, bars, cards, wells and every button are rounded now, the background opacity is dialed back so the place glows through the menu, and the window breathes in with a quick smooth fade.'],
-  ['Avatars actually render', 'The empty-player-card bug is dead: the offscreen portrait camera now arms its one-shot render AFTER the stage is built, so every People card shows a real low-res pixel shot of that player\'s avatar on a translucent glass well (fallback: a black & white pixel head).'],
-  ['The pill button opens the menu', 'The red key in the top-left pill IS the ESC menu button now - click it and the client window opens (ESC and R still work). LEAVE closes the game for real: the window quits (the web build reloads the place instead).'],
-  ['F reads the chat', 'Press F to open the chat log in read mode: no type box, no keyboard grab - you can read everything AND keep moving. ENTER still opens the type box, ESC closes.'],
-  ['Chat quality pass', 'Rejoining no longer replays your old messages (the first feed is history, marked seen silently - no more bubble spam on rejoin), the "#1" tags are gone from chat lines, bubbles hug their text with the words centered in the pill, and they linger 9 seconds and fade out slowly instead of vanishing.'],
+  ['The 2016 skid — light & clean', 'The whole client is restyled as the 2016 daylight site: clean WHITE cards on soft gray, near-black ink, round corners, soft shadows, ONE bright RetroBlox blue accent (the active page, your card ring, the Resume key). No dark cave, no gradients — light, modern, retro.'],
+  ['Your REAL avatar in the ESC menu', 'Three bugs died at once: the portrait snapshot used to fire before the face/t-shirt/hat downloads landed (you got a plain noob), the portrait camera sat BEHIND every rig so faces never showed, and image-only UGC (T-SHIRTS!) was skipped entirely. Now the shot waits for the full dress and photographs the FRONT — face, decal, hat, all on the card.'],
+  ['T-shirts finally wear in-game', 'T-shirt UGC is a 2D image, not a model — the dresser now paints it as a decal on the torso front (92%, the exact site rule) instead of silently bailing. Equip on the website, spawn in-game: it is ON.'],
+  ['Change your look mid-session', 'Opening the ESC menu re-fetches your account avatar live — re-equip on the site, reopen the menu, and your in-game character re-dresses on the spot. No relog.'],
+  ['Game feel pass', 'Hard landings DIP the camera (big drops land in your hands), the scroll-wheel zoom GLIDES instead of teleporting, respawn is snappier (2.0s), and the People page only rebuilds while the menu is open (less churn, more FPS).'],
+  ['Prettier world', 'A soft readable sun disc, warm late-afternoon light, lifted ambient, softer shadow edges, and a whisper of horizon fog on every sky place so islands melt into the sky.'],
 ]
 
 const FILES = [
@@ -27,7 +27,7 @@ const FILES = [
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The in-game login / SIGN UP card — server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: TRUE bevel keycaps + pixel-art icons drawn in code, the classic-client menu palette, beveled panels, your cursors'],
+  ['scripts/ui/retro_theme.gd', 'The v4.0 skid UI: white cards + ink + RetroBlox blue, clean sans + pixel garnish, TRUE bevel keycaps + pixel icons drawn in code, your cursors'],
   ['scripts/ui/avatar_portrait.gd', 'Renders each player\'s REAL avatar into a low-res pixel shot for the ESC menu People cards (offscreen viewport, cached)'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],

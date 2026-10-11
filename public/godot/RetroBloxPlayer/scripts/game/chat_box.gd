@@ -1,15 +1,15 @@
 extends Control
-## ChatBox — the TOP-LEFT chat, dark translucent + rounded like the modern
-## classic client: log under the topbar pill, input line always visible
-## underneath. Shows the last stretch of lines with colored names, Enter
-## opens the input, Enter again sends, Esc closes. The LOG can collapse to
-## nothing — unread messages then count on the topbar chat button's red
-## badge. Plain text only — nothing can inject markup.
+## ChatBox — the TOP-LEFT chat, light translucent + rounded like the 2016
+## site: log under the topbar pill, input line always visible underneath.
+## Shows the last stretch of lines with colored names, Enter opens the
+## input, Enter again sends, Esc closes. The LOG can collapse to nothing —
+## unread messages then count on the topbar chat button's red badge. Plain
+## text only — nothing can inject markup.
 ##
 ## v3.11: F READS — a read-only mode that shows the log WITHOUT grabbing
 ## the keyboard, so you can catch up on chat while you keep moving. The
-## "#1" seq chips are gone from lines, and the panels are rounder + more
-## translucent (matching the mono menu).
+## "#1" seq chips are gone from lines.
+## v4.0: the daylight skid — white glass panels, ink text, quiet borders.
 
 signal submitted(text: String)
 signal opened
@@ -22,8 +22,8 @@ signal unread(count: int)
 
 const MAX_LINES := 60
 const NAME_COLORS: Array = [
-        "ffd34e", "7ad154", "5aa8e8", "e8845a", "c07ae8",
-        "5ad1c0", "e85a9b", "a8e85a", "e8d05a", "8a9bb0",
+        "c9960f", "3f8f22", "0f76c9", "c2502f", "8a3fc9",
+        "0f96a8", "c91f6e", "5f8f0f", "a8820f", "5d6b80",
 ]
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
@@ -48,12 +48,15 @@ func _init() -> void:
 
         _panel = PanelContainer.new()
         _panel.name = "LogPanel"
-        # v3.11: translucent ink glass, rounder corners, bold white edge
+        # v4.0: white daylight glass, quiet border, round corners
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.03, 0.035, 0.05, 0.62)
-        sb.set_corner_radius_all(10)
-        sb.border_color = Color(1, 1, 1, 0.18)
-        sb.set_border_width_all(2)
+        sb.bg_color = Color(1, 1, 1, 0.88)
+        sb.set_corner_radius_all(12)
+        sb.border_color = Color("c9d3dc")
+        sb.set_border_width_all(1)
+        sb.shadow_color = Color(0.1, 0.18, 0.28, 0.10)
+        sb.shadow_size = 8
+        sb.shadow_offset = Vector2(0, 3)
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
         sb.content_margin_top = 8.0
@@ -71,16 +74,19 @@ func _init() -> void:
         _log.context_menu_enabled = false
         _log.add_theme_font_size_override("normal_font_size", 14)
         _log.add_theme_font_size_override("bold_font_size", 14)
-        _log.add_theme_color_override("default_color", Color(0.94, 0.96, 0.98))
+        _log.add_theme_color_override("default_color", Color("1e2733"))
         _panel.add_child(_log)
 
         _input_panel = PanelContainer.new()
         _input_panel.name = "InputPanel"
         var isb := StyleBoxFlat.new()
-        isb.bg_color = Color(0.03, 0.035, 0.05, 0.78)
-        isb.set_corner_radius_all(10)
-        isb.border_color = Color(1, 1, 1, 0.24)
-        isb.set_border_width_all(2)
+        isb.bg_color = Color(1, 1, 1, 0.92)
+        isb.set_corner_radius_all(12)
+        isb.border_color = Color("c9d3dc")
+        isb.set_border_width_all(1)
+        isb.shadow_color = Color(0.1, 0.18, 0.28, 0.10)
+        isb.shadow_size = 8
+        isb.shadow_offset = Vector2(0, 3)
         isb.content_margin_left = 8.0
         isb.content_margin_right = 8.0
         isb.content_margin_top = 4.0
@@ -94,13 +100,13 @@ func _init() -> void:
         _input.placeholder_text = "ENTER to chat  ·  F just reads, keeps you moving"
         _input.max_length = 240
         _input.context_menu_enabled = false
-        _input.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
-        _input.add_theme_color_override("font_placeholder_color", Color(0.62, 0.68, 0.74))
-        # the typing line speaks in the retro pixel voice when it ships
-        var pixel: Font = RetroUI.pixel_font()
-        if pixel != null:
-                _input.add_theme_font_override("font", pixel)
-                _input.add_theme_font_size_override("font_size", 10)
+        _input.add_theme_color_override("font_color", Color("1e2733"))
+        _input.add_theme_color_override("font_placeholder_color", Color("97a1ad"))
+        # the typing line speaks in the clean book voice when it ships
+        var book: Font = RetroUI.clean_book()
+        if book != null:
+                _input.add_theme_font_override("font", book)
+                _input.add_theme_font_size_override("font_size", 14)
         else:
                 _input.add_theme_font_size_override("font_size", 14)
         _input.text_submitted.connect(_on_submit)
@@ -220,7 +226,7 @@ func add_chat(username: String, seq_id: int, text: String, name_color: String = 
 
 
 func add_system(text: String) -> void:
-        _log.append_text("[color=#9fb6c8][i]%s[/i][/color]\n" % _esc(text))
+        _log.append_text("[color=#8a95a1][i]%s[/i][/color]\n" % _esc(text))
         _count_unread()
         _prune()
 
@@ -237,7 +243,7 @@ func _prune() -> void:
         # RichTextLabel has no line counter — track by clearing when huge
         if _log.get_total_character_count() > 12000:
                 _log.clear()
-                _log.append_text("[color=#9fb6c8][i](chat trimmed)[/i][/color]\n")
+                _log.append_text("[color=#8a95a1][i](chat trimmed)[/i][/color]\n")
 
 
 func _esc(text: String) -> String:

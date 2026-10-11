@@ -20,6 +20,9 @@ extends CharacterBody3D
 signal health_changed(health: float, max_health: float)
 signal health_depleted
 signal touched_group(group: String, node: Node3D)
+## v4.0 GAME FEEL: fired on every hard landing with the impact speed —
+## the camera dips for a beat so a big drop LANDS in your hands.
+signal land_impact(speed: float)
 
 ## One stud in Godot units — shared by the world
 ## builder, camera and avatar rig. A player is 5 studs tall.
@@ -253,6 +256,7 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         if grounded and not was_grounded and _last_vy < -LAND_SOUND_FALL:
                 _play_land_sound()
                 _dust(clampf(-_last_vy / (40.0 * STUD), 1.0, 1.8))
+                land_impact.emit(-_last_vy)   # v4.0: the camera dips with you
         _update_step_rise(delta)
         if grounded and is_on_wall() and _climb_kind == ClimbKind.NONE and _rise_left <= 0.0:
                 _attempt_step_up()

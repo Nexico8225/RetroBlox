@@ -66,6 +66,7 @@ var _mounts: Array[Node3D] = []
 var _overlays: Dictionary = {}
 var _nameplate: Label3D
 var _face_decal: MeshInstance3D
+var _tshirt_decal: MeshInstance3D   # v4.0: the t-shirt image decal on the torso front
 var _display_name := "Player"
 var _built := false
 var _using_r6ik := false
@@ -142,6 +143,38 @@ func set_part_textured(index: int, mesh: Mesh, tex: Texture2D) -> void:
         else:
                 mi.mesh = mesh
                 mi.material_override = material
+
+
+## v4.0 T-SHIRTS — an image decal on the FRONT of the torso, exactly what
+## the website draws (92% of the torso face). T-shirt UGC ships as a plain
+## image (no GLB), so the dresser hands the texture here instead of the
+## 3D accessory path. Repainted whenever a new t-shirt arrives; freed with
+## the rig.
+func set_tshirt(tex: Texture2D) -> void:
+        _ensure_built()
+        if tex == null:
+                return
+        if _tshirt_decal != null and is_instance_valid(_tshirt_decal):
+                _tshirt_decal.queue_free()
+                _tshirt_decal = null
+        var torso_size := _part_sizes[TORSO]
+        var quad := MeshInstance3D.new()
+        quad.name = "TshirtDecal"
+        var mesh := QuadMesh.new()
+        mesh.size = Vector2(torso_size.x * 0.92, torso_size.y * 0.92)
+        quad.mesh = mesh
+        var material := StandardMaterial3D.new()
+        material.albedo_texture = tex
+        material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+        material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        material.cull_mode = BaseMaterial3D.CULL_DISABLED
+        quad.material_override = material
+        var host: Node3D = _mounts[TORSO]
+        host.add_child(quad)
+        # the front of the torso faces -Z — same wall the face decal hangs on
+        quad.position = Vector3(0.0, 0.0, -torso_size.z * 0.5 - 0.004)
+        quad.rotation.y = PI
+        _tshirt_decal = quad
 
 
 ## Put a face decal on the FRONT of the head (-Z).

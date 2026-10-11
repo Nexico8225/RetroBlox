@@ -3,8 +3,8 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. The HUD, the sounds and the world are
-built to match the 2016-classic reference — with RetroBlox's own UI on top.
+through the RetroBlox platform API. v4.0 "Skid" wears the 2016 daylight
+look — clean white cards, ink text, one RetroBlox blue accent.
 
 > One platform, every engine. Everything here is plain HTTP + JSON against
 > `https://retro-blox.vercel.app` — the same API the website and the future
@@ -44,33 +44,39 @@ the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
-### The ESC menu — classic client polish (v3.8)
+### The ESC menu — the 2016 skid client (v4.0)
 
-The menu wears the classic framing now: a grey **metallic bevel plate**
-(the old `panel.png` asset) around a dark translucent client window holding
-the brushed-steel card. Every button is a TRUE bevel keycap — light
-top/left edge, dark bottom/right edge, drawn pixel-by-pixel — that SINKS
-when pressed, with retro icons: the play triangle on Resume, a circular
-arrow on Reset, a red door on Leave, the power symbol on Log Out. The
-hotkey hints at the bottom are real keycap chips (`[ENTER] chat · [ESC]
-resume · [R] menu · [L] leave`), unselected tabs are readable muted steel
-with white pixel ink, and the whole menu — player list, settings, hints —
-speaks one Press Start 2P voice. The wordmark signboard is a BLOCKY
-stud-wood texture, the player list wears classic yellow smiley heads plus
-a TIME / PING / FPS readout, and the vertical health bar docks in a
-matching bevel plate flush with the right screen edge.
+The menu is one clean WHITE glass window: round corners, a quiet gray
+border, a soft shadow, and RetroBlox blue as the single accent — the open
+page wears a soft blue chip with a blue notch, YOUR card wears the blue
+ring, and **Resume** is the big blue key (white icon + text). Reset /
+Log Out are clean white keys with muted ink icons; Leave speaks in red.
+The hint bar wears real light keycap chips (`[ENTER] chat · [ESC] resume ·
+[R] menu · [L] leave`). Titles and buttons speak a clean sans; the retro
+garnish (stats, clock, keycaps, version tag) stays Press Start 2P.
+
+### Your avatar — the real account look, everywhere
+
+The People cards render your REAL avatar now: the portrait waits for the
+face, shirt, t-shirt and every 3D accessory to land, photographs the rig
+from the FRONT, and the card shows exactly what the site shows. T-shirts
+(2D image UGC) paint as a decal on the torso front — the same 92% rule the
+website uses — so your equipped t-shirt is ON in-game. Opening the menu
+re-fetches your account avatar live: change your look on the site, reopen
+the menu, and your character re-dresses on the spot.
 
 ### The HUD (the reference-video layout, original RetroBlox skin)
 
-- **Top-left pill** — RetroBlox logo + chat (with a red unread badge while
-  the chat is tucked away). v3.7 trimmed it: no three-line menu button and
-  no people button — Esc opens the menu, P opens the player list.
+- **Top-left pill** — white daylight pill: RetroBlox logo (opens the menu)
+  + chat (with a red unread badge while the chat is tucked away). Esc and
+  **R** open the menu too; P opens the player list.
 - The chat starts hidden — ENTER or the chat pill opens the log AND the
   type box together, and closing removes both. Messages said while it is
   hidden stack the badge.
-- **Right edge** — the vertical **Health** bar with the value chip; it
-  drains red as you take fall damage and refills with the classic 1%/s regen.
-- **Top-center** — black toast pills ("eh_raiderbomber joined you") when
+- **Right edge** — the vertical **Health** bar in a white plate with the
+  value chip; it drains red as you take fall damage and refills with the
+  classic 1%/s regen.
+- **Top-center** — white toast pills ("eh_raiderbomber joined you") when
   someone new appears in the place.
 - **Chat bubbles** appear over the head of whoever is talking — you too —
   and they STACK the Roblox way: every message is its own bubble, the
