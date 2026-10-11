@@ -132,3 +132,23 @@ Work Log:
 
 Stage Summary:
 - v3.10 "Glossy Classic" live on main: old-Roblox gradients + bold outlines everywhere, real 2011 client textures in the window + topbar, People cards visible again (v3.9 clipping bug dead); zip md5 7b07ae34
+
+---
+Task ID: godot-v311-mono-client
+Agent: Super Z (main)
+Task: v3.11 — user (with 4 screenshots): pill button must open the ESC menu; the menu shows no player avatar and must be "pixel art and modern, only black and white, smooth, round corners", change bg + avatar-bg opacity, LEAVE closes the game, F opens chat to READ while moving, rejoining replays old chat (spam) — fix, bubble text has a big offset, bubbles vanish too fast, UI very retro, REMOVE the gradients, remove the "#1" thing
+
+Work Log:
+- Root-caused the missing avatars: avatar_portrait.gd armed SubViewport UPDATE_ONCE BEFORE the rig/lights/camera existed — it captured one empty frame and never re-armed. Now the stage builds first, a frame passes, THEN the one-shot render arms (with one retry); verified PORTRAIT_RENDERED 64x84 under Xvfb
+- ESC menu rebuilt MONO: retro_theme lost the entire v3.10 gloss engine (gloss_texture, gradient_panel, client_plate, glass_button, outlined_text, INK_OUTLINE, checker_texture deleted; MENU_RED/MENU_GREEN gone) — new palette is translucent ink faces + white ink + a bold WHITE outline + one mono_surface() helper; window/bars/cards/wells/buttons all rounded (8–14px), window bg + portrait wells translucent (0.84/0.07 alpha), dim lightened to 0.55, menu fades in 0.14s; Resume = inverted WHITE key, everything else ink glass; white notch/ring/X; login BtnGreen/Red/Blue flattened; health plate translucent + white 100 chip; rbx_black_plate/rbx_glass_btn(+hi).png deleted from the kit
+- Pill: the red R logo button now opens the ESC menu (was a toast); tooltip "ESC Menu"
+- LEAVE = get_tree().quit() on desktop (web reloads the place); L shortcut lands there too
+- F READ MODE: chat_box.is_reading/toggle_read — log only, no keyboard grab, movement stays live; ESC closes read mode first; ENTER upgrades to typing; hint bar gained [F] read
+- Rejoin replay fix: _chat_history_done — the first placechat feed is treated as history and marked seen silently, so old lines (and their bubbles) never replay on reopen
+- "#1" seq chips removed from chat lines (signature kept for compatibility)
+- Bubbles: PLATE_CENTER_LIFT centers text on the visible pill (the tail used to drag it down), plates now HUG their text (96–256px by widest line), SHOW_SECONDS 4.5→9, FADE_SECONDS 1.4 slow fade, overflow retires with a 0.55s ease-out instead of popping; chat log/input panels rounder (10px) + more translucent
+- v311_shot.gd replaces v310_shot.gd (also prints PORTRAIT_RENDERED); smoke rewritten for v3.11 — 205 checks, SMOKE_OK in-tree AND fresh-unzip; Xvfb shots verified (mono window, white outlines, noob portrait renders, settings page, HUD bubble)
+- Web: SdkView v3.11 "Mono Client" news, HomeView ?v=3.11, npm build OK; zip 118 files md5 573615eb; pushed d51d992; download copy refreshed
+
+Stage Summary:
+- v3.11 "Mono Client" live on main: strictly B/W rounded translucent menu with zero gradients, avatars render for real, pill button opens the menu, Leave quits, F read-mode, no chat replay spam, no #1 tags, slow centered bubbles
