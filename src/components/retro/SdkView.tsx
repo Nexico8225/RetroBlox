@@ -9,16 +9,16 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.10 "Glossy Classic"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.10'
+const VERSION = 'v3.11 "Mono Client"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.11'
 
 const NEW_STUFF: [string, string][] = [
-  ['The OLD-SITE gloss is back', 'Every action key is now the classic glossy gradient button: a bright shine band up top, a hard gloss cut across the middle, a dark base - and a BOLD near-black outline all the way around. Resume wears the green Play gloss, Leave the red, Reset/Log Out the steel.'],
-  ['Real 2011 client textures', 'The ESC menu window is the authentic rounded dark plate from the public 2011-08 Roblox client archive (bundled in the kit), and the topbar pill wears the real 2011 glass icon buttons - dark glass face, white left shine, hover brighten.'],
-  ['Gradient bars with hard edges', 'The title bar, nav rail and footer are banded vertical-gradient panels now - light lip on top, dark base, chunky 3-4px dark edges baked in - the old-website header look, not flat fills.'],
-  ['White text with bold outlines', 'Buttons and key labels speak in white pixel letters with a thick dark outline, the classic lettering from the old Play button. Player cards got chunkier 3px casings too.'],
-  ['The nav rail got gloss', 'The open page wears a steel-gloss gradient chip (bold outline, sinks when pressed) and the red open-page notch still marks it. Keycap hint chips keep their true bevels.'],
-  ['Everything from v3.9 stays', 'Player avatar portraits, everyone\'s live ping + fps, the left nav rail, keycap hotkey hints, stacked chat bubbles and the smooth stairs - all here, now glossier.'],
+  ['BLACK & WHITE, exactly', 'The ESC menu is rebuilt one more time: strictly black and white - translucent ink glass panels, white pixel type, ONE bold white outline style, and the gradients are ALL deleted (the whole gloss engine is gone from the kit). Retro pixel voice, modern flat surfaces.'],
+  ['Round corners + smooth + translucent', 'The window, bars, cards, wells and every button are rounded now, the background opacity is dialed back so the place glows through the menu, and the window breathes in with a quick smooth fade.'],
+  ['Avatars actually render', 'The empty-player-card bug is dead: the offscreen portrait camera now arms its one-shot render AFTER the stage is built, so every People card shows a real low-res pixel shot of that player\'s avatar on a translucent glass well (fallback: a black & white pixel head).'],
+  ['The pill button opens the menu', 'The red key in the top-left pill IS the ESC menu button now - click it and the client window opens (ESC and R still work). LEAVE closes the game for real: the window quits (the web build reloads the place instead).'],
+  ['F reads the chat', 'Press F to open the chat log in read mode: no type box, no keyboard grab - you can read everything AND keep moving. ENTER still opens the type box, ESC closes.'],
+  ['Chat quality pass', 'Rejoining no longer replays your old messages (the first feed is history, marked seen silently - no more bubble spam on rejoin), the "#1" tags are gone from chat lines, bubbles hug their text with the words centered in the pill, and they linger 9 seconds and fade out slowly instead of vanishing.'],
 ]
 
 const FILES = [

@@ -55,191 +55,31 @@ static func steel_texture() -> Texture2D:
         return _steel_tex
 
 
-# ---------------------------------------------------------------- v3.9 classic client
-## The ESC menu's ONE tight palette — near-black blue-grey surfaces, white
-## ink, and the brand red as the single accent (green lives ONLY on Resume
-## and the online dot). One voice: no timber signs, no gold, no steel soup.
-const MENU_BG := Color("15171d")          # the client window face
-const MENU_PANEL := Color("1d2028")       # raised panels (title bar, rail)
-const MENU_PANEL_HI := Color("252935")    # hover / selected faces
-const MENU_EDGE_DARK := Color("080a0e")   # outline ink
-const MENU_EDGE_HI := Color("3d4354")     # bevel highlight
-const MENU_INK := Color("f2f4f8")         # primary text
-const MENU_MUTED := Color("8b93a6")       # secondary text
-const MENU_FAINT := Color("5a6172")       # hints / version tag
-const MENU_RED := Color("e2231a")         # THE brand accent
-const MENU_RED_HI := Color("ff3b30")
-const MENU_GREEN := Color("2fbf4f")       # resume + online dot only
+# ---------------------------------------------------------------- v3.11 mono client
+## The ESC menu's ONE palette — BLACK & WHITE, as asked: translucent ink
+## faces, white ink, a BOLD WHITE outline, ROUND corners, and ZERO
+## gradients (the whole gloss engine is deleted). Pixel type on smooth
+## modern glass — retro and modern at once.
+const MENU_BG := Color(0.043, 0.047, 0.06, 0.84)     # the window face — translucent ink
+const MENU_PANEL := Color(1, 1, 1, 0.05)             # raised surfaces — white glass
+const MENU_PANEL_HI := Color(1, 1, 1, 0.11)          # hover faces
+const MENU_EDGE_DARK := Color(0, 0, 0, 0.82)         # ink outline
+const MENU_EDGE_HI := Color(0.93, 0.94, 0.97, 0.85)  # the BOLD WHITE outline
+const MENU_INK := Color("f4f5f7")                    # primary text — white
+const MENU_MUTED := Color(0.71, 0.73, 0.77)          # secondary text
+const MENU_FAINT := Color(0.44, 0.46, 0.5)           # hints / version tag
 
 
-# ---------------------------------------------------------------- v3.10 gloss
-## The old-website look, rebuilt: GLOSSY gradient buttons with bold ink
-## outlines (the classic green Play key), gradient panels with hard dark
-## edges, and two AUTHENTIC textures pulled from the public 2011-08 Roblox
-## client archive on GitHub — the rounded dark client-window plate and the
-## glass icon button. Everything else is drawn here, pixel by pixel.
-
-const RBX_PLATE_PATH := "res://assets/ui/rbx_black_plate.png"   # 2011 client window plate
-const RBX_GLASS_PATH := "res://assets/ui/rbx_glass_btn.png"     # 2011 glass icon button
-const RBX_GLASS_HI_PATH := "res://assets/ui/rbx_glass_btn_hi.png"
-
-const INK_OUTLINE := Color(0.016, 0.024, 0.04)   # the bold near-black outline
-
-static var _gloss_cache: Dictionary = {}
-
-
-## The star of the show — a GLOSSY vertical-gradient ninepatch with a bold
-## near-black outline and rounded corners: light top band, a hard gloss cut
-## across the middle, darker base. `pressed` flattens the shine and sinks
-## the face. Drawn 20x20 with 8px margins, cached per color.
-static func gloss_texture(base: Color, pressed := false) -> StyleBoxTexture:
-        var key := "gloss_%s_%s" % [base.to_html(false), pressed]
-        if _gloss_cache.has(key):
-                return _gloss_cache[key]
-        var w := 20
-        var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
-        var rad := 6.0
-        var hi := base.lightened(0.52)
-        var shine := base.lightened(0.74)
-        var mid := base
-        var low := base.darkened(0.38)
-        var rim := base.darkened(0.5)
-        for y in range(w):
-                for x in range(w):
-                        var p := Vector2(float(x) + 0.5, float(y) + 0.5)
-                        if not _in_rounded_px(p, Rect2(1, 1, 18, 18), rad):
-                                continue
-                        var col: Color
-                        if x <= 1 or y <= 1 or x >= w - 2 or y >= w - 2 or _near_corner_rim(p, Rect2(2, 2, 16, 16), rad):
-                                col = INK_OUTLINE          # the BOLD outline
-                        elif pressed:
-                                # sunk key: dark lip up top, flat mid face, light bottom lip
-                                if y <= 4:
-                                        col = low.darkened(0.18)
-                                elif y >= 15:
-                                        col = mid.lightened(0.14)
-                                else:
-                                        col = mid.darkened(0.1)
-                        else:
-                                # raised gloss: shine band, hard cut, dark base
-                                if y <= 2:
-                                        col = shine
-                                elif y <= 7:
-                                        col = hi
-                                elif y == 8:
-                                        col = mid.lightened(0.08)   # the gloss cut line
-                                elif y <= 13:
-                                        col = mid
-                                elif y <= 16:
-                                        col = low
-                                else:
-                                        col = rim
-                        img.set_pixel(x, y, col)
-        var sb := StyleBoxTexture.new()
-        sb.texture = ImageTexture.create_from_image(img)
-        for side in ["left", "right", "top", "bottom"]:
-                sb.set("texture_margin_" + side, 8.0)
-        _gloss_cache[key] = sb
+## One monochrome surface — translucent ink face, bold white outline, ROUND
+## corners. The whole menu is built from this: window, bars, cards, wells.
+static func mono_surface(radius := 12, face := MENU_BG, outline := MENU_EDGE_HI,
+                outline_w := 2) -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = face
+        sb.set_border_width_all(outline_w)
+        sb.border_color = outline
+        sb.set_corner_radius_all(radius)
         return sb
-
-
-## True when the pixel sits ON the rounded outline ring of `r` — used to
-## draw the bold 2px outline that hugs the rounded corner.
-static func _near_corner_rim(p: Vector2, r: Rect2, rad: float) -> bool:
-        if p.x < r.position.x or p.x > r.end.x or p.y < r.position.y or p.y > r.end.y:
-                return false
-        var hw := r.size.x * 0.5 - rad
-        var hh := r.size.y * 0.5 - rad
-        var dx := absf(p.x - r.get_center().x) - hw
-        var dy := absf(p.y - r.get_center().y) - hh
-        if dx <= 0.0 and dy <= 0.0:
-                return false   # on the straight part — the outer ring check handled it
-        dx = maxf(dx, 0.0)
-        dy = maxf(dy, 0.0)
-        var d := sqrt(dx * dx + dy * dy)
-        return d > rad - 1.6 and d <= rad
-
-
-## A banded vertical-GRADIENT panel with hard baked edges — the old site's
-## header bars, reborn. `edge_bottom`/`edge_top`/`edge_right` draw chunky
-## dark separators into the texture so panels read with BOLD outlines.
-static func gradient_panel(top: Color, bottom: Color, edge_bottom := Color(0, 0, 0, 0),
-                edge_top := Color(0, 0, 0, 0), edge_right := Color(0, 0, 0, 0)) -> StyleBoxTexture:
-        var key := "grad_%s_%s_%s_%s_%s" % [top.to_html(false), bottom.to_html(false),
-                edge_bottom.to_html(false), edge_top.to_html(false), edge_right.to_html(false)]
-        if _gloss_cache.has(key):
-                return _gloss_cache[key]
-        var w := 16
-        var h := 28
-        var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
-        var body_top := h - 4 if not edge_bottom.is_equal_approx(Color(0, 0, 0, 0)) else h
-        var body_lo := 1 if not edge_top.is_equal_approx(Color(0, 0, 0, 0)) else 0
-        var steps := 5   # banded like the old gradients, not smeared
-        for y in range(body_lo, body_top):
-                var t := float(y - body_lo) / float(maxi(1, body_top - 1 - body_lo))
-                var band := floorf(t * steps) / float(steps)
-                var c := top.lerp(bottom, band)
-                for x in range(w):
-                        img.set_pixel(x, y, c)
-        if body_lo == 1:
-                for x in range(w):
-                        img.set_pixel(x, 0, edge_top)
-        if body_top == h - 4:
-                for y in range(h - 4, h):
-                        for x in range(w):
-                                img.set_pixel(x, y, edge_bottom)
-        if not edge_right.is_equal_approx(Color(0, 0, 0, 0)):
-                for y in range(h):
-                        for x in range(w - 3, w):
-                                img.set_pixel(x, y, edge_right)
-        var sb := StyleBoxTexture.new()
-        sb.texture = ImageTexture.create_from_image(img)
-        sb.texture_margin_left = 2.0
-        sb.texture_margin_right = 2.0 + (3.0 if not edge_right.is_equal_approx(Color(0, 0, 0, 0)) else 0.0)
-        sb.texture_margin_top = 2.0
-        sb.texture_margin_bottom = 2.0 + (4.0 if not edge_bottom.is_equal_approx(Color(0, 0, 0, 0)) else 0.0)
-        _gloss_cache[key] = sb
-        return sb
-
-
-## The authentic 2011 client-window plate (public GitHub archive) — null
-## when the file is missing so callers can fall back to flat ink.
-static func client_plate() -> StyleBoxTexture:
-        if _gloss_cache.has("plate"):
-                return _gloss_cache["plate"]
-        var sb: StyleBoxTexture = null
-        if ResourceLoader.exists(RBX_PLATE_PATH):
-                sb = StyleBoxTexture.new()
-                sb.texture = load(RBX_PLATE_PATH)
-                for side in ["left", "right", "top", "bottom"]:
-                        sb.set("texture_margin_" + side, 19.0)
-        _gloss_cache["plate"] = sb
-        return sb
-
-
-## The 2011 glass icon button — the topbar wears the real thing.
-static func glass_button(hover := false) -> StyleBoxTexture:
-        var key := "glass_hi" if hover else "glass"
-        if _gloss_cache.has(key):
-                return _gloss_cache[key]
-        var sb: StyleBoxTexture = null
-        var path := RBX_GLASS_HI_PATH if hover else RBX_GLASS_PATH
-        if ResourceLoader.exists(path):
-                sb = StyleBoxTexture.new()
-                sb.texture = load(path)
-                for side in ["left", "right", "top", "bottom"]:
-                        sb.set("texture_margin_" + side, 8.0)
-        _gloss_cache[key] = sb
-        return sb
-
-
-## White text with the bold dark outline — the classic label treatment
-## (the old Play button's lettering). Call after the font/size overrides.
-static func outlined_text(node: Control, size: int, width := 2) -> void:
-        node.add_theme_font_size_override("font_size", size)
-        node.add_theme_color_override("font_color", Color.WHITE)
-        node.add_theme_constant_override("outline_size", width)
-        node.add_theme_color_override("font_outline_color", INK_OUTLINE)
 
 
 # ---------------------------------------------------------------- v3.8 polish
@@ -292,33 +132,17 @@ static func bevel_texture(bg: Color, pressed := false) -> StyleBoxTexture:
         return sb
 
 
-## A subtle two-tone CHECKER for the portrait wells — pure retro depth,
-## drawn in code (8px squares, panel-on-panel) and cached.
-static func checker_texture() -> ImageTexture:
-        if _bevel_cache.has("checker"):
-                return _bevel_cache["checker"]
-        var cell := 8
-        var img := Image.create_empty(cell * 2, cell * 2, false, Image.FORMAT_RGBA8)
-        for y in range(cell * 2):
-                for x in range(cell * 2):
-                        var on := (int(x / float(cell)) + int(y / float(cell))) % 2 == 0
-                        img.set_pixel(x, y, MENU_PANEL if on else MENU_BG)
-        var tex := ImageTexture.create_from_image(img)
-        _bevel_cache["checker"] = tex
-        return tex
-
-
-## The classic smiley HEAD — a chunky yellow blocky face with two black eyes
-## and a pixel smile, drawn in code. Kept as the portrait FALLBACK (no rig,
-## headless) and for tiny list contexts.
+## The classic smiley HEAD — a chunky WHITE blocky face with two dark eyes
+## and a pixel smile, drawn in code (strict black & white). Kept as the
+## portrait FALLBACK (no rig, headless) and for tiny list contexts.
 static func head_icon() -> ImageTexture:
         if _bevel_cache.has("head"):
                 return _bevel_cache["head"]
         var w := 18
         var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
-        var face := Color("f7c948")
-        var face_edge := Color("c79a2a")
-        var ink := Color(0.12, 0.1, 0.08)
+        var face := Color("e9ecf1")
+        var face_edge := Color("b9bec7")
+        var ink := Color(0.1, 0.11, 0.13)
         for y in range(w):
                 for x in range(w):
                         var p := Vector2(float(x) + 0.5, float(y) + 0.5)
@@ -546,39 +370,23 @@ static func make_theme() -> Theme:
         if pixel != null:
                 t.set_font("font", "Button", pixel)
 
-        # ---- Button variations — v3.10: the old-site GLOSS gradient keys ----
-        t.set_type_variation("BtnGreen", "Button")
-        t.set_stylebox("normal", "BtnGreen", gloss_texture(GREEN))
-        t.set_stylebox("hover", "BtnGreen", gloss_texture(GREEN_HI))
-        t.set_stylebox("pressed", "BtnGreen", gloss_texture(GREEN_DARK, true))
-        t.set_stylebox("disabled", "BtnGreen", gloss_texture(Color("8fae94")))
-        t.set_color("font_color", "BtnGreen", Color.WHITE)
-        t.set_color("font_hover_color", "BtnGreen", Color.WHITE)
-        t.set_color("font_pressed_color", "BtnGreen", Color.WHITE)
+        # ---- Button variations — v3.11: FLAT rounded keys (gradients gone) ----
+        var flat_var := func(var_name: String, bg: Color, hover: Color, down: Color) -> void:
+                t.set_type_variation(var_name, "Button")
+                t.set_stylebox("normal", var_name, _flat(bg, MENU_EDGE_DARK, 2, 10))
+                t.set_stylebox("hover", var_name, _flat(hover, MENU_EDGE_DARK, 2, 10))
+                t.set_stylebox("pressed", var_name, _flat(down, MENU_EDGE_DARK, 2, 10))
+                t.set_color("font_color", var_name, Color.WHITE)
+                t.set_color("font_hover_color", var_name, Color.WHITE)
+                t.set_color("font_pressed_color", var_name, Color.WHITE)
+                t.set_constant("outline_size", var_name, 2)
+                t.set_color("font_outline_color", var_name, MENU_EDGE_DARK)
+        flat_var.call("BtnGreen", GREEN, GREEN_HI, GREEN_DARK)
+        flat_var.call("BtnRed", RED, Color("d94a3a"), RED_DARK)
+        flat_var.call("BtnBlue", BLUE, Color("2a85c9"), Color("134f7c"))
+        t.set_stylebox("disabled", "BtnGreen", _flat(Color("8fae94"), MENU_EDGE_DARK, 2, 10))
         t.set_color("font_disabled_color", "BtnGreen", Color("e9f2ea"))
-        t.set_constant("outline_size", "BtnGreen", 2)
-        t.set_color("font_outline_color", "BtnGreen", INK_OUTLINE)
         t.set_font_size("font_size", "BtnGreen", 15)
-
-        t.set_type_variation("BtnRed", "Button")
-        t.set_stylebox("normal", "BtnRed", gloss_texture(RED))
-        t.set_stylebox("hover", "BtnRed", gloss_texture(Color("d94a3a")))
-        t.set_stylebox("pressed", "BtnRed", gloss_texture(RED_DARK, true))
-        t.set_color("font_color", "BtnRed", Color.WHITE)
-        t.set_color("font_hover_color", "BtnRed", Color.WHITE)
-        t.set_color("font_pressed_color", "BtnRed", Color.WHITE)
-        t.set_constant("outline_size", "BtnRed", 2)
-        t.set_color("font_outline_color", "BtnRed", INK_OUTLINE)
-
-        t.set_type_variation("BtnBlue", "Button")
-        t.set_stylebox("normal", "BtnBlue", gloss_texture(BLUE))
-        t.set_stylebox("hover", "BtnBlue", gloss_texture(Color("2a85c9")))
-        t.set_stylebox("pressed", "BtnBlue", gloss_texture(Color("134f7c"), true))
-        t.set_color("font_color", "BtnBlue", Color.WHITE)
-        t.set_color("font_hover_color", "BtnBlue", Color.WHITE)
-        t.set_color("font_pressed_color", "BtnBlue", Color.WHITE)
-        t.set_constant("outline_size", "BtnBlue", 2)
-        t.set_color("font_outline_color", "BtnBlue", INK_OUTLINE)
 
         t.set_type_variation("BtnGhost", "Button")
         t.set_stylebox("normal", "BtnGhost", _button_style(Color(0, 0, 0, 0.18), Color(1, 1, 1, 0.35)))

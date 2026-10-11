@@ -12,7 +12,8 @@ extends Node3D
 ## MAX_STACK bubbles show at once; a new message retires the oldest early
 ## so the tower never grows forever.
 
-const SHOW_SECONDS := 4.5
+const SHOW_SECONDS := 9.0     # v3.11: bubbles LINGER (they used to die at 4.5s)
+const FADE_SECONDS := 1.4     # v3.11: a slow, soft fade at the end
 const MAX_LINES := 3
 const MAX_STACK := 3          # bubbles visible at once, Roblox-style
 const WRAP_AT := 18           # characters per line — the classic narrow bubble
@@ -20,6 +21,10 @@ const MAX_CHARS := 110        # hard trim before wrapping
 const STACK_GAP := 0.24       # studs between stacked bubbles
 const REFLOW_SPEED := 16.0    # how fast bubbles glide into their stack slot
 const BASE_LIFT := 0.35       # newest bubble tail sits this far above the node
+## The plate texture carries a TAIL at the bottom, so the texture's center
+## sits ~8px BELOW the visible pill's center — the reason the text used to
+## hang low with that big offset. The label rides this far up (in px).
+const PLATE_CENTER_LIFT := 8.0
 
 ## Textures are cached per line count (1..MAX_LINES).
 static var _tex_cache: Dictionary = {}
@@ -43,11 +48,18 @@ func show_text(message: String) -> void:
         if lines.is_empty():
                 return
 
-        # the tower never grows forever: retire the oldest bubble early
+        # the tower never grows forever: the oldest bubble EASES OUT now —
+        # it used to pop out of existence the instant a new message landed
         while _entries.size() >= MAX_STACK:
-                _retire(0)
+                _fade_out(0)
 
-        var tex := _plate_texture(lines.size())
+        # v3.11: the plate HUGS its text now ("hi" gets a small bubble, not
+        # a giant empty pill) — widest line drives the width, clamped.
+        var max_len := 0
+        for ln in lines:
+                max_len = maxi(max_len, ln.length())
+        var w := clampi((max_len * 13 + 44 + 15) & ~15, 96, 256)
+        var tex := _plate_texture(lines.size(), w)
         var squeeze := 0.62 + 0.38 * float(lines.size()) / float(MAX_LINES)
         var height := tex.get_height() * 0.012 * squeeze
 
@@ -74,6 +86,9 @@ func show_text(message: String) -> void:
         label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
         label.shaded = false
         label.render_priority = 1           # ink always on top of the plate
+        # v3.11 OFFSET FIX: center the text on the VISIBLE pill (the plate
+        # rect), not on the texture-with-tail — this kills the big offset.
+        label.position = Vector3(0.0, PLATE_CENTER_LIFT * sprite.pixel_size * squeeze, 0.0)
         add_child(label)
 
         # spawn at the head slot (0.0) and glide up to wherever the stack
@@ -96,8 +111,8 @@ func _process(delta: float) -> void:
                 if float(e["left"]) < 0.0:
                         died.append(i)
                         a = 0.0
-                elif float(e["left"]) < 0.4:
-                        a = float(e["left"]) / 0.4   # gentle fade at the very end
+                elif float(e["left"]) < FADE_SECONDS:
+                        a = float(e["left"]) / FADE_SECONDS   # v3.11: SLOW fade out
                 elif float(e["left"]) > SHOW_SECONDS - 0.12:
                         a = (SHOW_SECONDS - float(e["left"])) / 0.12   # pop in
                 var spr: Sprite3D = e["sprite"]
@@ -135,6 +150,26 @@ func _retire(index: int) -> void:
         var lab: Label3D = e["label"]
         if lab != null and is_instance_valid(lab):
                 lab.queue_free()
+
+
+## v3.11: a bubble leaving the stack early (overflow) fades out over half a
+## second in place — no more vanishing mid-air when you chat quickly.
+func _fade_out(index: int) -> void:
+        var e: Dictionary = _entries[index]
+        _entries.remove_at(index)
+        var spr: Sprite3D = e["sprite"]
+        var lab: Label3D = e["label"]
+        var tw := create_tween()
+        tw.set_parallel(true)
+        if spr != null and is_instance_valid(spr):
+                tw.tween_property(spr, "modulate:a", 0.0, 0.55)
+        if lab != null and is_instance_valid(lab):
+                tw.tween_property(lab, "modulate:a", 0.0, 0.55)
+        tw.chain().tween_callback(func() -> void:
+                if spr != null and is_instance_valid(spr):
+                        spr.queue_free()
+                if lab != null and is_instance_valid(lab):
+                        lab.queue_free())
 
 
 ## Word-wrap into at most MAX_LINES short lines ("…" marks a cut).
@@ -178,12 +213,13 @@ func _cut(lines: Array[String]) -> Array[String]:
         return lines
 
 
-## The white rounded plate with a tail, drawn per line count in code.
-static func _plate_texture(line_count: int) -> ImageTexture:
-        if _tex_cache.has(line_count):
-                return _tex_cache[line_count]
+## The white rounded plate with a tail, drawn per (line count, width) in
+## code — width fits the text now, in 16px buckets so the cache stays tiny.
+static func _plate_texture(line_count: int, w := 256) -> ImageTexture:
+        var key := "%d_%d" % [line_count, w]
+        if _tex_cache.has(key):
+                return _tex_cache[key]
 
-        var w := 256
         var lines_h := 26 + 30 * clampi(line_count, 1, MAX_LINES)
         var rect := Rect2(8.0, 6.0, float(w) - 16.0, float(lines_h))
         var tail_h := 22.0
@@ -207,7 +243,7 @@ static func _plate_texture(line_count: int) -> ImageTexture:
                         img.set_pixel(x, y, col)
 
         var tex := ImageTexture.create_from_image(img)
-        _tex_cache[line_count] = tex
+        _tex_cache[key] = tex
         return tex
 
 

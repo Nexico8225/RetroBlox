@@ -42,6 +42,7 @@ var _portrait_nodes: Dictionary = {} # v3.9: userId -> the card TextureRect to s
 var _portrait_pending: Dictionary = {} # v3.9: renders already in flight
 var _remotes: Dictionary = {}      # userId -> RemotePlayer
 var _seen_messages: Dictionary = {} # message id -> true
+var _chat_history_done := false     # v3.11: the first feed is history, not new lines
 var _spawns: Array[Vector3] = []
 var _respawning := false
 var _finished := false
@@ -261,13 +262,24 @@ func _unhandled_input(event: InputEvent) -> void:
                         get_viewport().set_input_as_handled()
                         return
         if event.is_action_pressed("ui_cancel"):
-                _toggle_menu()
+                # v3.11: ESC closes READ MODE first — the menu toggle comes after
+                if chat.is_reading:
+                        chat.close_read()
+                else:
+                        _toggle_menu()
                 get_viewport().set_input_as_handled()
         elif event.is_action_pressed("ui_text_submit") or (event is InputEventKey and event.is_pressed() and not event.is_echo() and (event as InputEventKey).keycode == KEY_ENTER):
                 if not _menu_open and chat != null and is_instance_valid(chat) and not chat.is_open:
                         chat.open()
                         camera_rig.set_ui_blocked(true)
                         get_viewport().set_input_as_handled()
+        elif event is InputEventKey and event.is_pressed() and not event.is_echo() \
+                        and (event as InputEventKey).keycode == KEY_F and not _menu_open \
+                        and not chat.is_open:
+                # v3.11: F READS the chat — log only, keyboard stays free,
+                # you keep moving. F again (or ESC) hides it.
+                chat.toggle_read()
+                get_viewport().set_input_as_handled()
         elif event is InputEventKey and event.is_pressed() and not event.is_echo() \
                         and (event as InputEventKey).keycode == KEY_R and not _menu_open \
                         and not chat.is_open:
@@ -358,9 +370,10 @@ func _build_topbar() -> void:
         row.add_theme_constant_override("separation", 6)
         pill.add_child(row)
 
-        var logo_btn := _pill_button("res://assets/icons/logo.png", "RetroBlox")
-        logo_btn.pressed.connect(func() -> void:
-                _notify("RetroBlox — %s" % String(place.get("name", "a classic place"))))
+        # v3.11: THE BUTTON OPENS THE ESC MENU — the red key in the pill is
+        # the menu button now (ESC still works, nothing else changed)
+        var logo_btn := _pill_button("res://assets/icons/logo.png", "ESC Menu")
+        logo_btn.pressed.connect(func() -> void: _toggle_menu())
         row.add_child(logo_btn)
 
         # v3.7: just the chat button — ESC opens the menu, P opens the player
@@ -431,15 +444,11 @@ func _pill_style() -> StyleBoxFlat:
 
 
 func _pill_btn_style(hover: bool) -> StyleBox:
-        # the authentic 2011 GLASS icon button (dark face, left shine) —
-        # pulled from the public 2011-08 client archive
-        var sb: StyleBoxTexture = RetroUI.glass_button(hover)
-        if sb != null:
-                return sb
-        var flat := StyleBoxFlat.new()
-        flat.bg_color = Color(1, 1, 1, 0.12) if hover else Color(0, 0, 0, 0)
-        flat.set_corner_radius_all(16)
-        return flat
+        # v3.11: flat mono glass — a soft white wash on hover, no texture
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(1, 1, 1, 0.14) if hover else Color(1, 1, 1, 0.04)
+        sb.set_corner_radius_all(16)
+        return sb
 
 
 func _badge_style() -> StyleBoxFlat:
@@ -462,7 +471,8 @@ func _build_health() -> void:
         plate.name = "HealthBar"
         plate.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        plate.add_theme_stylebox_override("panel", RetroUI.bevel_texture(Color("263441")))
+        plate.add_theme_stylebox_override("panel",
+                RetroUI.mono_surface(12, Color(0.03, 0.035, 0.05, 0.72), Color(1, 1, 1, 0.3), 2))
         plate.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
         plate.offset_left = -88.0
         plate.offset_right = -12.0
@@ -477,7 +487,7 @@ func _build_health() -> void:
 
         var label := Label.new()
         label.text = "HEALTH"
-        _pix(label, 8, Color(0.66, 0.78, 0.88))
+        _pix(label, 8, Color(0.78, 0.8, 0.84))
         label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         label.mouse_filter = Control.MOUSE_FILTER_IGNORE
         holder.add_child(label)
@@ -514,8 +524,8 @@ func _build_health() -> void:
 
 func _chip_style() -> StyleBoxFlat:
         var sb := StyleBoxFlat.new()
-        # cyan chip like the video's health readout
-        sb.bg_color = Color("00d6c2")
+        # v3.11: WHITE chip with ink text — strict mono reads cleaner
+        sb.bg_color = Color(0.96, 0.97, 0.98, 0.95)
         sb.set_corner_radius_all(8)
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
@@ -586,13 +596,11 @@ func _setup_audio() -> void:
                         wind.call("play")
 
 
-# ---- the menu — the v3.10 GLOSSY CLASSIC CLIENT window -------------------
-## The v3.9 client shell, now wearing the OLD-SITE look: the window itself
-## is the authentic 2011 rounded plate (a real texture from the public
-## 2011-08 client archive), the bars are banded gradient panels with hard
-## dark edges, and every action key is a GLOSSY gradient button with a
-## bold ink outline — shine band up top, hard gloss cut, dark base, white
-## outlined pixel text. Same tight palette, way more retro.
+# ---- the menu — the v3.11 MONO CLIENT window ------------------------------
+## Rebuilt again, and this time it's BLACK & WHITE (exactly as asked): the
+## window is one translucent ink glass with a bold WHITE outline and ROUND
+## corners, every surface is the same monochrome family, the pixel type
+## stays, and the gradients are ALL gone — smooth, modern, retro.
 
 
 func _build_menu() -> Control:
@@ -600,7 +608,8 @@ func _build_menu() -> Control:
         overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.visible = false
         var dim := ColorRect.new()
-        dim.color = Color(0.01, 0.02, 0.03, 0.72)
+        # v3.11: a lighter dim — the place still glows through the menu
+        dim.color = Color(0.01, 0.02, 0.03, 0.55)
         dim.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.add_child(dim)
         var shadow := PanelContainer.new()
@@ -666,7 +675,7 @@ func _build_menu() -> Control:
         _fps_chip = _stat_line(you_box, "FPS")
         _ping_chip = _stat_line(you_box, "PNG")
         var ver := Label.new()
-        ver.text = "v3.10"
+        ver.text = "v3.11"
         ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         _pix(ver, 7, RetroUI.MENU_FAINT)
         rail_box.add_child(ver)
@@ -790,7 +799,7 @@ func _menu_title_bar() -> PanelContainer:
         else:
                 var t := Label.new()
                 t.text = "RETROBLOX"
-                _pix(t, 10, RetroUI.MENU_RED)
+                _pix(t, 10, RetroUI.MENU_INK)
                 row.add_child(t)
         row.add_child(_spacer())
         var place_l := Label.new()
@@ -803,23 +812,21 @@ func _menu_title_bar() -> PanelContainer:
         close.custom_minimum_size = Vector2(32, 26)
         close.focus_mode = Control.FOCUS_NONE
         close.tooltip_text = "Resume (ESC)"
-        close.add_theme_stylebox_override("normal", _gloss_btn(RetroUI.MENU_RED))
-        close.add_theme_stylebox_override("hover", _gloss_btn(RetroUI.MENU_RED_HI))
-        close.add_theme_stylebox_override("pressed", _gloss_btn(Color("8f1410"), true))
+        close.add_theme_stylebox_override("normal", _mono_btn())
+        close.add_theme_stylebox_override("hover", _mono_btn(RetroUI.MENU_PANEL_HI))
+        close.add_theme_stylebox_override("pressed", _mono_btn(Color(1, 1, 1, 0.16), true))
         for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-                close.add_theme_color_override(st, Color.WHITE)
-        close.add_theme_constant_override("outline_size", 2)
-        close.add_theme_color_override("font_outline_color", RetroUI.INK_OUTLINE)
+                close.add_theme_color_override(st, RetroUI.MENU_INK)
+        close.add_theme_constant_override("outline_size", 0)
         close.add_theme_font_size_override("font_size", 8)
         close.pressed.connect(_toggle_menu)
         row.add_child(close)
         return bar
 
 
-## The footer: the four action keys are GLOSSY gradient caps now — Resume
-## is the classic green Play gloss (shine band + bold ink outline + white
-## outlined text), Leave wears the red gloss, Reset/Log Out stay steel —
-## plus the keycap hint bar underneath.
+## The footer: the action keys in ONE monochrome family — Resume is the
+## big WHITE key (inverted), Reset/Leave/Log Out are ink glass with the
+## bold white outline — plus the keycap hint bar underneath.
 func _menu_footer() -> PanelContainer:
         var foot := PanelContainer.new()
         foot.name = "MenuFooter"
@@ -830,19 +837,18 @@ func _menu_footer() -> PanelContainer:
         var actions := HBoxContainer.new()
         actions.add_theme_constant_override("separation", 8)
         col.add_child(actions)
-        actions.add_child(_action_button("Resume", "play",
-                Color("2fbf4f"), Color("3fd462"), Color("23863c"), _toggle_menu, 0, true))
+        # v3.11: one monochrome family — Resume is the WHITE key (inverted),
+        # everything else is ink glass with the bold white outline. No red,
+        # no green, no gradients.
+        actions.add_child(_action_button("Resume", "play", _toggle_menu, 0, true, true))
         actions.add_child(_action_button("Reset Character", "reset",
-                Color("4d566c"), Color("5d6880"), Color("3a4254"),
                 func() -> void:
                         _toggle_menu()
                         if player.alive:
                                 player.die(self)
                         _start_respawn(), 158))
-        actions.add_child(_action_button("Leave", "door",
-                Color("b3261e"), Color("d13a30"), Color("8f1d17"), _leave_game, 112))
+        actions.add_child(_action_button("Leave", "door", _leave_game, 112))
         actions.add_child(_action_button("Log Out", "power",
-                Color("4d566c"), Color("5d6880"), Color("3a4254"),
                 func() -> void:
                         Api.clear_session()
                         Session.reset()
@@ -853,13 +859,14 @@ func _menu_footer() -> PanelContainer:
         hints.add_theme_constant_override("separation", 5)
         col.add_child(hints)
         _hint_chip(hints, "ENTER", "chat")
+        _hint_chip(hints, "F", "read")
         _hint_chip(hints, "ESC", "resume")
         _hint_chip(hints, "R", "menu")
         _hint_chip(hints, "L", "leave")
         return foot
 
 
-func _action_button(text: String, icon_kind: String, bg: Color, hover_bg: Color, pressed_bg: Color, handler: Callable, min_w := 0, expand := false) -> Button:
+func _action_button(text: String, icon_kind: String, handler: Callable, min_w := 0, expand := false, inverted := false) -> Button:
         var b := Button.new()
         b.text = text
         b.icon = RetroUI.icon_texture(icon_kind)
@@ -869,14 +876,20 @@ func _action_button(text: String, icon_kind: String, bg: Color, hover_bg: Color,
                 b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         b.custom_minimum_size = Vector2(maxi(min_w, 0), 46)
         b.focus_mode = Control.FOCUS_NONE
-        # the classic GLOSS: shine band + bold ink outline + white outlined text
-        b.add_theme_stylebox_override("normal", _gloss_btn(bg))
-        b.add_theme_stylebox_override("hover", _gloss_btn(hover_bg))
-        b.add_theme_stylebox_override("pressed", _gloss_btn(pressed_bg, true))
-        for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-                b.add_theme_color_override(st, Color.WHITE)
-        b.add_theme_constant_override("outline_size", 2)
-        b.add_theme_color_override("font_outline_color", RetroUI.INK_OUTLINE)
+        # v3.11 MONO: flat glass face + bold white outline; the inverted key
+        # flips to a WHITE face with ink text (Resume, the main action)
+        if inverted:
+                b.add_theme_stylebox_override("normal", _mono_btn(Color(0.94, 0.95, 0.97, 0.94)))
+                b.add_theme_stylebox_override("hover", _mono_btn(Color.WHITE))
+                b.add_theme_stylebox_override("pressed", _mono_btn(Color(0.8, 0.82, 0.85, 0.94), true))
+                for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+                        b.add_theme_color_override(st, Color(0.06, 0.07, 0.09))
+        else:
+                b.add_theme_stylebox_override("normal", _mono_btn())
+                b.add_theme_stylebox_override("hover", _mono_btn(RetroUI.MENU_PANEL_HI))
+                b.add_theme_stylebox_override("pressed", _mono_btn(Color(1, 1, 1, 0.16), true))
+                for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+                        b.add_theme_color_override(st, RetroUI.MENU_INK)
         b.add_theme_font_size_override("font_size", 10)
         b.pressed.connect(handler)
         return b
@@ -896,22 +909,22 @@ func _nav_button(text: String, icon_kind: String) -> Button:
         return b
 
 
-## The nav rail's voice: white ink on both states (the old SETTINGS tab used
-## to drown into the card — that complaint is dead), a red notch on the left
-## edge marks the open page, and the OPEN page wears a steel-gloss gradient
-## chip with a bold ink outline.
+## The nav rail's voice: white ink on both states, a WHITE notch on the left
+## edge marks the open page, and the OPEN page wears a white-glass chip with
+## the bold white outline (mono — no gradient, no red).
 func _style_nav(b: Button, on: bool) -> void:
         b.set_pressed_no_signal(on)
         if on:
-                var gloss: StyleBoxTexture = RetroUI.gloss_texture(Color("46506a"))
-                gloss.content_margin_left = 10.0
-                gloss.content_margin_right = 8.0
-                gloss.content_margin_top = 8.0
-                gloss.content_margin_bottom = 8.0
-                b.add_theme_stylebox_override("normal", gloss)
-                b.add_theme_stylebox_override("hover", gloss)
-                b.add_theme_stylebox_override("pressed", gloss)
-                b.add_theme_stylebox_override("hover_pressed", gloss)
+                var chip: StyleBoxFlat = RetroUI.mono_surface(8, RetroUI.MENU_PANEL_HI,
+                        RetroUI.MENU_EDGE_HI, 2)
+                chip.content_margin_left = 10.0
+                chip.content_margin_right = 8.0
+                chip.content_margin_top = 8.0
+                chip.content_margin_bottom = 8.0
+                b.add_theme_stylebox_override("normal", chip)
+                b.add_theme_stylebox_override("hover", chip)
+                b.add_theme_stylebox_override("pressed", chip)
+                b.add_theme_stylebox_override("hover_pressed", chip)
         else:
                 var normal := StyleBoxFlat.new()
                 normal.bg_color = Color(0, 0, 0, 0)
@@ -930,12 +943,12 @@ func _style_nav(b: Button, on: bool) -> void:
         b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
         for st in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
                 b.add_theme_color_override(st, RetroUI.MENU_INK)
-        # the red open-page notch rides ON the gloss chip (styleboxes can't border)
+        # the open-page notch rides ON the chip (styleboxes can't border)
         var notch := b.get_node_or_null("NavNotch")
         if on and notch == null:
                 var bar := ColorRect.new()
                 bar.name = "NavNotch"
-                bar.color = RetroUI.MENU_RED
+                bar.color = RetroUI.MENU_INK
                 bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
                 bar.set_anchors_preset(Control.PRESET_LEFT_WIDE)
                 bar.offset_right = 3.0
@@ -985,8 +998,8 @@ func _player_card(uid: String, uname: String, is_me: bool, ping: Variant, fps: V
         box.add_theme_constant_override("separation", 6)
         card.add_child(box)
 
-        # the portrait well: checker floor, real avatar shot dropped in when
-        # the render lands (head icon holds the seat until then)
+        # the portrait well: translucent glass, real avatar shot dropped in
+        # when the render lands (mono head holds the seat until then)
         var well := PanelContainer.new()
         well.add_theme_stylebox_override("panel", _well_texture_style())
         well.custom_minimum_size = Vector2(0, 150)
@@ -1023,10 +1036,11 @@ func _player_card(uid: String, uname: String, is_me: bool, ping: Variant, fps: V
 
 
 func _card_casing(is_me: bool) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.MENU_PANEL
-        sb.set_border_width_all(3)   # BOLD outlines, the old-site way
-        sb.border_color = RetroUI.MENU_RED if is_me else RetroUI.MENU_EDGE_HI
+        # v3.11 MONO: round translucent cards; MY card wears the BOLD WHITE
+        # ring, everyone else a quiet one (the red ring is gone — strict B/W)
+        var sb := RetroUI.mono_surface(12, RetroUI.MENU_PANEL,
+                RetroUI.MENU_EDGE_HI if is_me else Color(1, 1, 1, 0.26),
+                3 if is_me else 2)
         sb.content_margin_left = 6.0
         sb.content_margin_right = 6.0
         sb.content_margin_top = 6.0
@@ -1034,9 +1048,10 @@ func _card_casing(is_me: bool) -> StyleBoxFlat:
         return sb
 
 
-func _well_texture_style() -> StyleBoxTexture:
-        var sb := StyleBoxTexture.new()
-        sb.texture = RetroUI.checker_texture()
+## The portrait well — translucent white glass now (the avatar bg changed
+## WITH the window, as asked): the picture floats on soft ink, round corners.
+func _well_texture_style() -> StyleBoxFlat:
+        var sb := RetroUI.mono_surface(10, Color(1, 1, 1, 0.07), Color(1, 1, 1, 0.2), 2)
         sb.content_margin_left = 4.0
         sb.content_margin_right = 4.0
         sb.content_margin_top = 4.0
@@ -1119,44 +1134,34 @@ func _clock_text() -> String:
 
 # ---- the client's one-voice surfaces --------------------------------------
 
-## The window: the authentic 2011 rounded plate (bold outline baked into
-## the texture), flat ink fallback when the archive texture is missing.
+## The window — ONE translucent ink glass: round corners, bold white
+## outline, the place glowing through it (the bg opacity you asked for).
 func _client_style() -> StyleBox:
-        var plate: StyleBoxTexture = RetroUI.client_plate()
-        if plate != null:
-                plate.content_margin_left = 5.0
-                plate.content_margin_right = 5.0
-                plate.content_margin_top = 5.0
-                plate.content_margin_bottom = 5.0
-                return plate
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.MENU_BG
-        sb.set_border_width_all(3)
-        sb.border_color = RetroUI.INK_OUTLINE
-        sb.set_corner_radius_all(10)
-        sb.content_margin_left = 4.0
-        sb.content_margin_right = 4.0
-        sb.content_margin_top = 4.0
-        sb.content_margin_bottom = 4.0
+        var sb := RetroUI.mono_surface(14, RetroUI.MENU_BG, RetroUI.MENU_EDGE_HI, 3)
+        sb.content_margin_left = 5.0
+        sb.content_margin_right = 5.0
+        sb.content_margin_top = 5.0
+        sb.content_margin_bottom = 5.0
+        sb.shadow_color = Color(0, 0, 0, 0.45)
+        sb.shadow_size = 18
         return sb
 
 
 func _title_bar_style() -> StyleBox:
-        # banded gradient bar, light lip on top + hard dark edge below
-        return RetroUI.gradient_panel(Color("272c3a"), Color("171a23"), RetroUI.MENU_EDGE_DARK, Color("3a4152"))
+        # quiet white-glass bar with a thin bottom edge, round to match
+        return RetroUI.mono_surface(8, RetroUI.MENU_PANEL, Color(1, 1, 1, 0.14), 2)
 
 
 func _rail_style() -> StyleBox:
-        # gradient rail with a BOLD dark right edge separating it from the page
-        return RetroUI.gradient_panel(Color("20242f"), Color("14161d"), Color(0, 0, 0, 0), Color(0, 0, 0, 0), RetroUI.MENU_EDGE_DARK)
+        return RetroUI.mono_surface(8, RetroUI.MENU_PANEL, Color(1, 1, 1, 0.12), 2)
 
 
 func _footer_style() -> StyleBox:
-        return RetroUI.gradient_panel(Color("20242f"), Color("14161d"), Color(0, 0, 0, 0), RetroUI.MENU_EDGE_DARK)
+        return RetroUI.mono_surface(8, RetroUI.MENU_PANEL, Color(1, 1, 1, 0.12), 2)
 
 
 func _inset_style() -> StyleBox:
-        var sb := RetroUI.gradient_panel(Color("1b1e27"), Color("101218"))
+        var sb := RetroUI.mono_surface(10, Color(0, 0, 0, 0.35), Color(1, 1, 1, 0.16), 2)
         sb.content_margin_left = 8.0
         sb.content_margin_right = 8.0
         sb.content_margin_top = 8.0
@@ -1164,21 +1169,27 @@ func _inset_style() -> StyleBox:
         return sb
 
 
-## The gloss button wrapper — content margins tuned for chunky caps.
-func _gloss_btn(bg: Color, pushed := false) -> StyleBoxTexture:
-        var sb: StyleBoxTexture = RetroUI.gloss_texture(bg, pushed)
+## The one MONO button face — flat translucent glass, bold white outline,
+## ROUND corners, sinks when pushed. Every menu key is built on this.
+func _mono_btn(face := Color(0, 0, 0, 0.0), pushed := false) -> StyleBoxFlat:
+        var sb := RetroUI.mono_surface(10, Color(0, 0, 0, 0.32) if face.a <= 0.0 else face,
+                RetroUI.MENU_EDGE_HI, 2)
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
-        sb.content_margin_top = 8.0
-        sb.content_margin_bottom = 7.0 if pushed else 9.0
+        sb.content_margin_top = 9.0 if pushed else 8.0
+        sb.content_margin_bottom = 9.0 if pushed else 7.0
         return sb
 
 
-## Leave the place — with the hub retired, Leave rejoins the classic place
-## fresh (a full scene reload). The menu's L shortcut lands here too.
+## Leave = CLOSE THE GAME (v3.11, exactly as asked): the window quits on
+## desktop. The web build can't close its own tab, so there Leave reloads
+## the place instead. The menu's L shortcut lands here too.
 func _leave_game() -> void:
         Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-        get_tree().change_scene_to_file("res://scenes/game.tscn")
+        if OS.has_feature("web"):
+                get_tree().change_scene_to_file("res://scenes/game.tscn")
+        else:
+                get_tree().quit()
 
 
 var _menu_switch: Callable = func(_t: String) -> void: pass
@@ -1338,10 +1349,14 @@ func _toggle_menu() -> void:
         _menu_open = not _menu_open
         _menu.visible = _menu_open
         if _menu_open:
+                # v3.11: the window breathes in — a quick smooth fade
+                _menu.modulate.a = 0.0
+                create_tween().tween_property(_menu, "modulate:a", 1.0, 0.14)
                 camera_rig.set_ui_blocked(true)
                 _refresh_player_list([])
                 _update_live_stats()
         else:
+                _menu.modulate.a = 1.0
                 camera_rig.set_ui_blocked(false)
 
 
@@ -1438,8 +1453,20 @@ func _poll_feed() -> void:
         _last_ping_ms = int(Time.get_ticks_msec() - t0)
         if not res.get("ok", false):
                 return
-        for msg in res.get("messages", []):
-                _ingest_message(msg)
+        var msgs: Array = res.get("messages", [])
+        if not _chat_history_done:
+                # v3.11 REJOIN FIX: the feed's first answer is the place's
+                # last 60 lines — HISTORY from before you joined. Mark it all
+                # seen silently so reopening the game never re-spams your old
+                # chat (and never re-pops those bubbles over your head).
+                _chat_history_done = true
+                for msg in msgs:
+                        var mid := String(msg.get("id", ""))
+                        if mid != "":
+                                _seen_messages[mid] = true
+        else:
+                for msg in msgs:
+                        _ingest_message(msg)
         _reconcile_players(res.get("players", []))
 
 

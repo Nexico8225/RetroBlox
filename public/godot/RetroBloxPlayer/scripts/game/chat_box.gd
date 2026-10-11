@@ -1,11 +1,15 @@
 extends Control
 ## ChatBox — the TOP-LEFT chat, dark translucent + rounded like the modern
 ## classic client: log under the topbar pill, input line always visible
-## underneath. Shows the last stretch of lines with colored names (#seqId
-## chips included), Enter opens the input, Enter again sends, Esc closes.
-## The LOG can collapse to nothing — unread messages then count on the
-## topbar chat button's red badge. Plain text only — nothing can inject
-## markup.
+## underneath. Shows the last stretch of lines with colored names, Enter
+## opens the input, Enter again sends, Esc closes. The LOG can collapse to
+## nothing — unread messages then count on the topbar chat button's red
+## badge. Plain text only — nothing can inject markup.
+##
+## v3.11: F READS — a read-only mode that shows the log WITHOUT grabbing
+## the keyboard, so you can catch up on chat while you keep moving. The
+## "#1" seq chips are gone from lines, and the panels are rounder + more
+## translucent (matching the mono menu).
 
 signal submitted(text: String)
 signal opened
@@ -29,6 +33,7 @@ var _input: LineEdit
 var _panel: PanelContainer
 var _input_panel: PanelContainer
 var is_open := false
+var is_reading := false        # v3.11: log shown, keyboard free, you keep moving
 var log_collapsed := false
 var _unread := 0
 
@@ -43,16 +48,16 @@ func _init() -> void:
 
         _panel = PanelContainer.new()
         _panel.name = "LogPanel"
-        # dark translucent log — squared-off retro steel, chunky border
+        # v3.11: translucent ink glass, rounder corners, bold white edge
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.045, 0.06, 0.08, 0.78)
-        sb.set_corner_radius_all(3)
-        sb.border_color = Color(1, 1, 1, 0.13)
+        sb.bg_color = Color(0.03, 0.035, 0.05, 0.62)
+        sb.set_corner_radius_all(10)
+        sb.border_color = Color(1, 1, 1, 0.18)
         sb.set_border_width_all(2)
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
-        sb.content_margin_top = 7.0
-        sb.content_margin_bottom = 7.0
+        sb.content_margin_top = 8.0
+        sb.content_margin_bottom = 8.0
         _panel.add_theme_stylebox_override("panel", sb)
         _panel.set_anchors_preset(Control.PRESET_FULL_RECT)
         _panel.offset_bottom = -42.0
@@ -72,9 +77,9 @@ func _init() -> void:
         _input_panel = PanelContainer.new()
         _input_panel.name = "InputPanel"
         var isb := StyleBoxFlat.new()
-        isb.bg_color = Color(0.05, 0.065, 0.085, 0.94)
-        isb.set_corner_radius_all(3)
-        isb.border_color = Color(1, 1, 1, 0.2)
+        isb.bg_color = Color(0.03, 0.035, 0.05, 0.78)
+        isb.set_corner_radius_all(10)
+        isb.border_color = Color(1, 1, 1, 0.24)
         isb.set_border_width_all(2)
         isb.content_margin_left = 8.0
         isb.content_margin_right = 8.0
@@ -86,7 +91,7 @@ func _init() -> void:
         add_child(_input_panel)
 
         _input = LineEdit.new()
-        _input.placeholder_text = "To chat click here or press ENTER"
+        _input.placeholder_text = "ENTER to chat  ·  F just reads, keeps you moving"
         _input.max_length = 240
         _input.context_menu_enabled = false
         _input.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
@@ -113,6 +118,7 @@ func open() -> void:
         if is_open:
                 return
         is_open = true
+        is_reading = false          # typing mode replaces read mode
         log_collapsed = false
         visible = true
         _panel.visible = true
@@ -127,11 +133,43 @@ func close() -> void:
         if not is_open:
                 return
         is_open = false
+        is_reading = false
         _input.text = ""
         _input.release_focus()
         _panel.visible = false
         _input_panel.visible = false
         closed.emit()
+
+
+# ---- v3.11 READ MODE — the F key -----------------------------------------
+
+## F shows the log WITHOUT the type box and WITHOUT grabbing the keyboard:
+## read everything while you keep running. F again (or ESC) hides it.
+func toggle_read() -> void:
+        if is_reading:
+                close_read()
+        else:
+                open_read()
+
+
+func open_read() -> void:
+        if is_open or is_reading:
+                return
+        is_reading = true
+        log_collapsed = false
+        visible = true
+        _panel.visible = true
+        _input_panel.visible = false
+        _clear_unread()
+        _input.release_focus()
+
+
+func close_read() -> void:
+        if not is_reading:
+                return
+        is_reading = false
+        _panel.visible = false
+        visible = false
 
 
 ## The topbar chat button: collapse/expand the LOG (typing stays separate).
@@ -168,28 +206,31 @@ func _on_input_gui(event: InputEvent) -> void:
                         get_viewport().set_input_as_handled()
 
 
-## One chat line. name_color is a hex string; seq_id <= 0 hides the chip.
+## One chat line. name_color is a hex string. v3.11: the "#1" seq chips are
+## GONE (you asked) — a clean "Name: text" line. seq_id is kept in the
+## signature so existing callers don't break, but it is no longer shown.
 func add_chat(username: String, seq_id: int, text: String, name_color: String = "", self_style := false) -> void:
-        var tag := username
-        if seq_id > 0:
-                tag = "%s #%d" % [username, seq_id]
         var color := _color_for(username, name_color)
-        var line := "[b][color=#%s]%s:[/color][/b] %s" % [color, _esc(tag), _esc(text)]
+        var line := "[b][color=#%s]%s:[/color][/b] %s" % [color, _esc(username), _esc(text)]
         if self_style:
                 line = "[i]" + line + "[/i]"
         _log.append_text(line + "\n")
-        if log_collapsed or not is_open:
-                _unread += 1
-                unread.emit(_unread)
+        _count_unread()
         _prune()
 
 
 func add_system(text: String) -> void:
         _log.append_text("[color=#9fb6c8][i]%s[/i][/color]\n" % _esc(text))
-        if log_collapsed or not is_open:
+        _count_unread()
+        _prune()
+
+
+## While the log is hidden OR you are only peeking (read mode counts as
+## reading — nothing new is "unread" while it is on screen).
+func _count_unread() -> void:
+        if log_collapsed or (not is_open and not is_reading):
                 _unread += 1
                 unread.emit(_unread)
-        _prune()
 
 
 func _prune() -> void:

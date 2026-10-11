@@ -34,7 +34,12 @@ static func render(host: Node, api, payload: Dictionary) -> Texture2D:
         vp.size = RENDER_SIZE
         vp.transparent_bg = true
         vp.own_world_3d = true
-        vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+        # v3.11 FIX: the one-shot render used to be armed HERE — before the
+        # rig, lights or camera existed. It captured one EMPTY frame and was
+        # never re-armed, so the People cards went portrait-less (the empty
+        # dark wells you saw). The shot is armed at the bottom, after the
+        # whole stage is built.
+        vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
         vp.disable_3d = false
         vp.mesh_lod_threshold = 0.0
         host.add_child(vp)
@@ -77,10 +82,22 @@ static func render(host: Node, api, payload: Dictionary) -> Texture2D:
         cam.current = true
 
         # ---- one drawn frame, then snatch the pixels ----
-        await RenderingServer.frame_post_draw
-        if not is_instance_valid(vp):
-                return null
-        var img: Image = vp.get_texture().get_image()
+        # v3.11: let every child actually ENTER the tree first, THEN arm the
+        # one-shot render and wait for a full drawn frame. A retry covers
+        # drivers that need one extra beat — the card always ends up with a
+        # real picture or keeps the head icon, never a blank.
+        var img: Image = null
+        for attempt in 2:
+                await host.get_tree().process_frame
+                if not is_instance_valid(vp):
+                        return null
+                vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+                await RenderingServer.frame_post_draw
+                if not is_instance_valid(vp):
+                        return null
+                img = vp.get_texture().get_image()
+                if img != null and not img.is_empty():
+                        break
         vp.queue_free()
         if img == null or img.is_empty():
                 return null

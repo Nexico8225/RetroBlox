@@ -462,11 +462,15 @@ func _run_all() -> void:
         check(plate.texture != null, "bubble plate texture is drawn in code")
         var ink: Label3D = first.get("label")
         check(ink != null and ink.visible and ink.text.contains("classic"), "bubble ink shows the text")
+        check(ink.position.y > 0.0,
+                "bubble ink is LIFTED onto the pill's center (the big text offset is dead)")
+        check(first.get("sprite").texture.get_width() <= 256 and first.get("sprite").texture.get_width() >= 96,
+                "the bubble plate HUGS its text (short line, small bubble)")
         bubble.call("show_text", "Good game!")
         bubble.call("show_text", "Oof")
         check(bubble.get("_entries").size() == 3, "bubbles STACK like Roblox (3 live at once)")
         bubble.call("show_text", "one message too many")
-        check(bubble.get("_entries").size() == 3, "the stack caps at MAX_STACK (oldest retires)")
+        check(bubble.get("_entries").size() == 3, "the stack caps at MAX_STACK (oldest eases out)")
         var game_src := FileAccess.get_file_as_string("res://scripts/game/game.gd")
         check(game_src.contains("show_bubble"), "game routes chat lines to bubbles")
         var local_src := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
@@ -546,7 +550,7 @@ func _run_all() -> void:
         check(game_src.contains("_hint_chip"),
                 "menu hotkeys wear keycap chips ([ENTER] chat / [ESC] resume / [R] / [L])")
         check(game_src.contains("head_icon"),
-                "cards fall back to the classic yellow head before the shot lands")
+                "cards fall back to the mono head before the shot lands")
         check(game_src.contains("icon_texture"),
                 "action + nav buttons wear retro icons (play / door / people / gear)")
         check(ResourceLoader.exists("res://assets/fonts/PressStart2P-Regular.ttf"), "pixel font ships (Press Start 2P)")
@@ -556,11 +560,11 @@ func _run_all() -> void:
         check(theme_src.contains("PressStart2P"), "retro theme speaks in the pixel voice")
         check(theme_src.contains("bevel_texture"),
                 "keycaps are TRUE bevels (light top/left, dark bottom/right)")
-        check(theme_src.contains("MENU_RED") and theme_src.contains("MENU_BG")
-                and theme_src.contains("MENU_INK"),
-                "the menu wears ONE tight palette (ink darks, white voice, brand red)")
-        check(theme_src.contains("checker_texture"),
-                "portrait wells sit on a retro checker floor")
+        check(theme_src.contains("MENU_BG") and theme_src.contains("MENU_INK")
+                and theme_src.contains("MENU_EDGE_HI := Color(0.93"),
+                "the menu wears ONE monochrome palette (translucent ink, bold WHITE outline)")
+        check(theme_src.contains("mono_surface"),
+                "every menu surface is one mono glass (round corners, translucent)")
         check(theme_src.contains("\"people\"") and theme_src.contains("\"gear\""),
                 "nav icons drawn in code (people crowd + gear)")
         check(game_src.contains("MENU_INK"),
@@ -576,29 +580,53 @@ func _run_all() -> void:
         check(not game_src.contains("panel.png"),
                 "the old metallic panel.png frame is gone from the menu")
 
-        # --- v3.10: GLOSSY CLASSIC — old-site gradients + bold outlines + real
-        # 2011 client textures ---
-        check(theme_src.contains("gloss_texture"),
-                "gloss_texture: shine band + hard gloss cut + bold ink outline buttons")
-        check(theme_src.contains("gradient_panel"),
-                "gradient_panel: banded old-site gradient bars with hard dark edges")
-        check(theme_src.contains("outlined_text") and theme_src.contains("INK_OUTLINE"),
-                "white pixel text wears the bold dark outline (classic lettering)")
-        check(theme_src.contains("client_plate") and theme_src.contains("glass_button"),
-                "the 2011 client textures load through the theme (plate + glass key)")
-        check(FileAccess.file_exists("res://assets/ui/rbx_black_plate.png"),
-                "authentic 2011 client window plate ships in the kit")
-        check(FileAccess.file_exists("res://assets/ui/rbx_glass_btn.png")
-                and FileAccess.file_exists("res://assets/ui/rbx_glass_btn_hi.png"),
-                "authentic 2011 glass icon buttons ship in the kit (normal + hover)")
-        check(game_src.contains("client_plate"),
-                "the menu window wears the real 2011 rounded plate")
-        check(game_src.contains("glass_button"),
-                "the topbar pill wears the real 2011 glass keys")
-        check(game_src.contains("_gloss_btn") and game_src.contains("font_outline_color"),
-                "menu action keys are GLOSS caps with outlined white text")
-        check(game_src.contains("NavNotch"),
-                "the red open-page notch rides the gloss nav chip")
+        # --- v3.11: MONO CLIENT — black & white only, round, translucent,
+        # ZERO gradients — plus the chat quality pass ---
+        var portrait_src := FileAccess.get_file_as_string("res://scripts/ui/avatar_portrait.gd")
+        check(not theme_src.contains("gloss_texture") and not theme_src.contains("gradient_panel"),
+                "the gloss/gradient engine is DELETED (no gradients anywhere)")
+        check(not theme_src.contains("client_plate") and not theme_src.contains("glass_button")
+                and not theme_src.contains("outlined_text"),
+                "the 2011 texture helpers are gone from the theme")
+        check(not FileAccess.file_exists("res://assets/ui/rbx_black_plate.png")
+                and not FileAccess.file_exists("res://assets/ui/rbx_glass_btn.png"),
+                "the gradient plate + glass textures are OUT of the kit")
+        check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
+                "the menu references zero texture helpers (flat mono)")
+        check(not game_src.contains("_gloss_btn") and game_src.contains("_mono_btn"),
+                "every menu key is the flat MONO button (round, white outline)")
+        check(game_src.contains("mono_surface(14"),
+                "the client window is translucent ink glass with ROUND corners")
+        check(not theme_src.contains("MENU_RED") and not game_src.contains("MENU_RED"),
+                "strict B/W menu: the red ring, red X and red notch are all white now")
+        check(not theme_src.contains("f7c948"),
+                "the fallback head is BLACK & WHITE now")
+        check(not theme_src.contains("checker_texture"),
+                "the checker well is replaced by translucent glass (avatar bg changed)")
+        check(game_src.contains("modulate:a\", 1.0, 0.14"),
+                "the menu fades in smoothly")
+        # --- the chat quality pass ---
+        check(game_src.contains("KEY_F") and chat_src.contains("toggle_read")
+                and chat_src.contains("is_reading"),
+                "F READS the chat — no keyboard grab, you keep moving (ESC closes)")
+        check(not chat_src.contains('"#%d"'),
+                "the '#1' seq chips are GONE from chat lines")
+        check(game_src.contains("_chat_history_done"),
+                "rejoining replays NOTHING — the first feed is history, marked seen silently")
+        check(game_src.contains("get_tree().quit()"),
+                "LEAVE closes the game now (web reloads the place)")
+        check(game_src.contains('_pill_button("res://assets/icons/logo.png", "ESC Menu")'),
+                "the pill's R button OPENS the ESC menu")
+        check(bubble_src.contains("SHOW_SECONDS := 9.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
+                "bubbles linger 9s and fade out SLOWLY")
+        check(bubble_src.contains("_fade_out"),
+                "overflow bubbles ease out instead of popping away")
+        check(bubble_src.contains("PLATE_CENTER_LIFT"),
+                "bubble text centers on the pill (the tail no longer drags it down)")
+        var init_slice := portrait_src.get_slice("host.add_child(vp)", 0)
+        check(not init_slice.contains("UPDATE_ONCE"),
+                "the portrait one-shot render arms AFTER the stage is built (avatars SHOW)")
+        check(game_src.contains('ver.text = "v3.11"'), "the rail wears v3.11")
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
 
