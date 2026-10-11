@@ -115,3 +115,20 @@ Work Log:
 
 Stage Summary:
 - v3.9 "Classic Client" live on main; every user complaint addressed: structural rebuild (not a reskin), real avatar portraits Roblox-People-style but pixel, everyone's REAL ping+fps (yours pinned in the rail), zero wood, one cohesive palette; download copy to refresh
+
+---
+Task ID: godot-v310-glossy-classic
+Agent: Super Z (main)
+Task: v3.10 — user: "make it has some gradient like old roblox and some bold outlines and very retro and use some image from internet" (with the classic green Play-button screenshot)
+
+Work Log:
+- Pulled AUTHENTIC textures from the public 2011-08 Roblox client archive on GitHub (nullequal/rblx11): reassembled the 9-slice btn_greyTransp/btn_red/blackBkg_round sets with PIL, baked the rounded dark window plate at 2x with a 3px bold outline + top-light gradient (rbx_black_plate.png) and the 2011 glass icon buttons + hover variant (rbx_glass_btn.png / rbx_glass_btn_hi.png) into assets/ui/
+- retro_theme.gd: new gloss engine — gloss_texture() draws the old-site glossy gradient ninepatch (shine band, hard gloss cut, dark base, BOLD ink outline, rounded, pressed sinks); gradient_panel() draws banded vertical-gradient bars with hard dark edges baked in; outlined_text() = white pixel text with thick dark outline; client_plate()/glass_button() load the 2011 textures; BtnGreen/BtnRed/BtnBlue (login included) upgraded to gloss
+- game.gd: ESC window wears the real 2011 plate; title bar / nav rail / footer are gradient panels with 3-4px dark edges; Resume = green Play gloss, Leave = red gloss, Reset/LogOut steel gloss, all with white outlined text at 46px tall; red X = red gloss; nav's open page wears a steel-gloss chip (red notch kept as a child ColorRect); cards 3px bold casings; topbar pill wears the 2011 glass keys
+- GHOST-BUG FIX from v3.9: the People page's ScrollContainer sat in a VBox without EXPAND_FILL, collapsed to height 0 and clipped the WHOLE card grid into nothing — verified by screenshot, fixed (scroll expands), cards render again
+- Verified visually under Xvfb: People page (red-ringed noob portrait card + live PNG/FPS), settings page, topbar glass keys
+- smoke.gd +10 v3.10 checks (197 total) — SMOKE_OK in-tree AND fresh-unzip (zip 123 files md5 7b07ae34)
+- Web: SdkView v3.10 "Glossy Classic" news, HomeView ?v=3.10, npm build OK; pushed 2bd1d0a; download copy refreshed
+
+Stage Summary:
+- v3.10 "Glossy Classic" live on main: old-Roblox gradients + bold outlines everywhere, real 2011 client textures in the window + topbar, People cards visible again (v3.9 clipping bug dead); zip md5 7b07ae34
