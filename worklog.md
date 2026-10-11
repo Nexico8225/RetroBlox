@@ -174,3 +174,23 @@ Work Log:
 
 Stage Summary:
 - v4.0 "Skid" live on main: light & clean 2016 client everywhere, the REAL avatar (face + t-shirt + hat) renders in the ESC menu AND in-game, mid-session look changes apply live, camera/zoom/respawn feel better, world prettier; owner must re-download the Godot kit zip (or just relaunch — the site's download is current)
+
+---
+Task ID: godot-v500-midnight-client
+Agent: Super Z (main)
+Task: v5.0 — user (with screenshot): "o my eyes its the same UI but the avatar is to pixelated also the lighting the UI everyhting so bright make a completely new UI which looks retro and cool also also make it so i can walk up to 2 studs platfroms like stairs i can go up 1 studs platfrom like stairs double it and make it to and use the roblox stud and make it so everyhting not blurry"
+
+Work Log:
+- REPRODUCED THE STAIRS BUG in the real game first: a bot walking the actual Happy Baseplate fort riser stalled at y=0.35 forever (the synthetic smoke box passed — the harness hid it). Instrumented frames showed the stair glide firing and rising exactly one frame of height (22 * 0.016 = 0.35) before move_and_slide's 0.5-stud floor snap, firing on the stale on-floor state, dragged the body back down; infinite loop
+- FIX: floor snapping is SUSPENDED while the glide owns the vertical axis (restored the moment the tread is landed), and MAX_STEP doubled 2.5 -> 3.2 with the climb grip now starting only above MAX_STEP + 0.05 (WALL_PROBE_HS gained the 3.25 ray; smoke's climbable wall raised to 3.6). STAIRS_2STUD OK in the real world, grip never engaged, diagonal approach still fine
+- PORTRAIT: 64x84 -> 320x448 with MSAA_4X in the SubViewport, TextureRect draws LINEAR, head_icon baked at 4x so the fallback stays crisp — the pixel-mush era is over (PORTRAIT_RENDERED 320x448)
+- MIDNIGHT UI everywhere: retro_theme rebuilt (dark navy glass palette, moon ink, MENU_GOLD arcade stats, pixel font as the LOUD voice on buttons/nav/titles, dark bevel keycaps); game.gd menu/HUD/topbar pill/health plate/toasts/keycap hints restyled dark; login.gd = midnight starfield card (code-drawn 110-star pixel field, fixed seed); chat_box.gd = midnight glass + bright arcade name colors
+- THE BLINDING WORLD fixed: FILMIC tonemap was the pastel-wash machine (lifted 0.6 midtones to ~0.85) — switched to LINEAR so authored colors render true; ambient 0.62->0.48, sky contribution 0.7->0.5, sun 1.0->0.92 #ffe9c4, fog lightened (0.0020 / sky_affect 0.16)
+- AUTHENTIC STUDS: stud_texture baked at 128px per stud — raised bump with lit top-left rim, shaded bottom-right rim, soft contact shadow, slightly darker plate face; triplanar material now TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+- CRISP: project.godot ships msaa_3d=2 (4x) + anisotropic_filtering_level=4
+- smoke rewritten for v5.0 (midnight palette, _key_btn, 320x448+MSAA portrait, MAX_STEP 3.2, snap guard, LINEAR world, msaa project settings, midnight chat/login) — SMOKE_OK in-tree AND fresh-unzip (after --import)
+- v500_shot.gd: boots the REAL game — People/Settings/HUD/world/login shots + the stairs verdict; screenshots copied to /download (4 PNGs)
+- Web: SdkView v5.0 "Midnight" 6 news entries + FILES updated, HomeView + SdkView zip ?v=5.0; kit README v5.0; npm build OK; zip rebuilt (112 files md5 12f22bbd); pushed e3721e5
+
+Stage Summary:
+- v5.0 "Midnight" live on main: dark retro arcade client, sharp 320x448 portraits, 2-stud stairs verified in the real world (the floor-snap bug was the true culprit all along), authentic studs, true-color lighting, 4x MSAA everywhere; owner must re-download the kit zip (?v=5.0 busts the cache)
