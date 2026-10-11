@@ -96,3 +96,22 @@ Work Log:
 
 Stage Summary:
 - v3.8 "Classic Client Polish" live on main; README v3.8 section; download copy refreshed
+
+---
+Task ID: godot-v39-classic-client-rebuild
+Agent: Super Z (main)
+Task: v3.9 — user rejected the v3.8 menu ("same thing but somehow worse"): COMPLETELY new ESC menu, Roblox-style player avatars but retro, see everyone's ping+fps, remove the wooden thingy, one tight color palette
+
+Work Log:
+- Reset #6 recovery to origin/main (90136c4, v3.8 already live); npm install rebuilt
+- END-TO-END live stats: PlacePresence += pingMs/fps (nullable, sync-schema ADD COLUMN safe); placechat route POST reads/clamps ping+fps into the upsert, GET returns them per player; api.gd place_presence(place_id, pos, heading, ping_ms, fps); game.gd heartbeat sends _last_ping_ms + Engine FPS; _reconcile_players pockets _remote_stats (pruned on leave)
+- NEW scripts/ui/avatar_portrait.gd: static render() = SubViewport 64x84 transparent + own_world_3d + AvatarRig + key/fill lights + 34deg cam framing the 5-stud rig; dresses from cached/avatar_of payload (guests = noob paint, no network); one frame_post_draw then grab ImageTexture; headless returns null; caller frees everything
+- game.gd menu REBUILT (Classic Client): title bar (wordmark on ink + place name + red X bevel close), left nav rail 112px (PEOPLE/SETTINGS flat keys, white ink both states, red left-notch = open page, StyleBoxEmpty focus), rail foot = YOU plate (FPS/PNG stat lines + v3.9 tag), content = header (PEOPLE - N ONLINE + live TIME clock) + pages 396 tall; People page = ScrollContainer > GridContainer 3 cols of _player_card (checker well 150px + NEAREST portrait, name, PNG/FPS stat line; MY card red ring + (YOU)); settings page same controls, MENU_INK toggles + neutral anim keys; footer = Resume green expand / Reset Character grey / Leave red / Log Out GREY (purple dead) + hint chips; live stats breathe via _menu_tick 0.5s (_update_live_stats: eased _fps_smooth)
+- Palette centralised in retro_theme.gd: MENU_BG/PANEL/PANEL_HI/EDGE_DARK/EDGE_HI/INK/MUTED/FAINT/RED/RED_HI/GREEN + checker_texture(); icons += "people"/"gear"; wood_texture/wood_style/wood_stud_texture/wood_stud_style REMOVED; game.gd lost _dark_panel/_tab_bevel/_menu_frame_style/_window_style/_card_style/_stats_text/_add_player_row/_menu_card
+- Kit hygiene: wood_planks.jpg(.import) + panel.png(.import) DELETED
+- smoke.gd: script list += avatar_portrait.gd; 20+ new v3.9 checks (client window/nav rail/card grid/portraits/rail chips/remote stats/palette/checker/nav icons/heartbeat ping/fps + wood-is-history + panel.png-gone); 188 ok SMOKE_OK in-tree AND fresh-unzip
+- Web: SdkView VERSION v3.9 "Classic Client" (5 new news entries, stale wood/frame entries dropped, FILES += avatar_portrait, endpoints note ping/fps); HomeView ?v=3.9; npm build OK (sync-schema will ALTER TABLE on deploy)
+- Pipeline: zip 115 files md5 94e55958; pushed a04ebe4
+
+Stage Summary:
+- v3.9 "Classic Client" live on main; every user complaint addressed: structural rebuild (not a reskin), real avatar portraits Roblox-People-style but pixel, everyone's REAL ping+fps (yours pinned in the rail), zero wood, one cohesive palette; download copy to refresh
