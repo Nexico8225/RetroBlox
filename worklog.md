@@ -152,3 +152,25 @@ Work Log:
 
 Stage Summary:
 - v3.11 "Mono Client" live on main: strictly B/W rounded translucent menu with zero gradients, avatars render for real, pill button opens the menu, Leave quits, F read-mode, no chat replay spam, no #1 tags, slow centered bubbles
+
+---
+Task ID: godot-v400-skid-client
+Agent: Super Z (main)
+Task: v4.0 — user (with 2 screenshots + remarks): make a NEW good-looking retro UI (the mono menu felt out of place), fix the avatar in the ESC menu (it loads but shows NO UGC or face), and fix the t-shirt that vanished in-game despite being equipped on the web. Clarified: 2016 Roblox skid style, light & clean palette, EVERYTHING redesigned, real site avatar in the menu, movement/lighting/performance polish on top.
+
+Work Log:
+- Cloned with the owner token; live payload check confirmed the user's look = noob + tshirt_1 (RetroBlox Logo, image-only) + hat_1 (Golden Dominus GLB)
+- THREE avatar root causes found: (1) the dresser's _apply_accessory bailed when modelUrl was empty — t-shirts are 2D images, so they were silently skipped in-game; (2) AvatarPortrait.render awaited apply() which returned after the COLOR paint only — the one-shot snapshot raced the face/UGC downloads and photographed a plain noob; (3) the portrait camera sat at +Z while the rig faces -Z — the cards photographed everyone's BACK, so even a rendered face never showed
+- Fixes: avatar_rig.gd gained set_tshirt() (torso-front decal, 92% like the site, alpha-scissor unshaded); the dresser paints kind=="tshirt" accessories as decals and gained await_all mode (sequential awaits for the portrait path, parallel fire-and-forget unchanged for gameplay); the portrait passes await_all=true, moved its camera to the front-left 3/4 (-2, 3.3, -8.8) and flipped the key/fill lights with it
+- game.gd _portrait_worker now re-fetches MY avatar live from /api/users/{id}/avatar on every menu open, updates Session.avatar, and re-dresses the in-game rig when the JSON signature changed (equip on web -> reopen menu -> new look, no relog)
+- v4.0 SKID restyle, everything: retro_theme.gd rebuilt (white glass MENU_* palette + MENU_ACCENT #00a2ff, clean_font Liberation Bold / clean_book, icons redraw in ANY ink via icon_texture(kind, ink), yellow smiley head back, light theme + light scrollbars + blue caret/sliders); ESC menu = white glass window, blue active nav chip + blue notch, blue-ringed MY card, BLUE Resume key with white icon, red-ink Leave, keycap hint bar, clean sans titles + pixel stats; HUD = white topbar pill (code-drawn ink chat bubble — the old white chat.png vanished on white), white health plate + light track + green fill, white toasts; chat = daylight glass panels + ink text + darkened name colors; login = white card on #e9eff5, segmented blue/white tabs, BtnBlue action; loading veil = soft daylight
+- Movement/feel: local_player emits land_impact (speed) on hard landings; camera_rig glides zoom via _zoom_target + ZOOM_GLIDE and dips the pivot (LAND_DIP_MAX 0.55) on impact with an exp spring back; RESPAWN_SECONDS 2.8 -> 2.0
+- World: sun_curve 0.12 sun disc, warm #fff2dd light energy 1.0, ambient 0.62 + sky contribution 0.7, shadow_blur 1.2, whisper fog (0.0028) on every sky place (cloud deck keeps 0.0042)
+- Perf: _reconcile_players pockets _last_presence and rebuilds the People grid ONLY while the menu is open (was every 2.5s poll, garbage churn); menu opens on the pocketed snapshot instantly
+- Settings page header now says SETTINGS (the PEOPLE — N ONLINE title is one voice via _update_people_title + _people_total)
+- smoke.gd rewritten for v4.0 — 228 checks: light palette, any-ink icons, t-shirt decal, await_all, portrait front camera, live re-dress, presence snapshot, zoom glide, land dip, sun disc/fog, daylight chat, login skid — SMOKE_OK in-tree AND fresh-unzip; v311_shot.gd -> v400_shot.gd (+ v400_avatar_test.gd drives the REAL payload end-to-end)
+- Xvfb verified: v400 shots (light menu, blue accents, front-facing portrait) + AVATAR_PORTRAIT_OK/AVATAR_INGAME_OK with face + R-logo t-shirt + Golden Dominus all visible
+- Zip rebuilt (119 files md5 5c5e70df); kit README rewritten for v4.0; SdkView v4.0 "Skid" 6 news entries + FILES note, HomeView ?v=4.0; npm build OK; pushed 4b3dcad
+
+Stage Summary:
+- v4.0 "Skid" live on main: light & clean 2016 client everywhere, the REAL avatar (face + t-shirt + hat) renders in the ESC menu AND in-game, mid-session look changes apply live, camera/zoom/respawn feel better, world prettier; owner must re-download the Godot kit zip (or just relaunch — the site's download is current)
