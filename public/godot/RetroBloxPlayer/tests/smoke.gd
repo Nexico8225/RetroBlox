@@ -37,6 +37,7 @@ func _run_all() -> void:
                 "res://scripts/world/world_builder.gd", "res://scripts/world/places.gd",
                 "res://scripts/ui/login.gd",
                 "res://scripts/ui/retro_theme.gd",
+                "res://scripts/ui/avatar_portrait.gd",
         ]:
                 # load() returns a resource even for a broken script —
                 # can_instantiate() is the real parse/compile gate
@@ -526,34 +527,59 @@ func _run_all() -> void:
         var bubble_src := FileAccess.get_file_as_string("res://scripts/player/chat_bubble.gd")
         check(bubble_src.contains("MAX_STACK := 3"),
                 "chat bubbles stack (Roblox-style tower, capped at 3)")
-        check(game_src.contains("_bevel_btn") and game_src.contains("_menu_frame_style")
-                and game_src.contains("_tab_bevel"),
-                "ESC menu wears the retro keycap + case design")
-        check(game_src.contains("_window_style") and game_src.contains("panel.png"),
-                "the menu frame is the classic metallic bevel + dark client window")
+        # --- v3.9: the CLASSIC CLIENT — the ESC menu, rebuilt from scratch ---
+        check(game_src.contains("_menu_title_bar") and game_src.contains("_menu_footer"),
+                "the menu is a CLIENT WINDOW now (title bar + action footer)")
+        check(game_src.contains("_nav_button") and game_src.contains("_style_nav"),
+                "LEFT NAV RAIL: People/Settings keys with a red open-page notch")
+        check(game_src.contains("_players_grid") and game_src.contains("_player_card"),
+                "People page is a CARD GRID (portrait + name + live stats)")
+        check(game_src.contains("_render_portrait") and game_src.contains("_portrait_cache"),
+                "cards wear rendered AVATAR PORTRAITS (low-res pixel shots, cached)")
+        check(game_src.contains("_fps_chip") and game_src.contains("_ping_chip")
+                and game_src.contains("_update_live_stats"),
+                "YOUR fps + ping live in the rail and breathe every half second")
+        check(game_src.contains("_remote_stats") and game_src.contains('p.get("ping", null)'),
+                "every card shows the OTHER player's real ping + fps")
+        check(game_src.count("KEY_R") >= 2,
+                "R opens the ESC menu from the game (and still resets inside it)")
+        check(game_src.contains("_hint_chip"),
+                "menu hotkeys wear keycap chips ([ENTER] chat / [ESC] resume / [R] / [L])")
+        check(game_src.contains("head_icon"),
+                "cards fall back to the classic yellow head before the shot lands")
+        check(game_src.contains("icon_texture"),
+                "action + nav buttons wear retro icons (play / door / people / gear)")
         check(ResourceLoader.exists("res://assets/fonts/PressStart2P-Regular.ttf"), "pixel font ships (Press Start 2P)")
         check(ResourceLoader.exists("res://assets/ui/steel_panel.jpg"), "brushed-steel texture ships")
         check(ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"), "pixel-cloud backdrop ships")
         var theme_src := FileAccess.get_file_as_string("res://scripts/ui/retro_theme.gd")
         check(theme_src.contains("PressStart2P"), "retro theme speaks in the pixel voice")
-
-        # --- v3.8: R opens the menu + the gemini polish pass ---
-        check(game_src.count("KEY_R") >= 2,
-                "R opens the ESC menu from the game (and still resets inside it)")
-        check(game_src.contains("_hint_chip"),
-                "menu hotkeys wear keycap chips ([ENTER] chat / [ESC] resume / [R] / [L])")
-        check(game_src.contains("_stats_text") and game_src.contains("PING"),
-                "players tab shows the TIME / PING / FPS readout")
-        check(game_src.contains("head_icon"),
-                "player rows wear the classic yellow head")
-        check(game_src.contains("51697c"),
-                "unselected tabs are readable muted steel (no more dark-on-dark)")
-        check(game_src.contains("icon_texture"),
-                "action buttons wear retro icons (play / reset arrow / door / power)")
         check(theme_src.contains("bevel_texture"),
                 "keycaps are TRUE bevels (light top/left, dark bottom/right)")
-        check(theme_src.contains("wood_stud_style"),
-                "the signboard wears the BLOCKY pixel stud wood")
+        check(theme_src.contains("MENU_RED") and theme_src.contains("MENU_BG")
+                and theme_src.contains("MENU_INK"),
+                "the menu wears ONE tight palette (ink darks, white voice, brand red)")
+        check(theme_src.contains("checker_texture"),
+                "portrait wells sit on a retro checker floor")
+        check(theme_src.contains("\"people\"") and theme_src.contains("\"gear\""),
+                "nav icons drawn in code (people crowd + gear)")
+        check(game_src.contains("MENU_INK"),
+                "nav + toggles speak in white ink (no dark-on-dark anywhere)")
+
+        # --- v3.9: the wood is HISTORY ---
+        check(not theme_src.contains("wood"),
+                "the WOOD is gone from the theme (signboard removed for good)")
+        check(not game_src.contains("wood_stud_style") and not game_src.contains("ffd23f"),
+                "no wooden sign, no gold trim anywhere in the menu")
+        check(not FileAccess.file_exists("res://assets/ui/wood_planks.jpg"),
+                "wood texture file removed from the kit")
+        check(not game_src.contains("panel.png"),
+                "the old metallic panel.png frame is gone from the menu")
+
+        # --- v3.9: presence carries everyone's live stats ---
+        var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")
+        check(api9.contains("ping_ms") and api9.contains('"ping": ping_ms'),
+                "the presence heartbeat carries MY ping + fps to the server")
         check(player_src.contains("SHIFT LOCK climbs ladders"),
                 "shift lock no longer phases through ladders")
 
@@ -566,13 +592,11 @@ func _run_all() -> void:
         check(xf.origin.is_equal_approx(Vector3(1, 2, 3)), "UGC placement position verbatim")
         check(xf.basis.get_euler().is_equal_approx(Vector3(deg_to_rad(10), deg_to_rad(20), deg_to_rad(30))), "UGC placement rotation verbatim")
 
-        # --- v3.5: cursors, wordmark, wood, fast avatar, no Tix anywhere ---
+        # --- v3.5: cursors, wordmark, fast avatar, no Tix anywhere ---
         check(ResourceLoader.exists("res://assets/ui/cursor_hand.png"), "uploaded RetroBlox Cursor ships")
         check(ResourceLoader.exists("res://assets/ui/cursor_pointer.png"), "uploaded RetroBlox Pointer ships")
         check(ResourceLoader.exists("res://assets/ui/wordmark.png"), "uploaded ReTROBLOX wordmark ships")
-        check(ResourceLoader.exists("res://assets/ui/wood_planks.jpg"), "wood signboard texture ships")
         check(theme_src.contains("apply_cursors"), "classic cursors applied by the theme")
-        check(theme_src.contains("wood_style"), "wooden signboard style exists")
         check(game_src.contains("_build_center_cursor"), "first person parks a visible cursor mid-screen")
         check(game_src.contains("jump_held"), "game feeds held-jump input (hold SPACE hops)")
         check(local_src.contains("jump_held"), "player accepts held-jump input")

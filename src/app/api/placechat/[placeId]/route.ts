@@ -15,7 +15,9 @@ import { PLATFORM_CORS } from '@/lib/platform'
  *
  *   POST /api/placechat/{placeId}   (Authorization: Bearer <token>)
  *        body { text: "..." }            -> send a chat line (rate limited)
- *        body { x, y, z, heading }       -> presence heartbeat (every ~4s)
+ *        body { x, y, z, heading, ping, fps } -> presence heartbeat (every ~4s);
+ *             ping/fps ride along so every client's ESC menu shows the whole
+ *             server's live stats on the player cards (v3.9)
  *        Guests have no token: they can watch chat and see other players,
  *        but only signed-in members appear online and talk (no bot rows,
  *        no anonymous spam writes — same rule as the rest of the platform).
@@ -82,6 +84,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pla
       seqId: p.user.seqId,
       pos: [p.x, p.y, p.z],
       heading: p.heading,
+      ping: p.pingMs,
+      fps: p.fps,
       at: p.updatedAt.toISOString(),
     })),
   })
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pla
   if (!user) return json({ error: 'Sign in to use place chat' }, 401)
 
   const body = (await req.json().catch(() => null)) as
-    | { text?: unknown; x?: unknown; y?: unknown; z?: unknown; heading?: unknown }
+    | { text?: unknown; x?: unknown; y?: unknown; z?: unknown; heading?: unknown; ping?: unknown; fps?: unknown }
     | null
   if (!body) return json({ error: 'Bad request' }, 400)
 
@@ -124,6 +128,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pla
   const y = Number(body.y)
   const z = Number(body.z)
   const heading = Number.isFinite(Number(body.heading)) ? Number(body.heading) : 0
+  // v3.9: the heartbeat piggybacks the sender's own ping + fps so the ESC
+  // menu player cards can show EVERYONE's live stats, not just yours
+  const ping = Number.isFinite(Number(body.ping)) ? Math.max(0, Math.min(60_000, Math.round(Number(body.ping)))) : null
+  const fps = Number.isFinite(Number(body.fps)) ? Math.max(0, Math.min(1_000, Math.round(Number(body.fps)))) : null
   if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
     // clamp absurd teleport dumps (client sends its real studs position)
     const px = Math.max(-100000, Math.min(100000, x))
@@ -132,8 +140,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pla
     await db.placePresence
       .upsert({
         where: { userId: user.id },
-        create: { userId: user.id, placeId, x: px, y: py, z: pz, heading },
-        update: { placeId, x: px, y: py, z: pz, heading },
+        create: { userId: user.id, placeId, x: px, y: py, z: pz, heading, pingMs: ping, fps },
+        update: { placeId, x: px, y: py, z: pz, heading, pingMs: ping, fps },
       })
       .catch(() => {})
     return json({ ok: true })

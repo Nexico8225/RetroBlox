@@ -630,6 +630,8 @@ model PlacePresence {
   y         Float    @default(0)
   z         Float    @default(0)
   heading   Float    @default(0) // radians, the avatar's facing
+  pingMs    Int?     // v3.9: the client's last platform round-trip, shown on the ESC menu player cards
+  fps       Int?     // v3.9: the client's render rate, same audience
   updatedAt DateTime @updatedAt
 
   @@index([placeId, updatedAt])

@@ -32,13 +32,11 @@ const LINK := Color("1b5e9e")
 
 const PIXEL_FONT_PATH := "res://assets/fonts/PressStart2P-Regular.ttf"
 const STEEL_TEXTURE_PATH := "res://assets/ui/steel_panel.jpg"
-const WOOD_TEXTURE_PATH := "res://assets/ui/wood_planks.jpg"
 const CURSOR_ARROW_PATH := "res://assets/ui/cursor_hand.png"      # uploaded RetroBlox Cursor
 const CURSOR_HAND_PATH := "res://assets/ui/cursor_pointer.png"   # uploaded RetroBlox Pointer
 
 static var _pixel_font: Font = null
 static var _steel_tex: Texture2D = null
-static var _wood_tex: Texture2D = null
 static var _cursors_applied := false
 
 
@@ -57,29 +55,21 @@ static func steel_texture() -> Texture2D:
         return _steel_tex
 
 
-## The wooden signboard planks (an internet pixel-wood texture, darkened so
-## white ink reads on it) — null when the texture file is missing.
-static func wood_texture() -> Texture2D:
-        if _wood_tex == null and ResourceLoader.exists(WOOD_TEXTURE_PATH):
-                _wood_tex = load(WOOD_TEXTURE_PATH)
-        return _wood_tex
-
-
-## A wooden signboard StyleBoxTexture — used for the menu wordmark header.
-static func wood_style() -> StyleBox:
-        var tex := wood_texture()
-        if tex == null:
-                return _flat(Color("5a3a1e"), Color("2e1c0c"), 2, 6)
-        var sb := StyleBoxTexture.new()
-        sb.texture = tex
-        # stretch the whole plank image across the sign; border crops keep
-        # the plank edges from smearing when the box is a different aspect
-        sb.region_rect = Rect2(0, 0, tex.get_width(), tex.get_height())
-        sb.content_margin_left = 10.0
-        sb.content_margin_right = 10.0
-        sb.content_margin_top = 6.0
-        sb.content_margin_bottom = 6.0
-        return sb
+# ---------------------------------------------------------------- v3.9 classic client
+## The ESC menu's ONE tight palette — near-black blue-grey surfaces, white
+## ink, and the brand red as the single accent (green lives ONLY on Resume
+## and the online dot). One voice: no timber signs, no gold, no steel soup.
+const MENU_BG := Color("15171d")          # the client window face
+const MENU_PANEL := Color("1d2028")       # raised panels (title bar, rail)
+const MENU_PANEL_HI := Color("252935")    # hover / selected faces
+const MENU_EDGE_DARK := Color("080a0e")   # outline ink
+const MENU_EDGE_HI := Color("3d4354")     # bevel highlight
+const MENU_INK := Color("f2f4f8")         # primary text
+const MENU_MUTED := Color("8b93a6")       # secondary text
+const MENU_FAINT := Color("5a6172")       # hints / version tag
+const MENU_RED := Color("e2231a")         # THE brand accent
+const MENU_RED_HI := Color("ff3b30")
+const MENU_GREEN := Color("2fbf4f")       # resume + online dot only
 
 
 # ---------------------------------------------------------------- v3.8 polish
@@ -132,8 +122,25 @@ static func bevel_texture(bg: Color, pressed := false) -> StyleBoxTexture:
         return sb
 
 
+## A subtle two-tone CHECKER for the portrait wells — pure retro depth,
+## drawn in code (8px squares, panel-on-panel) and cached.
+static func checker_texture() -> ImageTexture:
+        if _bevel_cache.has("checker"):
+                return _bevel_cache["checker"]
+        var cell := 8
+        var img := Image.create_empty(cell * 2, cell * 2, false, Image.FORMAT_RGBA8)
+        for y in range(cell * 2):
+                for x in range(cell * 2):
+                        var on := (int(x / float(cell)) + int(y / float(cell))) % 2 == 0
+                        img.set_pixel(x, y, MENU_PANEL if on else MENU_BG)
+        var tex := ImageTexture.create_from_image(img)
+        _bevel_cache["checker"] = tex
+        return tex
+
+
 ## The classic smiley HEAD — a chunky yellow blocky face with two black eyes
-## and a pixel smile, drawn in code. Player-list rows wear it as a headshot.
+## and a pixel smile, drawn in code. Kept as the portrait FALLBACK (no rig,
+## headless) and for tiny list contexts.
 static func head_icon() -> ImageTexture:
         if _bevel_cache.has("head"):
                 return _bevel_cache["head"]
@@ -167,7 +174,8 @@ static func head_icon() -> ImageTexture:
 
 
 ## Small retro ACTION icons, drawn pixel by pixel in white — a play triangle
-## (Resume), a reset arrow, a door (Leave) and a power symbol (Log Out).
+## (Resume), a reset arrow, a door (Leave), a power symbol (Log Out), a
+## two-head crowd (People tab) and a gear (Settings tab).
 static func icon_texture(kind: String) -> ImageTexture:
         if _bevel_cache.has("icon_" + kind):
                 return _bevel_cache["icon_" + kind]
@@ -225,6 +233,36 @@ static func icon_texture(kind: String) -> ImageTexture:
                         for y in range(2, 9):
                                 img.set_pixel(8, y, ink)
                                 img.set_pixel(9, y, ink)
+                "people":
+                        # two chunky heads + shoulders, the People tab mark
+                        for hx in [4, 10]:
+                                for ey in range(2):
+                                        for ex in range(2):
+                                                img.set_pixel(hx + ex, 4 + ey, ink)
+                                # round the heads: side pixels
+                                img.set_pixel(hx - 1, 5, ink)
+                                img.set_pixel(hx + 2, 5, ink)
+                        # shoulders: a bar under each head
+                        for sx in range(3, 8):
+                                img.set_pixel(sx, 9, ink)
+                        for sx in range(9, 14):
+                                img.set_pixel(sx, 9, ink)
+                        # a shared body bar
+                        for sx in range(3, 15):
+                                img.set_pixel(sx, 12, ink)
+                                img.set_pixel(sx, 13, ink)
+                "gear":
+                        # an 8-tooth gear around a hole
+                        var gc := Vector2(9.0, 9.0)
+                        for y in range(w):
+                                for x in range(w):
+                                        var d := Vector2(float(x) + 0.5, float(y) + 0.5) - gc
+                                        var r := d.length()
+                                        var ang := atan2(d.y, d.x)
+                                        var tooth := absf(fposmod(ang / PI * 4.0, 1.0) - 0.5) > 0.28
+                                        if (r >= 3.0 and r <= 5.4) or (tooth and r >= 2.0 and r <= 6.4):
+                                                if r > 1.8:
+                                                        img.set_pixel(x, y, ink)
         var tex := ImageTexture.create_from_image(img)
         _bevel_cache["icon_" + kind] = tex
         return tex
@@ -241,60 +279,6 @@ static func _in_rounded_px(p: Vector2, r: Rect2, rad: float) -> bool:
         dx = maxf(dx, 0.0)
         dy = maxf(dy, 0.0)
         return dx * dx + dy * dy <= rad * rad
-
-
-## The BLOCKY pixel wood-stud signboard: chunky planks with hard pixel seams
-## and big square studs — the 2008 topbar wood, generated in code so the kit
-## carries no extra file. Draw it with TEXTURE_FILTER_NEAREST for crispness.
-static func wood_stud_texture() -> ImageTexture:
-        if _bevel_cache.has("wood_stud"):
-                return _bevel_cache["wood_stud"]
-        var w := 64
-        var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
-        var rows := [Color("7a5530"), Color("6b4a2a"), Color("7d5a34"), Color("5f4023")]
-        var seam := Color("3a2712")
-        var stud := Color("4a3319")
-        var stud_hi := Color("8a6538")
-        for y in range(w):
-                var row := y / 16
-                for x in range(w):
-                        img.set_pixel(x, y, rows[row % rows.size()])
-                # the hard horizontal seam between planks
-                if y % 16 == 0:
-                        for x in range(w):
-                                img.set_pixel(x, y, seam)
-        # vertical plank breaks, offset per row
-        for row in range(4):
-                var bx := (row * 23 + 9) % w
-                for y in range(row * 16, row * 16 + 16):
-                        img.set_pixel(bx, y, seam)
-                        if bx + 1 < w:
-                                img.set_pixel(bx + 1, y, seam)
-        # big square studs: two per plank row, light top edge + dark body
-        for row in range(4):
-                for stud_x: int in [12, 40]:
-                        var ox := (stud_x + row * 13) % (w - 8)
-                        var oy := row * 16 + 5
-                        for sy in range(6):
-                                for sx in range(6):
-                                        var c := stud
-                                        if sy == 0 or sx == 0:
-                                                c = stud_hi
-                                        img.set_pixel(ox + sx, oy + sy, c)
-        var tex := ImageTexture.create_from_image(img)
-        _bevel_cache["wood_stud"] = tex
-        return tex
-
-
-## The blocky stud-wood StyleBox for the menu wordmark sign.
-static func wood_stud_style() -> StyleBox:
-        var sb := StyleBoxTexture.new()
-        sb.texture = wood_stud_texture()
-        sb.content_margin_left = 12.0
-        sb.content_margin_right = 12.0
-        sb.content_margin_top = 7.0
-        sb.content_margin_bottom = 7.0
-        return sb
 
 
 ## The uploaded RetroBlox cursors: the white classic hand everywhere the

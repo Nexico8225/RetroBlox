@@ -9,21 +9,19 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.8 "Classic Client Polish"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.8'
+const VERSION = 'v3.9 "Classic Client"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.9'
 
 const NEW_STUFF: [string, string][] = [
+  ['The ESC menu, rebuilt from scratch', 'Not a reskin - a NEW shell: a dark client window with a title bar (wordmark + place name + a classic red X key), a LEFT NAV RAIL (People / Settings) and a People page that is a grid of player CARDS. The old sign-on-top card is gone completely.'],
+  ['Player avatar PORTRAITS', 'Every People card wears a real picture of that player\'s avatar: the actual rig rendered offscreen at tiny resolution and drawn nearest-neighbor - a chunky retro sprite of THEIR character, like the People page, but pixel. Yours is red-ringed with a (YOU) tag.'],
+  ['Everyone\'s live PING + FPS', 'The presence heartbeat now carries each player\'s ping and fps, so every card shows real live numbers - and YOUR fps + ping are pinned to the nav rail\'s foot, visible on every page. No more fake single-strip readout.'],
+  ['The wood is GONE', 'The wooden signboard, the gold trim and the steel-plate card are all out. One tight palette instead: near-black blue-grey surfaces, white pixel ink, and the brand red as the only accent (green lives only on Resume + the online dots). No more color soup.'],
+  ['Portrait fallbacks + live clock', 'Cards hold the classic yellow head until a portrait lands, the page header ticks a session TIME clock, and portrait renders are cached - reopening the menu is instant.'],
   ['R opens the ESC menu', 'Pressing R in the game now opens the menu (press R again inside to confirm the reset - the classic hotkeys keep their jobs).'],
   ['Shift lock climbs ladders again', 'Walking into a truss with Shift Lock on used to ghost you straight THROUGH it - Roblox never does that. Shift Lock now grabs the rungs exactly like normal third person.'],
-  ['READABLE tabs + one pixel voice', 'The SETTINGS tab used to drown dark-on-dark: unselected tabs are now muted steel with white pixel ink, and every label in the menu - player list, settings, hints - speaks the same Press Start 2P voice.'],
-  ['True bevel keycaps', 'Buttons are drawn pixel-by-pixel now: near-black outline, LIGHT top/left edge, DARK bottom/right edge - the raised 2006 keycap look - and the bevel FLIPS so pressed keys sink.'],
   ['Keycap hotkey hints', 'The bottom bar wears real keycap chips - [ENTER] chat / [ESC] resume / [R] menu / [L] leave - so the shortcuts scan at a glance.'],
-  ['Classic metallic menu frame', 'The thin gold border is gone: the menu sits in a grey metallic bevel plate (the old panel.png asset) around a dark translucent client window, with the steel card inside.'],
-  ['Blocky stud-wood signboard', 'The smooth wood behind the wordmark became a chunky pixel texture: hard plank seams and big square studs, drawn in code and rendered crisp (nearest).'],
-  ['Retro action icons', 'Resume wears the play triangle, Reset the circular arrow, Leave a red door, Log Out the power symbol - all drawn pixel-by-pixel, no new asset files.'],
-  ['Player list: heads + match stats', 'Every player row wears the classic yellow smiley head, and a TIME / PING / FPS readout fills the dead space, refreshing with every platform poll.'],
-  ['Health bar docked in a bevel plate', 'The vertical bar moved into a metallic plate flush with the right screen edge - same family as the menu frame, nothing floats loose anymore.'],
-  ['Trimmed topbar - logo + chat only', 'The three-line menu button and the people/invite button are GONE from the topbar pill. Esc opens the menu, P opens the player list - the pill now carries just the RetroBlox logo and chat, like the classic client.'],
+  ['True bevel keycaps', 'Buttons are drawn pixel-by-pixel now: near-black outline, LIGHT top/left edge, DARK bottom/right edge - the raised 2006 keycap look - and the bevel FLIPS so pressed keys sink.'],
   ['Chat bubbles STACK like Roblox', 'Every message is its own bubble now: the newest parks just above the speaker\'s head and older ones climb upward ("Good game" over "Oof"), up to three at a time, each fading on its own clock.'],
   ['Buttery-smooth stairs', 'No more teleport up steps: the character now GLIDES up the lip over ~0.1s - collider, avatar and camera rise together, exactly how Roblox eases you up a staircase. The step-up probe from v3.6 is untouched, so diagonal approaches still work.'],
 ]
@@ -34,7 +32,8 @@ const FILES = [
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The in-game login / SIGN UP card — server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: TRUE bevel keycaps + pixel-art icons and heads drawn in code, blocky stud-wood signboards, beveled panels, your cursors'],
+  ['scripts/ui/retro_theme.gd', 'The 2006 Steel retro UI: TRUE bevel keycaps + pixel-art icons drawn in code, the classic-client menu palette, beveled panels, your cursors'],
+  ['scripts/ui/avatar_portrait.gd', 'Renders each player\'s REAL avatar into a low-res pixel shot for the ESC menu People cards (offscreen viewport, cached)'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — they STACK the Roblox way, up to three live'],
@@ -42,7 +41,7 @@ const FILES = [
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, procedural stud texture, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the retro ESC menu, respawn flow'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the classic-client ESC menu (player cards + live stats), respawn flow'],
   ['scripts/game/chat_box.gd', 'The classic chat log + type box that open and close as ONE widget, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, and Shift Lock shoulder park'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],
@@ -55,8 +54,8 @@ const ENDPOINTS = [
   ['GET /api/users/{userId}/avatar', "any player's avatar config (public)"],
   ['GET /api/assets/{assetId}', 'asset service: color / image / 3D model + finish for an id'],
   ['GET /api/files/{fileId}', 'the actual bytes (images, GLB, audio)'],
-  ['GET /api/placechat/{placeId}', 'latest chat lines + who is online in the place'],
-  ['POST /api/placechat/{placeId}', 'send a chat line / presence heartbeat (Bearer token)'],
+  ['GET /api/placechat/{placeId}', 'latest chat lines + who is online (with their live ping/fps)'],
+  ['POST /api/placechat/{placeId}', 'send a chat line / presence heartbeat with your ping + fps (Bearer token)'],
   ['GET / PUT /api/gamedata/{gameId}/{key}', 'per-player save data'],
 ]
 

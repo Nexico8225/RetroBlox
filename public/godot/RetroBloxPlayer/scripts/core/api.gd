@@ -180,10 +180,12 @@ func place_chat_send(place_id: String, text: String) -> Dictionary:
         return await post_json("/api/placechat/%s" % place_id, { "text": text })
 
 
-## Presence heartbeat: "I am here, at this spot, facing this way."
-func place_presence(place_id: String, pos: Vector3, heading: float) -> Dictionary:
+## Presence heartbeat: "I am here, at this spot, facing this way" — plus my
+## own ping + fps, so every client's ESC menu shows the whole server live (v3.9).
+func place_presence(place_id: String, pos: Vector3, heading: float, ping_ms := 0, fps := 0) -> Dictionary:
         return await post_json("/api/placechat/%s" % place_id, {
                 "x": pos.x, "y": pos.y, "z": pos.z, "heading": heading,
+                "ping": ping_ms, "fps": fps,
         })
 
 
