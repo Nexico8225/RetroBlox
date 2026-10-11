@@ -307,11 +307,13 @@ func _run_all() -> void:
         var wall := StaticBody3D.new()
         var wall_col := CollisionShape3D.new()
         var wall_shape := BoxShape3D.new()
-        wall_shape.size = Vector3(0.6, 3.0, 6.0)
+        # v5.0: walls taller than the 3.2-stud stair step are climbable —
+        # this one is 3.6 so it grabs; anything lower is stairs now.
+        wall_shape.size = Vector3(0.6, 3.6, 6.0)
         wall_col.shape = wall_shape
         wall.add_child(wall_col)
         root.add_child(wall)
-        wall.global_position = Vector3(2.0, 1.5, 0.0)   # face at x = 1.7
+        wall.global_position = Vector3(2.0, 1.8, 0.0)   # face at x = 1.7
         await physics_frame
         player.global_position = Vector3(1.0, 0.05, 0.0)
         player.set("heading", -PI / 2)   # face +X, straight at the platform edge
@@ -560,21 +562,22 @@ func _run_all() -> void:
         check(theme_src.contains("PressStart2P"), "retro theme speaks in the pixel voice")
         check(theme_src.contains("bevel_texture"),
                 "keycaps are TRUE bevels (light top/left, dark bottom/right)")
-        # --- v4.0: THE SKID CLIENT — light & clean, 2016 daylight, blue accent ---
+        # --- v5.0: THE MIDNIGHT CLIENT — dark retro, pixel-first, blue accent ---
         check(theme_src.contains("MENU_ACCENT := Color(\"00a2ff\")")
-                and theme_src.contains("MENU_INK := Color(\"1d2632\")")
-                and theme_src.contains("MENU_EDGE := Color(0.78"),
-                "the menu wears ONE light palette (white glass, ink, gray border, blue accent)")
+                and theme_src.contains("MENU_INK := Color(\"eaf0fb\")")
+                and theme_src.contains("MENU_EDGE := Color(\"323d58\")")
+                and theme_src.contains("MENU_GOLD"),
+                "the menu wears the MIDNIGHT palette (dark glass, moon ink, blue accent, gold stats)")
         check(theme_src.contains("clean_font") and theme_src.contains("LiberationSans-Bold.ttf"),
-                "the clean 2016 voice ships (Liberation Bold for titles + buttons)")
+                "the clean voice ships (Liberation for body + names)")
         check(theme_src.contains("mono_surface"),
-                "every menu surface is one light card (round corners, quiet border)")
+                "every menu surface is one dark card (round corners, moonlit border)")
         check(theme_src.contains("\"people\"") and theme_src.contains("\"gear\""),
                 "nav icons drawn in code (people crowd + gear)")
         check(theme_src.contains("icon_texture(kind: String, ink"),
-                "icons draw in ANY ink (white on the blue key, ink on white keys)")
+                "icons draw in ANY ink (white on the blue key, moon ink on dark keys)")
         check(game_src.contains("MENU_ACCENT") and game_src.contains("MENU_INK"),
-                "nav + keys speak in ink with the blue accent (no dark-on-dark anywhere)")
+                "nav + keys speak in moon ink with the blue accent (no dark-on-dark anywhere)")
 
         # --- v3.9: the wood is HISTORY ---
         check(not theme_src.contains("wood"),
@@ -586,8 +589,8 @@ func _run_all() -> void:
         check(not game_src.contains("panel.png"),
                 "the old metallic panel.png frame is gone from the menu")
 
-        # --- v4.0: THE SKID CLIENT — light & clean, ONE blue accent, plus
-        # the avatar pipeline that finally shows YOUR real look ---
+        # --- v5.0: THE MIDNIGHT CLIENT — dark retro cabinet, ONE blue accent,
+        # the avatar pipeline that finally shows YOUR real look SHARP ---
         var portrait_src := FileAccess.get_file_as_string("res://scripts/ui/avatar_portrait.gd")
         check(not theme_src.contains("gloss_texture") and not theme_src.contains("gradient_panel"),
                 "the gloss/gradient engine is DELETED (no gradients anywhere)")
@@ -598,12 +601,12 @@ func _run_all() -> void:
                 and not FileAccess.file_exists("res://assets/ui/rbx_glass_btn.png"),
                 "the gradient plate + glass textures are OUT of the kit")
         check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
-                "the menu references zero texture helpers (flat light cards)")
-        check(not game_src.contains("_gloss_btn") and game_src.contains("_white_btn")
+                "the menu references zero texture helpers (flat dark cards)")
+        check(not game_src.contains("_gloss_btn") and game_src.contains("_key_btn")
                 and game_src.contains("_accent_btn"),
-                "every menu key is a clean light key (white default, blue primary)")
+                "every menu key is a dark cabinet key (dark default, blue primary)")
         check(game_src.contains("mono_surface(16"),
-                "the client window is white glass with ROUND corners")
+                "the client window is midnight glass with ROUND corners")
         check(game_src.contains("\"primary\")") and game_src.contains("\"danger\")"),
                 "Resume is the BLUE key, Leave speaks in red (functional color)")
         check(theme_src.contains("MENU_RED :=") ,
@@ -611,10 +614,14 @@ func _run_all() -> void:
         check(theme_src.contains("f5cd30"),
                 "the fallback head is the CLASSIC YELLOW smiley again")
         check(not theme_src.contains("checker_texture"),
-                "the checker well is replaced by soft daylight gray (avatar bg)")
+                "the checker well is replaced by the deep midnight inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains('ver.text = "v4.0"'), "the rail wears v4.0")
+        check(game_src.contains('ver.text = "v5.0"'), "the rail wears v5.0")
+        check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
+                "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
+        check(game_src.contains("TEXTURE_FILTER_LINEAR"),
+                "the portrait TextureRect draws LINEAR (smooth, not chunky)")
         # --- the v4.0 AVATAR PIPELINE — the real site look, everywhere ---
         var rig_src := FileAccess.get_file_as_string("res://scripts/player/avatar_rig.gd")
         check(rig_src.contains("func set_tshirt"),
@@ -637,9 +644,20 @@ func _run_all() -> void:
         check(cam_src.contains("LAND_DIP_MAX") and cam_src.contains("land_impact"),
                 "hard landings DIP the camera (game feel)")
         var world_src := FileAccess.get_file_as_string("res://scripts/world/world_builder.gd")
-        check(world_src.contains("sun_curve") and world_src.contains("fff2dd"),
-                "the sky wears a soft sun disc + warm afternoon light")
-        check(world_src.contains("0.0028"), "every sky place gets a whisper of horizon fog")
+        check(world_src.contains("sun_curve") and world_src.contains("ffe9c4"),
+                "the sky wears a soft sun disc + calm warm light (v5.0: not blinding)")
+        check(world_src.contains("0.0020"), "every sky place gets a whisper of horizon fog")
+        check(world_src.contains("ambient_light_energy = 0.48"),
+                "the ambient wash is CALM — colors read true, nothing bleaches")
+        check(world_src.contains("var n := 128") and world_src.contains("bump_top"),
+                "the stud tile is the AUTHENTIC Roblox stud (lit + shaded rims, contact shadow)")
+        check(local_src.contains("MAX_STEP := 3.2 * STUD"),
+                "v5.0 STAIRS DOUBLED: 2-stud ledges walk over like stairs (3.2 step)")
+        check(local_src.contains("WALL_GRAB_MIN_H := MAX_STEP + 0.05"),
+                "the climb grip only starts on faces TALLER than the stair step")
+        var proj_src := FileAccess.get_file_as_string("res://project.godot")
+        check(proj_src.contains("msaa_3d=2") and proj_src.contains("anisotropic_filtering_level=4"),
+                "the renderer ships 4x MSAA + anisotropic filtering (nothing blurry)")
         # --- the chat quality pass (v3.11) + the v4.0 daylight chat ---
         check(game_src.contains("KEY_F") and chat_src.contains("toggle_read")
                 and chat_src.contains("is_reading"),
@@ -652,8 +670,10 @@ func _run_all() -> void:
                 "LEAVE closes the game now (web reloads the place)")
         check(game_src.contains('_pill_button("res://assets/icons/logo.png", "ESC Menu")'),
                 "the pill's R button OPENS the ESC menu")
-        check(chat_src.contains("1e2733") and chat_src.contains("c9d3dc"),
-                "the chat is daylight glass now (ink text, quiet border)")
+        check(chat_src.contains("2b3550") and chat_src.contains("dfe8f6"),
+                "the chat is midnight glass now (moon-white text, moonlit border)")
+        check(chat_src.contains("ffd23f"),
+                "chat name colors are tuned for the dark face (bright arcade set)")
         check(game_src.contains('RetroUI.icon_texture("chat", RetroUI.MENU_INK)'),
                 "the white pill's chat key wears the code-drawn ink bubble")
         check(bubble_src.contains("SHOW_SECONDS := 9.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
@@ -668,8 +688,10 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "4.0"') and login_src4.contains("BtnBlue"),
-                "login wears the daylight skid card (v4.0, blue action key)")
+        check(login_src4.contains('VERSION := "5.0"') and login_src4.contains("BtnBlue"),
+                "login wears the midnight arcade card (v5.0, blue action key)")
+        check(login_src4.contains("_add_starfield"),
+                "the login backdrop is the code-drawn pixel starfield")
 
         # --- v3.9: presence carries everyone's live stats ---
         var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")

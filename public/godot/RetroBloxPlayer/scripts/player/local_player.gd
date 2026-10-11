@@ -7,10 +7,12 @@ extends CharacterBody3D
 ## and multiplied by STUD, so the classic numbers still rule the feel:
 ## WalkSpeed 16, JumpPower 50, workspace gravity 196.2.
 ##
-## Features: crisp ground accel + air control, 2.5-stud step-up (stairs),
-## TrussPart-style ladders (even ones built from segments with 1-3 stud gaps
+## Features: crisp ground accel + air control, 3.2-stud step-up (stairs —
+## v5.0 DOUBLED the old walk-over: 1-stud AND 2-stud platforms now roll
+## under your feet like stairs), TrussPart-style ladders (even ones built
+## from segments with 1-3 stud gaps
 ## between them — the climb grace carries you across the gap), stud-edge
-## climbing (walk into any studded platform edge while FACING it and W climbs
+## climbing (walk into any TALL platform edge while FACING it and W climbs
 ## it, Roblox style), mantle over the top lip. While climbing the torso locks
 ## onto the ladder / wall face — it never twists left or right — and the
 ## Climb clip can't break from body spin. S climbs down, Space jumps off,
@@ -37,10 +39,12 @@ const BRAKE_GROUND := 170.0 * STUD  # stop on release, classic style
 const COYOTE_TIME := 0.08         # grace window after walking off a ledge
 const JUMP_BUFFER := 0.12         # pressing jump just before landing still jumps
 
-const MAX_STEP := 2.5 * STUD      # walk over anything up to this height (stairs!)
+const MAX_STEP := 3.2 * STUD      # v5.0: walk over 2-stud ledges like stairs
+                                  # (doubled from the old ~1.5 effective step)
 const MIN_STEP := 0.05 * STUD
 const STEP_FORWARD := 0.6 * STUD
 const STEP_PROBE_AHEAD := 1.7 * STUD  # down-ray lands BEYOND the capsule radius
+const FLOOR_SNAP := 0.5 * STUD        # the normal ground magnet (restored after glides)
 ## v3.7 SMOOTH STAIRS — the vertical glide speed that replaced the teleport.
 ## A 2-stud step takes ~0.09s to climb; the collider, avatar and camera all
 ## rise together, exactly how Roblox eases you up a staircase.
@@ -59,13 +63,14 @@ const CLIMB_FACE_STAY := 0.35    # fall below this while climbing = let go + fal
 const CLIMB_GRACE := 0.45         # seconds the climb survives rung/gap stretches
 const WALL_REACH := 3.0 * STUD    # probe ray length for stud edges
 const HUG_PRESSURE := 1.2 * STUD  # gentle push into the surface while climbing
-## A climb only STARTS on faces that are TORSO-height or taller (2.7 studs):
-## 1-2 stud steps stay stairs (the step-up walks over them) — touching a low
-## step with your legs must NEVER put the body into the climb grip.
-const WALL_GRAB_MIN_H := 2.7 * STUD
+## A climb only STARTS on faces TALLER than the stair step (3.25 studs):
+## 1-2 stud steps stay stairs (the step-up walks over them) — touching a
+## low step with your legs must NEVER put the body into the climb grip.
+const WALL_GRAB_MIN_H := MAX_STEP + 0.05
 ## Heights (studs above the feet) of the vertical probe rays — spread so
-## plate towers with gaps always have at least one ray on a plate.
-const WALL_PROBE_HS: Array = [0.5, 1.7, 2.7, 2.9, 4.1]
+## plate towers with gaps always have at least one ray on a plate. The
+## 3.25 ray catches faces just over the stair limit.
+const WALL_PROBE_HS: Array = [0.5, 1.7, 2.7, 2.9, 3.25, 4.1]
 
 const LAND_SOUND_FALL := 22.0 * STUD  # impact speed that triggers the landing thud
 const FALL_WIND_SPEED := 34.0 * STUD  # downward speed where the wind loop kicks in
@@ -125,7 +130,7 @@ func _init() -> void:
         name = "LocalPlayer"
         collision_layer = 4
         collision_mask = 1
-        floor_snap_length = 0.5 * STUD
+        floor_snap_length = FLOOR_SNAP
         floor_max_angle = deg_to_rad(50.0)
 
         var col := CollisionShape3D.new()
@@ -539,11 +544,18 @@ func _step_along(dir: Vector3) -> bool:
         if space == null:
                 return false
         var feet := global_position.y
-        var probe := PhysicsRayQueryParameters3D.create(
-                global_position + Vector3(0.0, MIN_STEP + 0.15 * STUD, 0.0),
-                global_position + Vector3(0.0, MIN_STEP + 0.15 * STUD, 0.0) + dir * 1.4 * STUD,
-                collision_mask)
-        if space.intersect_ray(probe).is_empty():
+        # v5.0: TWO horizontal probes — shin height AND knee height — with a
+        # longer reach, so a 2-3 stud ledge is found whether you press into
+        # it low or high, head-on or eased against the face.
+        var touched := false
+        for probe_h in [MIN_STEP + 0.15 * STUD, 0.9 * STUD]:
+                var from := global_position + Vector3(0.0, probe_h, 0.0)
+                var probe := PhysicsRayQueryParameters3D.create(
+                        from, from + dir * 1.9 * STUD, collision_mask)
+                if not space.intersect_ray(probe).is_empty():
+                        touched = true
+                        break
+        if not touched:
                 return false
         if test_move(global_transform, Vector3.UP * MAX_STEP):
                 return false
@@ -570,9 +582,17 @@ func _step_along(dir: Vector3) -> bool:
 ## collider, avatar and camera rise together (no snap) — then glide forward
 ## onto the tread and settle down onto it, exactly like the old snap did but
 ## spread across time.
+## v5.0 CRITICAL FIX: while the glide owns the vertical axis, floor snapping
+## is SUSPENDED. The old order let move_and_slide's 0.5-stud floor snap fire
+## on the stale on-floor state every frame and drag the body straight back
+## down — the glide could never bank more than one frame of height (0.35
+## studs), so 2-stud ledges behaved like walls in the real world. With the
+## magnet off, the rise accumulates and the stairs carry you up.
 func _update_step_rise(delta: float) -> void:
         if _rise_left <= 0.0:
+                floor_snap_length = FLOOR_SNAP   # normal ground magnet back on
                 return
+        floor_snap_length = 0.0                  # the glide owns the vertical
         var step_up := minf(_rise_left, STEP_RISE_SPEED * delta)
         move_and_collide(Vector3.UP * step_up)
         _rise_left -= step_up
@@ -582,6 +602,7 @@ func _update_step_rise(delta: float) -> void:
                 var settle := move_and_collide(Vector3.DOWN * (_rise_lip + 0.2 * STUD))
                 if settle != null and velocity.y < 0.0:
                         velocity.y = 0.0
+                floor_snap_length = FLOOR_SNAP   # landed on the tread — magnet on
 
 
 func _update_fall_damage() -> void:

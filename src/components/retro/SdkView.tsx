@@ -9,16 +9,16 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v4.0 "Skid"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=4.0'
+const VERSION = 'v5.0 "Midnight"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=5.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['The 2016 skid — light & clean', 'The whole client is restyled as the 2016 daylight site: clean WHITE cards on soft gray, near-black ink, round corners, soft shadows, ONE bright RetroBlox blue accent (the active page, your card ring, the Resume key). No dark cave, no gradients — light, modern, retro.'],
-  ['Your REAL avatar in the ESC menu', 'Three bugs died at once: the portrait snapshot used to fire before the face/t-shirt/hat downloads landed (you got a plain noob), the portrait camera sat BEHIND every rig so faces never showed, and image-only UGC (T-SHIRTS!) was skipped entirely. Now the shot waits for the full dress and photographs the FRONT — face, decal, hat, all on the card.'],
-  ['T-shirts finally wear in-game', 'T-shirt UGC is a 2D image, not a model — the dresser now paints it as a decal on the torso front (92%, the exact site rule) instead of silently bailing. Equip on the website, spawn in-game: it is ON.'],
-  ['Change your look mid-session', 'Opening the ESC menu re-fetches your account avatar live — re-equip on the site, reopen the menu, and your in-game character re-dresses on the spot. No relog.'],
-  ['Game feel pass', 'Hard landings DIP the camera (big drops land in your hands), the scroll-wheel zoom GLIDES instead of teleporting, respawn is snappier (2.0s), and the People page only rebuilds while the menu is open (less churn, more FPS).'],
-  ['Prettier world', 'A soft readable sun disc, warm late-afternoon light, lifted ambient, softer shadow edges, and a whisper of horizon fog on every sky place so islands melt into the sky.'],
+  ['The MIDNIGHT client — a proper retro game UI', 'The whole client is rebuilt as a dark arcade cabinet: deep navy glass windows with bold outlines, chunky Press Start 2P type carrying every title, key and stat, ONE electric RetroBlox blue accent and gold arcade readouts. The blinding daylight skid is gone — the UI sits dark so the world carries the color and your eyes keep their night vision.'],
+  ['The avatar portrait is SHARP now', 'The ESC-menu cards rendered at 64x84 and upscaled — chunky pixel mush. They now render at 320x448 with 4x MSAA and draw smooth: your face, shirt, t-shirt decal and hat all land crisp before the one-shot snapshot fires.'],
+  ['STAIRS DOUBLED — walk up 2-stud ledges', 'The real culprit was a physics bug: move_and_slide\'s floor snap kept dragging the stair glide back down every frame, so anything over ~1 stud behaved like a wall. With the snap suspended during the glide and the step raised to 3.2 studs, 1-stud AND 2-stud platforms (and then some) roll under your feet like stairs — verified walking the real Happy Baseplate fort.'],
+  ['The AUTHENTIC Roblox stud', 'The stud tile is baked properly now: a raised bump with a lit top-left rim, a shaded bottom-right rim and a soft contact shadow, multiplied over the part color — tops read as real studded plastic from any distance.'],
+  ['The world stops blinding you', 'FILMIC tonemap was lifting every midtone into a pastel wash. LINEAR tonemap + calmer ambient + gentler sun = the classic flat plastic look: the gray baseplate reads gray, red bricks read red, and the studs actually show.'],
+  ['Nothing blurry', '4x MSAA on the world, anisotropic filtering on the stud tiles, the portrait at 5x resolution — edges and textures land crisp everywhere.'],
 ]
 
 const FILES = [
@@ -27,14 +27,14 @@ const FILES = [
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The in-game login / SIGN UP card — server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The v4.0 skid UI: white cards + ink + RetroBlox blue, clean sans + pixel garnish, TRUE bevel keycaps + pixel icons drawn in code, your cursors'],
-  ['scripts/ui/avatar_portrait.gd', 'Renders each player\'s REAL avatar into a low-res pixel shot for the ESC menu People cards (offscreen viewport, cached)'],
+  ['scripts/ui/retro_theme.gd', 'The v5.0 midnight UI: dark navy glass + moon ink + RetroBlox blue + gold, Press Start 2P as the loud voice, TRUE bevel keycaps + pixel icons drawn in code, your cursors'],
+  ['scripts/ui/avatar_portrait.gd', 'Renders each player\'s REAL avatar at 320x448 with 4x MSAA for the ESC menu People cards (offscreen viewport, cached)'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — they STACK the Roblox way, up to three live'],
-  ['scripts/player/local_player.gd', 'Classic controller at the classic size: WalkSpeed 16, SMOOTH gliding stairs, ladders + stud-edge grabs (face-to-climb, look-away = fall), trampolines, fall damage, dust'],
+  ['scripts/player/local_player.gd', 'Classic controller at the classic size: WalkSpeed 16, 2-stud gliding STAIRS, ladders + stud-edge grabs (face-to-climb, look-away = fall), trampolines, fall damage, dust'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
-  ['scripts/world/world_builder.gd', 'Builds places from parts + props, procedural stud texture, goal sparkles'],
+  ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
   ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the classic-client ESC menu (player cards + live stats), respawn flow'],
   ['scripts/game/chat_box.gd', 'The classic chat log + type box that open and close as ONE widget, injection-proof'],

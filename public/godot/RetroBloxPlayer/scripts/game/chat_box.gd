@@ -9,7 +9,8 @@ extends Control
 ## v3.11: F READS — a read-only mode that shows the log WITHOUT grabbing
 ## the keyboard, so you can catch up on chat while you keep moving. The
 ## "#1" seq chips are gone from lines.
-## v4.0: the daylight skid — white glass panels, ink text, quiet borders.
+## v5.0: the midnight glass — dark panels, moon-white text, brighter name
+## colors tuned for the dark face.
 
 signal submitted(text: String)
 signal opened
@@ -22,8 +23,8 @@ signal unread(count: int)
 
 const MAX_LINES := 60
 const NAME_COLORS: Array = [
-        "c9960f", "3f8f22", "0f76c9", "c2502f", "8a3fc9",
-        "0f96a8", "c91f6e", "5f8f0f", "a8820f", "5d6b80",
+        "ffd23f", "7ee36a", "5cb8ff", "ff8a5c", "c48aff",
+        "4fd8e0", "ff6ba8", "b8e34f", "ffd27a", "9fb0c8",
 ]
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
@@ -48,13 +49,13 @@ func _init() -> void:
 
         _panel = PanelContainer.new()
         _panel.name = "LogPanel"
-        # v4.0: white daylight glass, quiet border, round corners
+        # v5.0: midnight glass, moonlit border, round corners
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(1, 1, 1, 0.88)
+        sb.bg_color = Color(0.043, 0.055, 0.09, 0.9)
         sb.set_corner_radius_all(12)
-        sb.border_color = Color("c9d3dc")
+        sb.border_color = Color("2b3550")
         sb.set_border_width_all(1)
-        sb.shadow_color = Color(0.1, 0.18, 0.28, 0.10)
+        sb.shadow_color = Color(0, 0, 0, 0.35)
         sb.shadow_size = 8
         sb.shadow_offset = Vector2(0, 3)
         sb.content_margin_left = 10.0
@@ -74,17 +75,17 @@ func _init() -> void:
         _log.context_menu_enabled = false
         _log.add_theme_font_size_override("normal_font_size", 14)
         _log.add_theme_font_size_override("bold_font_size", 14)
-        _log.add_theme_color_override("default_color", Color("1e2733"))
+        _log.add_theme_color_override("default_color", Color("dfe8f6"))
         _panel.add_child(_log)
 
         _input_panel = PanelContainer.new()
         _input_panel.name = "InputPanel"
         var isb := StyleBoxFlat.new()
-        isb.bg_color = Color(1, 1, 1, 0.92)
+        isb.bg_color = Color(0.043, 0.055, 0.09, 0.93)
         isb.set_corner_radius_all(12)
-        isb.border_color = Color("c9d3dc")
+        isb.border_color = Color("2b3550")
         isb.set_border_width_all(1)
-        isb.shadow_color = Color(0.1, 0.18, 0.28, 0.10)
+        isb.shadow_color = Color(0, 0, 0, 0.35)
         isb.shadow_size = 8
         isb.shadow_offset = Vector2(0, 3)
         isb.content_margin_left = 8.0
@@ -100,8 +101,8 @@ func _init() -> void:
         _input.placeholder_text = "ENTER to chat  ·  F just reads, keeps you moving"
         _input.max_length = 240
         _input.context_menu_enabled = false
-        _input.add_theme_color_override("font_color", Color("1e2733"))
-        _input.add_theme_color_override("font_placeholder_color", Color("97a1ad"))
+        _input.add_theme_color_override("font_color", Color("eaf0fb"))
+        _input.add_theme_color_override("font_placeholder_color", Color("51607c"))
         # the typing line speaks in the clean book voice when it ships
         var book: Font = RetroUI.clean_book()
         if book != null:
@@ -226,7 +227,7 @@ func add_chat(username: String, seq_id: int, text: String, name_color: String = 
 
 
 func add_system(text: String) -> void:
-        _log.append_text("[color=#8a95a1][i]%s[/i][/color]\n" % _esc(text))
+        _log.append_text("[color=#8fa0bd][i]%s[/i][/color]\n" % _esc(text))
         _count_unread()
         _prune()
 
@@ -243,7 +244,7 @@ func _prune() -> void:
         # RichTextLabel has no line counter — track by clearing when huge
         if _log.get_total_character_count() > 12000:
                 _log.clear()
-                _log.append_text("[color=#8a95a1][i](chat trimmed)[/i][/color]\n")
+                _log.append_text("[color=#8fa0bd][i](chat trimmed)[/i][/color]\n")
 
 
 func _esc(text: String) -> String:

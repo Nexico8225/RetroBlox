@@ -3,8 +3,13 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v4.0 "Skid" wears the 2016 daylight
-look — clean white cards, ink text, one RetroBlox blue accent.
+through the RetroBlox platform API. v5.0 "Midnight" is a proper retro game
+client: deep navy glass UI with chunky Press Start 2P type, one electric
+RetroBlox blue accent, gold arcade readouts — and the world renders in TRUE
+colors with the authentic Roblox studs. Stairs are DOUBLED (walk up 1- AND
+2-stud ledges like stairs), the ESC-menu portraits render sharp at
+320x448 with 4x MSAA, and the renderer ships 4x MSAA + anisotropic
+filtering so nothing is blurry.
 
 > One platform, every engine. Everything here is plain HTTP + JSON against
 > `https://retro-blox.vercel.app` — the same API the website and the future

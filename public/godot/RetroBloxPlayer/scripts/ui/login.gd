@@ -4,10 +4,11 @@ extends Control
 ## on every boot auto-signs in with zero typing — you log in once, ever.
 ## The server is LOCKED to the official RetroBlox platform: it is a label,
 ## not a field, so it can never be pointed somewhere else.
-## v4.0: the daylight skid — a clean white card on soft gray, blue accents.
+## v5.0: the midnight arcade — a deep navy sky with a code-drawn pixel
+## starfield behind one dark card, electric blue accents, pixel type.
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
-const VERSION := "4.0"
+const VERSION := "5.0"
 
 var _mode := "login"   # login | signup
 var _user: LineEdit
@@ -32,6 +33,7 @@ func _build() -> void:
         bg.color = RetroUI.BG
         bg.set_anchors_preset(Control.PRESET_FULL_RECT)
         add_child(bg)
+        _add_starfield(bg)
 
         var center := CenterContainer.new()
         center.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -39,15 +41,15 @@ func _build() -> void:
 
         var card := PanelContainer.new()
         card.custom_minimum_size = Vector2(430, 0)
-        # v4.0: the clean white card — quiet border, soft daylight shadow
+        # v5.0: the midnight card — dark face, bold cabinet outline, deep shadow
         var card_sb := StyleBoxFlat.new()
-        card_sb.bg_color = Color(1, 1, 1, 0.98)
+        card_sb.bg_color = Color(0.071, 0.094, 0.149, 0.97)
         card_sb.set_corner_radius_all(14)
-        card_sb.border_color = RetroUI.EDGE_DARK
-        card_sb.set_border_width_all(1)
-        card_sb.shadow_color = Color(0.12, 0.2, 0.3, 0.14)
-        card_sb.shadow_size = 18
-        card_sb.shadow_offset = Vector2(0, 6)
+        card_sb.border_color = RetroUI.MENU_OUTLINE
+        card_sb.set_border_width_all(2)
+        card_sb.shadow_color = Color(0, 0, 0, 0.55)
+        card_sb.shadow_size = 22
+        card_sb.shadow_offset = Vector2(0, 8)
         card_sb.content_margin_left = 24.0
         card_sb.content_margin_right = 24.0
         card_sb.content_margin_top = 22.0
@@ -76,17 +78,17 @@ func _build() -> void:
                 box.add_child(lbl)
 
         var sub := Label.new()
-        sub.text = "the classic player — v%s" % VERSION
+        sub.text = "the midnight client — v%s" % VERSION
         sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         var retro: Font = RetroUI.pixel_font()
         if retro != null:
                 sub.add_theme_font_override("font", retro)
                 sub.add_theme_font_size_override("font_size", 8)
-        sub.add_theme_color_override("font_color", RetroUI.MENU_FAINT)
+        sub.add_theme_color_override("font_color", RetroUI.MENU_GOLD)
         box.add_child(sub)
 
-        # mode tabs — the segmented control: the active side wears the soft
-        # blue chip, the quiet side stays white
+        # mode tabs — the segmented control: the active side wears the
+        # electric blue chip, the quiet side stays a dark key
         var tabs := HBoxContainer.new()
         tabs.add_theme_constant_override("separation", 0)
         tabs.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -131,7 +133,6 @@ func _build() -> void:
         note.theme_type_variation = "Small"
         note.add_theme_color_override("font_color", RetroUI.MENU_MUTED)
         box.add_child(note)
-
         _status = Label.new()
         _status.text = ""
         _status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -167,29 +168,62 @@ func _set_mode(mode: String) -> void:
         _tab_signup.button_pressed = mode == "signup"
         _go.text = "LOG IN" if mode == "login" else "CREATE ACCOUNT"
         _status.text = ""
-        # the segmented-tab read: active = soft blue chip + ink, quiet = white
+        # the segmented-tab read: active = electric blue chip, quiet = dark key
         for pair in [[_tab_login, "login"], [_tab_signup, "signup"]]:
                 var b: Button = pair[0]
                 var on: bool = pair[1] == mode
                 var sb := StyleBoxFlat.new()
-                sb.bg_color = RetroUI.MENU_ACCENT_SOFT if on else Color("ffffff")
+                sb.bg_color = RetroUI.MENU_ACCENT_SOFT if on else Color("0d1220")
                 sb.set_corner_radius_all(9)
-                sb.border_color = RetroUI.MENU_ACCENT if on else RetroUI.EDGE_DARK
+                sb.border_color = RetroUI.MENU_ACCENT if on else RetroUI.MENU_EDGE
                 sb.set_border_width_all(1 if on else 1)
                 sb.content_margin_top = 6.0
                 sb.content_margin_bottom = 6.0
                 for st in ["normal", "hover", "pressed", "hover_pressed"]:
                         b.add_theme_stylebox_override(st, sb)
                 for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-                        b.add_theme_color_override(st, RetroUI.MENU_ACCENT_DARK if on else RetroUI.MENU_MUTED)
-                if RetroUI.clean_font() != null:
-                        b.add_theme_font_override("font", RetroUI.clean_font())
-                b.add_theme_font_size_override("font_size", 13)
+                        b.add_theme_color_override(st, RetroUI.MENU_ACCENT_HI if on else RetroUI.MENU_MUTED)
+                if RetroUI.pixel_font() != null:
+                        b.add_theme_font_override("font", RetroUI.pixel_font())
+                b.add_theme_font_size_override("font_size", 8)
+
+
+## A deep-night pixel starfield, drawn once in code: two sizes of moon-white
+## stars, a few electric blue and a few gold, scattered with a fixed seed so
+## the sky is the same every boot — the arcade cabinet's backdrop.
+func _add_starfield(bg: ColorRect) -> void:
+        var w := 320
+        var h := 180
+        var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+        var rng := RandomNumberGenerator.new()
+        rng.seed = 20250101
+        for i in range(110):
+                var x := rng.randi_range(0, w - 1)
+                var y := rng.randi_range(0, h - 1)
+                var roll := rng.randf()
+                var col := Color(1, 1, 1, rng.randf_range(0.25, 0.85))
+                if roll < 0.10:
+                        col = Color(0.0, 0.635, 1.0, rng.randf_range(0.5, 0.9))
+                elif roll < 0.18:
+                        col = Color(0.96, 0.72, 0.24, rng.randf_range(0.45, 0.85))
+                img.set_pixel(x, y, col)
+                if roll > 0.93 and x < w - 1 and y < h - 1:
+                        # a handful of 2-pixel bright stars
+                        img.set_pixel(x + 1, y, Color(col.r, col.g, col.b, col.a * 0.55))
+                        img.set_pixel(x, y + 1, Color(col.r, col.g, col.b, col.a * 0.55))
+        var tex := ImageTexture.create_from_image(img)
+        var stars := TextureRect.new()
+        stars.texture = tex
+        stars.stretch_mode = TextureRect.STRETCH_SCALE
+        stars.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+        stars.set_anchors_preset(Control.PRESET_FULL_RECT)
+        stars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        bg.add_child(stars)
 
 
 func _set_status(text: String, is_error := true) -> void:
         _status.text = text
-        _status.add_theme_color_override("font_color", RetroUI.RED if is_error else RetroUI.GREEN_DARK)
+        _status.add_theme_color_override("font_color", RetroUI.RED if is_error else RetroUI.GREEN)
 
 ## Auto sign-in on boot: the saved token (180-day server-side TTL) brings
 ## the whole account back. The token is ONLY wiped when the server itself

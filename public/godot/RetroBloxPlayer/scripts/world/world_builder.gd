@@ -22,7 +22,10 @@ extends RefCounted
 ##
 ## Everything gets the classic stud texture via world triplanar mapping —
 ## one stud per unit, tinted by the part color, generated procedurally at
-## runtime so the client needs zero texture files.
+## runtime so the client needs zero texture files. v5.0 bakes the AUTHENTIC
+## Roblox stud: a raised bump with a lit top-left rim, a shaded bottom-right
+## rim, a soft contact shadow and a slightly darker plate face, so tops read
+## as real studded plastic instead of faint circles.
 
 const StudColorEdge := Color("000000", 0.10)
 
@@ -58,21 +61,29 @@ static func build(def: Dictionary) -> Dictionary:
         sky_mat.ground_bottom_color = Color(def.get("sky_ground", "2a5d38"))
         sky_mat.ground_horizon_color = Color(def.get("sky_horizon", "bfe0f5"))
         sky_mat.sun_angle_max = 30.0
-        sky_mat.sun_curve = 0.12            # v4.0: a soft readable sun disc
+        sky_mat.sun_curve = 0.12            # a soft readable sun disc
         sky.sky_material = sky_mat
         env.background_mode = Environment.BG_SKY
         env.sky = sky
         env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-        env.ambient_light_energy = 0.62     # v4.0: lifted from 0.55 — colors read
-        env.ambient_light_sky_contribution = 0.7
-        env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-        # v4.0: a whisper of distance fog on EVERY sky place — islands and
-        # towers now melt into the horizon instead of cutting off hard
+        # v5.0: CALM LIGHT — the v4.0 wash (0.62 ambient + 0.7 sky) bleached
+        # the whole world pale. Deeper ambient with less sky contribution
+        # lets the part colors read true and the sun actually model shapes.
+        env.ambient_light_energy = 0.48
+        env.ambient_light_sky_contribution = 0.5
+        # v5.0: LINEAR tonemap — FILMIC lifted every midtone into a blinding
+        # pastel wash (the "everything so bright" report). Linear renders the
+        # authored part colors TRUE: mid-gray baseplate reads mid-gray, red
+        # bricks read red. The classic flat plastic look.
+        env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+        # a whisper of distance fog on EVERY sky place — islands and towers
+        # melt into the horizon instead of cutting off hard (v5.0: lighter
+        # than v4.0 so the fog never milk-washes the scene)
         if bool(def.get("sky", true)) or bool(def.get("cloud_deck", false)):
                 env.fog_enabled = true
-                env.fog_light_color = Color("eef6fd")
-                env.fog_density = 0.0028 if not bool(def.get("cloud_deck", false)) else 0.0042
-                env.fog_sky_affect = 0.24 if not bool(def.get("cloud_deck", false)) else 0.28
+                env.fog_light_color = Color("dce9f5")
+                env.fog_density = 0.0020 if not bool(def.get("cloud_deck", false)) else 0.0030
+                env.fog_sky_affect = 0.16 if not bool(def.get("cloud_deck", false)) else 0.2
         var world_env := WorldEnvironment.new()
         world_env.environment = env
         root.add_child(world_env)
@@ -80,11 +91,11 @@ static func build(def: Dictionary) -> Dictionary:
         var sun := DirectionalLight3D.new()
         sun.name = "Sun"
         sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-        sun.light_energy = 1.0             # v4.0: 0.85 -> 1.0, crisper faces
-        sun.light_color = Color("fff2dd")  # v4.0: the warm late-afternoon cast
+        sun.light_energy = 0.92            # v5.0: gentle — the sun models, not blinds
+        sun.light_color = Color("ffe9c4")  # the warm late-afternoon cast
         sun.shadow_enabled = true
         sun.directional_shadow_max_distance = 90.0
-        sun.shadow_blur = 1.2              # v4.0: softer shadow edges
+        sun.shadow_blur = 1.2
         root.add_child(sun)
         var settings: Node = Engine.get_main_loop().root.get_node_or_null("/root/Settings")
         if settings != null:
@@ -652,28 +663,54 @@ static func _snow(root: Node3D, pos: Vector3, size: Vector3) -> void:
 
 # ---------------------------------------------------------------- materials
 
-## The classic stud: a subtle circle grid, 1 stud per world unit, triplanar.
+## The AUTHENTIC Roblox stud tile (v5.0), baked at 128px per stud:
+## the plate face sits a touch darker, and the stud is a raised bump —
+## lit rim on the top-left, shaded rim on the bottom-right, a soft contact
+## shadow hugging its lower edge and a gentle AO ring where it meets the
+## plate. Multiplied over the part color by the triplanar material, tops
+## read as real studded plastic from any distance.
 static func stud_texture() -> ImageTexture:
         if _stud_tex != null and is_instance_valid(_stud_tex):
                 return _stud_tex
-        var n := 64
+        var n := 128
         var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
-        var base := Color(1.0, 1.0, 1.0)
-        var ring := Color(0.86, 0.86, 0.86)
-        var face := Color(0.965, 0.965, 0.965)
         var center := float(n) * 0.5
-        var radius := float(n) * 0.30
+        var radius := float(n) * 0.315
+        var face := 0.925          # the plate face — slightly under white
+        var ao := 0.80             # the contact ring around the bump
+        var bump_top := 1.07       # the lit rim
+        var bump_bot := 0.72       # the shaded rim
+        var bump_face_hi := 1.0    # bump crown, light side
+        var bump_face_lo := 0.93   # bump crown, shade side
         for y in range(n):
                 for x in range(n):
-                        var d := Vector2(float(x) + 0.5 - center, float(y) + 0.5 - center).length()
-                        if d > radius + 1.0:
-                                img.set_pixel(x, y, base)
-                        elif d > radius:
-                                img.set_pixel(x, y, ring)
-                        elif d > radius - 2.0:
-                                img.set_pixel(x, y, ring.lerp(face, 0.5))
-                        else:
-                                img.set_pixel(x, y, face)
+                        var dx := float(x) + 0.5 - center
+                        var dy := float(y) + 0.5 - center
+                        var d := sqrt(dx * dx + dy * dy)
+                        var col := face
+                        if d <= radius - 2.0:
+                                # the bump crown: light from the top-left
+                                var t := clampf(1.0 - d / (radius - 2.0), 0.0, 1.0)
+                                var shade := lerpf(bump_face_lo, bump_face_hi, t * 0.65)
+                                # top-left kiss of light on the crown itself
+                                var tl := clampf((-dx - dy) / radius, -1.0, 1.0)
+                                shade += tl * 0.03
+                                col = shade
+                        elif d <= radius:
+                                # the RIM: bright top-left arc, dark bottom-right arc
+                                var ang := atan2(dy, dx)
+                                var lightness := clampf(-sin(ang) * 0.5 - cos(ang) * 0.5, -1.0, 1.0)
+                                col = lerpf(bump_bot, bump_top, (lightness + 1.0) * 0.5)
+                        elif d <= radius + 2.5:
+                                # the outer edge of the rim: hard cut to the plate
+                                col = face
+                        elif d <= radius + 7.0:
+                                # the contact shadow, strongest at the bottom-right
+                                var t2 := 1.0 - (d - radius - 2.5) / 4.5
+                                var ang2 := atan2(dy, dx)
+                                var bias := clampf(sin(ang2) * 0.5 + cos(ang2) * 0.5, 0.0, 1.0)
+                                col = lerpf(face, ao, t2 * (0.35 + 0.65 * bias))
+                        img.set_pixel(x, y, Color(col, col, col))
         _stud_tex = ImageTexture.create_from_image(img)
         return _stud_tex
 
@@ -711,7 +748,7 @@ static func _part_material(color: Color, kind: String, tex: ImageTexture, no_stu
                 m.uv1_world_triplanar = true
                 # one stud tile per unit = one stud per stud at STUD 1.0
                 m.uv1_scale = Vector3.ONE / STUD
-                m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+                m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
         return m
 
 

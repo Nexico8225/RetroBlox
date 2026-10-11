@@ -1,11 +1,11 @@
 class_name AvatarPortrait
 extends RefCounted
-## v3.9 CLASSIC CLIENT — the ESC menu player cards wear a REAL picture of
-## each player's avatar, the way the People page always has. We build the
-## player's actual rig inside a tiny offscreen SubViewport with its own
-## camera + lights, render ONE frame at a deliberately LOW resolution, and
-## hand the texture back. Drawn nearest-neighbor at 2x, the thumb reads as
-## a chunky retro sprite — the avatar itself, not an icon of one.
+## v5.0 MIDNIGHT CLIENT — the ESC menu player cards wear a REAL, SHARP
+## picture of each player's avatar. We build the player's actual rig inside
+## an offscreen SubViewport with its own camera + lights and render ONE
+## frame at HIGH resolution (320x448 with 4x MSAA) — the card shows a clean
+## portrait, not a chunky upscaled sprite. The old v3.9 look rendered at
+## 64x84 and every card read as pixel mush; that's dead now.
 ##
 ## Everything is disposable: the viewport, rig, camera and lights are freed
 ## before return, and the host node is only used to park the viewport for
@@ -15,7 +15,7 @@ extends RefCounted
 const AvatarRigScript := preload("res://scripts/player/avatar_rig.gd")
 const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
 
-const RENDER_SIZE := Vector2i(64, 84)   # texel density IS the retro look
+const RENDER_SIZE := Vector2i(320, 448)   # 5x the old shot — crisp, never pixelated
 const RIG_CENTER_Y := 2.5               # the rig is 5 studs tall, origin at the feet
 
 
@@ -34,6 +34,9 @@ static func render(host: Node, api, payload: Dictionary) -> Texture2D:
         vp.size = RENDER_SIZE
         vp.transparent_bg = true
         vp.own_world_3d = true
+        # v5.0: 4x MSAA in the shot itself — edges land smooth even before
+        # the card scales the texture down.
+        vp.msaa_3d = Viewport.MSAA_4X
         # v3.11 FIX: the one-shot render used to be armed HERE — before the
         # rig, lights or camera existed. It captured one EMPTY frame and was
         # never re-armed, so the People cards went portrait-less (the empty
@@ -71,12 +74,12 @@ static func render(host: Node, api, payload: Dictionary) -> Texture2D:
         vp.add_child(env)
 
         var key := DirectionalLight3D.new()
-        key.rotation_degrees = Vector3(-32, 152, 0)   # v4.0: front-left-top key (the rig faces -Z)
-        key.light_energy = 1.15
+        key.rotation_degrees = Vector3(-32, 152, 0)   # front-left-top key (the rig faces -Z)
+        key.light_energy = 1.2
         vp.add_child(key)
         var fill := DirectionalLight3D.new()
         fill.rotation_degrees = Vector3(-12, -28, 0)  # soft back-right rim fill
-        fill.light_energy = 0.4
+        fill.light_energy = 0.5
         vp.add_child(fill)
 
         var cam := Camera3D.new()
