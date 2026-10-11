@@ -430,11 +430,16 @@ func _pill_style() -> StyleBoxFlat:
         return sb
 
 
-func _pill_btn_style(hover: bool) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(1, 1, 1, 0.12) if hover else Color(0, 0, 0, 0)
-        sb.set_corner_radius_all(16)
-        return sb
+func _pill_btn_style(hover: bool) -> StyleBox:
+        # the authentic 2011 GLASS icon button (dark face, left shine) —
+        # pulled from the public 2011-08 client archive
+        var sb: StyleBoxTexture = RetroUI.glass_button(hover)
+        if sb != null:
+                return sb
+        var flat := StyleBoxFlat.new()
+        flat.bg_color = Color(1, 1, 1, 0.12) if hover else Color(0, 0, 0, 0)
+        flat.set_corner_radius_all(16)
+        return flat
 
 
 func _badge_style() -> StyleBoxFlat:
@@ -581,15 +586,13 @@ func _setup_audio() -> void:
                         wind.call("play")
 
 
-# ---- the menu — the v3.9 CLASSIC CLIENT window ---------------------------
-## A completely new shell, not a reskin of the old card: a dark client
-## window with a TITLE BAR (wordmark on ink + place name + a classic red
-## close key), a LEFT NAV RAIL (People / Settings, with YOUR live FPS and
-## PING pinned to its foot) and a People page that is a GRID of player
-## CARDS — each wearing a low-res pixel PORTRAIT of that player's real
-## avatar plus their live ping + fps. One tight palette: near-black
-## blue-grey surfaces, white ink, the brand red as the only accent.
-## No wood, no gold, no steel-plate soup.
+# ---- the menu — the v3.10 GLOSSY CLASSIC CLIENT window -------------------
+## The v3.9 client shell, now wearing the OLD-SITE look: the window itself
+## is the authentic 2011 rounded plate (a real texture from the public
+## 2011-08 client archive), the bars are banded gradient panels with hard
+## dark edges, and every action key is a GLOSSY gradient button with a
+## bold ink outline — shine band up top, hard gloss cut, dark base, white
+## outlined pixel text. Same tight palette, way more retro.
 
 
 func _build_menu() -> Control:
@@ -611,7 +614,7 @@ func _build_menu() -> Control:
         shadow.grow_horizontal = Control.GROW_DIRECTION_BOTH
         shadow.grow_vertical = Control.GROW_DIRECTION_BOTH
         overlay.add_child(shadow)
-        # the client window — flat ink-dark face, hard dark outline
+        # the client window — the authentic 2011 rounded plate texture
         var client := PanelContainer.new()
         client.name = "MenuWindow"
         client.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -663,7 +666,7 @@ func _build_menu() -> Control:
         _fps_chip = _stat_line(you_box, "FPS")
         _ping_chip = _stat_line(you_box, "PNG")
         var ver := Label.new()
-        ver.text = "v3.9"
+        ver.text = "v3.10"
         ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         _pix(ver, 7, RetroUI.MENU_FAINT)
         rail_box.add_child(ver)
@@ -702,6 +705,11 @@ func _build_menu() -> Control:
         pages.add_child(_players_tab)
         var scroll := ScrollContainer.new()
         scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+        # v3.10 FIX: inside the tab's VBox the scroll collapsed to height 0
+        # (VBox hands out MINIMUM heights) — the whole card grid was clipped
+        # into nothing. Expand to own the page.
+        scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
         _players_tab.add_child(scroll)
         _players_grid = GridContainer.new()
@@ -795,20 +803,23 @@ func _menu_title_bar() -> PanelContainer:
         close.custom_minimum_size = Vector2(32, 26)
         close.focus_mode = Control.FOCUS_NONE
         close.tooltip_text = "Resume (ESC)"
-        close.add_theme_stylebox_override("normal", _bevel_btn(RetroUI.MENU_RED))
-        close.add_theme_stylebox_override("hover", _bevel_btn(RetroUI.MENU_RED_HI))
-        close.add_theme_stylebox_override("pressed", _bevel_btn(Color("8f1410"), true))
+        close.add_theme_stylebox_override("normal", _gloss_btn(RetroUI.MENU_RED))
+        close.add_theme_stylebox_override("hover", _gloss_btn(RetroUI.MENU_RED_HI))
+        close.add_theme_stylebox_override("pressed", _gloss_btn(Color("8f1410"), true))
         for st in ["font_color", "font_hover_color", "font_pressed_color"]:
                 close.add_theme_color_override(st, Color.WHITE)
+        close.add_theme_constant_override("outline_size", 2)
+        close.add_theme_color_override("font_outline_color", RetroUI.INK_OUTLINE)
         close.add_theme_font_size_override("font_size", 8)
         close.pressed.connect(_toggle_menu)
         row.add_child(close)
         return bar
 
 
-## The footer: the four action keycaps (Resume glows green, Leave wears the
-## red door, everything else stays neutral grey — no more purple) plus the
-## keycap hint bar.
+## The footer: the four action keys are GLOSSY gradient caps now — Resume
+## is the classic green Play gloss (shine band + bold ink outline + white
+## outlined text), Leave wears the red gloss, Reset/Log Out stay steel —
+## plus the keycap hint bar underneath.
 func _menu_footer() -> PanelContainer:
         var foot := PanelContainer.new()
         foot.name = "MenuFooter"
@@ -822,7 +833,7 @@ func _menu_footer() -> PanelContainer:
         actions.add_child(_action_button("Resume", "play",
                 Color("2fbf4f"), Color("3fd462"), Color("23863c"), _toggle_menu, 0, true))
         actions.add_child(_action_button("Reset Character", "reset",
-                Color("3a4050"), Color("4a5164"), Color("2b303c"),
+                Color("4d566c"), Color("5d6880"), Color("3a4254"),
                 func() -> void:
                         _toggle_menu()
                         if player.alive:
@@ -831,7 +842,7 @@ func _menu_footer() -> PanelContainer:
         actions.add_child(_action_button("Leave", "door",
                 Color("b3261e"), Color("d13a30"), Color("8f1d17"), _leave_game, 112))
         actions.add_child(_action_button("Log Out", "power",
-                Color("3a4050"), Color("4a5164"), Color("2b303c"),
+                Color("4d566c"), Color("5d6880"), Color("3a4254"),
                 func() -> void:
                         Api.clear_session()
                         Session.reset()
@@ -856,13 +867,16 @@ func _action_button(text: String, icon_kind: String, bg: Color, hover_bg: Color,
         b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         if expand:
                 b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        b.custom_minimum_size = Vector2(maxi(min_w, 0), 42)
+        b.custom_minimum_size = Vector2(maxi(min_w, 0), 46)
         b.focus_mode = Control.FOCUS_NONE
-        b.add_theme_stylebox_override("normal", _bevel_btn(bg))
-        b.add_theme_stylebox_override("hover", _bevel_btn(hover_bg))
-        b.add_theme_stylebox_override("pressed", _bevel_btn(pressed_bg, true))
+        # the classic GLOSS: shine band + bold ink outline + white outlined text
+        b.add_theme_stylebox_override("normal", _gloss_btn(bg))
+        b.add_theme_stylebox_override("hover", _gloss_btn(hover_bg))
+        b.add_theme_stylebox_override("pressed", _gloss_btn(pressed_bg, true))
         for st in ["font_color", "font_hover_color", "font_pressed_color"]:
                 b.add_theme_color_override(st, Color.WHITE)
+        b.add_theme_constant_override("outline_size", 2)
+        b.add_theme_color_override("font_outline_color", RetroUI.INK_OUTLINE)
         b.add_theme_font_size_override("font_size", 10)
         b.pressed.connect(handler)
         return b
@@ -884,28 +898,51 @@ func _nav_button(text: String, icon_kind: String) -> Button:
 
 ## The nav rail's voice: white ink on both states (the old SETTINGS tab used
 ## to drown into the card — that complaint is dead), a red notch on the left
-## edge marks the open page.
+## edge marks the open page, and the OPEN page wears a steel-gloss gradient
+## chip with a bold ink outline.
 func _style_nav(b: Button, on: bool) -> void:
         b.set_pressed_no_signal(on)
-        var normal := StyleBoxFlat.new()
-        normal.bg_color = RetroUI.MENU_PANEL_HI if on else Color(0, 0, 0, 0)
-        normal.border_width_left = 3
-        normal.border_color = RetroUI.MENU_RED if on else Color(0, 0, 0, 0)
-        normal.content_margin_left = 10.0
-        normal.content_margin_right = 8.0
-        normal.content_margin_top = 10.0
-        normal.content_margin_bottom = 10.0
-        var hover := normal.duplicate()
-        if not on:
+        if on:
+                var gloss: StyleBoxTexture = RetroUI.gloss_texture(Color("46506a"))
+                gloss.content_margin_left = 10.0
+                gloss.content_margin_right = 8.0
+                gloss.content_margin_top = 8.0
+                gloss.content_margin_bottom = 8.0
+                b.add_theme_stylebox_override("normal", gloss)
+                b.add_theme_stylebox_override("hover", gloss)
+                b.add_theme_stylebox_override("pressed", gloss)
+                b.add_theme_stylebox_override("hover_pressed", gloss)
+        else:
+                var normal := StyleBoxFlat.new()
+                normal.bg_color = Color(0, 0, 0, 0)
+                normal.border_width_left = 3
+                normal.border_color = Color(0, 0, 0, 0)
+                normal.content_margin_left = 10.0
+                normal.content_margin_right = 8.0
+                normal.content_margin_top = 10.0
+                normal.content_margin_bottom = 10.0
+                var hover := normal.duplicate()
                 hover.bg_color = RetroUI.MENU_PANEL_HI
-                hover.border_color = Color(0, 0, 0, 0)
-        b.add_theme_stylebox_override("normal", normal)
-        b.add_theme_stylebox_override("hover", hover)
-        b.add_theme_stylebox_override("pressed", normal)
-        b.add_theme_stylebox_override("hover_pressed", normal)
+                b.add_theme_stylebox_override("normal", normal)
+                b.add_theme_stylebox_override("hover", hover)
+                b.add_theme_stylebox_override("pressed", normal)
+                b.add_theme_stylebox_override("hover_pressed", normal)
         b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
         for st in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
                 b.add_theme_color_override(st, RetroUI.MENU_INK)
+        # the red open-page notch rides ON the gloss chip (styleboxes can't border)
+        var notch := b.get_node_or_null("NavNotch")
+        if on and notch == null:
+                var bar := ColorRect.new()
+                bar.name = "NavNotch"
+                bar.color = RetroUI.MENU_RED
+                bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                bar.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+                bar.offset_right = 3.0
+                bar.offset_left = 0.0
+                b.add_child(bar)
+        elif not on and notch != null:
+                notch.queue_free()
 
 
 ## One "TITLE value" line for the YOU plate — returns the value label.
@@ -988,7 +1025,7 @@ func _player_card(uid: String, uname: String, is_me: bool, ping: Variant, fps: V
 func _card_casing(is_me: bool) -> StyleBoxFlat:
         var sb := StyleBoxFlat.new()
         sb.bg_color = RetroUI.MENU_PANEL
-        sb.set_border_width_all(2)
+        sb.set_border_width_all(3)   # BOLD outlines, the old-site way
         sb.border_color = RetroUI.MENU_RED if is_me else RetroUI.MENU_EDGE_HI
         sb.content_margin_left = 6.0
         sb.content_margin_right = 6.0
@@ -1082,63 +1119,58 @@ func _clock_text() -> String:
 
 # ---- the client's one-voice surfaces --------------------------------------
 
-func _client_style() -> StyleBoxFlat:
+## The window: the authentic 2011 rounded plate (bold outline baked into
+## the texture), flat ink fallback when the archive texture is missing.
+func _client_style() -> StyleBox:
+        var plate: StyleBoxTexture = RetroUI.client_plate()
+        if plate != null:
+                plate.content_margin_left = 5.0
+                plate.content_margin_right = 5.0
+                plate.content_margin_top = 5.0
+                plate.content_margin_bottom = 5.0
+                return plate
         var sb := StyleBoxFlat.new()
         sb.bg_color = RetroUI.MENU_BG
-        sb.set_border_width_all(2)
-        sb.border_color = RetroUI.MENU_EDGE_DARK
-        sb.content_margin_left = 2.0
-        sb.content_margin_right = 2.0
-        sb.content_margin_top = 2.0
-        sb.content_margin_bottom = 2.0
+        sb.set_border_width_all(3)
+        sb.border_color = RetroUI.INK_OUTLINE
+        sb.set_corner_radius_all(10)
+        sb.content_margin_left = 4.0
+        sb.content_margin_right = 4.0
+        sb.content_margin_top = 4.0
+        sb.content_margin_bottom = 4.0
         return sb
 
 
-func _title_bar_style() -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.MENU_PANEL
-        sb.border_width_bottom = 2
-        sb.border_color = RetroUI.MENU_EDGE_DARK
-        sb.content_margin_left = 12.0
-        sb.content_margin_right = 6.0
-        sb.content_margin_top = 7.0
-        sb.content_margin_bottom = 7.0
-        return sb
+func _title_bar_style() -> StyleBox:
+        # banded gradient bar, light lip on top + hard dark edge below
+        return RetroUI.gradient_panel(Color("272c3a"), Color("171a23"), RetroUI.MENU_EDGE_DARK, Color("3a4152"))
 
 
-func _rail_style() -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.MENU_PANEL
-        sb.border_width_right = 2
-        sb.border_color = RetroUI.MENU_EDGE_DARK
-        sb.content_margin_left = 6.0
-        sb.content_margin_right = 6.0
-        sb.content_margin_top = 10.0
-        sb.content_margin_bottom = 8.0
-        return sb
+func _rail_style() -> StyleBox:
+        # gradient rail with a BOLD dark right edge separating it from the page
+        return RetroUI.gradient_panel(Color("20242f"), Color("14161d"), Color(0, 0, 0, 0), Color(0, 0, 0, 0), RetroUI.MENU_EDGE_DARK)
 
 
-func _footer_style() -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.MENU_PANEL
-        sb.border_width_top = 2
-        sb.border_color = RetroUI.MENU_EDGE_DARK
-        sb.content_margin_left = 12.0
-        sb.content_margin_right = 12.0
-        sb.content_margin_top = 10.0
-        sb.content_margin_bottom = 8.0
-        return sb
+func _footer_style() -> StyleBox:
+        return RetroUI.gradient_panel(Color("20242f"), Color("14161d"), Color(0, 0, 0, 0), RetroUI.MENU_EDGE_DARK)
 
 
-func _inset_style() -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.MENU_BG
-        sb.set_border_width_all(1)
-        sb.border_color = RetroUI.MENU_EDGE_DARK
+func _inset_style() -> StyleBox:
+        var sb := RetroUI.gradient_panel(Color("1b1e27"), Color("101218"))
         sb.content_margin_left = 8.0
         sb.content_margin_right = 8.0
         sb.content_margin_top = 8.0
         sb.content_margin_bottom = 8.0
+        return sb
+
+
+## The gloss button wrapper — content margins tuned for chunky caps.
+func _gloss_btn(bg: Color, pushed := false) -> StyleBoxTexture:
+        var sb: StyleBoxTexture = RetroUI.gloss_texture(bg, pushed)
+        sb.content_margin_left = 14.0
+        sb.content_margin_right = 14.0
+        sb.content_margin_top = 8.0
+        sb.content_margin_bottom = 7.0 if pushed else 9.0
         return sb
 
 

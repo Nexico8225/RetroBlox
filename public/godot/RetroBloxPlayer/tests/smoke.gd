@@ -576,6 +576,32 @@ func _run_all() -> void:
         check(not game_src.contains("panel.png"),
                 "the old metallic panel.png frame is gone from the menu")
 
+        # --- v3.10: GLOSSY CLASSIC — old-site gradients + bold outlines + real
+        # 2011 client textures ---
+        check(theme_src.contains("gloss_texture"),
+                "gloss_texture: shine band + hard gloss cut + bold ink outline buttons")
+        check(theme_src.contains("gradient_panel"),
+                "gradient_panel: banded old-site gradient bars with hard dark edges")
+        check(theme_src.contains("outlined_text") and theme_src.contains("INK_OUTLINE"),
+                "white pixel text wears the bold dark outline (classic lettering)")
+        check(theme_src.contains("client_plate") and theme_src.contains("glass_button"),
+                "the 2011 client textures load through the theme (plate + glass key)")
+        check(FileAccess.file_exists("res://assets/ui/rbx_black_plate.png"),
+                "authentic 2011 client window plate ships in the kit")
+        check(FileAccess.file_exists("res://assets/ui/rbx_glass_btn.png")
+                and FileAccess.file_exists("res://assets/ui/rbx_glass_btn_hi.png"),
+                "authentic 2011 glass icon buttons ship in the kit (normal + hover)")
+        check(game_src.contains("client_plate"),
+                "the menu window wears the real 2011 rounded plate")
+        check(game_src.contains("glass_button"),
+                "the topbar pill wears the real 2011 glass keys")
+        check(game_src.contains("_gloss_btn") and game_src.contains("font_outline_color"),
+                "menu action keys are GLOSS caps with outlined white text")
+        check(game_src.contains("NavNotch"),
+                "the red open-page notch rides the gloss nav chip")
+        check(game_src.contains("scroll collapsed to height 0"),
+                "v3.10 FIX: the People card grid can't be clipped to nothing")
+
         # --- v3.9: presence carries everyone's live stats ---
         var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")
         check(api9.contains("ping_ms") and api9.contains('"ping": ping_ms'),

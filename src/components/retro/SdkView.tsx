@@ -9,21 +9,16 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3.9 "Classic Client"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.9'
+const VERSION = 'v3.10 "Glossy Classic"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.10'
 
 const NEW_STUFF: [string, string][] = [
-  ['The ESC menu, rebuilt from scratch', 'Not a reskin - a NEW shell: a dark client window with a title bar (wordmark + place name + a classic red X key), a LEFT NAV RAIL (People / Settings) and a People page that is a grid of player CARDS. The old sign-on-top card is gone completely.'],
-  ['Player avatar PORTRAITS', 'Every People card wears a real picture of that player\'s avatar: the actual rig rendered offscreen at tiny resolution and drawn nearest-neighbor - a chunky retro sprite of THEIR character, like the People page, but pixel. Yours is red-ringed with a (YOU) tag.'],
-  ['Everyone\'s live PING + FPS', 'The presence heartbeat now carries each player\'s ping and fps, so every card shows real live numbers - and YOUR fps + ping are pinned to the nav rail\'s foot, visible on every page. No more fake single-strip readout.'],
-  ['The wood is GONE', 'The wooden signboard, the gold trim and the steel-plate card are all out. One tight palette instead: near-black blue-grey surfaces, white pixel ink, and the brand red as the only accent (green lives only on Resume + the online dots). No more color soup.'],
-  ['Portrait fallbacks + live clock', 'Cards hold the classic yellow head until a portrait lands, the page header ticks a session TIME clock, and portrait renders are cached - reopening the menu is instant.'],
-  ['R opens the ESC menu', 'Pressing R in the game now opens the menu (press R again inside to confirm the reset - the classic hotkeys keep their jobs).'],
-  ['Shift lock climbs ladders again', 'Walking into a truss with Shift Lock on used to ghost you straight THROUGH it - Roblox never does that. Shift Lock now grabs the rungs exactly like normal third person.'],
-  ['Keycap hotkey hints', 'The bottom bar wears real keycap chips - [ENTER] chat / [ESC] resume / [R] menu / [L] leave - so the shortcuts scan at a glance.'],
-  ['True bevel keycaps', 'Buttons are drawn pixel-by-pixel now: near-black outline, LIGHT top/left edge, DARK bottom/right edge - the raised 2006 keycap look - and the bevel FLIPS so pressed keys sink.'],
-  ['Chat bubbles STACK like Roblox', 'Every message is its own bubble now: the newest parks just above the speaker\'s head and older ones climb upward ("Good game" over "Oof"), up to three at a time, each fading on its own clock.'],
-  ['Buttery-smooth stairs', 'No more teleport up steps: the character now GLIDES up the lip over ~0.1s - collider, avatar and camera rise together, exactly how Roblox eases you up a staircase. The step-up probe from v3.6 is untouched, so diagonal approaches still work.'],
+  ['The OLD-SITE gloss is back', 'Every action key is now the classic glossy gradient button: a bright shine band up top, a hard gloss cut across the middle, a dark base - and a BOLD near-black outline all the way around. Resume wears the green Play gloss, Leave the red, Reset/Log Out the steel.'],
+  ['Real 2011 client textures', 'The ESC menu window is the authentic rounded dark plate from the public 2011-08 Roblox client archive (bundled in the kit), and the topbar pill wears the real 2011 glass icon buttons - dark glass face, white left shine, hover brighten.'],
+  ['Gradient bars with hard edges', 'The title bar, nav rail and footer are banded vertical-gradient panels now - light lip on top, dark base, chunky 3-4px dark edges baked in - the old-website header look, not flat fills.'],
+  ['White text with bold outlines', 'Buttons and key labels speak in white pixel letters with a thick dark outline, the classic lettering from the old Play button. Player cards got chunkier 3px casings too.'],
+  ['The nav rail got gloss', 'The open page wears a steel-gloss gradient chip (bold outline, sinks when pressed) and the red open-page notch still marks it. Keycap hint chips keep their true bevels.'],
+  ['Everything from v3.9 stays', 'Player avatar portraits, everyone\'s live ping + fps, the left nav rail, keycap hotkey hints, stacked chat bubbles and the smooth stairs - all here, now glossier.'],
 ]
 
 const FILES = [
