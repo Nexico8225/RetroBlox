@@ -9,7 +9,7 @@ extends Control
 ## client's WHITE Log In key. No cards, no bevels, no glow — the Roblox read.
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
-const VERSION := "8.0"
+const VERSION := "9.0"
 
 var _mode := "login"   # login | signup
 var _user: LineEdit

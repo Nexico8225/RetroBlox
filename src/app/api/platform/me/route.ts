@@ -24,6 +24,11 @@ export async function GET(req: NextRequest) {
       ...avatarPayload(user.id, user.username, cfg),
       ...rigged,
       role: user.role,
+      // v9.0: the account's PROFILE PICTURE (the site PFP the user set on
+      // retro-blox.vercel.app — data-URL or file URL) rides along so the
+      // game client can wear the SAME face the website shows.
+      avatarUrl: user.avatarUrl ?? null,
+      displayName: user.username,
     },
     { headers: PLATFORM_CORS }
   )

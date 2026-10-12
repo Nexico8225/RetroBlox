@@ -9,15 +9,15 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v8.0 "REAL BLOX"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=8.0'
+const VERSION = 'v9.0 "YOUR CLIENT"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=9.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['THE UI IS NOW THE REAL ROBLOX CLIENT', 'Every surface rebuilt to match the client you play: the deep #111316 full-screen ESC menu, rounded-8 #232527 surfaces, black translucent topbar pills, the WHITE Resume / Log In keys, Leave in danger red, one fountain-blue accent, Montserrat carrying every title and name. Zero bevels, zero borders — it finally looks like Roblox because it IS the Roblox layout.'],
-  ['YOUR REAL PFP — NOT A 3D RENDER', 'The new PfpService shows every player\'s REAL Roblox avatar headshot: your headshot SHIPS IN THE KIT (assets/pfp/nexico8225.png — it loads instantly, zero network), everyone else\'s is fetched live from Roblox\'s own thumbnail API (username → userId → 420px PNG), cached on disk for a day, rounded to the client\'s corners. Your PFP wears the topbar pill, the menu identity block, and every People card. No more 3D portrait snapshots in the UI, ever.'],
-  ['The REAL CLIENT LOGIN', 'The deep dark page, the tilted-square logo + ExtraBold wordmark, quiet underlined Log In / Sign Up tabs, dark rounded input wells with the white focus ring, and the client\'s big WHITE Log In key. Log in once — auto sign-in every launch after.'],
-  ['The FULL-SCREEN ESC MENU', 'The real client menu: YOUR PFP + name + place top-left, text-row nav (People / Settings) on the left with your live FPS + ping pinned under, the card grid on the right (real headshots, blue ring on YOUR card), and the action row — white Resume, dark Reset / Log Out, red Leave.'],
-  ['Everything sharp stays sharp', '4x world MSAA, anisotropic stud tiles, LINEAR true-color lighting, the 2-stud gliding stairs — all carry over. The chrome changed; the game did not.'],
+  ['THE ESC MENU IS THE REAL ROBLOX ESC MENU', 'A CENTERED dark panel — about 62% of the screen, the game stays LIVE and visible behind it — with the five TOP TABS: People / Settings / Gallery / Report / Help, each with its icon, the open tab wearing the white underline. The footer is the reference action row: [L] Leave · [R] Respawn · [ESC] Resume — Resume in fountain blue with the white key chip. No more full-screen veil.'],
+  ['PRESS F2 — EDIT EVERYTHING YOURSELF', 'The UI EDITOR is in the game: click ANY element (topbar, user pill, health, chat, toasts) and drag it anywhere, fine-tune X / Y / Scale, edit any button or label\'s text, add YOUR OWN text labels anywhere on screen, and zoom the WHOLE UI from 0.6x to 1.6x. Save writes your layout to ui_config.json — it boots with you forever. Reset All wipes back to factory. You wanted control — now it\'s yours.'],
+  ['YOUR PFP — FROM YOUR ACCOUNT + YOUR OWN URL', 'The client loads your account\'s avatarUrl from retro-blox.vercel.app at login (the SAME face the website shows — data URLs decode inline), and Settings → MY PICTURE (or the editor) lets you paste ANY image URL to wear it everywhere instantly. Other players\' site PFPs arrive via /api/users/<name>/pfp. Nobody is a bacon default anymore — everyone wears the face they chose.'],
+  ['THE REAL "IN THIS SERVER" CARDS', 'The People tab: Invite Friends (copies your invite link), the In this server heading with grid/list toggles, and the card grid — square PFP, name, @handle — exactly the real client\'s read. Live FPS + ping + version sit in the tiny corner chip, bottom-left.'],
+  ['The topbar is the reference read', 'Top-left: the logo, the hamburger, the chat bubble with the red unread badge — three standalone rounded keys, exactly the client. Top-right: your PFP + name + the settings gear. Help tab lists every key; Report opens the site; Gallery waits for your captures.'],
 ]
 
 const FILES = [
@@ -26,8 +26,10 @@ const FILES = [
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The REAL CLIENT login — dark page, tilted-square logo, white Log In key, server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The v8.0 REAL CLIENT UI: #111316 backdrops, rounded-8 #232527 surfaces, black topbar pills, the WHITE primary key, fountain-blue accent, Montserrat voice, code-drawn icons, your cursors'],
-  ['scripts/ui/pfp_service.gd', 'The REAL PFP engine: bundled headshots (zero network), Roblox thumbnail API fetch by username, 24h disk cache, rounded corners, smiley fallback'],
+  ['scripts/ui/retro_theme.gd', 'The v9.0 client voice: #232527 surfaces, black topbar pills, the fountain-blue primary key, Montserrat, code-drawn icons (tabs, hamburger, gallery, flag, help, invite, grid/list, pencil)'],
+  ['scripts/ui/pfp_service.gd', 'The PFP engine: YOUR custom URL (from the editor) → your account avatarUrl → bundled headshots → Roblox thumbnail API → smiley fallback; data-URL decode, 24h disk cache, rounded corners'],
+  ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, global UI scale, your PFP URL — user://ui_config.json, boots with you'],
+  ['scripts/ui/ui_editor.gd', 'THE UI EDITOR (F2): pick layer hit-testing, drag to move, X/Y/Scale steppers, text editing, add/remove labels, global zoom, PFP URL, Save/Reset'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — they STACK the Roblox way, up to three live'],
@@ -35,7 +37,7 @@ const FILES = [
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the FULL-SCREEN client ESC menu (real PFP cards + live stats), respawn flow'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the CENTERED client ESC menu (5 top tabs, @handle cards, [L]/[R]/[ESC] footer, editor registration), respawn flow'],
   ['scripts/game/chat_box.gd', 'The classic chat log + type box that open and close as ONE widget, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, and Shift Lock shoulder park'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],
@@ -44,8 +46,9 @@ const FILES = [
 const ENDPOINTS = [
   ['POST /api/platform/signup', 'create an account from inside the game (with a #seqId)'],
   ['POST /api/platform/login', 'username + password → session token'],
-  ['GET /api/platform/me', 'current player + avatar (Bearer token)'],
+  ['GET /api/platform/me', 'current player + avatar + your account avatarUrl (Bearer token)'],
   ['GET /api/users/{userId}/avatar', "any player's avatar config (public)"],
+  ['GET /api/users/{userId}/pfp', "any player's site profile picture — username + avatarUrl (public, v9.0)"],
   ['GET /api/assets/{assetId}', 'asset service: color / image / 3D model + finish for an id'],
   ['GET /api/files/{fileId}', 'the actual bytes (images, GLB, audio)'],
   ['GET /api/placechat/{placeId}', 'latest chat lines + who is online (with their live ping/fps)'],
@@ -61,8 +64,9 @@ const CONTROLS: [string, string][] = [
   ['Enter', 'Open chat · Enter again sends · Esc closes'],
   ['/e sit · /e stop', 'Chat commands — pose your character (move to stand up)'],
   ['/help', 'Lists every command + control in chat'],
-  ['P', 'Player list — who is in the place right now'],
-  ['Esc', 'Game menu — resume / respawn / leave place'],
+  ['P', 'Player list — opens the menu on the People tab'],
+  ['F2', 'THE UI EDITOR — move, scale, re-text anything, add labels, save your layout'],
+  ['Esc', 'Game menu — People / Settings / Gallery / Report / Help, [L] Leave / [R] Respawn / [ESC] Resume'],
 ]
 
 const PRE: React.CSSProperties = {

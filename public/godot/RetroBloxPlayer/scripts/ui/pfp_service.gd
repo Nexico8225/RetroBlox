@@ -1,19 +1,19 @@
 extends Node
-## PfpService — the REAL PROFILE PICTURE engine (v8.0).
-## Every face this client shows is a real Roblox avatar HEADSHOT, exactly the
-## way the Roblox client shows one — never the old 3D-rendered rig snapshot.
+## PfpService — the REAL PROFILE PICTURE engine (v9.0).
+## Every face this client shows is the player's OWN picture — the one they
+## set on retro-blox.vercel.app — falling back to their Roblox headshot,
+## and never a 3D-rendered rig snapshot.
 ##
 ## Resolution order for (uid, username):
-##   1. Bundled override  res://assets/pfp/<username-lower>.png
-##      (shipped with the game — Nexico8225's real headshot rides in the kit,
-##      so their PFP shows instantly with ZERO network)
-##   2. Disk cache        user://pfp_cache/<username-lower>.png  (24h TTL)
-##   3. LIVE ROBLOX API   users.roblox.com  ->  thumbnails.roblox.com
-##      POST /v1/usernames/users {"usernames":[name]} -> userId
-##      GET  /v1/users/avatar-headshot?userIds=ID&size=420x420&format=Png
-##      then download the rbxcdn PNG -> disk cache -> texture
-##   4. Fallback          the classic smiley head on a per-player color
-##      (Roblox's own "no data yet" read) — NEVER a 3D render again.
+##   0. CUSTOM PFP  the URL the player set in the client's own UI Editor
+##      (saved in ui_config — this wins over EVERYTHING, it is THEIRS)
+##   1. SITE PFP    the account's avatarUrl from retro-blox.vercel.app
+##      (data-URL or file URL — mine arrives via /api/platform/me at login,
+##      everyone else's via /api/users/<name>/pfp)
+##   2. Bundled override  res://assets/pfp/<username-lower>.png
+##   3. Disk cache        user://pfp_cache/<username-lower>.png  (24h TTL)
+##   4. LIVE ROBLOX API   users.roblox.com -> thumbnails.roblox.com
+##   5. Fallback          the classic smiley head on a per-player color.
 ##
 ## Guests always wear the fallback smiley. All network happens off the main
 ## flow (await), nothing blocks a frame, and every fetch is cached in RAM.
@@ -21,8 +21,95 @@ extends Node
 const CACHE_TTL := 86400.0        # one day per headshot
 const TIMEOUT := 10.0
 
+signal pfp_changed(uid: String)   # v9.0: a custom/site PFP landed — repaint seats
+
 var _ram: Dictionary = {}         # "uid|uname" -> Texture2D
 var _inflight: Dictionary = {}    # "uid|uname" -> bool
+
+# ---- v9.0: the account's own face ---------------------------------------
+var site_pfp_url: String = ""     # MY avatarUrl from /api/platform/me
+var custom_pfp_url: String = ""   # URL the user typed in the Editor (wins)
+var _custom_tex: Texture2D = null # the decoded custom/site texture
+
+
+## Called by the UI Editor — the player's OWN picture URL. Wins over all.
+func set_custom_pfp(url: String) -> void:
+        custom_pfp_url = url.strip_edges()
+        _custom_tex = null
+        _ram.clear()
+        if custom_pfp_url != "":
+                _apply_source_texture(custom_pfp_url)
+        else:
+                pfp_changed.emit(Session.user_id)
+
+
+## Called at login — the account's avatarUrl from /api/platform/me
+## (the SAME picture the website shows). A data-URL decodes inline.
+func set_site_pfp(url: String) -> void:
+        var u := url.strip_edges()
+        if u == site_pfp_url:
+                return
+        site_pfp_url = u
+        _ram.clear()
+        if custom_pfp_url == "" and u != "":
+                _apply_source_texture(u)
+
+
+## Resolve a source URL (http or data-URL) into the held texture.
+func _apply_source_texture(url: String) -> void:
+        var tex := await decode_any(url)
+        if tex != null:
+                _custom_tex = tex
+                pfp_changed.emit(Session.user_id)
+
+
+## Awaitable: any image URL — data:...;base64 or https:// — as a texture.
+func decode_any(url: String) -> Texture2D:
+        if url.begins_with("data:"):
+                var img := _image_from_data_url(url)
+                if img == null:
+                        return null
+                return ImageTexture.create_from_image(img)
+        var lower := url.to_lower()
+        var bytes := await _http_bytes(url)
+        if bytes.is_empty():
+                return null
+        var img := Image.new()
+        if lower.contains(".png") or bytes.size() > 8 and bytes[0] == 0x89:
+                if img.load_png_from_buffer(bytes) != OK:
+                        return null
+        elif lower.contains(".jpg") or lower.contains(".jpeg") or (bytes.size() > 3 and bytes[0] == 0xFF and bytes[1] == 0xD8):
+                if img.load_jpg_from_buffer(bytes) != OK:
+                        return null
+        elif lower.contains(".webp"):
+                if img.load_webp_from_buffer(bytes) != OK:
+                        return null
+        else:
+                # try png then jpg — the extension lied
+                if img.load_png_from_buffer(bytes) != OK and img.load_jpg_from_buffer(bytes) != OK:
+                        return null
+        if img.is_empty():
+                return null
+        return ImageTexture.create_from_image(img)
+
+
+## "data:image/png;base64,AAA..." -> Image
+static func _image_from_data_url(url: String) -> Image:
+        var comma := url.find(",")
+        if comma < 0:
+                return null
+        var b64 := url.substr(comma + 1)
+        var buf := Marshalls.base64_to_raw(b64)
+        if buf.is_empty():
+                return null
+        var img := Image.new()
+        if img.load_png_from_buffer(buf) == OK:
+                return img
+        if img.load_jpg_from_buffer(buf) == OK:
+                return img
+        if img.load_webp_from_buffer(buf) == OK:
+                return img
+        return null
 
 
 ## Awaitable: the best profile picture we can get for this player.
@@ -32,6 +119,17 @@ func fetch(uid: String, uname: String) -> Texture2D:
         if _ram.has(key):
                 return _ram[key]
         var lower := uname.to_lower().strip_edges()
+
+        # 0. MY OWN picture — custom first, then the site account's
+        if uid == Session.user_id:
+                if _custom_tex != null:
+                        _ram[key] = _custom_tex
+                        return _custom_tex
+                if site_pfp_url != "":
+                        var site := await decode_any(site_pfp_url)
+                        if site != null:
+                                _ram[key] = site
+                                return site
 
         # 1. bundled override — the shipped headshot wins instantly
         var bundled := "res://assets/pfp/%s.png" % lower
@@ -49,7 +147,23 @@ func fetch(uid: String, uname: String) -> Texture2D:
                 _ram[key] = cached
                 return cached
 
-        # 3. the real Roblox thumbnail pipeline
+        # 3. v9.0: the SITE picture for other players — /api/users/<name>/pfp
+        if uid != Session.user_id and not Session.is_guest and uname.strip_edges() != "" \
+                        and not _inflight.get(key, false):
+                _inflight[key] = true
+                var res: Dictionary = await Api.request(HTTPClient.METHOD_GET,
+                        "/api/users/%s/pfp" % lower)
+                _inflight.erase(key)
+                var aurl := String(res.get("avatarUrl", "")) if res.get("ok", false) else ""
+                if aurl != "":
+                        var site_tex := await decode_any(aurl)
+                        if site_tex != null:
+                                _save_cache(lower, site_tex)
+                                site_tex = rounded(site_tex)
+                                _ram[key] = site_tex
+                                return site_tex
+
+        # 4. the real Roblox thumbnail pipeline
         if not _inflight.get(key, false) and uname.strip_edges() != "":
                 _inflight[key] = true
                 var live := await _fetch_roblox(lower)
@@ -60,7 +174,7 @@ func fetch(uid: String, uname: String) -> Texture2D:
                         _ram[key] = live
                         return live
 
-        # 4. the classic fallback smiley
+        # 5. the classic fallback smiley
         var fb := fallback_pfp(uname)
         _ram[key] = fb
         return fb

@@ -19,6 +19,8 @@ Session="*res://scripts/core/session.gd"
 Settings="*res://scripts/core/settings.gd"
 Sfx="*res://scripts/core/sfx.gd"
 Pfp="*res://scripts/ui/pfp_service.gd"
+UiConfig="*res://scripts/core/ui_config.gd"
+UiEditor="*res://scripts/ui/ui_editor.gd"
 
 [display]
 

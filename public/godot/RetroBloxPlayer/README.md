@@ -3,19 +3,20 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v8.0 "REAL BLOX" is the REAL ROBLOX
-CLIENT look: the deep #111316 full-screen ESC menu, rounded-8 #232527
-surfaces, black translucent topbar pills, the WHITE Resume / Log In keys,
-Leave in danger red, one fountain-blue accent, and Montserrat carrying
-every title/button/name (the Builder Sans voice). YOUR FACE IS YOUR REAL
-ROBLOX PFP: the PfpService ships your bundled headshot (assets/pfp/
-nexico8225.png — instant, zero network), fetches everyone else's from
-Roblox's own thumbnail API by username (24h disk cache, rounded corners,
-classic-smiley fallback), and wears it on the topbar pill, the menu
-identity block and every People card — no more 3D portrait snapshots in
-the UI. The world renders in TRUE colors with the authentic Roblox studs.
-Stairs are DOUBLED (walk up 1- AND 2-stud ledges like stairs), and the
-renderer ships 4x MSAA + anisotropic filtering so nothing is blurry.
+through the RetroBlox platform API. v9.0 "YOUR CLIENT" is THE ROBLOX ESC
+MENU, finally: a CENTERED dark panel (the game stays live behind it) with
+the five top tabs — People / Settings / Gallery / Report / Help — the
+"In this server" card grid (PFP + name + @handle), and the footer keys
+[L] Leave / [R] Respawn / [ESC] Resume with Resume in fountain blue.
+YOUR FACE IS YOURS: the account's avatarUrl from retro-blox.vercel.app
+loads at login, and you can paste ANY image URL (Settings → MY PICTURE or
+the editor) to wear it everywhere. AND YOU CAN EDIT EVERYTHING: press
+**F2** and the UI Editor opens — click any element, drag to move it,
+scale it, edit its text, add your own labels, zoom the whole UI, then
+Save; your layout boots with you forever (user://ui_config.json).
+The world renders in TRUE colors with the authentic Roblox studs. Stairs
+are DOUBLED (walk up 1- AND 2-stud ledges like stairs), and the renderer
+ships 4x MSAA + anisotropic filtering so nothing is blurry.
 
 > One platform, every engine. Everything here is plain HTTP + JSON against
 > `https://retro-blox.vercel.app` — the same API the website and the future
@@ -45,7 +46,7 @@ The game remembers you — next launch signs you in automatically.
 | Jump off a ladder | Space while climbing — you leap off the rungs and can't re-grab for a beat |
 | Chat | Enter (or the chat pill button) — Enter sends |
 | Chat commands | `/help`, `/e sit`, `/e stop` — local, never sent to the server |
-| Menu / Players / Settings | Esc opens the menu, **R** also opens it (v3.8; R again inside confirms the reset) — P opens the player list; the topbar carries only the logo + chat |
+| Menu / Players / Settings | Esc opens the menu, **R** also opens it (v3.8; R again inside confirms the reset) — P opens the People tab; **F2 opens the UI EDITOR** |
 
 ### Cursors — the classic white hand
 
@@ -55,32 +56,51 @@ the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
-### The ESC menu — the CLASSIC client (v7.0)
+### The ESC menu — the REAL client panel (v9.0)
 
-The menu is one near-black rounded window with a big soft shadow and NO
-borders — elevation does the separating, exactly like the real client. The
-header parks YOUR headshot + name + the place you're playing; the left
-rail is icon-only (the open page lights up blue); **Resume** is the big
-WHITE key with dark ink, Reset/Log Out are dark keys, and Leave speaks in
-red. One quiet hint line rides the footer (`ESC resume · ENTER chat · F
-read · R menu · L leave · SHIFT shift-lock`). Arial speaks every
-title, button and name; Source Sans 3 reads the stats.
+The menu is ONE centered dark panel (about 62% of the screen — the game
+stays visible behind it) with the client's TOP TABS: People · Settings ·
+Gallery · Report · Help, each with its icon, the open tab wearing the
+white underline. The People tab carries **Invite Friends** (copies your
+invite link), "In this server" with grid/list toggles, and the card grid:
+PFP + name + @handle, exactly the real client's cards. The footer is the
+reference action row: [L] Leave · [R] Respawn · [ESC] Resume — Resume in
+fountain blue with the white key chip. Live FPS/ping/version sit in the
+tiny corner chip, bottom-left.
 
-### Your avatar — the real account look, everywhere
+### THE UI EDITOR — press F2, edit EVERYTHING (v9.0)
 
-The People cards render your REAL avatar now: the portrait waits for the
-face, shirt, t-shirt and every 3D accessory to land, photographs the rig
-from the FRONT, and the card shows exactly what the site shows. T-shirts
-(2D image UGC) paint as a decal on the torso front — the same 92% rule the
-website uses — so your equipped t-shirt is ON in-game. Opening the menu
-re-fetches your account avatar live: change your look on the site, reopen
-the menu, and your character re-dresses on the spot.
+This client is YOURS. **F2** (or Settings → Edit anything) opens the
+editor:
+
+- **Click any element** — topbar, user pill, health bar, chat, toasts —
+  and drag it anywhere; the green outline shows your selection.
+- **X / Y / Scale** steppers fine-tune it; **Text** edits any button or
+  label's words.
+- **+ Add Label** drops YOUR OWN text detail anywhere on screen (your
+  name, your clan tag, anything), editable + movable + deletable.
+- **GLOBAL UI SCALE** zooms the entire client from 0.6× to 1.6×.
+- **MY PICTURE (PFP URL)** — paste any image URL (web or data URL) and
+  wear it on the topbar pill, your People card and Settings instantly.
+- **Save** writes `user://ui_config.json` — your layout boots with you
+  every time. **Reset All** wipes back to factory.
+
+### Your face — your PFP, everywhere
+
+The PFP engine wears YOUR picture in this order: the URL YOU set in the
+editor (Settings → MY PICTURE), then your account's `avatarUrl` from
+retro-blox.vercel.app (loaded at login — the SAME face the website
+shows, data URLs decode inline), then the bundled headshot, then the
+live Roblox thumbnail API, then the classic smiley. Other players'
+site PFPs arrive via `/api/users/<name>/pfp` — everyone wears the face
+they chose, not a bacon default.
 
 ### The HUD (the real client's chrome)
 
-- **Top-left pills** — near-black rounded keys: the RetroBlox logo (opens
-  the menu) + chat (with a red unread badge while the chat is tucked
-  away). Esc and **R** open the menu too; **/** or Enter opens the chat.
+- **Top-left keys** — three standalone rounded dark squares, the reference
+  read: the RetroBlox logo, the hamburger, the chat bubble with the red
+  unread badge. Esc and **R** open the menu too; **/** or Enter opens
+  the chat.
 - **Top-right pill** — your username + the settings gear (opens the menu's
   Settings page), parked exactly where the real client keeps them.
 - The chat starts hidden — ENTER, **/** or the chat pill opens the log AND
@@ -110,6 +130,8 @@ Everything applies live and persists to `user://retroblox_settings.cfg`:
 - Shift-lock default
 - **Animations** buttons — pose your character with the rig's own clips
   (Sit / Climb / Walk / Jump / Idle); moving cancels the pose.
+- **MY PICTURE** — your PFP URL + Apply, or "Use my account picture".
+- **EDIT THIS UI** — the F2 editor button + the global UI-scale slider.
 
 ### Ambience
 

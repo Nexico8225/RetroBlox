@@ -323,6 +323,105 @@ static func icon_texture(kind: String, ink := Color(1, 1, 1, 0.96)) -> ImageText
                                 px.call(sx, 10)
                         px.call(9, 11)
                         px.call(9, 12)
+                # ---- v9.0: the REAL CLIENT's chrome glyphs ----------------
+                "hamburger":
+                        for row in [4, 9, 14]:
+                                for x in range(3, 15):
+                                        px.call(x, row)
+                                        px.call(x, row + 1)
+                "gallery":
+                        for y in range(3, 15):
+                                for x in range(2, 16):
+                                        if y == 3 or y == 14 or x == 2 or x == 15:
+                                                px.call(x, y)
+                        # the sun + the mountain inside the frame
+                        px.call(6, 6)
+                        px.call(7, 6)
+                        px.call(6, 7)
+                        px.call(7, 7)
+                        for m in range(5):
+                                for x in range(4 + m, 9 + m):
+                                        px.call(x, 12 - m)
+                "flag":
+                        for y in range(2, 16):
+                                px.call(4, y)
+                        for y in range(3, 10):
+                                for x in range(5, 14):
+                                        px.call(x, y)
+                "help":
+                        var hc := Vector2(9.0, 6.0)
+                        for y in range(18):
+                                for x in range(18):
+                                        var d := Vector2(float(x) + 0.5, float(y) + 0.5) - hc
+                                        var r := d.length()
+                                        if r >= 3.0 and r <= 5.0 and d.y < 1.5:
+                                                px.call(x, y)
+                        px.call(8, 9)
+                        px.call(9, 9)
+                        px.call(10, 10)
+                        px.call(9, 11)
+                        px.call(8, 12)
+                        px.call(9, 12)
+                        px.call(8, 15)
+                        px.call(9, 15)
+                "plus":
+                        for x in range(4, 15):
+                                px.call(x, 8)
+                                px.call(x, 9)
+                        for y in range(4, 15):
+                                px.call(8, y)
+                                px.call(9, y)
+                "grid":
+                        for cell in [[3, 3], [10, 3], [3, 10], [10, 10]]:
+                                for y in range(cell[1], cell[1] + 5):
+                                        for x in range(cell[0], cell[0] + 5):
+                                                if y == cell[1] or y == cell[1] + 4 or x == cell[0] or x == cell[0] + 4:
+                                                        px.call(x, y)
+                "list":
+                        for row in [4, 9, 14]:
+                                px.call(3, row)
+                                px.call(4, row)
+                                for x in range(7, 15):
+                                        px.call(x, row)
+                "pencil":
+                        for i in range(9):
+                                px.call(5 + i, 13 - i)
+                                px.call(6 + i, 13 - i)
+                        for tip in range(3):
+                                px.call(4 + tip, 13 + tip - 1)
+                        px.call(4, 15)
+                        px.call(3, 14)
+                "globe":
+                        var gc2 := Vector2(9.0, 9.0)
+                        for y in range(18):
+                                for x in range(18):
+                                        var d := Vector2(float(x) + 0.5, float(y) + 0.5) - gc2
+                                        var r := d.length()
+                                        if r >= 6.0 and r <= 7.4:
+                                                px.call(x, y)
+                                        elif r < 6.0 and (x == 8 or x == 9 or (y >= 8 and y <= 9 and absf(d.x) < 6.0)):
+                                                px.call(x, y)
+                "close":
+                        for i in range(10):
+                                px.call(4 + i, 4 + i)
+                                px.call(4 + i, 13 - i)
+                "invite":
+                        for hx in [3, 8]:
+                                for ey in range(2):
+                                        for ex in range(2):
+                                                px.call(hx + ex, 4 + ey)
+                        for sx in range(2, 7):
+                                px.call(sx, 9)
+                        for sx in range(7, 12):
+                                px.call(sx, 9)
+                        for sx in range(2, 12):
+                                px.call(sx, 12)
+                        for py in range(6, 12):
+                                px.call(14, py)
+                        px.call(13, 7)
+                        px.call(15, 7)
+                        px.call(14, 6)
+                        px.call(14, 8)
         img.resize(18, 18, Image.INTERPOLATE_BILINEAR)
         var tex := ImageTexture.create_from_image(img)
         _icon_cache[cache_key] = tex

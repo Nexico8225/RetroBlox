@@ -534,23 +534,22 @@ func _run_all() -> void:
         check(bubble_src.contains("MAX_STACK := 3"),
                 "chat bubbles stack (Roblox-style tower, capped at 3)")
         # --- v3.9: the CLASSIC CLIENT — the ESC menu, rebuilt from scratch ---
-        check(game_src.contains("IdentityPfp") and game_src.contains("_menu_footer"),
-                "the menu is the CLIENT PAGE now (identity block + nav + action footer)")
-        check(game_src.contains("_nav_button") and game_src.contains("_style_nav"),
-                "LEFT NAV: text rows with icons, the open page lit white")
+        check(game_src.contains("MenuPanel") and game_src.contains("_menu_footer"),
+                "the menu is the CLIENT PANEL now (tabs + pages + action footer)")
+        check(game_src.contains("_tab_button") and game_src.contains("_style_tab"),
+                "TOP TABS: icon rows with the white underline, the open page lit")
         check(game_src.contains("_players_grid") and game_src.contains("_player_card"),
-                "People page is a CARD GRID (portrait + name + live stats)")
+                "People page is a CARD GRID (portrait + name + @handle)")
         check(game_src.contains("_render_portrait") and game_src.contains("_portrait_cache"),
                 "cards wear REAL PFP headshots (fetched once, cached)")
-        check(game_src.contains("_fps_chip") and game_src.contains("_ping_chip")
-                and game_src.contains("_update_live_stats"),
-                "YOUR fps + ping live in the rail and breathe every half second")
+        check(game_src.contains("_corner_stats") and game_src.contains("_update_live_stats"),
+                "YOUR fps + ping live in the corner chip and breathe every half second")
         check(game_src.contains("_remote_stats") and game_src.contains('p.get("ping", null)'),
                 "every card shows the OTHER player's real ping + fps")
         check(game_src.count("KEY_R") >= 2,
                 "R opens the ESC menu from the game (and still resets inside it)")
-        check(game_src.contains("_header_portrait") and game_src.contains("_topbar_pfp"),
-                "the menu identity + the topbar pill wear YOUR REAL PFP")
+        check(game_src.contains("_topbar_pfp") and game_src.contains("_pfp_preview"),
+                "the topbar pill + the Settings preview wear YOUR REAL PFP")
         check(game_src.contains("head_icon"),
                 "cards fall back to the classic smiley before the shot lands")
         check(game_src.contains("icon_texture"),
@@ -617,12 +616,49 @@ func _run_all() -> void:
                 "no-data players fall back to the classic smiley (never a 3D render)")
         check(game_src.contains("Pfp.fetch") and game_src.contains("_apply_pfp"),
                 "the menu + cards + topbar all wear REAL PFPs (one pipeline)")
-        check(game_src.contains("IdentityPfp") and game_src.contains("MenuPad"),
-                "the ESC menu is the FULL-SCREEN client page (identity block + nav + pages)")
-        check(game_src.contains('_nav_button("People", "people")'),
-                "the nav speaks TEXT ROWS with icons (the client's read)")
+        check(game_src.contains("MenuCenter") and game_src.contains("MenuPanel"),
+                "the ESC menu is the CENTERED client panel — the game stays visible behind")
+        check(game_src.contains('["players", "People", "people"]')
+                and game_src.contains('["settings", "Settings", "gear"]'),
+                "the tabs speak ICON ROWS with the white underline (the client's read)")
         check(not game_src.contains("AvatarPortraitScript"),
                 "the 3D portrait renderer is OFF the UI path (PFP only)")
+
+        # --- v9.0: YOUR CLIENT — the player edits everything, the PFP is
+        # THEIRS (site avatarUrl + custom URL), the menu is THE ESC PANEL ---
+        var proj_v9 := FileAccess.get_file_as_string("res://project.godot")
+        check(proj_v9.contains('UiConfig="*res://scripts/core/ui_config.gd"')
+                and proj_v9.contains('UiEditor="*res://scripts/ui/ui_editor.gd"'),
+                "UiConfig + UiEditor are autoloads (the editor boots with the game)")
+        check(FileAccess.file_exists("res://scripts/core/ui_config.gd"),
+                "UiConfig ships (every edit saved to user://ui_config.json)")
+        check(FileAccess.file_exists("res://scripts/ui/ui_editor.gd"),
+                "UiEditor ships (F2: select, drag, scale, text, labels, PFP, save)")
+        var editor_src := FileAccess.get_file_as_string("res://scripts/ui/ui_editor.gd")
+        check(editor_src.contains("KEY_F2") and editor_src.contains("func register"),
+                "the editor opens with F2 and registers HUD elements")
+        check(editor_src.contains("PickLayer") and editor_src.contains("_gui_input_pick"),
+                "the editor's pick layer catches clicks above every HUD surface")
+        check(editor_src.contains("add_label") and editor_src.contains("content_scale_factor"),
+                "the editor adds YOUR labels + zooms the WHOLE UI (content scale)")
+        check(game_src.contains('UiEditor.register("topbar"') and game_src.contains('UiEditor.register("health"'),
+                "the HUD registers topbar/health/chat/user pill/toasts as editable")
+        check(game_src.contains('_footer_key("L", "Leave", false')
+                and game_src.contains('_footer_key("ESC", "Resume", true'),
+                "the footer is [L] Leave / [ESC] Resume blue — the reference read")
+        check(game_src.contains('"gallery", "Gallery", "gallery"')
+                and game_src.contains('"report", "Report", "flag"')
+                and game_src.contains('"help", "Help", "help"'),
+                "the panel carries FIVE tabs: People/Settings/Gallery/Report/Help")
+        check(game_src.contains("_apply_pfp_url") and game_src.contains("Pfp.set_custom_pfp"),
+                "Settings applies YOUR PFP URL live (saved to ui_config)")
+        check(game_src.contains('Pfp.set_site_pfp') and game_src.contains('avatarUrl'),
+                "the client loads YOUR ACCOUNT PFP from retro-blox.vercel.app /me")
+        check(pfp_src.contains("set_site_pfp") and pfp_src.contains("set_custom_pfp")
+                and pfp_src.contains("_image_from_data_url"),
+                "PfpService wears the site avatarUrl + the custom URL (data URLs decode)")
+        check(pfp_src.contains("/pfp") and pfp_src.contains("/api/users/%s/pfp"),
+                "other players' site PFPs arrive via /api/users/<name>/pfp")
 
 
         # --- v3.9: the wood is HISTORY ---
@@ -648,11 +684,10 @@ func _run_all() -> void:
                 "the gradient plate + glass textures are OUT of the kit")
         check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
                 "the menu references zero texture helpers (flat dark cards)")
-        check(not game_src.contains("_gloss_btn") and game_src.contains("_key_btn")
-                and game_src.contains("_white_btn"),
-                "every menu key is family-styled (dark default, WHITE primary, red danger)")
-        check(game_src.contains('"primary")') and game_src.contains('"danger")'),
-                "Resume is the WHITE key, Leave speaks in red (functional color)")
+        check(not game_src.contains("_gloss_btn") and game_src.contains("_key_btn"),
+                "every menu key is family-styled (dark rows, the BLUE primary)")
+        check(game_src.contains("_blue_btn") and game_src.contains("MENU_ACCENT"),
+                "Resume is the FOUNTAIN-BLUE key (the client's read)")
         check(theme_src.contains("MENU_RED :=") ,
                 "red exists ONLY as the danger voice (Leave, close-hover, badge)")
         check(theme_src.contains("f5cd30"),
@@ -661,7 +696,7 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains('ver.text = "v8.0"'), "the nav wears v8.0")
+        check(game_src.contains("v9.0"), "the corner chip wears v9.0")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(game_src.contains("TEXTURE_FILTER_LINEAR"),
@@ -719,8 +754,8 @@ func _run_all() -> void:
                 "rejoining replays NOTHING — the first feed is history, marked seen silently")
         check(game_src.contains("get_tree().quit()"),
                 "LEAVE closes the game now (web reloads the place)")
-        check(game_src.contains('_pill_button("res://assets/icons/logo.png", "ESC Menu")'),
-                "the pill's R button OPENS the ESC menu")
+        check(game_src.contains('burger_btn.icon = RetroUI.icon_texture("hamburger"'),
+                "the topbar's hamburger key OPENS the ESC menu (the reference read)")
         check(chat_src.contains("To chat click here or press / key"),
                 "the chat input wears the AUTHENTIC Roblox placeholder")
         check(chat_src.contains("f2f3f4") and chat_src.contains("RetroUI.glass("),
@@ -741,8 +776,8 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "8.0"') and login_src4.contains("BtnPrimary"),
-                "login wears the REAL CLIENT page (v8.0, the white Log In key)")
+        check(login_src4.contains('VERSION := "9.0"') and login_src4.contains("BtnPrimary"),
+                "login wears the REAL CLIENT page (v9.0, the white Log In key)")
         check(login_src4.contains("_logo_tile_texture") and login_src4.contains("_add_vignette"),
                 "the login brand is the tilted-square logo on the deep vignette page")
         check(login_src4.contains("gotham(800)"),
