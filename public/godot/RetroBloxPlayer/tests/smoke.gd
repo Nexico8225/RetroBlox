@@ -555,36 +555,41 @@ func _run_all() -> void:
                 "cards fall back to the classic smiley before the shot lands")
         check(game_src.contains("icon_texture"),
                 "action + nav buttons wear the code-drawn icons (play / door / people / gear)")
-        # --- v6.0: THE BLOX CLIENT — the REAL ROBLOX look, Montserrat voice,
-        # near-black rounded surfaces, white primary key, ONE blue accent ---
-        check(ResourceLoader.exists("res://assets/fonts/Montserrat-Bold.ttf"),
-                "the Gotham voice ships (Montserrat static weights)")
-        check(ResourceLoader.exists("res://assets/fonts/SourceSans3-Regular.ttf"),
-                "the classic chat voice ships (Source Sans 3 static weights)")
+        # --- v7.0: THE CLASSIC CLIENT — the 2008-2013 Roblox look: gray
+        # beveled panels, the Arial voice, the classic green action key,
+        # ROBLOX red for danger, ONE blue accent ---
+        check(ResourceLoader.exists("res://assets/fonts/LiberationSans-Bold.ttf"),
+                "the classic Arial voice ships (Liberation Sans Bold)")
+        check(ResourceLoader.exists("res://assets/fonts/LiberationSans-Regular.ttf"),
+                "the classic body voice ships (Liberation Sans Regular)")
         check(ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"), "pixel-cloud backdrop ships")
         var theme_src := FileAccess.get_file_as_string("res://scripts/ui/retro_theme.gd")
-        check(theme_src.contains("Montserrat-Bold.ttf") and theme_src.contains("GOTHAM_PATHS"),
-                "the theme speaks in the Montserrat voice with static per-weight files")
-        check(theme_src.contains("func gotham") and theme_src.contains("func source"),
-                "two text voices: gotham() for titles/buttons, source() for chat/body")
-        check(theme_src.contains('MENU_BG := Color(0.106, 0.114, 0.125, 0.97)')
+        check(theme_src.contains("LiberationSans-Bold.ttf") and theme_src.contains("ARIAL_PATHS"),
+                "the theme speaks in the classic Arial (Liberation) voice")
+        check(theme_src.contains("func arial") and theme_src.contains("func gotham")
+                and theme_src.contains("func source"),
+                "arial() carries the voice; gotham()/source() stay as working aliases")
+        check(theme_src.contains('MENU_PANEL := Color("3b3b3b")')
                 and theme_src.contains('MENU_ACCENT := Color("00a2ff")')
                 and theme_src.contains('MENU_INK := Color("ffffff")')
-                and theme_src.contains('MENU_RED := Color("ff4a4a")'),
-                "the menu wears the BLOX palette (#1B1D20 glass, white ink, blue accent, red danger)")
-        check(theme_src.contains("func surface(") and theme_src.contains("func well(")
-                and theme_src.contains("func wash("),
-                "surfaces are borderless rounded cards with soft shadows (elevation, not outlines)")
-        check(theme_src.contains("BtnWhite"),
-                "the theme ships the WHITE primary button (the real client's Resume read)")
-        check(theme_src.contains("\"people\"") and theme_src.contains("\"gear\""),
+                and theme_src.contains('MENU_RED := Color("e2231a")'),
+                "the client wears the CLASSIC palette (gray face, white ink, Roblox blue, ROBLOX red)")
+        check(theme_src.contains("func raised(") and theme_src.contains("func sunken(")
+                and theme_src.contains("func wash(") and theme_src.contains("func flat(")
+                and theme_src.contains("func glass("),
+                "the bevel engine: raised keys, sunken wells, flat fills, hover washes, chat glass")
+        check(theme_src.contains("StyleBoxTexture") and theme_src.contains("modulate_color"),
+                "the bevels are 9-patch texture rims tinted per face (the authentic chunky read)")
+        check(theme_src.contains("BtnPrimary"),
+                "the theme ships the CLASSIC GREEN primary button (the old action key)")
+        check(theme_src.contains('"people"') and theme_src.contains('"gear"'),
                 "nav icons drawn in code (people crowd + gear)")
         check(theme_src.contains("icon_texture(kind: String, ink"),
-                "icons draw in ANY ink (dark on the white key, white on dark keys)")
+                "icons draw in ANY ink (white on dark keys, white on the green key)")
         check(not theme_src.contains("PressStart2P"),
-                "the pixel-cabinet voice is GONE from the theme (the Roblox look is smooth)")
-        check(not theme_src.contains("bevel_texture"),
-                "the bevel keycap engine is deleted (nothing chunky anywhere)")
+                "the pixel-cabinet voice is gone (Arial is the classic voice)")
+        check(not theme_src.contains("bevel_keycap") and not theme_src.contains("keycap"),
+                "the old keycap bevel engine stays gone — the bevels are the generated 9-patch rims")
         check(game_src.contains("MENU_ACCENT") and game_src.contains("MENU_INK"),
                 "nav + keys speak in white ink with the blue accent (no dark-on-dark anywhere)")
 
@@ -613,11 +618,11 @@ func _run_all() -> void:
                 "the menu references zero texture helpers (flat dark cards)")
         check(not game_src.contains("_gloss_btn") and game_src.contains("_key_btn")
                 and game_src.contains("_white_btn"),
-                "every menu key is family-styled (dark default, WHITE primary, red danger)")
-        check(game_src.contains("_client_style()") and game_src.contains("surface(18, RetroUI.MENU_BG"),
-                "the client window is a borderless near-black card with ROUND corners")
+                "every menu key is family-styled (raised dark default, GREEN primary, red danger)")
+        check(game_src.contains("_client_style()") and game_src.contains("raised(6, RetroUI.MENU_PANEL"),
+                "the client window is the CLASSIC beveled gray window")
         check(game_src.contains('"primary")') and game_src.contains('"danger")'),
-                "Resume is the WHITE key, Leave speaks in red (functional color)")
+                "Resume is the GREEN key, Leave speaks in red (functional color)")
         check(theme_src.contains("MENU_RED :=") ,
                 "red exists ONLY as the danger voice (Leave, close-hover, badge)")
         check(theme_src.contains("f5cd30"),
@@ -626,7 +631,7 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains('ver.text = "v6.0"'), "the rail wears v6.0")
+        check(game_src.contains('ver.text = "v7.0"'), "the rail wears v7.0")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(game_src.contains("TEXTURE_FILTER_LINEAR"),
@@ -688,8 +693,8 @@ func _run_all() -> void:
                 "the pill's R button OPENS the ESC menu")
         check(chat_src.contains("To chat click here or press / key"),
                 "the chat input wears the AUTHENTIC Roblox placeholder")
-        check(chat_src.contains("f2f3f4") and chat_src.contains("surface(12"),
-                "the chat is near-black translucent glass now (white text, no border)")
+        check(chat_src.contains("f2f3f4") and chat_src.contains("RetroUI.glass("),
+                "the chat is the classic dark glass float (thin light frame, white text)")
         check(chat_src.contains("ffd23f"),
                 "chat name colors are tuned for the dark face (bright arcade set)")
         check(game_src.contains('RetroUI.icon_texture("chat", RetroUI.MENU_INK)'),
@@ -706,12 +711,12 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "6.0"') and login_src4.contains("BtnBlue"),
-                "login wears the BLOX white card (v6.0, blue action key)")
-        check(login_src4.contains("_add_glow_bg") and login_src4.contains("_logo_tile_texture"),
-                "the login backdrop is the glow field + the tilted red logo tile")
-        check(login_src4.contains("gotham(800)"),
-                "the login speaks Montserrat ExtraBold (the wordmark voice)")
+        check(login_src4.contains('VERSION := "7.0"') and login_src4.contains("BtnPrimary"),
+                "login wears the CLASSIC beveled window (v7.0, green action key)")
+        check(login_src4.contains("_add_stud_bg") and login_src4.contains("_logo_tile_texture"),
+                "the login backdrop is the faint stud grid + the tilted red logo tile")
+        check(login_src4.contains("arial(700)"),
+                "the login speaks bold Arial (the classic wordmark voice)")
 
         # --- v3.9: presence carries everyone's live stats ---
         var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")

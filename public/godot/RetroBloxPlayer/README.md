@@ -3,8 +3,8 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v6.0 "BLOX" is the REAL ROBLOX CLIENT
-look: near-black rounded surfaces with soft shadows, Montserrat carrying
+through the RetroBlox platform API. v7.0 "CLASSIC" is the 2008-2013 CLIENT
+look: gray beveled panels (9-patch bevel rims tinted per face), Arial carrying
 every title/button/name (the Gotham voice), Source Sans 3 in the chat, the
 WHITE Resume key, one Roblox blue accent, a top-right user pill with the
 settings gear, a bottom-center health bar, and the menu header wearing
@@ -51,7 +51,7 @@ the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
-### The ESC menu — the BLOX client (v6.0)
+### The ESC menu — the CLASSIC client (v7.0)
 
 The menu is one near-black rounded window with a big soft shadow and NO
 borders — elevation does the separating, exactly like the real client. The
@@ -59,7 +59,7 @@ header parks YOUR headshot + name + the place you're playing; the left
 rail is icon-only (the open page lights up blue); **Resume** is the big
 WHITE key with dark ink, Reset/Log Out are dark keys, and Leave speaks in
 red. One quiet hint line rides the footer (`ESC resume · ENTER chat · F
-read · R menu · L leave · SHIFT shift-lock`). Montserrat speaks every
+read · R menu · L leave · SHIFT shift-lock`). Arial speaks every
 title, button and name; Source Sans 3 reads the stats.
 
 ### Your avatar — the real account look, everywhere
@@ -93,7 +93,7 @@ the menu, and your character re-dresses on the spot.
   newest parks just above the head and older ones climb up, up to three
   at a time.
 - **Login** — the Roblox sign-in card: a white rounded card (tilted red
-  logo tile + RETROBLOX wordmark in Montserrat ExtraBold), quiet gray
+  logo tile + RETROBLOX wordmark in bold Arial), sunken gray
   wells, the blue action key, and a deep backdrop with soft color glows.
 
 ### Settings (Esc → Settings)

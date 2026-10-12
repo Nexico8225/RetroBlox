@@ -1,82 +1,88 @@
 class_name RetroTheme
 extends RefCounted
-## v6.0 "BLOX" — the client's ONE voice, rebuilt as the REAL ROBLOX CLIENT:
-## near-black rounded surfaces (#1B1D20 family) with big soft shadows and NO
-## borders (elevation does the work), Montserrat carrying every title, button
-## and name (the Gotham SSm voice), Source Sans 3 for chat and body copy, a
-## WHITE primary button with dark ink (Resume), and one Roblox blue accent.
-## The pixel-cabinet era is gone — nothing here is chunky, nothing blinds,
-## it just reads like the real thing.
+## v7.0 "CLASSIC" — the client's ONE voice, rebuilt as the 2008-2013 ROBLOX
+## CLIENT: gray beveled panels with a light top-left edge and a dark
+## bottom-right edge (the old 3D read), Arial carrying every title, button
+## and name (Liberation Sans is the metric-perfect Arial stand-in), the
+## classic GREEN action key, ROBLOX red for danger and the one Roblox blue
+## accent. Chunky on purpose. Nothing glassy, nothing borderless-modern —
+## it reads like the client you remember.
 
-const BG := Color("0e1013")          # deep backdrop (login + loading veil)
-const PANEL := Color("232528")       # the elevated face (cards, keys)
-const PANEL_HOVER := Color("2e3033")
-const PANEL_DOWN := Color("191b1e")
-const CARD := Color("232528")        # card face
-const WELL := Color("191b1e")        # input well / portrait inset
+const BG := Color("14161b")          # deep backdrop (login + loading veil)
+const PANEL := Color("3b3b3b")       # the classic window face
+const PANEL_HOVER := Color("4a4a4a")
+const PANEL_DOWN := Color("2c2c2c")
+const CARD := Color("333333")        # card face
+const WELL := Color("222222")        # sunken input / portrait inset
 const TEXT := Color("ffffff")        # primary ink
-const TEXT_MUTED := Color("b9bcc1")  # secondary ink
-const TEXT_INV := Color("15171a")    # ink on WHITE fills
-const GREEN := Color("00b06f")       # health fill + success
-const RED := Color("ff4a4a")         # danger
+const TEXT_MUTED := Color("c8c8c8")  # secondary ink
+const TEXT_INV := Color("101208")    # ink on bright fills
+const GREEN := Color("00aa00")       # classic health green
+const RED := Color("e2231a")         # the ROBLOX red
 const BLUE := Color("00a2ff")        # THE accent
 
 const STEEL_TEXTURE_PATH := "res://assets/ui/steel_panel.jpg"   # (legacy, unused)
 const CURSOR_ARROW_PATH := "res://assets/ui/cursor_hand.png"      # uploaded RetroBlox Cursor
 const CURSOR_HAND_PATH := "res://assets/ui/cursor_pointer.png"    # uploaded RetroBlox Pointer
 
-# ---------------------------------------------------------------- v6.0 blox
-## The client window's ONE palette — the Roblox client read: near-black faces,
-## white ink, muted grays, NO outlines (shadows separate surfaces), Roblox
-## blue as the single accent and red only for danger.
+# ------------------------------------------------------------- v7.0 classic
+## The client window's ONE palette — the classic client read: gray beveled
+## faces, white ink, muted grays, ROBLOX red for danger, the classic green
+## for the action key, Roblox blue as the single selection accent.
 
-const MENU_BG := Color(0.106, 0.114, 0.125, 0.97)   # #1B1D20 — the window face
-const MENU_PANEL := Color("232528")                 # rail / footer faces
-const MENU_PANEL_HI := Color("2e3033")              # hover faces
-const MENU_EDGE := Color("313438")                  # hairline (wells only)
+const MENU_BG := Color(0.231, 0.231, 0.231, 0.98)   # #3B3B3B — the window face
+const MENU_PANEL := Color("3b3b3b")                 # rail / footer faces
+const MENU_PANEL_HI := Color("4a4a4a")              # hover / open faces
+const MENU_EDGE := Color("191919")                  # the dark frame line
 const MENU_INK := Color("ffffff")                   # primary text — white
-const MENU_MUTED := Color("b9bcc1")                 # secondary text
-const MENU_FAINT := Color("82868c")                 # hints / version tags
+const MENU_MUTED := Color("c8c8c8")                 # secondary text
+const MENU_FAINT := Color("9c9c9c")                 # hints / version tags
 const MENU_ACCENT := Color("00a2ff")                # the ONE accent
 const MENU_ACCENT_HI := Color("33b5ff")
-const MENU_ACCENT_DARK := Color("0089db")
-const MENU_ACCENT_SOFT := Color(0.0, 0.635, 1.0, 0.14)   # selected chip fill
-const MENU_RED := Color("ff4a4a")
-const MENU_GREEN := Color("00b06f")
+const MENU_ACCENT_DARK := Color("0077b3")
+const MENU_ACCENT_SOFT := Color(0.0, 0.635, 1.0, 0.16)   # selected chip fill
+const MENU_RED := Color("e2231a")                   # the ROBLOX red
+const MENU_GREEN := Color("00aa00")                 # the classic health green
+
+## The bevel texture engine — the WHOLE retro read lives here. TWO 32px
+## 9-patch textures are generated once in code: a RAISED one (light
+## top-left rim, dark bottom-right rim) and a SUNKEN one (inverted). Every
+## beveled surface is a StyleBoxTexture wearing one of them, TINTED to its
+## face color via modulate (the texture encodes face = 160 gray, light rim
+## = 235, dark rim = 55 — modulate = face/160 colors the whole thing). The
+## 9-patch margins keep the rounded corners crisp at any size.
 
 
 # ---------------------------------------------------------------- the voices
-## Two open voices stand in for Roblox's own:
-##   gotham()  — Montserrat, the Gotham SSm stand-in: titles, buttons, names.
-##   source()  — Source Sans 3, the classic chat voice: chat log, body copy.
-## Static weights ship per file (variable-font coordinates proved flaky in
-## engine, so every weight is its own honest TTF).
+## ONE voice stands in for the classic client's Arial:
+##   arial()   — Liberation Sans, the metric-perfect Arial: EVERYTHING.
+## gotham() and source() stay as working aliases so every caller (titles,
+## buttons, chat, body copy) keeps compiling — they all speak Arial now.
 
-const GOTHAM_PATHS := {
-        400: "res://assets/fonts/Montserrat-Regular.ttf",
-        500: "res://assets/fonts/Montserrat-Medium.ttf",
-        600: "res://assets/fonts/Montserrat-SemiBold.ttf",
-        700: "res://assets/fonts/Montserrat-Bold.ttf",
-        800: "res://assets/fonts/Montserrat-ExtraBold.ttf",
+const ARIAL_PATHS := {
+        400: "res://assets/fonts/LiberationSans-Regular.ttf",
+        700: "res://assets/fonts/LiberationSans-Bold.ttf",
 }
-const SOURCE_PATHS := {
-        400: "res://assets/fonts/SourceSans3-Regular.ttf",
-        600: "res://assets/fonts/SourceSans3-Semibold.ttf",
-        700: "res://assets/fonts/SourceSans3-Bold.ttf",
-}
+const GOTHAM_PATHS := ARIAL_PATHS   # legacy alias — the voice is Arial now
+const SOURCE_PATHS := ARIAL_PATHS
 
 static var _voice_cache: Dictionary = {}
 static var _cursors_applied := false
 
 
-## The Gotham voice — titles and buttons (weight 400..800).
+## The classic Arial voice — titles, buttons, names, chat (weight 400/700).
+static func arial(weight := 400) -> Font:
+        return _voice(ARIAL_PATHS, 400, 700 if weight >= 600 else 400)
+
+
+## Legacy alias — the Gotham slot now speaks Arial (bold for >= 600).
 static func gotham(weight := 600) -> Font:
-        return _voice(GOTHAM_PATHS, 700, weight)
+        return arial(weight)
 
 
-## The Source Sans voice — chat, body copy, stats (weight 400..700).
+## Legacy alias — the chat/body voice speaks Arial too.
 static func source(weight := 400) -> Font:
-        return _voice(SOURCE_PATHS, 400, weight)
+        return arial(weight)
 
 
 static func _voice(paths: Dictionary, fallback: int, weight: int) -> Font:
@@ -92,45 +98,121 @@ static func _voice(paths: Dictionary, fallback: int, weight: int) -> Font:
 
 
 # ---------------------------------------------------------------- surfaces
-## ONE surface — the Roblox elevation read: a near-black rounded face with a
-## big soft shadow and NO border. The whole window is built from this.
-static func surface(radius := 12, face := MENU_BG, shadow := 16, shadow_a := 0.42) -> StyleBoxFlat:
+## The bevel engine — FOUR voices:
+##   raised()  light top-left rim / dark bottom-right rim → keys, windows
+##   sunken()  the inverse                               → input wells, insets
+##   flat()    face only (StyleBoxFlat)                  → strips, fills
+##   wash()    the white hover veil                      → quiet hover states
+## The rims come from the generated 9-patch textures; the face color arrives
+## through modulate. Shadow params are accepted (and ignored) so older
+## callers keep compiling — windows that need a drop shadow park one on a
+## wrapper panel (game.gd does exactly that).
+
+const _BEVEL_TEX_FACE := 160.0     # the gray the texture's face encodes
+const _BEVEL_TEX_LIGHT := 236.0    # the top-left rim gray
+const _BEVEL_TEX_DARK := 52.0      # the bottom-right rim gray
+
+static var _raised_tex: ImageTexture
+static var _sunken_tex: ImageTexture
+
+static func _bevel_texture(sunken: bool) -> ImageTexture:
+        var s := 32
+        var img := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
+        var rad := 7.0
+        var rect := Rect2(0, 0, s, s)
+        var center := rect.get_center()
+        var half := rect.size * 0.5
+        for y in range(s):
+                for x in range(s):
+                        var p := Vector2(x + 0.5, y + 0.5)
+                        # rounded-box SDF: negative inside, positive outside
+                        var q := (p - center).abs() - (half - Vector2(rad, rad))
+                        var d := Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() \
+                                + minf(maxf(q.x, q.y), 0.0) - rad
+                        if d > 0.0:
+                                continue
+                        var v := _BEVEL_TEX_FACE
+                        if d >= -2.6:
+                                # the rim band: top-left half = light, bottom-right = dark
+                                var light_side := (x + y) < s
+                                if sunken:
+                                        light_side = not light_side
+                                v = _BEVEL_TEX_LIGHT if light_side else _BEVEL_TEX_DARK
+                        var g := v / 255.0
+                        img.set_pixel(x, y, Color(g, g, g, 1.0))
+        return ImageTexture.create_from_image(img)
+
+
+static func _bevel_box(sunken: bool, face: Color, radius := 4) -> StyleBoxTexture:
+        if _raised_tex == null:
+                _raised_tex = _bevel_texture(false)
+        if _sunken_tex == null:
+                _sunken_tex = _bevel_texture(true)
+        var sb := StyleBoxTexture.new()
+        sb.texture = _sunken_tex if sunken else _raised_tex
+        var m := 12.0
+        sb.texture_margin_left = m
+        sb.texture_margin_top = m
+        sb.texture_margin_right = m
+        sb.texture_margin_bottom = m
+        # tint the whole 9-patch so the FACE lands on `face` and the rims
+        # land lighter/darker versions of it — the old client's colored keys
+        var k := face.r / (_BEVEL_TEX_FACE / 255.0)
+        var kg := face.g / (_BEVEL_TEX_FACE / 255.0)
+        var kb := face.b / (_BEVEL_TEX_FACE / 255.0)
+        sb.modulate_color = Color(minf(k, 1.6), minf(kg, 1.6), minf(kb, 1.6), face.a)
+        sb.content_margin_left = 8.0
+        sb.content_margin_right = 8.0
+        sb.content_margin_top = 6.0
+        sb.content_margin_bottom = 6.0
+        return sb
+
+
+static func raised(radius := 4, face := PANEL, shadow := 0, shadow_a := 0.5) -> StyleBoxTexture:
+        return _bevel_box(false, face, radius)
+
+
+static func sunken(radius := 4, face := WELL) -> StyleBoxTexture:
+        return _bevel_box(true, face, radius)
+
+
+## A face with NO edges — strips, bars, the nav chip, hover fills.
+static func flat(radius := 4, face := PANEL) -> StyleBoxFlat:
         var sb := StyleBoxFlat.new()
         sb.bg_color = face
         sb.set_corner_radius_all(radius)
         sb.anti_aliasing = true
-        if shadow > 0:
-                sb.shadow_color = Color(0, 0, 0, shadow_a)
-                sb.shadow_size = shadow
-                sb.shadow_offset = Vector2(0, 4)
         return sb
 
 
-## Legacy one-voice surface (kept for callers that want a hairline border).
-static func mono_surface(radius := 12, face := MENU_BG, outline := MENU_EDGE,
-                outline_w := 0) -> StyleBoxFlat:
-        var sb := surface(radius, face, 0, 0.0)
-        if outline_w > 0:
-                sb.set_border_width_all(outline_w)
-                sb.border_color = outline
-        return sb
+## Legacy one-voice surface — now the raised key (kept for callers).
+static func surface(radius := 4, face := PANEL, shadow := 0, shadow_a := 0.5) -> StyleBox:
+        return raised(radius, face)
 
 
-## An input well — the quiet inset face for typing and portrait seats.
-static func well(radius := 10, face := WELL) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = face
-        sb.set_corner_radius_all(radius)
-        sb.anti_aliasing = true
-        return sb
+## Legacy well — now the sunken inset (kept for callers).
+static func well(radius := 4, face := WELL) -> StyleBox:
+        return sunken(radius, face)
 
 
-## A soft white wash (hover state on dark pills).
-static func wash(alpha: float, radius := 10) -> StyleBoxFlat:
+## A soft white wash (hover state on dark faces).
+static func wash(alpha: float, radius := 4) -> StyleBoxFlat:
         var sb := StyleBoxFlat.new()
         sb.bg_color = Color(1, 1, 1, alpha)
         sb.set_corner_radius_all(radius)
         sb.anti_aliasing = true
+        return sb
+
+
+## The classic translucent chat float — dark glass with ONE thin light frame
+## (the 2013 client's chat read: quiet, edged, never beveled).
+static func glass(alpha := 0.8, radius := 4) -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(0.06, 0.06, 0.06, alpha)
+        sb.set_corner_radius_all(radius)
+        sb.anti_aliasing = true
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.14)
         return sb
 
 
@@ -175,7 +257,7 @@ static func head_icon() -> ImageTexture:
 
 
 ## Small ACTION icons, drawn 2x and downscaled so the edges land smooth
-## (the Roblox glyph read, not chunky pixels), in ANY ink you ask: a play
+## (the classic glyph read, not chunky pixels), in ANY ink you ask: a play
 ## triangle (Resume), a reset arrow, a door (Leave), a power symbol
 ## (Log Out), the people crowd, a gear, the chat bubble and a tiny star.
 static func icon_texture(kind: String, ink := Color(1, 1, 1, 0.96)) -> ImageTexture:
@@ -326,58 +408,56 @@ static func apply_cursors() -> void:
 ## Build the shared Theme. Scene roots apply it: `theme = RetroTheme.make_theme()`.
 static func make_theme() -> Theme:
         var t := Theme.new()
-        var title: Font = gotham(700)
-        var semi: Font = gotham(600)
-        var body: Font = source(400)
-        var book: Font = source(600)
+        var title: Font = arial(700)
+        var body: Font = arial(400)
 
-        # ---- Button — the dark key: elevated face, NO border, white ink ----
+        # ---- Button — the classic key: raised gray face, white ink ----
         t.set_stylebox("normal", "Button", _key_style(PANEL))
         t.set_stylebox("hover", "Button", _key_style(PANEL_HOVER))
-        t.set_stylebox("pressed", "Button", _key_style(PANEL_DOWN))
-        t.set_stylebox("disabled", "Button", _key_style(Color("1d1f23")))
+        t.set_stylebox("pressed", "Button", sunken(3, PANEL_DOWN))
+        t.set_stylebox("disabled", "Button", _key_style(Color("2f2f2f")))
         t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
         t.set_color("font_color", "Button", TEXT)
         t.set_color("font_hover_color", "Button", TEXT)
         t.set_color("font_pressed_color", "Button", TEXT_MUTED)
-        t.set_color("font_disabled_color", "Button", Color("6b7076"))
+        t.set_color("font_disabled_color", "Button", Color("7d7d7d"))
         t.set_font_size("font_size", "Button", 13)
-        if semi != null:
-                t.set_font("font", "Button", semi)
+        if title != null:
+                t.set_font("font", "Button", title)
 
-        # ---- Button variations — the fills (white primary, blue, green, red) ----
+        # ---- Button variations — the classic fills ----
         var fill_var := func(var_name: String, bg: Color, hover: Color, down: Color,
                         ink: Color) -> void:
                 t.set_type_variation(var_name, "Button")
                 t.set_stylebox("normal", var_name, _key_style(bg))
                 t.set_stylebox("hover", var_name, _key_style(hover))
-                t.set_stylebox("pressed", var_name, _key_style(down))
+                t.set_stylebox("pressed", var_name, sunken(3, down))
                 t.set_color("font_color", var_name, ink)
                 t.set_color("font_hover_color", var_name, ink)
                 t.set_color("font_pressed_color", var_name, ink)
-        # the WHITE primary — Roblox's Resume key: white face, dark ink
-        fill_var.call("BtnWhite", Color("ffffff"), Color("e8e9ea"), Color("d5d7d9"), TEXT_INV)
-        fill_var.call("BtnBlue", BLUE, MENU_ACCENT_HI, MENU_ACCENT_DARK, Color.WHITE)
-        fill_var.call("BtnGreen", GREEN, Color("1ec582"), Color("00955c"), Color.WHITE)
-        fill_var.call("BtnRed", RED, Color("ff6b6b"), Color("d93b3b"), Color.WHITE)
-        t.set_font_size("font_size", "BtnWhite", 14)
+        # the CLASSIC GREEN primary — the old site's action key
+        fill_var.call("BtnPrimary", Color("3e9c35"), Color("49b23f"), Color("2a7322"), Color.WHITE)
+        fill_var.call("BtnBlue", Color("1877cf"), Color("2a8ae0"), Color("0f5ca3"), Color.WHITE)
+        fill_var.call("BtnGreen", Color("3e9c35"), Color("49b23f"), Color("2a7322"), Color.WHITE)
+        fill_var.call("BtnRed", RED, Color("f0402f"), Color("a51511"), Color.WHITE)
+        t.set_font_size("font_size", "BtnPrimary", 14)
         t.set_font_size("font_size", "BtnBlue", 14)
         if title != null:
-                t.set_font("font", "BtnWhite", title)
+                t.set_font("font", "BtnPrimary", title)
                 t.set_font("font", "BtnBlue", title)
 
         t.set_type_variation("BtnGhost", "Button")
-        t.set_stylebox("normal", "BtnGhost", wash(0.05, 10))
-        t.set_stylebox("hover", "BtnGhost", wash(0.10, 10))
-        t.set_stylebox("pressed", "BtnGhost", wash(0.14, 10))
+        t.set_stylebox("normal", "BtnGhost", wash(0.05, 3))
+        t.set_stylebox("hover", "BtnGhost", wash(0.10, 3))
+        t.set_stylebox("pressed", "BtnGhost", wash(0.14, 3))
         t.set_color("font_color", "BtnGhost", TEXT_MUTED)
         t.set_color("font_hover_color", "BtnGhost", TEXT)
         t.set_color("font_pressed_color", "BtnGhost", TEXT)
         t.set_font_size("font_size", "BtnGhost", 13)
-        if semi != null:
-                t.set_font("font", "BtnGhost", semi)
+        if title != null:
+                t.set_font("font", "BtnGhost", title)
 
-        # ---- Label — white ink, Source Sans body, Montserrat titles ----
+        # ---- Label — white ink, Arial everywhere (the classic voice) ----
         t.set_color("font_color", "Label", TEXT)
         t.set_font_size("font_size", "Label", 14)
         if body != null:
@@ -389,12 +469,11 @@ static func make_theme() -> Theme:
                 t.set_type_variation("Title", "Label")
                 t.set_font("font", "Title", title)
                 t.set_font_size("font_size", "Title", 17)
-        if semi != null:
                 t.set_type_variation("H2", "Label")
-                t.set_font("font", "H2", semi)
+                t.set_font("font", "H2", title)
                 t.set_font_size("font_size", "H2", 15)
                 t.set_type_variation("Name", "Label")
-                t.set_font("font", "Name", semi)
+                t.set_font("font", "Name", title)
                 t.set_font_size("font_size", "Name", 13)
         for pair in [["Small", 12], ["Muted", 12], ["Sub", 11]]:
                 t.set_type_variation(String(pair[0]), "Label")
@@ -414,70 +493,69 @@ static func make_theme() -> Theme:
         t.set_color("font_color", "Error", RED)
         t.set_font_size("font_size", "Error", 13)
 
-        # ---- LineEdit — quiet well, blue caret, NO border until focus ----
-        t.set_stylebox("normal", "LineEdit", well(10))
-        var focus_well := well(10)
+        # ---- LineEdit — sunken classic well, blue caret on focus ----
+        t.set_stylebox("normal", "LineEdit", sunken(3))
+        var focus_well := StyleBoxFlat.new()
+        focus_well.bg_color = WELL
+        focus_well.set_corner_radius_all(3)
         focus_well.set_border_width_all(2)
         focus_well.border_color = BLUE
         t.set_stylebox("focus", "LineEdit", focus_well)
-        t.set_stylebox("read_only", "LineEdit", well(10))
+        t.set_stylebox("read_only", "LineEdit", sunken(3))
         t.set_color("font_color", "LineEdit", TEXT)
-        t.set_color("font_placeholder_color", "LineEdit", MENU_FAINT)
+        t.set_color("font_placeholder_color", "LineEdit", Color("8a8a8a"))
         t.set_color("caret_color", "LineEdit", BLUE)
         t.set_color("selection_color", "LineEdit", Color(0.0, 0.635, 1.0, 0.35))
         t.set_font_size("font_size", "LineEdit", 15)
         if body != null:
                 t.set_font("font", "LineEdit", body)
 
-        # ---- Panels ----
-        t.set_stylebox("panel", "PanelContainer", surface(12, PANEL))
-        t.set_stylebox("panel", "Panel", surface(12, PANEL))
+        # ---- Panels — the classic window face ----
+        t.set_stylebox("panel", "PanelContainer", raised(4, PANEL))
+        t.set_stylebox("panel", "Panel", raised(4, PANEL))
         t.set_type_variation("Card", "PanelContainer")
-        t.set_stylebox("panel", "Card", surface(14, CARD, 10, 0.3))
+        t.set_stylebox("panel", "Card", sunken(4, CARD))
         t.set_type_variation("DarkPanel", "PanelContainer")
-        t.set_stylebox("panel", "DarkPanel", surface(12, MENU_BG))
+        t.set_stylebox("panel", "DarkPanel", raised(4, MENU_PANEL))
 
         # ---- Progress bar (health) ----
-        t.set_stylebox("background", "ProgressBar", well(9))
-        t.set_stylebox("fill", "ProgressBar", well(9, GREEN))
+        t.set_stylebox("background", "ProgressBar", sunken(3))
+        t.set_stylebox("fill", "ProgressBar", flat(2, GREEN))
         t.set_color("font_color", "ProgressBar", TEXT)
 
-        # ---- Scroll bars — quiet rounded steel ----
-        var grab := wash(0.14, 5)
-        var grab_hi := wash(0.22, 5)
+        # ---- Scroll bars — quiet gray steel ----
+        var grab := flat(3, Color(1, 1, 1, 0.18))
+        var grab_hi := flat(3, Color(1, 1, 1, 0.28))
         for bar in ["VScrollBar", "HScrollBar"]:
                 t.set_stylebox("grabber", bar, grab)
                 t.set_stylebox("grabber_highlight", bar, grab_hi)
                 t.set_stylebox("grabber_pressed", bar, grab_hi)
                 t.set_stylebox("scroll", bar, StyleBoxEmpty.new())
 
-        # ---- Tooltips — near-black card, white ink ----
-        t.set_stylebox("panel", "TooltipPanel", surface(8, Color("101215"), 8, 0.4))
+        # ---- Tooltips — the classic dark tip with a thin light frame ----
+        t.set_stylebox("panel", "TooltipPanel", glass(0.94, 3))
         t.set_color("font_color", "TooltipLabel", TEXT)
         t.set_font_size("font_size", "TooltipLabel", 12)
         if body != null:
                 t.set_font("font", "TooltipLabel", body)
 
-        # ---- CheckButton / slider grabs — white ink, blue fill ----
+        # ---- CheckButton / slider grabs — white ink, green fill ----
         t.set_color("font_color", "CheckButton", TEXT)
         t.set_color("font_hover_color", "CheckButton", TEXT)
         t.set_color("font_pressed_color", "CheckButton", TEXT)
         t.set_font_size("font_size", "CheckButton", 13)
         if body != null:
                 t.set_font("font", "CheckButton", body)
-        var grabber := well(4, BLUE)
-        t.set_stylebox("slider", "HSlider", well(4, Color("313438")))
+        var grabber := flat(3, GREEN)
+        t.set_stylebox("slider", "HSlider", sunken(2, Color("1a1a1a")))
         t.set_stylebox("grabber_area", "HSlider", grabber)
         t.set_stylebox("grabber_area_highlight", "HSlider", grabber)
 
         return t
 
 
-static func _key_style(face: Color) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = face
-        sb.set_corner_radius_all(10)
-        sb.anti_aliasing = true
+static func _key_style(face: Color) -> StyleBoxTexture:
+        var sb := raised(3, face)
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
         sb.content_margin_top = 8.0

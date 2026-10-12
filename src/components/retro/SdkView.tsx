@@ -9,16 +9,15 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v6.0 "BLOX"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=6.0'
+const VERSION = 'v7.0 "CLASSIC"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=7.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['A COMPLETELY NEW UI — the REAL ROBLOX CLIENT look', 'Every pixel of the client chrome is rebuilt to read like the real thing: near-black rounded surfaces with soft shadows and NO borders, the WHITE Resume key with dark ink, Roblox blue as the single accent, Montserrat (the Gotham voice) on every title, button and name, Source Sans 3 in the chat. No more pixel type, no more arcade cabinet — just the clean, dark, familiar client.'],
-  ['The ESC menu, exactly like the real menu', 'One near-black window: YOUR headshot + name in the header, an icon rail on the left that lights up blue, the People cards with sharp portraits, and the footer keys — Resume = big WHITE key, Leave = red. The topbar gains the top-right USER PILL: your name + the settings gear, parked exactly where Roblox keeps them.'],
-  ['The classic bottom-center HEALTH BAR', 'The health bar leaves the side plate and sits BOTTOM-CENTER like the classic client: a dark rounded track, green fill, the number inside, draining red as you take damage.'],
-  ['The ROBLOX LOGIN page', 'A white rounded card on a deep backdrop with soft color glows: the tilted red logo tile + RETROBLOX wordmark in Montserrat ExtraBold, quiet gray wells, the blue LOG IN key — the sign-in screen looks like the site\'s.'],
-  ['Chat = the real chat', 'Near-black translucent rounded panels, Source Sans text, bright name colors, and the authentic input placeholder: "To chat click here or press / key" — and the / key actually opens the chat now.'],
-  ['Everything sharp stays sharp', 'The portrait pipeline (320x448 + 4x MSAA), 4x world MSAA, anisotropic stud tiles and LINEAR true-color lighting all carry over — and the menu header now wears a cropped HEADSHOT of your avatar, rendered from the same sharp shot.'],
+  ['A COMPLETELY NEW UI — the CLASSIC 2008-2013 CLIENT look', 'Every pixel of the client chrome is rebuilt in the retro gray you remember: chunky BEVELED panels (a light top-left rim, a dark bottom-right rim, generated 9-patch textures tinted per face), Arial on every title, button and name (Liberation Sans — the metric-perfect Arial), small tight corner radii, hard dark drop shadows. Nothing glassy, nothing borderless-modern — it reads like the client you grew up on.'],
+  ['The CLASSIC GREEN action key + ROBLOX red', 'Resume and LOG IN are the old-site GREEN keys that sink when pressed; Leave speaks in the ROBLOX red; the one Roblox blue stays as the selection accent (your People card, the lit nav icon). The health bar is the classic SUNKEN track with the pure-green fill and the number inside.'],
+  ['The classic beveled LOGIN window', 'A gray beveled window on a deep backdrop with a faint STUD GRID: the tilted red logo tile + RETROBLOX wordmark in bold Arial with a drop shadow, chunky beveled LOG IN / SIGN UP tabs, sunken input wells, the green LOG IN key — the old front door, rebuilt.'],
+  ['The ESC menu — the classic gray window', 'Title bar with a dark rule under it, the icon rail, People cards that SINK like list slots (yours wears the blue selection frame), beveled keys in the footer: green Resume, dark Reset / Log Out, red Leave. Chat panels keep the thin light frame, Arial everywhere.'],
+  ['Everything sharp stays sharp', 'The portrait pipeline (320x448 + 4x MSAA), 4x world MSAA, anisotropic stud tiles and LINEAR true-color lighting all carry over — the classic look is chrome-only, the world stays crisp.'],
 ]
 
 const FILES = [
@@ -26,8 +25,8 @@ const FILES = [
   ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache — and the saved login that signs you in automatically next launch'],
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
-  ['scripts/ui/login.gd', 'The in-game login / SIGN UP card — server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The v6.0 BLOX UI: near-black rounded surfaces + soft shadows + NO borders, Montserrat (Gotham voice) + Source Sans 3, the WHITE primary key + Roblox blue accent, code-drawn icons, your cursors'],
+  ['scripts/ui/login.gd', 'The in-game login / SIGN UP window — the classic beveled look, server URL locked, guests welcome'],
+  ['scripts/ui/retro_theme.gd', 'The v7.0 CLASSIC UI: generated 9-patch bevel textures (raised keys + sunken wells tinted per face), Arial (Liberation Sans) voice, the classic GREEN primary key + ROBLOX red, code-drawn icons, your cursors'],
   ['scripts/ui/avatar_portrait.gd', 'Renders each player\'s REAL avatar at 320x448 with 4x MSAA for the ESC menu People cards (offscreen viewport, cached)'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],

@@ -9,10 +9,10 @@ extends Control
 ## v3.11: F READS — a read-only mode that shows the log WITHOUT grabbing
 ## the keyboard, so you can catch up on chat while you keep moving. The
 ## "#1" seq chips are gone from lines.
-## v6.0: the ROBLOX CHAT — near-black translucent rounded panels floating
-## under the topbar, Source Sans text, white names in the classic bright
-## name-color set, and the authentic "To chat click here or press / key"
-## placeholder on the typing line.
+## v7.0: the CLASSIC CHAT — dark translucent panels with ONE thin light
+## frame (the 2013 client read), Arial text, white names in the classic
+## bright name-color set, and the authentic "To chat click here or press /
+## key" placeholder on the typing line.
 
 signal submitted(text: String)
 signal opened
@@ -51,8 +51,8 @@ func _init() -> void:
 
         _panel = PanelContainer.new()
         _panel.name = "LogPanel"
-        # v6.0: the near-black translucent float — NO border, one soft shadow
-        var sb := RetroUI.surface(12, Color(0.055, 0.06, 0.07, 0.76), 10, 0.3)
+        # v7.0: the classic chat float — dark glass, ONE thin light frame
+        var sb := RetroUI.glass(0.78)
         sb.content_margin_left = 12.0
         sb.content_margin_right = 12.0
         sb.content_margin_top = 9.0
@@ -79,7 +79,7 @@ func _init() -> void:
 
         _input_panel = PanelContainer.new()
         _input_panel.name = "InputPanel"
-        var isb := RetroUI.surface(12, Color(0.055, 0.06, 0.07, 0.82), 10, 0.3)
+        var isb := RetroUI.glass(0.85)
         isb.content_margin_left = 4.0
         isb.content_margin_right = 4.0
         isb.content_margin_top = 4.0
@@ -95,9 +95,9 @@ func _init() -> void:
         _input.max_length = 240
         _input.context_menu_enabled = false
         _input.add_theme_color_override("font_color", Color("ffffff"))
-        _input.add_theme_color_override("font_placeholder_color", Color("9aa0a6"))
-        _input.add_theme_stylebox_override("normal", RetroUI.well(9, Color(1, 1, 1, 0.07)))
-        _input.add_theme_stylebox_override("focus", RetroUI.well(9, Color(1, 1, 1, 0.12)))
+        _input.add_theme_color_override("font_placeholder_color", Color("8a8a8a"))
+        _input.add_theme_stylebox_override("normal", RetroUI.sunken(3, Color(0.0, 0.0, 0.0, 0.42)))
+        _input.add_theme_stylebox_override("focus", RetroUI.sunken(3, Color(0.0, 0.0, 0.0, 0.55)))
         var book: Font = RetroUI.source(400)
         if book != null:
                 _input.add_theme_font_override("font", book)
