@@ -243,11 +243,8 @@ func _build_chrome() -> void:
         _panel.offset_right = -14.0
         _panel.offset_top = 14.0
         _panel.custom_minimum_size = Vector2(280, 0)
-        var psb := StyleBoxFlat.new()
-        psb.bg_color = Color(0.09, 0.1, 0.12, 0.97)
-        psb.set_corner_radius_all(10)
-        psb.set_border_width_all(1)
-        psb.border_color = Color("38ff8c")
+        # v10.0: the editor is a classic beveled window too — green accents
+        var psb: StyleBox = RETRO.raised(4, Color(0.16, 0.16, 0.16, 0.97))
         psb.content_margin_left = 14.0
         psb.content_margin_right = 14.0
         psb.content_margin_top = 12.0
@@ -263,7 +260,7 @@ func _build_chrome() -> void:
         _title_l.text = "UI EDITOR"
         _title_l.add_theme_font_override("font", RETRO.gotham(800))
         _title_l.add_theme_font_size_override("font_size", 15)
-        _title_l.add_theme_color_override("font_color", Color("38ff8c"))
+        _title_l.add_theme_color_override("font_color", RETRO.GREEN)
         col.add_child(_title_l)
 
         _hint = Label.new()
@@ -417,18 +414,20 @@ func _spin_row(parent: VBoxContainer, title: String, mn := -100000.0, mx := 1000
 
 
 func _style_key(b: Button, face: Color) -> void:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = face
-        sb.set_corner_radius_all(6)
+        # v10.0: classic beveled keys — raised, hover lightens, press sinks
+        var sb: StyleBox = RETRO.raised(4, face)
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
         sb.content_margin_top = 6.0
         sb.content_margin_bottom = 6.0
         b.add_theme_stylebox_override("normal", sb)
-        var hb := sb.duplicate() as StyleBoxFlat
-        hb.bg_color = face.lightened(0.12)
+        var hb: StyleBox = RETRO.raised(4, face.lightened(0.12))
+        hb.content_margin_left = 10.0
+        hb.content_margin_right = 10.0
+        hb.content_margin_top = 6.0
+        hb.content_margin_bottom = 6.0
         b.add_theme_stylebox_override("hover", hb)
-        b.add_theme_stylebox_override("pressed", hb)
+        b.add_theme_stylebox_override("pressed", RETRO.sunken(4, face.darkened(0.2)))
         b.add_theme_font_override("font", RETRO.gotham(600))
         b.add_theme_font_size_override("font_size", 12)
         b.add_theme_color_override("font_color", Color.WHITE)

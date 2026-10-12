@@ -554,45 +554,44 @@ func _run_all() -> void:
                 "cards fall back to the classic smiley before the shot lands")
         check(game_src.contains("icon_texture"),
                 "action + nav buttons wear the code-drawn icons (play / door / people / gear)")
-        # --- v8.0: THE REAL CLIENT — the actual Roblox client look: deep
-        # #111316 backdrops, rounded-8 #232527 surfaces, black topbar pills,
-        # the WHITE primary key, the fountain-blue accent, the Montserrat
-        # voice, and REAL Roblox PFP headshots instead of 3D renders ---
-        check(ResourceLoader.exists("res://assets/fonts/Montserrat-Bold.ttf"),
-                "the client voice ships (Montserrat Bold — the Builder Sans stand-in)")
-        check(ResourceLoader.exists("res://assets/fonts/Montserrat-SemiBold.ttf"),
-                "the semibold voice ships (nav rows + names)")
-        check(ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"), "pixel-cloud backdrop ships")
+        # --- v10.0: THE 2008 CLIENT — the OLD language, as an engine: real
+        # 9-patch bevels (light TL rim / dark BR rim), SQUARE corners, ARIAL,
+        # the CLASSIC GREEN key, ROBLOX red, and REAL PFP headshots ---
+        check(ResourceLoader.exists("res://assets/fonts/LiberationSans-Regular.ttf"),
+                "the client voice ships (Liberation Sans Regular — the Arial stand-in)")
+        check(ResourceLoader.exists("res://assets/fonts/LiberationSans-Bold.ttf"),
+                "the bold voice ships (Liberation Sans Bold — titles + keys)")
         var theme_src := FileAccess.get_file_as_string("res://scripts/ui/retro_theme.gd")
-        check(theme_src.contains("Montserrat-SemiBold.ttf") and theme_src.contains("MONT_PATHS"),
-                "the theme speaks Montserrat (one family, the Builder Sans read)")
+        check(theme_src.contains("LiberationSans-Bold.ttf") and theme_src.contains("ARIAL_PATHS"),
+                "the theme speaks ARIAL (one family, the 2008 voice)")
         check(theme_src.contains("func arial") and theme_src.contains("func gotham")
                 and theme_src.contains("func source"),
                 "gotham() carries the voice; arial()/source() stay as working aliases")
-        check(theme_src.contains('MENU_PANEL := Color("232527")')
-                and theme_src.contains('MENU_ACCENT := Color("335fff")')
-                and theme_src.contains('MENU_INK := Color("ffffff")')
-                and theme_src.contains('MENU_RED := Color("f44250")')
-                and theme_src.contains('const BG := Color("111316")'),
-                "the client wears the REAL palette (#111316 veil, #232527 surface, fountain blue, danger red)")
+        check(theme_src.contains('MENU_PANEL := Color("3b3b3b")')
+                and theme_src.contains('MENU_ACCENT := Color("00a2ff")')
+                and theme_src.contains('MENU_INK := Color("f2f2f2")')
+                and theme_src.contains('MENU_RED := Color("e2231a")')
+                and theme_src.contains('const BG := Color("2b2b2b")')
+                and theme_src.contains('const GREEN := Color("00aa00")'),
+                "the client wears the CLASSIC palette (gray chrome, classic green, ROBLOX red, Roblox blue)")
         check(theme_src.contains("func raised(") and theme_src.contains("func sunken(")
                 and theme_src.contains("func wash(") and theme_src.contains("func flat(")
                 and theme_src.contains("func glass(") and theme_src.contains("func pill_style("),
-                "the surface engine: rounded-8 cards, wells, hover washes, chat glass, topbar pills")
-        check(not theme_src.contains("StyleBoxTexture") and not theme_src.contains("_bevel_texture"),
-                "the bevel engine is DELETED — flat rounded surfaces only (the real client read)")
-        check(theme_src.contains('"ffffff"), Color("e2e2e2"), Color("cfcfcf")'),
-                "the theme ships the WHITE primary button (the client's Resume/LogIn read)")
+                "the surface engine: beveled boxes, wells, hover washes, chat glass, topbar pills")
+        check(theme_src.contains("StyleBoxTexture") and theme_src.contains("_bake_bevel"),
+                "the BEVEL ENGINE is back — 9-patch chrome, the 2008 surface, baked in code")
+        check(theme_src.contains('fill_var.call("BtnPrimary", GREEN_FACE'),
+                "the theme ships the CLASSIC GREEN primary key (the 2006 site green)")
         check(theme_src.contains('"people"') and theme_src.contains('"gear"'),
                 "nav icons drawn in code (people crowd + gear)")
         check(theme_src.contains("icon_texture(kind: String, ink"),
                 "icons draw in ANY ink (white on dark keys, dark on the white key)")
-        check(not theme_src.contains("PressStart2P"),
-                "the pixel-cabinet voice is gone (Montserrat is the client voice)")
+        check(not theme_src.contains("PressStart2P") and not theme_src.contains("Montserrat"),
+                "the pixel-cabinet + Montserrat voices are gone (ARIAL is the client voice)")
         check(not FileAccess.file_exists("res://assets/ui/wood_planks.jpg"),
                 "wood texture file removed from the kit")
-        check(game_src.contains("MENU_ACCENT") and game_src.contains("MENU_INK"),
-                "nav + keys speak in white ink with the blue accent (no dark-on-dark anywhere)")
+        check(game_src.contains("MENU_INK") and game_src.contains("_row_btn"),
+                "nav + keys speak in white ink on the gray chrome (no dark-on-dark anywhere)")
 
         # --- v8.0 THE PFP ENGINE — real Roblox headshots, NEVER 3D renders ---
         check(FileAccess.file_exists("res://scripts/ui/pfp_service.gd"),
@@ -685,9 +684,9 @@ func _run_all() -> void:
         check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
                 "the menu references zero texture helpers (flat dark cards)")
         check(not game_src.contains("_gloss_btn") and game_src.contains("_key_btn"),
-                "every menu key is family-styled (dark rows, the BLUE primary)")
-        check(game_src.contains("_blue_btn") and game_src.contains("MENU_ACCENT"),
-                "Resume is the FOUNTAIN-BLUE key (the client's read)")
+                "every menu key is family-styled (beveled rows, the BLUE primary)")
+        check(game_src.contains("_blue_btn") and game_src.contains('Color("1a7ab8")'),
+                "Resume is the beveled CLASSIC BLUE key (the 2008 read)")
         check(theme_src.contains("MENU_RED :=") ,
                 "red exists ONLY as the danger voice (Leave, close-hover, badge)")
         check(theme_src.contains("f5cd30"),
@@ -696,7 +695,7 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains("v9.0"), "the corner chip wears v9.0")
+        check(game_src.contains("v10.0"), "the corner chip wears v10.0")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(game_src.contains("TEXTURE_FILTER_LINEAR"),
@@ -776,12 +775,14 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "9.0"') and login_src4.contains("BtnPrimary"),
-                "login wears the REAL CLIENT page (v9.0, the white Log In key)")
-        check(login_src4.contains("_logo_tile_texture") and login_src4.contains("_add_vignette"),
-                "the login brand is the tilted-square logo on the deep vignette page")
+        check(login_src4.contains('VERSION := "10.0"') and login_src4.contains("BtnPrimary"),
+                "login wears the 2008 window (v10.0, the CLASSIC GREEN Log In key)")
+        check(login_src4.contains("_logo_tile_texture") and login_src4.contains("_add_studs"),
+                "the login is a beveled window on the baseplate-stud backdrop")
+        check(login_src4.contains("_stud_tile_texture") and login_src4.contains("_on_title_input"),
+                "the login window DRAGS by its title bar and sits on code-drawn studs")
         check(login_src4.contains("gotham(800)"),
-                "the login speaks ExtraBold Montserrat (the wordmark voice)")
+                "the login speaks ExtraBold ARIAL (the wordmark voice)")
 
         # --- v3.9: presence carries everyone's live stats ---
         var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")

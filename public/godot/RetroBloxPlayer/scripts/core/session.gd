@@ -21,8 +21,36 @@ func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role:
         user_id = p_user_id
         username = p_username
         role = p_role
-        avatar = payload
-        avatar_cache = { p_user_id: payload }
+        # v10.0: sanitize JSON nulls up front — the platform sends
+        # "avatarUrl": null for accounts without a site PFP, and Dictionary.get
+        # returns that stored null (not the default), which String() can't take
+        avatar = _nullless(payload)
+        avatar_cache = { p_user_id: _nullless(payload) }
+
+
+## Deep-copy a JSON payload with every null replaced by "" — recursive, so
+## nested dicts (the "avatar" blob) are covered too.
+func _nullless(src: Dictionary) -> Dictionary:
+        var out: Dictionary = {}
+        for k in src.keys():
+                var v: Variant = src[k]
+                if v == null:
+                        out[k] = ""
+                elif v is Dictionary:
+                        out[k] = _nullless(v)
+                elif v is Array:
+                        var arr: Array = []
+                        for item in v:
+                                if item == null:
+                                        arr.append("")
+                                elif item is Dictionary:
+                                        arr.append(_nullless(item))
+                                else:
+                                        arr.append(item)
+                        out[k] = arr
+                else:
+                        out[k] = v
+        return out
 
 
 func set_guest() -> void:
@@ -41,7 +69,15 @@ func reset() -> void:
 
 ## Cache another player's avatar payload so re-entering places is instant.
 func cache_avatar(p_user_id: String, payload: Dictionary) -> void:
-        avatar_cache[p_user_id] = payload
+        avatar_cache[p_user_id] = _nullless(payload)
+
+
+## v10.0: set MY avatar payload (null-sanitized) — used by game.gd when the
+## /me payload refreshes mid-session.
+func set_avatar(payload: Dictionary) -> void:
+        avatar = _nullless(payload)
+        if user_id != "":
+                avatar_cache[user_id] = avatar.duplicate()
 
 
 func cached_avatar(p_user_id: String) -> Dictionary:

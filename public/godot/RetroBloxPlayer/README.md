@@ -3,7 +3,7 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v9.0 "YOUR CLIENT" is THE ROBLOX ESC
+through the RetroBlox platform API. v10.0 "2008 CLIENT" is THE OLD CLIENT LANGUAGE — code-baked 9-patch bevel chrome, square corners, ARIAL, the classic green key — plus THE ROBLOX ESC
 MENU, finally: a CENTERED dark panel (the game stays live behind it) with
 the five top tabs — People / Settings / Gallery / Report / Help — the
 "In this server" card grid (PFP + name + @handle), and the footer keys
@@ -56,7 +56,15 @@ the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
-### The ESC menu — the REAL client panel (v9.0)
+### The 2008 look — v10.0
+- Every surface: real 9-patch bevel (light TL rim, dark BR rim), SQUARE corners, gray chrome — baked in code (retro_theme.gd)
+- One voice: ARIAL (Liberation Sans). The CLASSIC GREEN Log In / primary key. ROBLOX red danger. Classic Roblox blue accent.
+- LOGIN: a draggable beveled window (title bar + close X) on a baseplate of studs, folder tabs, WHITE sunken wells, the classic green key
+- The window opens COMPACT at 960x600 — never your whole screen
+- People cards show LIVE ping + fps; your card wears the classic blue selection frame
+- FIXED: the avatarUrl-null crash, the shift-lock race, the HTTP body type error, all editor warnings — the debugger is CLEAN
+
+## The ESC menu — the REAL client panel (v10.0)
 
 The menu is ONE centered dark panel (about 62% of the screen — the game
 stays visible behind it) with the client's TOP TABS: People · Settings ·
@@ -68,7 +76,7 @@ reference action row: [L] Leave · [R] Respawn · [ESC] Resume — Resume in
 fountain blue with the white key chip. Live FPS/ping/version sit in the
 tiny corner chip, bottom-left.
 
-### THE UI EDITOR — press F2, edit EVERYTHING (v9.0)
+### THE UI EDITOR — press F2, edit EVERYTHING (v10.0)
 
 This client is YOURS. **F2** (or Settings → Edit anything) opens the
 editor:

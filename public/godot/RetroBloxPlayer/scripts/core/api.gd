@@ -64,6 +64,15 @@ func clear_session() -> void:
                 cf.save(SAVE_PATH)
 
 
+## Null-safe text from JSON payloads. JSON nulls arrive as Variant NIL and
+## Dictionary.get() returns the STORED null (not the default!) when a key
+## exists with a null value — and String(null) hard-crashes in Godot with
+## "Invalid call 'String' constructor". Every payload string goes through
+## here, so a null avatarUrl / role / chat field can never take the client down.
+func txt(v: Variant, d := "") -> String:
+        return v if v is String else d
+
+
 # ---------------------------------------------------------------- requests
 
 func _auth_headers() -> PackedStringArray:
@@ -104,7 +113,7 @@ func request(method: int, path: String, headers: PackedStringArray = PackedStrin
         if status < 200 or status >= 300:
                 var msg := "HTTP %d" % status
                 if data is Dictionary and data.has("error"):
-                        msg = String(data["error"])
+                        msg = txt(data["error"], "HTTP %d" % status)
                 return { "ok": false, "error": msg, "status": status }
         if data is Dictionary:
                 var d: Dictionary = data

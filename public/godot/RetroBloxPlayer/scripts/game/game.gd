@@ -25,11 +25,9 @@ var hud: CanvasLayer
 var _health_fill: Panel              # v6.0: the rounded green fill inside the track
 var _health_value: Label
 var _topbar_pfp: TextureRect         # v8.0: the topbar user pill's PFP
-var _pfp_seats: Dictionary = {}      # v9.0: extra PFP seats (Settings preview)
 var _names_by_uid: Dictionary = {}   # v8.0: userId -> username (PFP fetches)
 var _health_track_w := 190.0         # v6.0: the bottom-center bar width
 var _menu: Control
-var _players_tab: VBoxContainer
 var _players_grid: GridContainer     # v3.9: the People page — a card grid, not a list
 var _settings_tab: VBoxContainer
 var _people_title: Label             # v9.0: "In this server · N" page heading
@@ -121,8 +119,10 @@ func _ready() -> void:
         # ---- v9.0: MY PICTURE — the account's avatarUrl from
         # retro-blox.vercel.app arrives with the /me payload at login; the
         # Editor's own custom URL (saved in ui_config) wins over it.
+        # Api.txt is null-safe: the platform returns "avatarUrl": null for
+        # accounts without a site PFP, and String(null) hard-crashes.
         if not Session.is_guest:
-                Pfp.set_site_pfp(String(Session.avatar.get("avatarUrl", "")))
+                Pfp.set_site_pfp(Api.txt(Session.avatar.get("avatarUrl", "")))
         Pfp.pfp_changed.connect(func(_uid: String) -> void:
                 _portrait_cache.erase(Session.user_id)
                 _render_portrait(Session.user_id))
@@ -220,7 +220,7 @@ func _dress_me() -> void:
         if payload.is_empty():
                 var me: Dictionary = await Api.get_me()
                 if me.get("ok", false):
-                        Session.avatar = me
+                        Session.set_avatar(me)
                         payload = Session.my_avatar_data()
         _dressed_signature = JSON.stringify(payload)
         await player.call("dress", Api, payload)
@@ -319,13 +319,16 @@ func _unhandled_input(event: InputEvent) -> void:
                 get_viewport().set_input_as_handled()
         elif event.is_action_pressed("shift_lock"):
                 # classic SHIFT toggle — squares the character up to the camera
-                camera_rig.set_shift_locked(not camera_rig.shift_locked)
-                var st: Node = get_node_or_null("/root/Settings")
-                if st != null:
-                        st.call("set_key", "shift_lock", camera_rig.shift_locked)
-                if _shift_check != null and is_instance_valid(_shift_check):
-                        _shift_check.set_pressed_no_signal(camera_rig.shift_locked)
-                get_viewport().set_input_as_handled()
+                # (camera_rig builds across _ready's awaited frames — it can
+                # still be Nil when input lands, so guard like the branches above)
+                if camera_rig != null and is_instance_valid(camera_rig):
+                        camera_rig.set_shift_locked(not camera_rig.shift_locked)
+                        var st: Node = get_node_or_null("/root/Settings")
+                        if st != null:
+                                st.call("set_key", "shift_lock", camera_rig.shift_locked)
+                        if _shift_check != null and is_instance_valid(_shift_check):
+                                _shift_check.set_pressed_no_signal(camera_rig.shift_locked)
+                        get_viewport().set_input_as_handled()
         # NOTE: no click-to-capture — the cursor is ALWAYS usable in third
         # person now; the camera orbits with the RIGHT mouse button instead.
 
@@ -514,14 +517,9 @@ func _topbar_key() -> Button:
         return b
 
 
-## The topbar pill + button faces (v9.0).
+## The topbar pill (v10.0) — beveled translucent black, the old client's HUD.
 func _pill_style() -> StyleBox:
-        # the REAL topbar pill — black 65%, rounded 10, no bevel, no frame
         var sb := RetroUI.pill_style()
-        sb.corner_radius_top_left = 10
-        sb.corner_radius_top_right = 10
-        sb.corner_radius_bottom_left = 10
-        sb.corner_radius_bottom_right = 10
         sb.content_margin_left = 6.0
         sb.content_margin_right = 6.0
         sb.content_margin_top = 4.0
@@ -530,8 +528,8 @@ func _pill_style() -> StyleBox:
 
 
 func _pill_btn_style(hover: bool) -> StyleBox:
-        # quiet ghost keys — transparent, a white breath on hover
-        return RetroUI.wash(0.10, 10) if hover else RetroUI.wash(0.0, 10)
+        # beveled translucent HUD keys — the old client's topbar squares
+        return RetroUI.raised(4, Color(0.0, 0.0, 0.0, 0.55)) if hover else RetroUI.raised(4, Color(0.0, 0.0, 0.0, 0.42))
 
 
 func _badge_style() -> StyleBoxFlat:
@@ -566,7 +564,7 @@ func _build_health() -> void:
         _health_fill = Panel.new()
         _health_fill.name = "Fill"
         _health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        _health_fill.add_theme_stylebox_override("panel", RetroUI.flat(6, RetroUI.MENU_GREEN))
+        _health_fill.add_theme_stylebox_override("panel", RetroUI.raised(4, RetroUI.MENU_GREEN))
         _health_fill.set_anchors_preset(Control.PRESET_FULL_RECT)
         _health_fill.offset_left = 3.0
         _health_fill.offset_top = 3.0
@@ -592,8 +590,8 @@ func _build_health() -> void:
 
 
 func _health_track_style() -> StyleBox:
-        # v8.0: the black translucent rounded track — the client's HUD read
-        return RetroUI.flat(8, Color(0.0, 0.0, 0.0, 0.65))
+        # v10.0: the sunken bevel track — the classic HUD health inset
+        return RetroUI.sunken(4, Color(0.0, 0.0, 0.0, 0.72))
 
 
 # ---- the first-person center cursor --------------------------------------
@@ -902,13 +900,10 @@ func _menu_panel_size() -> Vector2:
         return Vector2(minf(vp.x * 0.64, 880.0), minf(vp.y * 0.80, 600.0))
 
 
-## The panel face — deep #232527, rounded 12, with the client's soft shadow.
-func _menu_panel_style() -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.MENU_PANEL
-        sb.set_corner_radius_all(12)
-        sb.shadow_color = Color(0, 0, 0, 0.45)
-        sb.shadow_size = 24
+## The panel face — the 2008 beveled chrome sheet: light TL rim, dark BR
+## rim, square corners. The old client's window, plain and simple.
+func _menu_panel_style() -> StyleBox:
+        var sb := RetroUI.raised(4, RetroUI.MENU_PANEL)
         sb.content_margin_left = 0.0
         sb.content_margin_right = 0.0
         sb.content_margin_top = 0.0
@@ -931,19 +926,20 @@ func _tab_button(label: String, icon_kind: String) -> Button:
         return b
 
 
+## One TOP TAB — the classic FOLDER TAB: the open tab is a raised bevel
+## that merges into the page, the rest sit quiet and muted.
 func _style_tab(b: Button, on: bool) -> void:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0, 0, 0, 0)
+        var sb: StyleBox = RetroUI.raised(4, RetroUI.MENU_PANEL_HI) if on else StyleBoxFlat.new()
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
         sb.content_margin_top = 6.0
         sb.content_margin_bottom = 4.0
-        if on:
-                sb.border_width_bottom = 3
-                sb.border_color = RetroUI.MENU_INK
         b.add_theme_stylebox_override("normal", sb)
-        var hb := sb.duplicate() as StyleBoxFlat
-        hb.bg_color = Color(1, 1, 1, 0.04) if not on else sb.bg_color
+        var hb: StyleBox = RetroUI.raised(4, RetroUI.MENU_PANEL_HI) if on else RetroUI.wash(0.05, 4)
+        hb.content_margin_left = 10.0
+        hb.content_margin_right = 10.0
+        hb.content_margin_top = 6.0
+        hb.content_margin_bottom = 4.0
         b.add_theme_stylebox_override("hover", hb)
         b.add_theme_stylebox_override("pressed", sb)
         b.add_theme_stylebox_override("hover_pressed", sb)
@@ -1068,11 +1064,10 @@ func _footer_key(key: String, label: String, primary: bool, handler: Callable) -
         return b
 
 
-## The wide dark row button (Invite Friends, Report, footer keys).
-func _row_btn(face := Color("383b3f"), pushed := false) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.PANEL_DOWN if pushed else face
-        sb.set_corner_radius_all(8)
+## The wide dark row button (Invite Friends, Report, footer keys) — a
+## raised bevel that SINKS when pressed, the old client's button read.
+func _row_btn(face := Color("424242"), pushed := false) -> StyleBox:
+        var sb: StyleBox = RetroUI.sunken(4, RetroUI.PANEL_DOWN) if pushed else RetroUI.raised(4, face)
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
         sb.content_margin_top = 9.0
@@ -1080,11 +1075,9 @@ func _row_btn(face := Color("383b3f"), pushed := false) -> StyleBoxFlat:
         return sb
 
 
-## THE FOUNTAIN-BLUE KEY — the reference's Resume: blue face, white chip.
-func _blue_btn(hover := false) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.MENU_ACCENT_HI if hover else RetroUI.MENU_ACCENT
-        sb.set_corner_radius_all(8)
+## THE CLASSIC BLUE KEY — Resume: beveled blue face, white chip.
+func _blue_btn(hover := false) -> StyleBox:
+        var sb: StyleBox = RetroUI.raised(4, Color("2090d6") if hover else Color("1a7ab8"))
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
         sb.content_margin_top = 9.0
@@ -1241,15 +1234,46 @@ func _player_card(uid: String, uname: String, is_me: bool, ping: Variant = null,
         handle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         _text(handle, 12, RetroUI.MENU_FAINT)
         box.add_child(handle)
+
+        # v10.0: the live stats line — ping + fps ride the presence feed, so
+        # every card can show them (mine updates live via _my_card_stats)
+        var stats := Label.new()
+        stats.name = "Stats"
+        stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        stats.clip_text = true
+        _text(stats, 11, RetroUI.MENU_FAINT)
+        box.add_child(stats)
         if is_me:
-                _my_card_stats = handle   # (name kept for the live-stats hook)
+                _my_card_stats = stats   # the live-stats hook rides this label
+        var p_txt := ""
+        var f_txt := ""
+        if ping != null and ping is int and int(ping) > 0:
+                p_txt = "%dms" % int(ping)
+        elif ping is float:
+                p_txt = "%dms" % int(ping)
+        if fps != null and (fps is int or fps is float) and float(fps) > 0.0:
+                f_txt = "%dfps" % int(fps)
+        var parts: PackedStringArray = []
+        if p_txt != "":
+                parts.append(p_txt)
+        if f_txt != "":
+                parts.append(f_txt)
+        stats.text = " · ".join(parts) if parts.size() > 0 else "—"
         return card
 
 
 func _card_casing(is_me: bool) -> StyleBox:
-        # v9.0: flat uniform cards, exactly the client — NO ring, NO bevel;
-        # mine reads via its position (first card) like everyone else's does
-        var sb := RetroUI.flat(8, Color("2f3236"))
+        # v10.0: the classic sunken slot — every card sits IN the menu like a
+        # list item of the old client; MY card wears the blue selection frame
+        # the real client draws around your own row (StyleBoxFlat so the
+        # border color survives — the bevel texture can't take one)
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = RetroUI.CARD
+        sb.set_corner_radius_all(2)
+        sb.set_border_width_all(2)
+        sb.border_color = RetroUI.BEVEL_DARK
+        if is_me:
+                sb.border_color = RetroUI.BLUE
         sb.content_margin_left = 8.0
         sb.content_margin_right = 8.0
         sb.content_margin_top = 8.0
@@ -1291,7 +1315,7 @@ func _pfp_worker(uid: String, redress := false) -> void:
                 var fresh: Dictionary = await Api.avatar_of(uid)
                 if fresh.get("ok", false) and fresh.get("avatar", null) is Dictionary:
                         var payload: Dictionary = fresh["avatar"]
-                        Session.avatar = fresh
+                        Session.set_avatar(fresh)
                         Session.cache_avatar(uid, fresh)
                         var sig := JSON.stringify(payload)
                         if sig != _dressed_signature and player != null and is_instance_valid(player):
@@ -1331,7 +1355,7 @@ func _update_live_stats() -> void:
                 _fps_smooth = lerpf(_fps_smooth, float(fps), 0.35)
         if _corner_stats != null and is_instance_valid(_corner_stats):
                 var ping := ("%dms" % _last_ping_ms) if _last_ping_ms > 0 else "—"
-                _corner_stats.text = "FPS %d   ·   PING %s   ·   v9.0" % [int(roundf(_fps_smooth)), ping]
+                _corner_stats.text = "FPS %d   ·   PING %s   ·   v10.0" % [int(roundf(_fps_smooth)), ping]
         if _time_label != null and is_instance_valid(_time_label):
                 _time_label.text = _clock_text()
 
@@ -1353,8 +1377,8 @@ func _clock_text() -> String:
 
 ## The one DARK key face — flat rounded-8, lighter on hover, PANEL_DOWN when
 ## pushed. Every default menu key is built on this.
-func _key_btn(face := Color("2e3136"), pushed := false) -> StyleBox:
-        var sb: StyleBox = RetroUI.flat(8, RetroUI.PANEL_DOWN if pushed else face)
+func _key_btn(face := Color("424242"), pushed := false) -> StyleBox:
+        var sb: StyleBox = RetroUI.sunken(4, RetroUI.PANEL_DOWN) if pushed else RetroUI.raised(4, face)
         sb.content_margin_left = 16.0
         sb.content_margin_right = 16.0
         sb.content_margin_top = 9.0 if pushed else 10.0
@@ -1682,7 +1706,7 @@ func _headshot_of(tex: Texture2D) -> ImageTexture:
         # the rig's head rides the top of the shot, roughly centered —
         # take a 0.72-wide square from just under the top edge
         var side := int(w * 0.72)
-        var x0 := clampi(int(w * 0.5) - side / 2, 0, maxi(w - side, 0))
+        var x0 := clampi(int(w * 0.5 - side * 0.5), 0, maxi(w - side, 0))
         var y0 := int(h * 0.04)
         var crop := img.get_region(Rect2i(x0, y0, side, mini(side, h - y0)))
         return ImageTexture.create_from_image(crop)
@@ -1775,7 +1799,7 @@ func _on_chat_submit(text: String) -> void:
                 var msg: Dictionary = res["message"]
                 _ingest_message(msg)
         else:
-                chat.add_system(String(res.get("error", "Could not send the message.")))
+                chat.add_system(Api.txt(res.get("error", ""), "Could not send the message."))
 
 
 ## Local chat commands — they never leave the client.
@@ -1818,7 +1842,7 @@ func _poll_feed() -> void:
                 # chat (and never re-pops those bubbles over your head).
                 _chat_history_done = true
                 for msg in msgs:
-                        var mid := String(msg.get("id", ""))
+                        var mid := Api.txt(msg.get("id", ""))
                         if mid != "":
                                 _seen_messages[mid] = true
         else:
@@ -1828,14 +1852,14 @@ func _poll_feed() -> void:
 
 
 func _ingest_message(msg: Dictionary) -> void:
-        var id := String(msg.get("id", ""))
+        var id := Api.txt(msg.get("id", ""))
         if id == "" or _seen_messages.has(id):
                 return
         _seen_messages[id] = true
-        var uid := String(msg.get("userId", ""))
-        var uname := String(msg.get("username", "?"))
+        var uid := Api.txt(msg.get("userId", ""))
+        var uname := Api.txt(msg.get("username", "?"), "?")
         var seq := int(msg.get("seqId", 0)) if msg.get("seqId") != null else 0
-        var text := String(msg.get("text", ""))
+        var text := Api.txt(msg.get("text", ""))
         chat.add_chat(uname, seq, text, "", uid == Session.user_id)
         # the classic bubble pops over the speaker's head
         if uid == Session.user_id:

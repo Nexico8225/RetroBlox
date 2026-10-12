@@ -276,11 +276,12 @@ static func _sign_side(p1: Vector2, p2: Vector2, p3: Vector2) -> float:
 
 
 ## True within ~2.5px of the silhouette rim (draws the soft grey edge line).
-static func _near_edge(p: Vector2, r: Rect2, rad: float, tl: Vector2, tr: Vector2, tip: Vector2) -> bool:
-        if _in_triangle(p, tl, tr, tip):
-                var mid := Vector2((tl.x + tr.x) * 0.5, (tl.y + tr.y) * 0.5)
+## (_tr, not tr — `tr` shadows Object.tr(), the built-in translation method.)
+static func _near_edge(p: Vector2, r: Rect2, rad: float, tl: Vector2, _tr: Vector2, tip: Vector2) -> bool:
+        if _in_triangle(p, tl, _tr, tip):
+                var mid := Vector2((tl.x + _tr.x) * 0.5, (tl.y + _tr.y) * 0.5)
                 var sl := tl.lerp(mid, 0.4)
-                var sr := tr.lerp(mid, 0.4)
+                var sr := _tr.lerp(mid, 0.4)
                 var st := tip.lerp(mid, 0.3)
                 return not _in_triangle(p, sl, sr, st)
         return not _in_rounded_rect(p, r.grow(-2.5), maxf(rad - 2.5, 1.0))

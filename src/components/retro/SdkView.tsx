@@ -9,15 +9,15 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v9.0 "YOUR CLIENT"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=9.0'
+const VERSION = 'v10.0 "2008 CLIENT"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=10.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['THE ESC MENU IS THE REAL ROBLOX ESC MENU', 'A CENTERED dark panel — about 62% of the screen, the game stays LIVE and visible behind it — with the five TOP TABS: People / Settings / Gallery / Report / Help, each with its icon, the open tab wearing the white underline. The footer is the reference action row: [L] Leave · [R] Respawn · [ESC] Resume — Resume in fountain blue with the white key chip. No more full-screen veil.'],
-  ['PRESS F2 — EDIT EVERYTHING YOURSELF', 'The UI EDITOR is in the game: click ANY element (topbar, user pill, health, chat, toasts) and drag it anywhere, fine-tune X / Y / Scale, edit any button or label\'s text, add YOUR OWN text labels anywhere on screen, and zoom the WHOLE UI from 0.6x to 1.6x. Save writes your layout to ui_config.json — it boots with you forever. Reset All wipes back to factory. You wanted control — now it\'s yours.'],
-  ['YOUR PFP — FROM YOUR ACCOUNT + YOUR OWN URL', 'The client loads your account\'s avatarUrl from retro-blox.vercel.app at login (the SAME face the website shows — data URLs decode inline), and Settings → MY PICTURE (or the editor) lets you paste ANY image URL to wear it everywhere instantly. Other players\' site PFPs arrive via /api/users/<name>/pfp. Nobody is a bacon default anymore — everyone wears the face they chose.'],
-  ['THE REAL "IN THIS SERVER" CARDS', 'The People tab: Invite Friends (copies your invite link), the In this server heading with grid/list toggles, and the card grid — square PFP, name, @handle — exactly the real client\'s read. Live FPS + ping + version sit in the tiny corner chip, bottom-left.'],
-  ['The topbar is the reference read', 'Top-left: the logo, the hamburger, the chat bubble with the red unread badge — three standalone rounded keys, exactly the client. Top-right: your PFP + name + the settings gear. Help tab lists every key; Report opens the site; Gallery waits for your captures.'],
+  ['THE 2008 LOOK, AS AN ENGINE', 'Every surface is a real 9-patch BEVEL baked in code — the light top-left rim, the dark bottom-right rim, SQUARE corners, gray chrome — the way the old client was actually built. The primary key is the CLASSIC GREEN (the 2006 site green), danger is ROBLOX red, the accent is the classic Roblox blue. One voice everywhere: ARIAL.'],
+  ['THE LOGIN IS A 2008 WINDOW', 'A draggable beveled title bar with the red tile + close X, sitting on a baseplate of code-drawn studs. Folder tabs (Log In / Sign Up), WHITE sunken wells with black ink, and the big classic GREEN Log In key. The old client, exactly.'],
+  ['THE WINDOW OPENS SMALL NOW', 'The player boots at a compact 960x600 like the old client did — never your whole screen. The UI stretches with it, and the F2 editor\'s global zoom still goes 0.6x–1.6x.'],
+  ['TWELVE ERRORS, GONE', 'The whole debugger is clean: the avatarUrl null crash (String constructor), the shift-lock race, the HTTP body type, the ternary types, every unused-parameter warning — all fixed. The editor shows ZERO script errors now.'],
+  ['YOUR PFP + YOUR UI EDITOR STAY', 'Press F2 to move / scale / re-text / add labels anywhere — Save persists to ui_config.json and boots with you. Your account PFP (avatarUrl from retro-blox.vercel.app) still loads at login, Settings → MY PICTURE still takes any URL, and other players arrive via /api/users/<name>/pfp. People cards now show LIVE ping + fps per player.'],
 ]
 
 const FILES = [
@@ -25,8 +25,8 @@ const FILES = [
   ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache — and the saved login that signs you in automatically next launch'],
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
-  ['scripts/ui/login.gd', 'The REAL CLIENT login — dark page, tilted-square logo, white Log In key, server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The v9.0 client voice: #232527 surfaces, black topbar pills, the fountain-blue primary key, Montserrat, code-drawn icons (tabs, hamburger, gallery, flag, help, invite, grid/list, pencil)'],
+  ['scripts/ui/login.gd', 'The 2008 LOGIN — a draggable beveled window on code-drawn studs, folder tabs, WHITE sunken wells, the classic GREEN key, server URL locked'],
+  ['scripts/ui/retro_theme.gd', 'The 2008 engine: code-baked 9-patch BEVELS, gray chrome, ARIAL, the classic green primary key, ROBLOX red, classic blue, code-drawn icons (tabs, hamburger, gallery, flag, help, invite, grid/list, pencil)'],
   ['scripts/ui/pfp_service.gd', 'The PFP engine: YOUR custom URL (from the editor) → your account avatarUrl → bundled headshots → Roblox thumbnail API → smiley fallback; data-URL decode, 24h disk cache, rounded corners'],
   ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, global UI scale, your PFP URL — user://ui_config.json, boots with you'],
   ['scripts/ui/ui_editor.gd', 'THE UI EDITOR (F2): pick layer hit-testing, drag to move, X/Y/Scale steppers, text editing, add/remove labels, global zoom, PFP URL, Save/Reset'],
@@ -48,7 +48,7 @@ const ENDPOINTS = [
   ['POST /api/platform/login', 'username + password → session token'],
   ['GET /api/platform/me', 'current player + avatar + your account avatarUrl (Bearer token)'],
   ['GET /api/users/{userId}/avatar', "any player's avatar config (public)"],
-  ['GET /api/users/{userId}/pfp', "any player's site profile picture — username + avatarUrl (public, v9.0)"],
+  ['GET /api/users/{userId}/pfp', "any player's site profile picture — username + avatarUrl (public, v9.0+)"],
   ['GET /api/assets/{assetId}', 'asset service: color / image / 3D model + finish for an id'],
   ['GET /api/files/{fileId}', 'the actual bytes (images, GLB, audio)'],
   ['GET /api/placechat/{placeId}', 'latest chat lines + who is online (with their live ping/fps)'],

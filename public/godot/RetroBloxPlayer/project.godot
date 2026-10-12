@@ -1,8 +1,11 @@
-; RetroBlox Player — the completely new classic player system.
-; Sign in (or sign up, or play as a guest), load your account avatar,
-; explore built-in places, and chat with everyone online — across the
-; internet, through the RetroBlox platform API.
-; Open in Godot 4.5.1 or newer. Desktop build (GL Compatibility).
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
 config_version=5
 
 [application]
@@ -26,8 +29,10 @@ UiEditor="*res://scripts/ui/ui_editor.gd"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/window_width_override=1280
-window/size/window_height_override=720
+; v10.0: the window opens COMPACT (960x600) like the old client did — never
+; the whole screen. The UI stretches with it (canvas_items), so nothing moves.
+window/size/window_width_override=960
+window/size/window_height_override=600
 window/stretch/mode="canvas_items"
 
 [input]
@@ -83,14 +88,6 @@ toggle_players={
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-environment/defaults/default_clear_color=Color(0.623529, 0.843137, 1, 1)
-; v5.0 CRISP — 4x MSAA kills the edge shimmer in the world, anisotropic
-; filtering keeps the stud tiles sharp at glancing angles, and the 3D
-; scale stays at 1.0 so nothing ever renders soft.
-anti_aliasing/quality/msaa_3d=2
-anti_aliasing/quality/screen_space_aa=0
 textures/default_filters/anisotropic_filtering_level=4
-
-[physics]
-
-common/physics_ticks_per_second=60
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.623529, 0.843137, 1, 1)

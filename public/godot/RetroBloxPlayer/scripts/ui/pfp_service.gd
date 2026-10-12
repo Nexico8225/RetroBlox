@@ -154,7 +154,9 @@ func fetch(uid: String, uname: String) -> Texture2D:
                 var res: Dictionary = await Api.request(HTTPClient.METHOD_GET,
                         "/api/users/%s/pfp" % lower)
                 _inflight.erase(key)
-                var aurl := String(res.get("avatarUrl", "")) if res.get("ok", false) else ""
+                var aurl := ""
+                if res.get("ok", false) and res.get("avatarUrl", "") is String:
+                        aurl = res["avatarUrl"]
                 if aurl != "":
                         var site_tex := await decode_any(aurl)
                         if site_tex != null:
@@ -299,7 +301,10 @@ func _http_json(url: String, headers: Array, method: int, body: String) -> Dicti
         http.timeout = TIMEOUT
         http.use_threads = true
         add_child(http)
-        var err := http.request(url, headers, method, body if body != "" else null)
+        # ("" not null — HTTPRequest.request takes a String body; a Nil here
+        # also made this ternary type-mismatched for the editor analyzer)
+        var payload := body if body != "" else ""
+        var err := http.request(url, headers, method, payload)
         if err != OK:
                 http.queue_free()
                 return {"ok": false}
