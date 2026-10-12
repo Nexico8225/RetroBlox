@@ -213,3 +213,23 @@ Work Log:
 
 Stage Summary:
 - v6.0 "BLOX" live on main: the completely-new Roblox-client UI (the user's exact ask), thin-text root cause killed with static font weights, download path verified end-to-end (fresh unzip boots, renders, passes); owner must re-download the kit zip (?v=6.0 busts the cache)
+
+---
+Task ID: godot-v1100-black-glass
+Agent: Super Z (main)
+Task: v11.0 — user (with screenshot): "I SAID TO LOAD MY AVATAR NOT A BACON HAIR", bring back the OLD login page + old Sign Up, remove Sign In, remove Gallery/Report/Help, make a COMPLETELY NEW UI using icons and images from the internet (later refined: black + opacity, then "any color but make it good and retro"), fix the bubble that doesn't fit/align and dies in a nanosecond, fix the arm twitch/flicker when climbing and jumping, and make the collision hitbox accurate to Roblox.
+
+Work Log:
+- ROOT-CAUSED THE BACON: assets/pfp/nexico8225.png (bundled in v8) was LITERALLY a bacon-hair Roblox thumbnail, shown as "your PFP" in every seat; the account's site avatarUrl is null so the bundled file always won. DELETED the file + the entire Roblox thumbnail pipeline (users.roblox.com / thumbnails.roblox.com ripped out of PfpService)
+- NEW PFP CHAIN: custom URL -> site avatarUrl -> THE SITE AVATAR RENDERED (Api.avatar_of / Session.my_avatar_data -> AvatarPortrait.render(headshot=true)) -> v11 disk cache -> smiley. AvatarPortrait gained a square HEADSHOT framing (320x320, camera at front-left 3/4 aimed at head+shoulders). PFP == in-game rig == site avatar, guaranteed
+- THE OLD LOGIN RESTORED (login.gd rewritten): white card + tilted red tile + RETROBLOX ExtraBold wordmark + Log In/Sign Up tabs (active = white chip w/ blue ring) + white wells with blue focus + the CLASSIC GREEN Log In key + offline hatch + © line — on the REAL classic-baseplate photograph (assets/ui/login_backdrop.jpg). No "Sign In" wording anywhere ("Logging you in…")
+- THE NEW ESC MENU (game.gd): deep translucent-BLACK glass panel (0.90 alpha, rounded 12, hairline edge, shadow) — People + Settings ONLY (Gallery/Report/Help pages + _build_help_tab + _empty_page deleted), tabs wear the REAL icon PNGs with the CLASSIC GREEN underline, glass cards (blue ring on yours), deep-black PFP wells, glass row buttons, and the classic GREEN Resume key (was blue). Corner chip -> v11.0
+- REAL INTERNET ASSETS downloaded + shipped with credits: menu burger (Pixabay, recolored), settings gear / people crowd / chat bubble / respawn arrow (Icons8 iOS Glyph white), close badge (Pixabay), classic baseplate photo (login backdrop). RetroUI.icon_png(kind) loads them (code-drawn fallback) + icon_png_sized(kind, px) for key-sized seats
+- BUBBLES (chat_bubble.gd): width now comes from Font.get_string_size of the widest line (the label draws with the SAME Arial 600 font), pixel wrap at 288px with a binary-search long-word chop — the screenshot's WWWW overflow is impossible; SHOW_SECONDS 9 -> 12, MAX_LINES 4, MAX_CHARS 160
+- ARMS (avatar_rig.gd): box rig poses are TARGETS eased with 1-exp(-12*delta) (was instant snaps); R6IK walk/climb playback speeds glide through eased _walk_rate/_climb_rate; jump crossfade 0.08 -> 0.16 — the climb/jump twitch is dead
+- HITBOX (local_player.gd): the REAL R6 2x5x1 stud BOX (was capsule r1.2 h5.2) + torso-band BOX ladder sensor (2.2x2.4x1.2); STAIRS_2STUD re-verified OK on the box
+- smoke rewritten for v11.0 (bacon-gone, no-Roblox-API, site-render PFP, icons shipped, two tabs, green Resume, 2x5x1 box, 12s bubbles, v11.0 chip, old login) — SMOKE_OK in-tree AND fresh-unzip; parse_check.gd added (PARSE_OK 35 scripts); v1100_shot.gd under Xvfb: SITE_PAYLOAD_OK + PFP_READY 320x320 (the REAL avatar, Dominus + t-shirt visible) + STAIRS_2STUD OK + 6 shots (menu/settings/hud/editor/world/login) copied to /download/v11_shots
+- Web: SdkView v11.0 "BLACK GLASS" news (6 entries) + FILES/CONTROLS updated, HomeView ?v=11.0; npm build OK; zip rebuilt (169 files, 4150808 bytes); pushed 738c402 with the owner token; Vercel verified live (deployed zip byte-matches)
+
+Stage Summary:
+- v11.0 "BLACK GLASS" live on main: the bacon is gone forever (the UI wears the account's real site avatar), the old login is back on the real baseplate photo, the ESC menu is black glass with internet icons and only People/Settings, bubbles fit + linger 12s, arms ease, the hitbox is the R6 2x5x1 box; owner must re-download the kit zip (?v=11.0 busts the cache)
