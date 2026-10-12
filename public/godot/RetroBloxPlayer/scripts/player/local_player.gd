@@ -133,12 +133,15 @@ func _init() -> void:
         floor_snap_length = FLOOR_SNAP
         floor_max_angle = deg_to_rad(50.0)
 
+        # v11.0: THE REAL R6 HITBOX — the classic Roblox character collides
+        # as a 2 x 5 x 1 stud BOX (2 across the shoulders, 5 tall, 1 deep),
+        # riding the body's rotation — not the old fat capsule that let you
+        # stand on air and slide through gaps the avatar clearly couldn't.
         var col := CollisionShape3D.new()
-        var capsule := CapsuleShape3D.new()
-        capsule.radius = 1.2 * STUD
-        capsule.height = 5.2 * STUD
-        col.shape = capsule
-        col.position = Vector3(0.0, 2.6 * STUD, 0.0)
+        var box := BoxShape3D.new()
+        box.size = Vector3(2.0 * STUD, 5.0 * STUD, 1.0 * STUD)
+        col.shape = box
+        col.position = Vector3(0.0, 2.5 * STUD, 0.0)
         add_child(col)
 
         avatar = AvatarRigScript.new()
@@ -728,9 +731,8 @@ func _setup_ladder_sensor() -> void:
         area.collision_mask = 16
         area.monitorable = false
         var shape_node := CollisionShape3D.new()
-        var shape := CapsuleShape3D.new()
-        shape.radius = 1.15 * STUD
-        shape.height = 2.4 * STUD
+        var shape := BoxShape3D.new()
+        shape.size = Vector3(2.2 * STUD, 2.4 * STUD, 1.2 * STUD)
         shape_node.shape = shape
         shape_node.position = Vector3(0.0, 2.9 * STUD, 0.0)
         area.add_child(shape_node)

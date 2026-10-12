@@ -9,15 +9,17 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v10.0 "2008 CLIENT"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=10.0'
+const VERSION = 'v11.0 "BLACK GLASS"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=11.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['THE 2008 LOOK, AS AN ENGINE', 'Every surface is a real 9-patch BEVEL baked in code — the light top-left rim, the dark bottom-right rim, SQUARE corners, gray chrome — the way the old client was actually built. The primary key is the CLASSIC GREEN (the 2006 site green), danger is ROBLOX red, the accent is the classic Roblox blue. One voice everywhere: ARIAL.'],
-  ['THE LOGIN IS A 2008 WINDOW', 'A draggable beveled title bar with the red tile + close X, sitting on a baseplate of code-drawn studs. Folder tabs (Log In / Sign Up), WHITE sunken wells with black ink, and the big classic GREEN Log In key. The old client, exactly.'],
-  ['THE WINDOW OPENS SMALL NOW', 'The player boots at a compact 960x600 like the old client did — never your whole screen. The UI stretches with it, and the F2 editor\'s global zoom still goes 0.6x–1.6x.'],
-  ['TWELVE ERRORS, GONE', 'The whole debugger is clean: the avatarUrl null crash (String constructor), the shift-lock race, the HTTP body type, the ternary types, every unused-parameter warning — all fixed. The editor shows ZERO script errors now.'],
-  ['YOUR PFP + YOUR UI EDITOR STAY', 'Press F2 to move / scale / re-text / add labels anywhere — Save persists to ui_config.json and boots with you. Your account PFP (avatarUrl from retro-blox.vercel.app) still loads at login, Settings → MY PICTURE still takes any URL, and other players arrive via /api/users/<name>/pfp. People cards now show LIVE ping + fps per player.'],
+  ['THE BACON IS DEAD — YOUR AVATAR IS YOUR FACE', 'The old kit shipped a BAKED-IN Roblox thumbnail as "your PFP" — it was literally a bacon hair, everywhere in the UI. Deleted. Now every face in the client (topbar pill, ESC menu, People cards, Settings preview) is YOUR ACCOUNT AVATAR from retro-blox.vercel.app: the same payload your 3D character wears, dressed and photographed headshot-style in-engine. PFP == in-game avatar == the site. No Roblox thumbnail API anywhere.'],
+  ['THE ESC MENU IS BLACK GLASS', 'The gray bevel panel is scrapped. The new menu is a deep translucent-BLACK glass panel — rounded, hairline edge, the game alive behind it — with the classic green Resume key, Roblox-blue selection rings and the CLASSIC GREEN tab underline. Retro and appealing, any color you asked for.'],
+  ['REAL INTERNET ICONS + THE REAL BASEPLATE', 'The UI now ships actual icon PNGs downloaded from the web (Icons8 + Pixabay): the hamburger, the settings gear, the people crowd, the chat bubble, the respawn arrow. The LOGIN sits on a real photograph of the classic baseplate. Credits live in the kit README.'],
+  ['GALLERY / REPORT / HELP — REMOVED', 'The ESC menu carries exactly two tabs now: People and Settings. No gallery, no report, no help.'],
+  ['THE OLD LOGIN IS BACK', 'The white card, the tilted red tile, the RETROBLOX wordmark, the Log In / Sign Up tabs, the white wells and the big CLASSIC GREEN Log In key — on the real baseplate photo. No more window experiments.'],
+  ['BUBBLES THAT FIT + LINGER', 'Chat bubbles now wrap by REAL font metrics — the text can physically never spill outside the white plate (the giant-WWW overflow is impossible). They also linger 12 seconds (was 9) and fade slowly.'],
+  ['THE R6 HITBOX', 'The character collides as the REAL Roblox box — 2 studs wide, 5 tall, 1 deep — instead of a fat capsule. Plus: arm animations EASE between walk/climb/jump poses and the climb playback speed glides, so the climb/jump arm twitch is gone.'],
 ]
 
 const FILES = [
@@ -25,19 +27,19 @@ const FILES = [
   ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache — and the saved login that signs you in automatically next launch'],
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
-  ['scripts/ui/login.gd', 'The 2008 LOGIN — a draggable beveled window on code-drawn studs, folder tabs, WHITE sunken wells, the classic GREEN key, server URL locked'],
-  ['scripts/ui/retro_theme.gd', 'The 2008 engine: code-baked 9-patch BEVELS, gray chrome, ARIAL, the classic green primary key, ROBLOX red, classic blue, code-drawn icons (tabs, hamburger, gallery, flag, help, invite, grid/list, pencil)'],
-  ['scripts/ui/pfp_service.gd', 'The PFP engine: YOUR custom URL (from the editor) → your account avatarUrl → bundled headshots → Roblox thumbnail API → smiley fallback; data-URL decode, 24h disk cache, rounded corners'],
+  ['scripts/ui/login.gd', 'The OLD LOGIN, back: the white card + tilted red tile + RETROBLOX wordmark on the REAL baseplate photograph, Log In / Sign Up tabs, white wells, the classic GREEN key, server URL locked'],
+  ['scripts/ui/retro_theme.gd', 'The engine: ARIAL, the classic palette (green primary, ROBLOX red, classic blue) + icon_png() — the REAL internet icon PNGs with a code-drawn fallback — bevels, wells, glass, cursors'],
+  ['scripts/ui/pfp_service.gd', 'The PFP engine: YOUR custom URL (from the editor) → your account avatarUrl → the SITE AVATAR rendered headshot-style (the exact look your character wears) → smiley fallback; data-URL decode, 6h disk cache, rounded corners. NO bundled bacon, NO Roblox thumbnails'],
   ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, global UI scale, your PFP URL — user://ui_config.json, boots with you'],
   ['scripts/ui/ui_editor.gd', 'THE UI EDITOR (F2): pick layer hit-testing, drag to move, X/Y/Scale steppers, text editing, add/remove labels, global zoom, PFP URL, Save/Reset'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
-  ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — they STACK the Roblox way, up to three live'],
-  ['scripts/player/local_player.gd', 'Classic controller at the classic size: WalkSpeed 16, 2-stud gliding STAIRS, ladders + stud-edge grabs (face-to-climb, look-away = fall), trampolines, fall damage, dust'],
+  ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — font-metric wrapping (text NEVER spills off the plate), 12s linger, slow fade, stacked the Roblox way'],
+  ['scripts/player/local_player.gd', 'Classic controller at the classic size: the REAL R6 hitbox (2x5x1 stud box), WalkSpeed 16, 2-stud gliding STAIRS, ladders + stud-edge grabs, trampolines, fall damage, dust'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the CENTERED client ESC menu (5 top tabs, @handle cards, [L]/[R]/[ESC] footer, editor registration), respawn flow'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the BLACK GLASS ESC menu (People + Settings tabs with real icons, @handle cards, [L]/[R]/[ESC] footer, editor registration), respawn flow'],
   ['scripts/game/chat_box.gd', 'The classic chat log + type box that open and close as ONE widget, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, and Shift Lock shoulder park'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],
@@ -66,7 +68,7 @@ const CONTROLS: [string, string][] = [
   ['/help', 'Lists every command + control in chat'],
   ['P', 'Player list — opens the menu on the People tab'],
   ['F2', 'THE UI EDITOR — move, scale, re-text anything, add labels, save your layout'],
-  ['Esc', 'Game menu — People / Settings / Gallery / Report / Help, [L] Leave / [R] Respawn / [ESC] Resume'],
+  ['Esc', 'Game menu — People / Settings, [L] Leave / [R] Respawn / [ESC] Resume'],
 ]
 
 const PRE: React.CSSProperties = {

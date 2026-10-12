@@ -3,20 +3,37 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v10.0 "2008 CLIENT" is THE OLD CLIENT LANGUAGE — code-baked 9-patch bevel chrome, square corners, ARIAL, the classic green key — plus THE ROBLOX ESC
-MENU, finally: a CENTERED dark panel (the game stays live behind it) with
-the five top tabs — People / Settings / Gallery / Report / Help — the
-"In this server" card grid (PFP + name + @handle), and the footer keys
-[L] Leave / [R] Respawn / [ESC] Resume with Resume in fountain blue.
-YOUR FACE IS YOURS: the account's avatarUrl from retro-blox.vercel.app
-loads at login, and you can paste ANY image URL (Settings → MY PICTURE or
-the editor) to wear it everywhere. AND YOU CAN EDIT EVERYTHING: press
-**F2** and the UI Editor opens — click any element, drag to move it,
-scale it, edit its text, add your own labels, zoom the whole UI, then
-Save; your layout boots with you forever (user://ui_config.json).
-The world renders in TRUE colors with the authentic Roblox studs. Stairs
-are DOUBLED (walk up 1- AND 2-stud ledges like stairs), and the renderer
-ships 4x MSAA + anisotropic filtering so nothing is blurry.
+through the RetroBlox platform API. v11.0 "BLACK GLASS" — THE OLD LOGIN IS
+BACK: the white card, the tilted red tile, the RETROBLOX wordmark, the
+Log In / Sign Up tabs and the big CLASSIC GREEN Log In key, sitting on a
+real photograph of the classic baseplate. THE ESC MENU IS BLACK GLASS: a
+deep translucent-black rounded panel (the game stays live behind it) with
+two tabs — People / Settings — wearing REAL internet icon PNGs, the
+"In this server" card grid, and the footer keys [L] Leave / [R] Respawn /
+[ESC] Resume with Resume in the classic green. GALLERY / REPORT / HELP
+are gone. YOUR FACE IS YOUR AVATAR: every headshot in the client is your
+ACCOUNT AVATAR from retro-blox.vercel.app — the same payload your 3D
+character wears, rendered headshot-style in-engine (PFP == in-game avatar
+== the site; the old bundled bacon thumbnail and the Roblox thumbnail API
+are deleted for good), and you can still paste ANY image URL
+(Settings → MY PICTURE or the editor). Bubbles wrap by REAL font metrics
+(text can never spill off the plate) and linger 12 seconds. The character
+collides as the REAL R6 hitbox — a 2 x 5 x 1 stud box — and the arm
+animations EASE between poses, so climbing and jumping never twitch.
+AND YOU CAN EDIT EVERYTHING: press **F2** and the UI Editor opens — click
+any element, drag to move it, scale it, edit its text, add your own
+labels, zoom the whole UI, then Save; your layout boots with you forever
+(user://ui_config.json). The world renders in TRUE colors with the
+authentic Roblox studs. Stairs are DOUBLED (walk up 1- AND 2-stud ledges
+like stairs), and the renderer ships 4x MSAA + anisotropic filtering so
+nothing is blurry.
+
+### Icon + image credits (downloaded from the internet)
+
+- `assets/icons/menu.png` — hamburger glyph, Pixabay (recolored white)
+- `assets/icons/settings.png`, `people.png`, `chat.png`, `respawn.png` — Icons8 (iOS Glyph style, white)
+- `assets/icons/close.png` — close badge, Pixabay
+- `assets/ui/login_backdrop.jpg` — classic baseplate photograph (Reddit)
 
 > One platform, every engine. Everything here is plain HTTP + JSON against
 > `https://retro-blox.vercel.app` — the same API the website and the future
@@ -56,7 +73,7 @@ the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
-### The 2008 look — v10.0
+### The 2008 look — v11.0
 - Every surface: real 9-patch bevel (light TL rim, dark BR rim), SQUARE corners, gray chrome — baked in code (retro_theme.gd)
 - One voice: ARIAL (Liberation Sans). The CLASSIC GREEN Log In / primary key. ROBLOX red danger. Classic Roblox blue accent.
 - LOGIN: a draggable beveled window (title bar + close X) on a baseplate of studs, folder tabs, WHITE sunken wells, the classic green key
@@ -64,7 +81,7 @@ the character eases up the step exactly like Roblox.
 - People cards show LIVE ping + fps; your card wears the classic blue selection frame
 - FIXED: the avatarUrl-null crash, the shift-lock race, the HTTP body type error, all editor warnings — the debugger is CLEAN
 
-## The ESC menu — the REAL client panel (v10.0)
+## The ESC menu — the REAL client panel (v11.0)
 
 The menu is ONE centered dark panel (about 62% of the screen — the game
 stays visible behind it) with the client's TOP TABS: People · Settings ·
@@ -76,7 +93,7 @@ reference action row: [L] Leave · [R] Respawn · [ESC] Resume — Resume in
 fountain blue with the white key chip. Live FPS/ping/version sit in the
 tiny corner chip, bottom-left.
 
-### THE UI EDITOR — press F2, edit EVERYTHING (v10.0)
+### THE UI EDITOR — press F2, edit EVERYTHING (v11.0)
 
 This client is YOURS. **F2** (or Settings → Edit anything) opens the
 editor:

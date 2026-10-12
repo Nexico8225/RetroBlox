@@ -1,8 +1,11 @@
 extends Node
-## PfpService — the REAL PROFILE PICTURE engine (v9.0).
-## Every face this client shows is the player's OWN picture — the one they
-## set on retro-blox.vercel.app — falling back to their Roblox headshot,
-## and never a 3D-rendered rig snapshot.
+## PfpService — the REAL PROFILE PICTURE engine (v11.0).
+## Every face this client shows IS the player's account avatar, rendered
+## straight from retro-blox.vercel.app: the same payload the 3D rig wears,
+## photographed headshot-style by AvatarPortrait — so the PFP, the People
+## cards and the in-game character are ALWAYS the same avatar. NO bundled
+## headshots (the old baked-in Roblox thumbnail was literally a bacon hair —
+## deleted), NO Roblox thumbnail API, ever again.
 ##
 ## Resolution order for (uid, username):
 ##   0. CUSTOM PFP  the URL the player set in the client's own UI Editor
@@ -10,15 +13,15 @@ extends Node
 ##   1. SITE PFP    the account's avatarUrl from retro-blox.vercel.app
 ##      (data-URL or file URL — mine arrives via /api/platform/me at login,
 ##      everyone else's via /api/users/<name>/pfp)
-##   2. Bundled override  res://assets/pfp/<username-lower>.png
-##   3. Disk cache        user://pfp_cache/<username-lower>.png  (24h TTL)
-##   4. LIVE ROBLOX API   users.roblox.com -> thumbnails.roblox.com
-##   5. Fallback          the classic smiley head on a per-player color.
+##   2. SITE AVATAR RENDER  the /api/users/{id}/avatar payload dressed on
+##      a rig and photographed headshot-style — MY avatar, from MY account
+##   3. Disk cache        user://pfp_cache_v11/<username-lower>.png (6h TTL)
+##   4. Fallback          the classic smiley head on a per-player color.
 ##
 ## Guests always wear the fallback smiley. All network happens off the main
 ## flow (await), nothing blocks a frame, and every fetch is cached in RAM.
 
-const CACHE_TTL := 86400.0        # one day per headshot
+const CACHE_TTL := 21600.0        # six hours per rendered headshot
 const TIMEOUT := 10.0
 
 signal pfp_changed(uid: String)   # v9.0: a custom/site PFP landed — repaint seats
@@ -131,52 +134,39 @@ func fetch(uid: String, uname: String) -> Texture2D:
                                 _ram[key] = site
                                 return site
 
-        # 1. bundled override — the shipped headshot wins instantly
-        var bundled := "res://assets/pfp/%s.png" % lower
-        if ResourceLoader.exists(bundled):
-                var tex: Texture2D = load(bundled)
-                if tex != null:
-                        tex = rounded(tex)
-                        _ram[key] = tex
-                        return tex
-
-        # 2. disk cache (24h)
+        # 1. the disk cache — v11 namespace (the old folder held the bacon
+        # thumbnails; a fresh name guarantees they can never resurface)
         var cached := _load_cache(lower)
         if cached != null:
                 cached = rounded(cached)
                 _ram[key] = cached
                 return cached
 
-        # 3. v9.0: the SITE picture for other players — /api/users/<name>/pfp
-        if uid != Session.user_id and not Session.is_guest and uname.strip_edges() != "" \
-                        and not _inflight.get(key, false):
+        # 2. THE SITE AVATAR RENDER — the account's real avatar payload from
+        # retro-blox.vercel.app, dressed and photographed headshot-style.
+        # Mine comes from the session; everyone else's from the public API.
+        var payload: Dictionary = {}
+        if not Session.is_guest:
+                if uid == Session.user_id:
+                        payload = Session.my_avatar_data()
+                elif not _inflight.get(key, false):
+                        _inflight[key] = true
+                        var res: Dictionary = await Api.avatar_of(uid)
+                        _inflight.erase(key)
+                        if res.get("ok", false) and res.get("avatar", null) is Dictionary:
+                                payload = res["avatar"]
+                                Session.cache_avatar(uid, res)
+        if not payload.is_empty() and not _inflight.get(key, false):
                 _inflight[key] = true
-                var res: Dictionary = await Api.request(HTTPClient.METHOD_GET,
-                        "/api/users/%s/pfp" % lower)
+                var shot: Texture2D = await AvatarPortrait.render(self, Api, payload, true)
                 _inflight.erase(key)
-                var aurl := ""
-                if res.get("ok", false) and res.get("avatarUrl", "") is String:
-                        aurl = res["avatarUrl"]
-                if aurl != "":
-                        var site_tex := await decode_any(aurl)
-                        if site_tex != null:
-                                _save_cache(lower, site_tex)
-                                site_tex = rounded(site_tex)
-                                _ram[key] = site_tex
-                                return site_tex
+                if shot != null:
+                        _save_cache(lower, shot)
+                        shot = rounded(shot)
+                        _ram[key] = shot
+                        return shot
 
-        # 4. the real Roblox thumbnail pipeline
-        if not _inflight.get(key, false) and uname.strip_edges() != "":
-                _inflight[key] = true
-                var live := await _fetch_roblox(lower)
-                _inflight.erase(key)
-                if live != null:
-                        live = rounded(live)
-                        _save_cache(lower, live)
-                        _ram[key] = live
-                        return live
-
-        # 5. the classic fallback smiley
+        # 3. the classic fallback smiley
         var fb := fallback_pfp(uname)
         _ram[key] = fb
         return fb
@@ -251,67 +241,6 @@ static func _in_rr(p: Vector2, r: Rect2, rad: float) -> bool:
         dx = maxf(dx, 0.0)
         dy = maxf(dy, 0.0)
         return dx * dx + dy * dy <= rad * rad
-
-
-## The live pipeline: username -> userId -> headshot URL -> PNG bytes.
-func _fetch_roblox(lower: String) -> Texture2D:
-        # step 1 — username to userId
-        var body := JSON.stringify({"usernames": [lower], "excludeBannedUsers": false})
-        var res := await _http_json("https://users.roblox.com/v1/usernames/users",
-                ["Content-Type: application/json"], HTTPClient.METHOD_POST, body)
-        if not res.get("ok", false):
-                return null
-        var parsed: Variant = JSON.parse_string(String(res.get("body", "")))
-        if typeof(parsed) != TYPE_DICTIONARY:
-                return null
-        var data: Array = parsed.get("data", [])
-        if data.is_empty() or typeof(data[0]) != TYPE_DICTIONARY:
-                return null
-        var rid: float = float(data[0].get("id", 0))
-        if rid <= 0.0:
-                return null
-
-        # step 2 — userId to headshot URL
-        var turl := "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=%d&size=420x420&format=Png&isCircular=false" % int(rid)
-        var res2 := await _http_json(turl, [], HTTPClient.METHOD_GET, "")
-        if not res2.get("ok", false):
-                return null
-        var parsed2: Variant = JSON.parse_string(String(res2.get("body", "")))
-        if typeof(parsed2) != TYPE_DICTIONARY:
-                return null
-        var data2: Array = parsed2.get("data", [])
-        if data2.is_empty() or typeof(data2[0]) != TYPE_DICTIONARY:
-                return null
-        var image_url := String(data2[0].get("imageUrl", ""))
-        if image_url == "":
-                return null
-
-        # step 3 — the PNG itself
-        var bytes := await _http_bytes(image_url)
-        if bytes.is_empty():
-                return null
-        var img := Image.new()
-        if img.load_png_from_buffer(bytes) != OK:
-                return null
-        return ImageTexture.create_from_image(_round_image(img))
-
-
-func _http_json(url: String, headers: Array, method: int, body: String) -> Dictionary:
-        var http := HTTPRequest.new()
-        http.timeout = TIMEOUT
-        http.use_threads = true
-        add_child(http)
-        # ("" not null — HTTPRequest.request takes a String body; a Nil here
-        # also made this ternary type-mismatched for the editor analyzer)
-        var payload := body if body != "" else ""
-        var err := http.request(url, headers, method, payload)
-        if err != OK:
-                http.queue_free()
-                return {"ok": false}
-        var result: Array = await http.request_completed
-        http.queue_free()
-        var code: int = result[1]
-        return {"ok": code >= 200 and code < 300, "body": result[3].get_string_from_utf8()}
 
 
 func _http_bytes(url: String) -> PackedByteArray:

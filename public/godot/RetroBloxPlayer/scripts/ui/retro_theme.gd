@@ -486,6 +486,59 @@ static func icon_texture(kind: String, ink := Color(1, 1, 1, 0.96)) -> ImageText
         return tex
 
 
+## v11.0 — REAL INTERNET ICONS. The kit ships actual icon PNGs downloaded
+## from the web (Icons8 + Pixabay — see the README credits): menu burger,
+## settings gear, people crowd, chat bubble, respawn arrow, close badge.
+## `icon_png` loads them once, caches, and — when a file is missing — falls
+## back to the code-drawn glyph so the client never shows a hole.
+static func icon_png(kind: String, fallback_ink := Color(1, 1, 1, 0.96)) -> Texture2D:
+        var key := "png_" + kind
+        if _icon_cache.has(key):
+                return _icon_cache[key]
+        var path := "res://assets/icons/%s.png" % kind
+        if ResourceLoader.exists(path):
+                var tex: Texture2D = load(path)
+                if tex != null:
+                        _icon_cache[key] = tex
+                        return tex
+        return icon_texture(kind, fallback_ink)
+
+
+## The same internet icon, resized to a key-sized square (footer keys and
+## other small seats — the raw 140px PNG would fill the whole button).
+static func icon_png_sized(kind: String, px: int) -> Texture2D:
+        var key := "png_%s_%d" % [kind, px]
+        if _icon_cache.has(key):
+                return _icon_cache[key]
+        var src := icon_png(kind)
+        if src == null:
+                return null
+        var img := src.get_image()
+        if img == null or img.is_empty():
+                return src
+        if img.is_compressed():
+                img.decompress()
+        img.resize(px, px, Image.INTERPOLATE_LANCZOS)
+        var tex := ImageTexture.create_from_image(img)
+        _icon_cache[key] = tex
+        return tex
+
+
+## The real login backdrop — the classic baseplate photograph shipped with
+## the kit (assets/ui/login_backdrop.jpg), loaded once.
+static func login_backdrop() -> Texture2D:
+        var key := "login_backdrop"
+        if _icon_cache.has(key):
+                return _icon_cache[key]
+        var path := "res://assets/ui/login_backdrop.jpg"
+        if ResourceLoader.exists(path):
+                var tex: Texture2D = load(path)
+                if tex != null:
+                        _icon_cache[key] = tex
+                        return tex
+        return null
+
+
 ## Rounded-rect membership for the pixel-art helpers above.
 static func _in_rounded_px(p: Vector2, r: Rect2, rad: float) -> bool:
         if p.x < r.position.x or p.x > r.end.x or p.y < r.position.y or p.y > r.end.y:

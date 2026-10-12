@@ -16,14 +16,17 @@ const AvatarRigScript := preload("res://scripts/player/avatar_rig.gd")
 const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
 
 const RENDER_SIZE := Vector2i(320, 448)   # 5x the old shot — crisp, never pixelated
+const HEADSHOT_SIZE := Vector2i(320, 320) # v11.0: the square PFP framing (head + shoulders)
 const RIG_CENTER_Y := 2.5               # the rig is 5 studs tall, origin at the feet
 
 
 ## Render one avatar portrait. Awaitable (network dressing + a drawn frame).
 ## `payload` = the /api/users/{id}/avatar shape; {} paints classic noob.
+## `headshot` (v11.0) frames the HEAD + shoulders square — the profile
+## picture framing every seat in the UI wears. Full body stays the default.
 ## Returns null when rendering is impossible (headless) or the frame came
 ## back empty — never a broken texture.
-static func render(host: Node, api, payload: Dictionary) -> Texture2D:
+static func render(host: Node, api, payload: Dictionary, headshot := false) -> Texture2D:
         if host == null or not is_instance_valid(host):
                 return null
         if DisplayServer.get_name() == "headless":
@@ -31,7 +34,7 @@ static func render(host: Node, api, payload: Dictionary) -> Texture2D:
 
         var vp := SubViewport.new()
         vp.name = "PortraitShot"
-        vp.size = RENDER_SIZE
+        vp.size = HEADSHOT_SIZE if headshot else RENDER_SIZE
         vp.transparent_bg = true
         vp.own_world_3d = true
         # v5.0: 4x MSAA in the shot itself — edges land smooth even before
@@ -88,9 +91,16 @@ static func render(host: Node, api, payload: Dictionary) -> Texture2D:
         # the t-shirt hang) — the old camera sat at +Z and photographed
         # everyone's BACK. That's why the People cards never showed a face!
         # Park at front-left 3/4 so the face, torso decal and UGC all read.
-        cam.position = Vector3(-2.0, 3.3, -8.8)
-        vp.add_child(cam)
-        cam.look_at_from_position(cam.position, Vector3(0.0, RIG_CENTER_Y, 0.0), Vector3.UP)
+        # v11.0 HEADSHOT: pull close and aim at the head + shoulders — the
+        # square PFP framing the topbar pill and the People cards wear.
+        if headshot:
+                cam.position = Vector3(-1.15, 4.1, -3.5)
+                vp.add_child(cam)
+                cam.look_at_from_position(cam.position, Vector3(0.1, 3.9, 0.0), Vector3.UP)
+        else:
+                cam.position = Vector3(-2.0, 3.3, -8.8)
+                vp.add_child(cam)
+                cam.look_at_from_position(cam.position, Vector3(0.0, RIG_CENTER_Y, 0.0), Vector3.UP)
         cam.current = true
 
         # ---- one drawn frame, then snatch the pixels ----

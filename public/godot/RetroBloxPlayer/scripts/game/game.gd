@@ -410,17 +410,17 @@ func _build_topbar() -> void:
         logo_btn.pressed.connect(func() -> void: _toggle_menu())
         cluster.add_child(logo_btn)
 
-        # the hamburger key — three lines (opens the menu too)
+        # the hamburger key — the REAL internet icon PNG (Pixabay, white ink)
         var burger_btn := _topbar_key()
         burger_btn.tooltip_text = "Menu (ESC)"
-        burger_btn.icon = RetroUI.icon_texture("hamburger", RetroUI.MENU_INK)
+        burger_btn.icon = RetroUI.icon_png("menu", RetroUI.MENU_INK)
         burger_btn.pressed.connect(func() -> void: _toggle_menu())
         cluster.add_child(burger_btn)
 
-        # the chat key — the bubble + the red unread badge, exactly the client
+        # the chat key — the REAL internet icon PNG (Icons8) + the red badge
         var chat_btn := _topbar_key()
         chat_btn.tooltip_text = "Chat (ENTER)"
-        chat_btn.icon = RetroUI.icon_texture("chat", RetroUI.MENU_INK)
+        chat_btn.icon = RetroUI.icon_png("chat", RetroUI.MENU_INK)
         chat_btn.pressed.connect(func() -> void:
                 if chat.is_open:
                         chat.close()
@@ -492,7 +492,7 @@ func _build_topbar() -> void:
         gear_btn.custom_minimum_size = Vector2(34, 34)
         gear_btn.focus_mode = Control.FOCUS_NONE
         gear_btn.tooltip_text = "Settings (ESC)"
-        gear_btn.icon = RetroUI.icon_texture("gear", RetroUI.MENU_MUTED)
+        gear_btn.icon = RetroUI.icon_png("settings", RetroUI.MENU_MUTED)
         gear_btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
         gear_btn.expand_icon = true
         gear_btn.add_theme_stylebox_override("normal", _pill_btn_style(false))
@@ -668,12 +668,13 @@ func _setup_audio() -> void:
                         wind.call("play")
 
 
-# ---- the menu — the v9.0 REAL CLIENT PANEL ---------------------------------
+# ---- the menu — the v11.0 BLACK GLASS CLIENT PANEL -------------------------
 ## The ESC menu is THE ROBLOX ESC MENU (the reference read): the game stays
-## LIVE and VISIBLE behind a soft dim, and ONE centered dark panel carries
-## the five top tabs — People / Settings / Gallery / Report / Help — the
-## "In this server" card grid, and the footer keys [L] Leave / [R] Respawn /
-## [ESC] Resume with Resume speaking the fountain blue. NO fullscreen veil.
+## LIVE and VISIBLE behind a deep dim, and ONE centered BLACK GLASS panel
+## (opacity, rounded, hairline edge) carries the two top tabs — People /
+## Settings, wearing the REAL internet icons — the "In this server" card
+## grid, and the footer keys [L] Leave / [R] Respawn / [ESC] Resume with
+## Resume speaking the CLASSIC GREEN. NO fullscreen veil.
 
 
 func _build_menu() -> Control:
@@ -684,7 +685,7 @@ func _build_menu() -> Control:
         # the soft dim — the world keeps breathing behind the panel
         var dim := ColorRect.new()
         dim.name = "Dim"
-        dim.color = Color(0.0, 0.0, 0.0, 0.45)
+        dim.color = Color(0.0, 0.0, 0.0, 0.55)
         dim.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.add_child(dim)
 
@@ -703,17 +704,15 @@ func _build_menu() -> Control:
         root.name = "MenuRoot"
         panel.add_child(root)
 
-        # ---- THE TOP TABS — People · Settings · Gallery · Report · Help
+        # ---- THE TOP TABS — People · Settings (Gallery / Report / Help are
+        # GONE — you asked). The tabs wear the REAL internet icon PNGs.
         var tabs := HBoxContainer.new()
         tabs.name = "Tabs"
         tabs.add_theme_constant_override("separation", 0)
         root.add_child(tabs)
         var tab_defs := [
                 ["players", "People", "people"],
-                ["settings", "Settings", "gear"],
-                ["gallery", "Gallery", "gallery"],
-                ["report", "Report", "flag"],
-                ["help", "Help", "help"],
+                ["settings", "Settings", "settings"],
         ]
         for td in tab_defs:
                 var b := _tab_button(String(td[1]), String(td[2]))
@@ -810,54 +809,6 @@ func _build_menu() -> Control:
         pages.add_child(_settings_tab)
         _pages["settings"] = _settings_tab
 
-        # ---- GALLERY — the honest empty state (captures come later)
-        _pages["gallery"] = _empty_page("gallery", "No captures yet",
-                "Screens you snap will live here. Press F2 to edit the UI around them.")
-        pages.add_child(_pages["gallery"])
-
-        # ---- REPORT — the quiet door back to the site
-        var report_page := VBoxContainer.new()
-        report_page.name = "ReportPage"
-        report_page.set_anchors_preset(Control.PRESET_FULL_RECT)
-        report_page.alignment = BoxContainer.ALIGNMENT_CENTER
-        report_page.add_theme_constant_override("separation", 10)
-        pages.add_child(report_page)
-        _pages["report"] = report_page
-        var r_icon := TextureRect.new()
-        r_icon.texture = RetroUI.icon_texture("flag", RetroUI.MENU_MUTED)
-        r_icon.custom_minimum_size = Vector2(0, 44)
-        r_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        r_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        report_page.add_child(r_icon)
-        var r_t := Label.new()
-        r_t.text = "See something against the rules?"
-        r_t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        _title(r_t, 17, RetroUI.MENU_INK)
-        report_page.add_child(r_t)
-        var r_s := Label.new()
-        r_s.text = "Reports are handled on the website — one click opens your browser."
-        r_s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        _text(r_s, 13, RetroUI.MENU_MUTED)
-        report_page.add_child(r_s)
-        var r_btn := Button.new()
-        r_btn.text = "Open retro-blox.vercel.app"
-        r_btn.custom_minimum_size = Vector2(240, 42)
-        r_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-        r_btn.focus_mode = Control.FOCUS_NONE
-        r_btn.add_theme_stylebox_override("normal", _row_btn())
-        r_btn.add_theme_stylebox_override("hover", _row_btn(RetroUI.MENU_PANEL_HI))
-        r_btn.add_theme_stylebox_override("pressed", _row_btn(RetroUI.PANEL_DOWN, true))
-        r_btn.add_theme_color_override("font_color", RetroUI.MENU_INK)
-        if RetroUI.gotham(600) != null:
-                r_btn.add_theme_font_override("font", RetroUI.gotham(600))
-        r_btn.add_theme_font_size_override("font_size", 14)
-        r_btn.pressed.connect(func() -> void: OS.shell_open("https://retro-blox.vercel.app"))
-        report_page.add_child(r_btn)
-
-        # ---- HELP — every key, the client's own cheat sheet
-        _pages["help"] = _build_help_tab()
-        pages.add_child(_pages["help"])
-
         var set_tab := func(tab: String) -> void:
                 for key in _pages.keys():
                         var page: Control = _pages[key]
@@ -900,10 +851,18 @@ func _menu_panel_size() -> Vector2:
         return Vector2(minf(vp.x * 0.64, 880.0), minf(vp.y * 0.80, 600.0))
 
 
-## The panel face — the 2008 beveled chrome sheet: light TL rim, dark BR
-## rim, square corners. The old client's window, plain and simple.
+## The panel face — v11.0 BLACK GLASS: deep translucent black, rounded 12,
+## one hairline light edge. The retro soul lives in the Arial voice, the
+## classic green key and the brick-red accents that sit on top of it.
 func _menu_panel_style() -> StyleBox:
-        var sb := RetroUI.raised(4, RetroUI.MENU_PANEL)
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(0.05, 0.05, 0.07, 0.90)
+        sb.set_corner_radius_all(12)
+        sb.anti_aliasing = true
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.10)
+        sb.shadow_color = Color(0, 0, 0, 0.5)
+        sb.shadow_size = 18
         sb.content_margin_left = 0.0
         sb.content_margin_right = 0.0
         sb.content_margin_top = 0.0
@@ -912,12 +871,12 @@ func _menu_panel_style() -> StyleBox:
 
 
 ## One TOP TAB — icon + label centered, transparent; the OPEN tab speaks
-## white and wears the 3px white underline, the rest stay muted.
+## white and wears the 3px CLASSIC GREEN underline, the rest stay muted.
 func _tab_button(label: String, icon_kind: String) -> Button:
         var b := Button.new()
         b.text = label
         b.set_meta("icon_kind", icon_kind)
-        b.icon = RetroUI.icon_texture(icon_kind, RetroUI.MENU_MUTED)
+        b.icon = RetroUI.icon_png(icon_kind, RetroUI.MENU_MUTED)
         b.expand_icon = true
         b.custom_minimum_size = Vector2(0, 46)
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -926,16 +885,28 @@ func _tab_button(label: String, icon_kind: String) -> Button:
         return b
 
 
-## One TOP TAB — the classic FOLDER TAB: the open tab is a raised bevel
-## that merges into the page, the rest sit quiet and muted.
+## One TOP TAB — the black glass read: the open tab is a lighter glass chip
+## with the CLASSIC GREEN underline, the rest sit quiet and muted.
 func _style_tab(b: Button, on: bool) -> void:
-        var sb: StyleBox = RetroUI.raised(4, RetroUI.MENU_PANEL_HI) if on else StyleBoxFlat.new()
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(1, 1, 1, 0.08) if on else Color(0, 0, 0, 0)
+        sb.set_corner_radius_all(8)
+        sb.anti_aliasing = true
+        if on:
+                sb.border_width_bottom = 3
+                sb.border_color = RetroUI.GREEN
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
         sb.content_margin_top = 6.0
         sb.content_margin_bottom = 4.0
         b.add_theme_stylebox_override("normal", sb)
-        var hb: StyleBox = RetroUI.raised(4, RetroUI.MENU_PANEL_HI) if on else RetroUI.wash(0.05, 4)
+        var hb := StyleBoxFlat.new()
+        hb.bg_color = Color(1, 1, 1, 0.08) if on else Color(1, 1, 1, 0.04)
+        hb.set_corner_radius_all(8)
+        hb.anti_aliasing = true
+        if on:
+                hb.border_width_bottom = 3
+                hb.border_color = RetroUI.GREEN
         hb.content_margin_left = 10.0
         hb.content_margin_right = 10.0
         hb.content_margin_top = 6.0
@@ -953,7 +924,7 @@ func _style_tab(b: Button, on: bool) -> void:
         var kind := "people"
         if b.has_meta("icon_kind"):
                 kind = String(b.get_meta("icon_kind"))
-        b.icon = RetroUI.icon_texture(kind, RetroUI.MENU_INK if on else RetroUI.MENU_MUTED)
+        b.icon = RetroUI.icon_png(kind, RetroUI.MENU_INK if on else RetroUI.MENU_MUTED)
 
 
 ## A quiet ghost icon button (the grid/list view toggles).
@@ -1016,8 +987,15 @@ func _footer_key(key: String, label: String, primary: bool, handler: Callable) -
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         b.custom_minimum_size = Vector2(0, 50)
         b.focus_mode = Control.FOCUS_NONE
-        if primary:
+        # v11.0: the keys carry the REAL internet icons — Respawn wears the
+        # restart arrow at KEY size (the 140px source would fill the button)
+        if key == "R":
+                b.icon = RetroUI.icon_png_sized("respawn", 22)
+                b.expand_icon = false
+        elif primary:
                 b.icon = RetroUI.icon_texture("star", RetroUI.MENU_INK)
+                b.expand_icon = false
+        if primary:
                 b.add_theme_stylebox_override("normal", _blue_btn(false))
                 b.add_theme_stylebox_override("hover", _blue_btn(true))
                 b.add_theme_stylebox_override("pressed", _blue_btn(true))
@@ -1064,10 +1042,15 @@ func _footer_key(key: String, label: String, primary: bool, handler: Callable) -
         return b
 
 
-## The wide dark row button (Invite Friends, Report, footer keys) — a
-## raised bevel that SINKS when pressed, the old client's button read.
-func _row_btn(face := Color("424242"), pushed := false) -> StyleBox:
-        var sb: StyleBox = RetroUI.sunken(4, RetroUI.PANEL_DOWN) if pushed else RetroUI.raised(4, face)
+## The wide dark row button (Invite Friends, footer keys) — translucent
+## black glass that lifts on hover and sinks when pressed.
+func _row_btn(_face := Color(0.0, 0.0, 0.0, 0.42), pushed := false) -> StyleBox:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(0.10, 0.10, 0.12, 0.85) if pushed else Color(1, 1, 1, 0.07)
+        sb.set_corner_radius_all(8)
+        sb.anti_aliasing = true
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.07)
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
         sb.content_margin_top = 9.0
@@ -1075,9 +1058,14 @@ func _row_btn(face := Color("424242"), pushed := false) -> StyleBox:
         return sb
 
 
-## THE CLASSIC BLUE KEY — Resume: beveled blue face, white chip.
+## THE CLASSIC GREEN KEY — Resume: the 2006 action green, white ink.
 func _blue_btn(hover := false) -> StyleBox:
-        var sb: StyleBox = RetroUI.raised(4, Color("2090d6") if hover else Color("1a7ab8"))
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color("46a83c") if hover else Color("3e9c35")
+        sb.set_corner_radius_all(8)
+        sb.anti_aliasing = true
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.18)
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
         sb.content_margin_top = 9.0
@@ -1085,92 +1073,8 @@ func _blue_btn(hover := false) -> StyleBox:
         return sb
 
 
-## An honest empty page — one glyph, one title, one line of body.
-func _empty_page(kind: String, title: String, body: String) -> VBoxContainer:
-        var page := VBoxContainer.new()
-        page.name = kind.capitalize() + "Page"
-        page.set_anchors_preset(Control.PRESET_FULL_RECT)
-        page.alignment = BoxContainer.ALIGNMENT_CENTER
-        page.add_theme_constant_override("separation", 10)
-        var icon := TextureRect.new()
-        icon.texture = RetroUI.icon_texture(kind, RetroUI.MENU_MUTED)
-        icon.custom_minimum_size = Vector2(0, 44)
-        icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        page.add_child(icon)
-        var t := Label.new()
-        t.text = title
-        t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        _title(t, 17, RetroUI.MENU_INK)
-        page.add_child(t)
-        var s := Label.new()
-        s.text = body
-        s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        _text(s, 13, RetroUI.MENU_MUTED)
-        page.add_child(s)
-        return page
-
-
-## HELP — the client's own cheat sheet: every key with its chip.
-func _build_help_tab() -> VBoxContainer:
-        var page := VBoxContainer.new()
-        page.name = "HelpPage"
-        page.set_anchors_preset(Control.PRESET_FULL_RECT)
-        page.add_theme_constant_override("separation", 10)
-        var t := Label.new()
-        t.text = "Controls"
-        _title(t, 17, RetroUI.MENU_INK)
-        page.add_child(t)
-        var scroll := ScrollContainer.new()
-        scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-        scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-        scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-        page.add_child(scroll)
-        var grid := GridContainer.new()
-        grid.columns = 2
-        grid.add_theme_constant_override("h_separation", 26)
-        grid.add_theme_constant_override("v_separation", 9)
-        grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        scroll.add_child(grid)
-        for pair in [
-                ["ESC", "Open and close this menu"],
-                ["ENTER", "Chat with everyone"],
-                ["W A S D", "Move your blockhead"],
-                ["SPACE", "Jump (hold off ladders)"],
-                ["SHIFT", "Shift-lock the camera"],
-                ["P", "Open the People tab"],
-                ["F2", "EDIT THE UI — move, scale, add details"],
-                ["L", "Leave the place (in the menu)"],
-                ["R", "Respawn (in the menu)"],
-        ]:
-                var row := HBoxContainer.new()
-                row.add_theme_constant_override("separation", 10)
-                var chip := PanelContainer.new()
-                var csb := StyleBoxFlat.new()
-                csb.bg_color = Color(0, 0, 0, 0.25)
-                csb.set_corner_radius_all(4)
-                csb.set_border_width_all(1)
-                csb.border_color = Color(1, 1, 1, 0.45)
-                csb.content_margin_left = 7.0
-                csb.content_margin_right = 7.0
-                csb.content_margin_top = 3.0
-                csb.content_margin_bottom = 3.0
-                chip.add_theme_stylebox_override("panel", csb)
-                var kl := Label.new()
-                kl.text = String(pair[0])
-                kl.add_theme_font_override("font", RetroUI.gotham(600))
-                kl.add_theme_font_size_override("font_size", 12)
-                kl.add_theme_color_override("font_color", RetroUI.MENU_INK)
-                chip.add_child(kl)
-                row.add_child(chip)
-                var desc := Label.new()
-                desc.text = String(pair[1])
-                _text(desc, 13, RetroUI.MENU_MUTED)
-                row.add_child(desc)
-                grid.add_child(row)
-        return page
-
+## HELP is gone (you asked) — the keys live on the Respawn/Leave chips and
+## the F2 hint rides the Settings page.
 
 func _spacer() -> Control:
         var c := Control.new()
@@ -1263,15 +1167,15 @@ func _player_card(uid: String, uname: String, is_me: bool, ping: Variant = null,
 
 
 func _card_casing(is_me: bool) -> StyleBox:
-        # v10.0: the classic sunken slot — every card sits IN the menu like a
-        # list item of the old client; MY card wears the blue selection frame
-        # the real client draws around your own row (StyleBoxFlat so the
-        # border color survives — the bevel texture can't take one)
+        # v11.0: the black glass card — a lighter glass slab on the dark
+        # panel, hairline edge, rounded 10; MY card wears the CLASSIC BLUE
+        # selection frame the real client draws around your own row
         var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.CARD
-        sb.set_corner_radius_all(2)
+        sb.bg_color = Color(1, 1, 1, 0.06)
+        sb.set_corner_radius_all(10)
+        sb.anti_aliasing = true
         sb.set_border_width_all(2)
-        sb.border_color = RetroUI.BEVEL_DARK
+        sb.border_color = Color(1, 1, 1, 0.08)
         if is_me:
                 sb.border_color = RetroUI.BLUE
         sb.content_margin_left = 8.0
@@ -1283,7 +1187,10 @@ func _card_casing(is_me: bool) -> StyleBox:
 
 ## The PFP well — the deeper inset the headshot sits on.
 func _well_texture_style() -> StyleBox:
-        var sb := RetroUI.flat(8, RetroUI.WELL)
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(0, 0, 0, 0.55)
+        sb.set_corner_radius_all(8)
+        sb.anti_aliasing = true
         sb.content_margin_left = 4.0
         sb.content_margin_right = 4.0
         sb.content_margin_top = 4.0
@@ -1355,7 +1262,7 @@ func _update_live_stats() -> void:
                 _fps_smooth = lerpf(_fps_smooth, float(fps), 0.35)
         if _corner_stats != null and is_instance_valid(_corner_stats):
                 var ping := ("%dms" % _last_ping_ms) if _last_ping_ms > 0 else "—"
-                _corner_stats.text = "FPS %d   ·   PING %s   ·   v10.0" % [int(roundf(_fps_smooth)), ping]
+                _corner_stats.text = "FPS %d   ·   PING %s   ·   v11.0" % [int(roundf(_fps_smooth)), ping]
         if _time_label != null and is_instance_valid(_time_label):
                 _time_label.text = _clock_text()
 

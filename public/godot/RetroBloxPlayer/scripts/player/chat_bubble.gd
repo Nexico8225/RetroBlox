@@ -12,12 +12,14 @@ extends Node3D
 ## MAX_STACK bubbles show at once; a new message retires the oldest early
 ## so the tower never grows forever.
 
-const SHOW_SECONDS := 9.0     # v3.11: bubbles LINGER (they used to die at 4.5s)
-const FADE_SECONDS := 1.4     # v3.11: a slow, soft fade at the end
-const MAX_LINES := 3
+const SHOW_SECONDS := 12.0    # v11.0: bubbles LINGER even longer (9s was still too quick)
+const FADE_SECONDS := 1.4     # a slow, soft fade at the end
+const MAX_LINES := 4
 const MAX_STACK := 3          # bubbles visible at once, Roblox-style
-const WRAP_AT := 18           # characters per line — the classic narrow bubble
-const MAX_CHARS := 110        # hard trim before wrapping
+## v11.0: wrapping is measured in PIXELS with the real font — never again a
+## guess that lets long words spill outside the white plate.
+const WRAP_WIDTH := 288.0     # max line width in px (font_size 24)
+const MAX_CHARS := 160        # hard trim before wrapping
 const STACK_GAP := 0.24       # studs between stacked bubbles
 const REFLOW_SPEED := 16.0    # how fast bubbles glide into their stack slot
 const BASE_LIFT := 0.35       # newest bubble tail sits this far above the node
@@ -25,9 +27,20 @@ const BASE_LIFT := 0.35       # newest bubble tail sits this far above the node
 ## sits ~8px BELOW the visible pill's center — the reason the text used to
 ## hang low with that big offset. The label rides this far up (in px).
 const PLATE_CENTER_LIFT := 8.0
+const TEXT_SIZE := 24         # the ink size every measurement uses
 
 ## Textures are cached per line count (1..MAX_LINES).
 static var _tex_cache: Dictionary = {}
+
+## The ink font — the SAME font the label draws with, so the measurement
+## and the render can never disagree. Arial (the classic voice), with the
+## engine fallback as the safety net.
+static func _bubble_font() -> Font:
+        var f: Font = null
+        if ResourceLoader.exists("res://scripts/ui/retro_theme.gd"):
+                var theme := load("res://scripts/ui/retro_theme.gd")
+                f = theme.call("arial", 600)
+        return f if f != null else ThemeDB.fallback_font
 
 ## Live stack, OLDEST first: {sprite, label, left, height, y}. y is the
 ## current (gliding) local center height of the bubble.
@@ -53,12 +66,14 @@ func show_text(message: String) -> void:
         while _entries.size() >= MAX_STACK:
                 _fade_out(0)
 
-        # v3.11: the plate HUGS its text now ("hi" gets a small bubble, not
-        # a giant empty pill) — widest line drives the width, clamped.
-        var max_len := 0
+        # v11.0: the plate HUGS its text — the width comes from the REAL font
+        # metrics of the widest line (the old char-count guess let long words
+        # spill right through the plate edge).
+        var font := _bubble_font()
+        var max_w := 0.0
         for ln in lines:
-                max_len = maxi(max_len, ln.length())
-        var w := clampi((max_len * 13 + 44 + 15) & ~15, 96, 256)
+                max_w = maxf(max_w, font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x)
+        var w := clampi((int(max_w) + 46 + 9) & ~15, 96, 384)
         var tex := _plate_texture(lines.size(), w)
         var squeeze := 0.62 + 0.38 * float(lines.size()) / float(MAX_LINES)
         var height := tex.get_height() * 0.012 * squeeze
@@ -79,7 +94,8 @@ func show_text(message: String) -> void:
         label.text = "\n".join(lines)
         label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
         label.pixel_size = 0.012
-        label.font_size = 24
+        label.font = font
+        label.font_size = TEXT_SIZE
         label.outline_size = 0
         label.modulate = Color(0.13, 0.14, 0.16, 0.0)
         label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -172,30 +188,36 @@ func _fade_out(index: int) -> void:
                         lab.queue_free())
 
 
-## Word-wrap into at most MAX_LINES short lines ("…" marks a cut).
+## Word-wrap into at most MAX_LINES lines that MEASURE within WRAP_WIDTH px
+## with the real font — the exact guarantee that the text never spills off
+## the white plate ("…" marks a cut). A single word longer than the line
+## chops across whole lines, by pixels, not by guesswork.
 func _wrap(text: String) -> Array[String]:
+        var font := _bubble_font()
         var words := text.split(" ")
         var lines: Array[String] = []
         var current := ""
         for word in words:
                 var piece := word
                 # one very long word: chop it across whole lines
-                while piece.length() > WRAP_AT:
+                while _line_width(font, piece) > WRAP_WIDTH:
+                        var take := _fit_px(font, piece, WRAP_WIDTH)
+                        if take < 1:
+                                break
                         if not current.is_empty():
                                 lines.append(current)
                                 current = ""
                                 if lines.size() >= MAX_LINES:
                                         return _cut(lines)
-                        lines.append(piece.substr(0, WRAP_AT))
-                        piece = piece.substr(WRAP_AT)
+                        lines.append(piece.substr(0, take))
+                        piece = piece.substr(take)
                         if lines.size() >= MAX_LINES:
                                 return _cut(lines)
                 if piece.is_empty():
                         continue
-                if current.is_empty():
-                        current = piece
-                elif current.length() + 1 + piece.length() <= WRAP_AT:
-                        current += " " + piece
+                var candidate := piece if current.is_empty() else current + " " + piece
+                if _line_width(font, candidate) <= WRAP_WIDTH:
+                        current = candidate
                 else:
                         lines.append(current)
                         if lines.size() >= MAX_LINES:
@@ -206,6 +228,23 @@ func _wrap(text: String) -> Array[String]:
                         return _cut(lines)
                 lines.append(current)
         return lines
+
+
+static func _line_width(font: Font, s: String) -> float:
+        return font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x
+
+
+## How many leading characters of `s` fit inside max_w pixels (binary search).
+static func _fit_px(font: Font, s: String, max_w: float) -> int:
+        var lo := 0
+        var hi := s.length()
+        while lo < hi:
+                var mid := (lo + hi + 1) >> 1
+                if _line_width(font, s.substr(0, mid)) <= max_w:
+                        lo = mid
+                else:
+                        hi = mid - 1
+        return lo
 
 
 func _cut(lines: Array[String]) -> Array[String]:

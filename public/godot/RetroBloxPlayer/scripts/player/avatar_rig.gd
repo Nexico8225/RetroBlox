@@ -74,6 +74,8 @@ var _time := 0.0
 var _applied_colors: Dictionary = {}
 var _anim_player: AnimationPlayer
 var _current_anim := &""
+var _walk_rate := 1.0     # v11.0: eased playback speeds (no more rate snaps)
+var _climb_rate := 1.0
 var _oof_audio: AudioStream
 
 
@@ -209,12 +211,12 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false)
         _ensure_built()
         _time += delta
         if _using_r6ik and _anim_player != null:
-                _animate_r6ik(speed, grounded, climbing)
+                _animate_r6ik(delta, speed, grounded, climbing)
                 return
         _animate_boxes(delta, speed, grounded, climbing)
 
 
-func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_r6ik(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var next: StringName = ANIM_IDLE
         var rate := 1.0
         if climbing:
@@ -227,9 +229,20 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
                 rate = clampf(speed / (8.0 * STUD), 0.8, 2.2)
         if _current_anim != next:
                 _current_anim = next
-                _anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
+                # v11.0: the JUMP crossfade doubles (0.08 -> 0.16) — the old
+                # near-instant cut was the arm pop every time you left the ground
+                _anim_player.play(next, 0.16, rate if next != ANIM_JUMP else 1.35)
         elif next == ANIM_WALK or next == ANIM_CLIMB:
-                _anim_player.speed_scale = rate
+                # v11.0: playback speed EASES toward its target — the climb
+                # rate rides |velocity.y| which jitters frame to frame, and
+                # that jitter read as twitching arms on the ladder
+                var k := 1.0 - exp(-8.0 * delta)
+                if next == ANIM_WALK:
+                        _walk_rate = lerpf(_walk_rate, rate, k)
+                        _anim_player.speed_scale = _walk_rate
+                else:
+                        _climb_rate = lerpf(_climb_rate, rate, k)
+                        _anim_player.speed_scale = _climb_rate
 
 
 ## Settings > Animations: pose the character with a rig clip ("Sit", ...).
@@ -247,35 +260,51 @@ func play_emote(clip: String) -> void:
                 _anim_player.play(anim_name, 0.2)
 
 
-func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var movement := clampf(absf(speed) / (5.0 * STUD), 0.0, 1.0)
         var walk_rate := 4.8 + movement * 2.0
         var swing := sin(_time * walk_rate) * movement
+        # v11.0: every state computes a TARGET pose and the rig EASES toward
+        # it (1-exp blend) — the old direct assignments teleported the arms
+        # between walk / climb / jump poses every time the state flipped, and
+        # that teleport WAS the twitch / out-of-place arms you felt climbing.
+        var k := 1.0 - exp(-12.0 * delta)
+        var arm_l_x := 0.0
+        var arm_r_x := 0.0
+        var leg_l_x := 0.0
+        var leg_r_x := 0.0
+        var head_x := 0.0
+        var torso_x := 0.0
+        var arm_l_z := 0.0
+        var arm_r_z := 0.0
         if climbing:
                 var alt := sin(_time * 6.5) * 0.9
-                _pivots[ARM_L].rotation.x = -2.4 + alt * 0.4
-                _pivots[ARM_R].rotation.x = -2.4 - alt * 0.4
-                _pivots[LEG_L].rotation.x = alt * 0.5
-                _pivots[LEG_R].rotation.x = -alt * 0.5
-                return
-        if grounded:
-                _pivots[ARM_L].rotation.x = swing * 0.7
-                _pivots[ARM_R].rotation.x = -swing * 0.7
-                _pivots[LEG_L].rotation.x = -swing * 0.66
-                _pivots[LEG_R].rotation.x = swing * 0.66
-                _pivots[ARM_L].rotation.z = sin(_time * 2.1) * 0.025 * (1.0 - movement)
-                _pivots[ARM_R].rotation.z = -sin(_time * 2.1) * 0.025 * (1.0 - movement)
-                _pivots[HEAD].rotation.x = sin(_time * 1.8) * 0.025
-                _pivots[TORSO].rotation.x = sin(_time * 1.8 + 0.5) * 0.012
+                arm_l_x = -2.4 + alt * 0.4
+                arm_r_x = -2.4 - alt * 0.4
+                leg_l_x = alt * 0.5
+                leg_r_x = -alt * 0.5
+        elif grounded:
+                arm_l_x = swing * 0.7
+                arm_r_x = -swing * 0.7
+                leg_l_x = -swing * 0.66
+                leg_r_x = swing * 0.66
+                head_x = sin(_time * 1.8) * 0.025
+                torso_x = sin(_time * 1.8 + 0.5) * 0.012
+                arm_l_z = sin(_time * 2.1) * 0.025 * (1.0 - movement)
+                arm_r_z = -arm_l_z
         else:
-                _pivots[ARM_L].rotation.x = -2.6
-                _pivots[ARM_R].rotation.x = -2.6
-                _pivots[ARM_L].rotation.z = 0.0
-                _pivots[ARM_R].rotation.z = 0.0
-                _pivots[LEG_L].rotation.x = 0.35
-                _pivots[LEG_R].rotation.x = -0.35
-                _pivots[HEAD].rotation.x = 0.0
-                _pivots[TORSO].rotation.x = 0.0
+                arm_l_x = -2.6
+                arm_r_x = -2.6
+                leg_l_x = 0.35
+                leg_r_x = -0.35
+        _pivots[ARM_L].rotation.x = lerp_angle(_pivots[ARM_L].rotation.x, arm_l_x, k)
+        _pivots[ARM_R].rotation.x = lerp_angle(_pivots[ARM_R].rotation.x, arm_r_x, k)
+        _pivots[LEG_L].rotation.x = lerp_angle(_pivots[LEG_L].rotation.x, leg_l_x, k)
+        _pivots[LEG_R].rotation.x = lerp_angle(_pivots[LEG_R].rotation.x, leg_r_x, k)
+        _pivots[ARM_L].rotation.z = lerp_angle(_pivots[ARM_L].rotation.z, arm_l_z, k)
+        _pivots[ARM_R].rotation.z = lerp_angle(_pivots[ARM_R].rotation.z, arm_r_z, k)
+        _pivots[HEAD].rotation.x = lerp_angle(_pivots[HEAD].rotation.x, head_x, k)
+        _pivots[TORSO].rotation.x = lerp_angle(_pivots[TORSO].rotation.x, torso_x, k)
 
 
 ## Oof! — the classic breakup, used by death and reset.

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ce632j4afo03b"
-path="res://.godot/imported/nexico8225.png-0ff2b8259aa4b9d9c3cfa61d3ac77dc3.ctex"
+uid="uid://bn6716rkt2qvu"
+path="res://.godot/imported/respawn.png-ddf3ecec096232699bb5c2f4e39606b8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/pfp/nexico8225.png"
-dest_files=["res://.godot/imported/nexico8225.png-0ff2b8259aa4b9d9c3cfa61d3ac77dc3.ctex"]
+source_file="res://assets/icons/respawn.png"
+dest_files=["res://.godot/imported/respawn.png-ddf3ecec096232699bb5c2f4e39606b8.ctex"]
 
 [params]
 

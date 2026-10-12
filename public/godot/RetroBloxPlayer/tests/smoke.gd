@@ -466,7 +466,7 @@ func _run_all() -> void:
         check(ink != null and ink.visible and ink.text.contains("classic"), "bubble ink shows the text")
         check(ink.position.y > 0.0,
                 "bubble ink is LIFTED onto the pill's center (the big text offset is dead)")
-        check(first.get("sprite").texture.get_width() <= 256 and first.get("sprite").texture.get_width() >= 96,
+        check(first.get("sprite").texture.get_width() >= 96 and first.get("sprite").texture.get_width() <= 384,
                 "the bubble plate HUGS its text (short line, small bubble)")
         bubble.call("show_text", "Good game!")
         bubble.call("show_text", "Oof")
@@ -512,14 +512,8 @@ func _run_all() -> void:
                 "climb grab is deliberate (no more brushing grabs)")
 
         # --- v3.7: trimmed topbar, stacked bubbles, SMOOTH stairs, retro menu ---
-        check(not game_src.contains('"res://assets/icons/menu.png"'),
-                "topbar: the three-line menu icon button is gone (ESC opens the menu)")
-        check(not game_src.contains('"res://assets/icons/people.png"'),
-                "topbar: the people/invite button is gone (players live in the menu)")
-        check(not FileAccess.file_exists("res://assets/icons/menu.png"),
-                "menu icon asset removed from the kit")
-        check(not FileAccess.file_exists("res://assets/icons/people.png"),
-                "people icon asset removed from the kit")
+        check(not FileAccess.file_exists("res://assets/icons/menu.png") == false,
+                "topbar: the REAL internet menu icon ships in the kit")
         check(player_src.contains("STEP_RISE_SPEED") and player_src.contains("_rise_left"),
                 "stairs GLIDE now — the rise animates over ~0.1s")
         # scope: only the STAIR code (_attempt_step_up.._update_fall_damage) —
@@ -593,33 +587,66 @@ func _run_all() -> void:
         check(game_src.contains("MENU_INK") and game_src.contains("_row_btn"),
                 "nav + keys speak in white ink on the gray chrome (no dark-on-dark anywhere)")
 
-        # --- v8.0 THE PFP ENGINE — real Roblox headshots, NEVER 3D renders ---
+        # --- v11.0: THE R6 HITBOX + THE BUBBLE THAT FITS + THE SMOOTH ARMS ---
+        var player_v11 := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
+        check(player_v11.contains("BoxShape3D.new()")
+                and player_v11.contains("Vector3(2.0 * STUD, 5.0 * STUD, 1.0 * STUD)"),
+                "the hitbox IS Roblox: a 2 x 5 x 1 stud BOX (never the fat capsule)")
+        check(player_v11.contains("Vector3(2.2 * STUD, 2.4 * STUD, 1.2 * STUD)"),
+                "the ladder sensor is the torso-band box (2.2 x 2.4 x 1.2)")
+        var bubble_v11 := FileAccess.get_file_as_string("res://scripts/player/chat_bubble.gd")
+        check(bubble_v11.contains("WRAP_WIDTH := 288.0") and bubble_v11.contains("get_string_size"),
+                "bubbles wrap by REAL font metrics — the text can never spill off the plate")
+        check(bubble_v11.contains("SHOW_SECONDS := 12.0"),
+                "bubbles linger 12 seconds, then fade slowly (no more nano-second chat)")
+        check(bubble_v11.contains("label.font = font"),
+                "the bubble ink draws with the SAME font the width measures")
+        var rig_v11 := FileAccess.get_file_as_string("res://scripts/player/avatar_rig.gd")
+        check(rig_v11.contains("lerp_angle(_pivots[ARM_L].rotation.x, arm_l_x, k)")
+                and rig_v11.contains("_walk_rate") and rig_v11.contains("_climb_rate"),
+                "the arms EASE between poses and the playback speeds glide (no twitch)")
+
+        # --- v11.0 THE PFP ENGINE — the SITE AVATAR, rendered. NO bacon. ---
         check(FileAccess.file_exists("res://scripts/ui/pfp_service.gd"),
                 "PfpService ships (the real headshot engine)")
         var proj_v8 := FileAccess.get_file_as_string("res://project.godot")
         check(proj_v8.contains('Pfp="*res://scripts/ui/pfp_service.gd"'),
                 "PfpService is an autoload (boot-ready)")
-        check(FileAccess.file_exists("res://assets/pfp/nexico8225.png")
-                        and FileAccess.file_exists("res://assets/pfp/nexico8225.png.import"),
-                "YOUR real Roblox headshot ships IN the kit (zero-network PFP)")
+        check(not FileAccess.file_exists("res://assets/pfp/nexico8225.png"),
+                "THE BACON IS GONE — no bundled Roblox thumbnail ships in the kit")
         var pfp_src := FileAccess.get_file_as_string("res://scripts/ui/pfp_service.gd")
-        check(pfp_src.contains("users.roblox.com") and pfp_src.contains("thumbnails.roblox.com"),
-                "PfpService fetches REAL headshots from Roblox's own API (username -> id -> 420px png)")
-        check(pfp_src.contains("assets/pfp/%s.png"),
-                "bundled headshots win INSTANTLY, zero network")
-        check(pfp_src.contains("pfp_cache") and pfp_src.contains("CACHE_TTL"),
-                "headshots cache on disk for a day (no refetch spam)")
+        check(not pfp_src.contains("users.roblox.com") and not pfp_src.contains("thumbnails.roblox.com"),
+                "the Roblox thumbnail API is DEAD — the PFP comes from RetroBlox only")
+        check(not pfp_src.contains("assets/pfp/%s.png"),
+                "no bundled headshot overrides — the account avatar is the only face")
+        check(pfp_src.contains("pfp_cache_v11") and pfp_src.contains("CACHE_TTL"),
+                "rendered headshots cache in the v11 namespace (the old bacon cache can't resurface)")
+        check(pfp_src.contains("AvatarPortrait.render(self, Api, payload, true)"),
+                "the PFP IS the site avatar — dressed and photographed headshot-style")
+        check(pfp_src.contains("Session.my_avatar_data()") and pfp_src.contains("Api.avatar_of(uid)"),
+                "MY avatar comes from the session, everyone else's from the public site API")
         check(pfp_src.contains("func rounded(") and pfp_src.contains("_round_image"),
                 "every PFP lands with the client's rounded corners")
         check(pfp_src.contains("fallback_pfp") and pfp_src.contains("head_icon"),
                 "no-data players fall back to the classic smiley (never a 3D render)")
         check(game_src.contains("Pfp.fetch") and game_src.contains("_apply_pfp"),
                 "the menu + cards + topbar all wear REAL PFPs (one pipeline)")
-        check(game_src.contains("MenuCenter") and game_src.contains("MenuPanel"),
+        check(game_src.contains('MenuCenter') and game_src.contains("MenuPanel"),
                 "the ESC menu is the CENTERED client panel — the game stays visible behind")
         check(game_src.contains('["players", "People", "people"]')
-                and game_src.contains('["settings", "Settings", "gear"]'),
-                "the tabs speak ICON ROWS with the white underline (the client's read)")
+                and game_src.contains('["settings", "Settings", "settings"]'),
+                "the two tabs wear the REAL internet icons (People + Settings)")
+        check(not game_src.contains('"gallery", "Gallery"')
+                and not game_src.contains('"report", "Report"')
+                and not game_src.contains('"help", "Help"'),
+                "GALLERY / REPORT / HELP are GONE from the ESC menu (you asked)")
+        check(game_src.contains("func icon_png") == false and theme_src.contains("func icon_png"),
+                "icon_png loads the REAL downloaded icon PNGs with a code-drawn fallback")
+        for icon_name in ["menu", "settings", "people", "chat", "respawn", "close"]:
+                check(FileAccess.file_exists("res://assets/icons/%s.png" % icon_name),
+                        "the internet icon ships: assets/icons/%s.png" % icon_name)
+        check(FileAccess.file_exists("res://assets/ui/login_backdrop.jpg"),
+                "the REAL classic-baseplate photograph ships (the login backdrop)")
         check(not game_src.contains("AvatarPortraitScript"),
                 "the 3D portrait renderer is OFF the UI path (PFP only)")
 
@@ -644,11 +671,7 @@ func _run_all() -> void:
                 "the HUD registers topbar/health/chat/user pill/toasts as editable")
         check(game_src.contains('_footer_key("L", "Leave", false')
                 and game_src.contains('_footer_key("ESC", "Resume", true'),
-                "the footer is [L] Leave / [ESC] Resume blue — the reference read")
-        check(game_src.contains('"gallery", "Gallery", "gallery"')
-                and game_src.contains('"report", "Report", "flag"')
-                and game_src.contains('"help", "Help", "help"'),
-                "the panel carries FIVE tabs: People/Settings/Gallery/Report/Help")
+                "the footer is [L] Leave / [R] Respawn / [ESC] Resume")
         check(game_src.contains("_apply_pfp_url") and game_src.contains("Pfp.set_custom_pfp"),
                 "Settings applies YOUR PFP URL live (saved to ui_config)")
         check(game_src.contains('Pfp.set_site_pfp') and game_src.contains('avatarUrl'),
@@ -656,8 +679,8 @@ func _run_all() -> void:
         check(pfp_src.contains("set_site_pfp") and pfp_src.contains("set_custom_pfp")
                 and pfp_src.contains("_image_from_data_url"),
                 "PfpService wears the site avatarUrl + the custom URL (data URLs decode)")
-        check(pfp_src.contains("/pfp") and pfp_src.contains("/api/users/%s/pfp"),
-                "other players' site PFPs arrive via /api/users/<name>/pfp")
+        check(pfp_src.contains("/pfp") or pfp_src.contains("avatar_of"),
+                "other players' faces arrive from the site (the avatar render path)")
 
 
         # --- v3.9: the wood is HISTORY ---
@@ -685,8 +708,8 @@ func _run_all() -> void:
                 "the menu references zero texture helpers (flat dark cards)")
         check(not game_src.contains("_gloss_btn") and game_src.contains("_key_btn"),
                 "every menu key is family-styled (beveled rows, the BLUE primary)")
-        check(game_src.contains("_blue_btn") and game_src.contains('Color("1a7ab8")'),
-                "Resume is the beveled CLASSIC BLUE key (the 2008 read)")
+        check(game_src.contains("_blue_btn") and game_src.contains('Color("3e9c35")'),
+                "Resume is the CLASSIC GREEN key (the 2006 action green)")
         check(theme_src.contains("MENU_RED :=") ,
                 "red exists ONLY as the danger voice (Leave, close-hover, badge)")
         check(theme_src.contains("f5cd30"),
@@ -695,9 +718,11 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains("v10.0"), "the corner chip wears v10.0")
+        check(game_src.contains("v11.0"), "the corner chip wears v11.0")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
+        check(portrait_src.contains("HEADSHOT_SIZE") and portrait_src.contains("headshot := false"),
+                "the HEADSHOT framing exists — the square PFP shot the UI wears")
         check(game_src.contains("TEXTURE_FILTER_LINEAR"),
                 "the portrait TextureRect draws LINEAR (smooth, not chunky)")
         # --- the v4.0 AVATAR PIPELINE — the real site look, everywhere ---
@@ -753,18 +778,18 @@ func _run_all() -> void:
                 "rejoining replays NOTHING — the first feed is history, marked seen silently")
         check(game_src.contains("get_tree().quit()"),
                 "LEAVE closes the game now (web reloads the place)")
-        check(game_src.contains('burger_btn.icon = RetroUI.icon_texture("hamburger"'),
-                "the topbar's hamburger key OPENS the ESC menu (the reference read)")
+        check(game_src.contains('burger_btn.icon = RetroUI.icon_png("menu"'),
+                "the topbar's hamburger key wears the REAL internet icon and opens the menu")
         check(chat_src.contains("To chat click here or press / key"),
                 "the chat input wears the AUTHENTIC Roblox placeholder")
         check(chat_src.contains("f2f3f4") and chat_src.contains("RetroUI.glass("),
                 "the chat is the classic dark glass float (thin light frame, white text)")
         check(chat_src.contains("ffd23f"),
                 "chat name colors are tuned for the dark face (bright arcade set)")
-        check(game_src.contains('RetroUI.icon_texture("chat", RetroUI.MENU_INK)'),
-                "the pill's chat key wears the code-drawn ink bubble")
-        check(bubble_src.contains("SHOW_SECONDS := 9.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
-                "bubbles linger 9s and fade out SLOWLY")
+        check(game_src.contains('chat_btn.icon = RetroUI.icon_png("chat"'),
+                "the pill's chat key wears the REAL internet chat icon")
+        check(bubble_src.contains("SHOW_SECONDS := 12.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
+                "bubbles linger 12s and fade out SLOWLY")
         check(bubble_src.contains("_fade_out"),
                 "overflow bubbles ease out instead of popping away")
         check(bubble_src.contains("PLATE_CENTER_LIFT"),
@@ -775,14 +800,15 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "10.0"') and login_src4.contains("BtnPrimary"),
-                "login wears the 2008 window (v10.0, the CLASSIC GREEN Log In key)")
-        check(login_src4.contains("_logo_tile_texture") and login_src4.contains("_add_studs"),
-                "the login is a beveled window on the baseplate-stud backdrop")
-        check(login_src4.contains("_stud_tile_texture") and login_src4.contains("_on_title_input"),
-                "the login window DRAGS by its title bar and sits on code-drawn studs")
+        check(login_src4.contains('VERSION := "11.0"') and login_src4.contains("BtnPrimary"),
+                "login wears the OLD page again (v11.0, the CLASSIC GREEN Log In key)")
+        check(login_src4.contains("_logo_tile_texture") and login_src4.contains("_add_backdrop"),
+                "the login sits on the REAL baseplate photograph (the internet image)")
+        check(login_src4.contains('"Log In"') and login_src4.contains('"Sign Up"')
+                and not login_src4.contains("Sign In"),
+                "the OLD tabs are back: Log In + Sign Up — no Sign In anywhere")
         check(login_src4.contains("gotham(800)"),
-                "the login speaks ExtraBold ARIAL (the wordmark voice)")
+                "the login speaks ExtraBold ARIAL (the RETROBLOX wordmark voice)")
 
         # --- v3.9: presence carries everyone's live stats ---
         var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")
