@@ -9,15 +9,15 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v7.0 "CLASSIC"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=7.0'
+const VERSION = 'v8.0 "REAL BLOX"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=8.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['A COMPLETELY NEW UI — the CLASSIC 2008-2013 CLIENT look', 'Every pixel of the client chrome is rebuilt in the retro gray you remember: chunky BEVELED panels (a light top-left rim, a dark bottom-right rim, generated 9-patch textures tinted per face), Arial on every title, button and name (Liberation Sans — the metric-perfect Arial), small tight corner radii, hard dark drop shadows. Nothing glassy, nothing borderless-modern — it reads like the client you grew up on.'],
-  ['The CLASSIC GREEN action key + ROBLOX red', 'Resume and LOG IN are the old-site GREEN keys that sink when pressed; Leave speaks in the ROBLOX red; the one Roblox blue stays as the selection accent (your People card, the lit nav icon). The health bar is the classic SUNKEN track with the pure-green fill and the number inside.'],
-  ['The classic beveled LOGIN window', 'A gray beveled window on a deep backdrop with a faint STUD GRID: the tilted red logo tile + RETROBLOX wordmark in bold Arial with a drop shadow, chunky beveled LOG IN / SIGN UP tabs, sunken input wells, the green LOG IN key — the old front door, rebuilt.'],
-  ['The ESC menu — the classic gray window', 'Title bar with a dark rule under it, the icon rail, People cards that SINK like list slots (yours wears the blue selection frame), beveled keys in the footer: green Resume, dark Reset / Log Out, red Leave. Chat panels keep the thin light frame, Arial everywhere.'],
-  ['Everything sharp stays sharp', 'The portrait pipeline (320x448 + 4x MSAA), 4x world MSAA, anisotropic stud tiles and LINEAR true-color lighting all carry over — the classic look is chrome-only, the world stays crisp.'],
+  ['THE UI IS NOW THE REAL ROBLOX CLIENT', 'Every surface rebuilt to match the client you play: the deep #111316 full-screen ESC menu, rounded-8 #232527 surfaces, black translucent topbar pills, the WHITE Resume / Log In keys, Leave in danger red, one fountain-blue accent, Montserrat carrying every title and name. Zero bevels, zero borders — it finally looks like Roblox because it IS the Roblox layout.'],
+  ['YOUR REAL PFP — NOT A 3D RENDER', 'The new PfpService shows every player\'s REAL Roblox avatar headshot: your headshot SHIPS IN THE KIT (assets/pfp/nexico8225.png — it loads instantly, zero network), everyone else\'s is fetched live from Roblox\'s own thumbnail API (username → userId → 420px PNG), cached on disk for a day, rounded to the client\'s corners. Your PFP wears the topbar pill, the menu identity block, and every People card. No more 3D portrait snapshots in the UI, ever.'],
+  ['The REAL CLIENT LOGIN', 'The deep dark page, the tilted-square logo + ExtraBold wordmark, quiet underlined Log In / Sign Up tabs, dark rounded input wells with the white focus ring, and the client\'s big WHITE Log In key. Log in once — auto sign-in every launch after.'],
+  ['The FULL-SCREEN ESC MENU', 'The real client menu: YOUR PFP + name + place top-left, text-row nav (People / Settings) on the left with your live FPS + ping pinned under, the card grid on the right (real headshots, blue ring on YOUR card), and the action row — white Resume, dark Reset / Log Out, red Leave.'],
+  ['Everything sharp stays sharp', '4x world MSAA, anisotropic stud tiles, LINEAR true-color lighting, the 2-stud gliding stairs — all carry over. The chrome changed; the game did not.'],
 ]
 
 const FILES = [
@@ -25,9 +25,9 @@ const FILES = [
   ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache — and the saved login that signs you in automatically next launch'],
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
-  ['scripts/ui/login.gd', 'The in-game login / SIGN UP window — the classic beveled look, server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The v7.0 CLASSIC UI: generated 9-patch bevel textures (raised keys + sunken wells tinted per face), Arial (Liberation Sans) voice, the classic GREEN primary key + ROBLOX red, code-drawn icons, your cursors'],
-  ['scripts/ui/avatar_portrait.gd', 'Renders each player\'s REAL avatar at 320x448 with 4x MSAA for the ESC menu People cards (offscreen viewport, cached)'],
+  ['scripts/ui/login.gd', 'The REAL CLIENT login — dark page, tilted-square logo, white Log In key, server URL locked, guests welcome'],
+  ['scripts/ui/retro_theme.gd', 'The v8.0 REAL CLIENT UI: #111316 backdrops, rounded-8 #232527 surfaces, black topbar pills, the WHITE primary key, fountain-blue accent, Montserrat voice, code-drawn icons, your cursors'],
+  ['scripts/ui/pfp_service.gd', 'The REAL PFP engine: bundled headshots (zero network), Roblox thumbnail API fetch by username, 24h disk cache, rounded corners, smiley fallback'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — they STACK the Roblox way, up to three live'],
@@ -35,7 +35,7 @@ const FILES = [
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the classic-client ESC menu (player cards + live stats), respawn flow'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the FULL-SCREEN client ESC menu (real PFP cards + live stats), respawn flow'],
   ['scripts/game/chat_box.gd', 'The classic chat log + type box that open and close as ONE widget, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, and Shift Lock shoulder park'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],

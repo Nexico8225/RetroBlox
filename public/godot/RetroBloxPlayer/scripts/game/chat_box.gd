@@ -1,6 +1,6 @@
 extends Control
-## ChatBox — the TOP-LEFT chat, light translucent + rounded like the 2016
-## site: log under the topbar pill, input line always visible underneath.
+## ChatBox — the TOP-LEFT chat, dark translucent rounded like the real
+## client: log under the topbar pill, input line always visible underneath.
 ## Shows the last stretch of lines with colored names, Enter opens the
 ## input, Enter again sends, Esc closes. The LOG can collapse to nothing —
 ## unread messages then count on the topbar chat button's red badge. Plain
@@ -96,8 +96,8 @@ func _init() -> void:
         _input.context_menu_enabled = false
         _input.add_theme_color_override("font_color", Color("ffffff"))
         _input.add_theme_color_override("font_placeholder_color", Color("8a8a8a"))
-        _input.add_theme_stylebox_override("normal", RetroUI.sunken(3, Color(0.0, 0.0, 0.0, 0.42)))
-        _input.add_theme_stylebox_override("focus", RetroUI.sunken(3, Color(0.0, 0.0, 0.0, 0.55)))
+        _input.add_theme_stylebox_override("normal", RetroUI.flat(8, Color(0.0, 0.0, 0.0, 0.42)))
+        _input.add_theme_stylebox_override("focus", RetroUI.flat(8, Color(0.0, 0.0, 0.0, 0.55)))
         var book: Font = RetroUI.source(400)
         if book != null:
                 _input.add_theme_font_override("font", book)

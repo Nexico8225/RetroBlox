@@ -3,15 +3,19 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v7.0 "CLASSIC" is the 2008-2013 CLIENT
-look: gray beveled panels (9-patch bevel rims tinted per face), Arial carrying
-every title/button/name (the Gotham voice), Source Sans 3 in the chat, the
-WHITE Resume key, one Roblox blue accent, a top-right user pill with the
-settings gear, a bottom-center health bar, and the menu header wearing
-YOUR headshot. The world renders in TRUE colors with the authentic Roblox
-studs. Stairs are DOUBLED (walk up 1- AND 2-stud ledges like stairs), the
-ESC-menu portraits render sharp at 320x448 with 4x MSAA, and the renderer
-ships 4x MSAA + anisotropic filtering so nothing is blurry.
+through the RetroBlox platform API. v8.0 "REAL BLOX" is the REAL ROBLOX
+CLIENT look: the deep #111316 full-screen ESC menu, rounded-8 #232527
+surfaces, black translucent topbar pills, the WHITE Resume / Log In keys,
+Leave in danger red, one fountain-blue accent, and Montserrat carrying
+every title/button/name (the Builder Sans voice). YOUR FACE IS YOUR REAL
+ROBLOX PFP: the PfpService ships your bundled headshot (assets/pfp/
+nexico8225.png — instant, zero network), fetches everyone else's from
+Roblox's own thumbnail API by username (24h disk cache, rounded corners,
+classic-smiley fallback), and wears it on the topbar pill, the menu
+identity block and every People card — no more 3D portrait snapshots in
+the UI. The world renders in TRUE colors with the authentic Roblox studs.
+Stairs are DOUBLED (walk up 1- AND 2-stud ledges like stairs), and the
+renderer ships 4x MSAA + anisotropic filtering so nothing is blurry.
 
 > One platform, every engine. Everything here is plain HTTP + JSON against
 > `https://retro-blox.vercel.app` — the same API the website and the future
