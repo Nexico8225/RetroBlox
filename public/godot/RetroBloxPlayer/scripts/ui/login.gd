@@ -4,11 +4,12 @@ extends Control
 ## on every boot auto-signs in with zero typing — you log in once, ever.
 ## The server is LOCKED to the official RetroBlox platform: it is a label,
 ## not a field, so it can never be pointed somewhere else.
-## v5.0: the midnight arcade — a deep navy sky with a code-drawn pixel
-## starfield behind one dark card, electric blue accents, pixel type.
+## v6.0: the ROBLOX LOGIN — a deep backdrop with two soft color glows and
+## one WHITE card: the tilted red logo tile, Montserrat everywhere, quiet
+## gray wells, and the blue action key. Zero pixel type, zero darkness traps.
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
-const VERSION := "5.0"
+const VERSION := "6.0"
 
 var _mode := "login"   # login | signup
 var _user: LineEdit
@@ -33,62 +34,58 @@ func _build() -> void:
         bg.color = RetroUI.BG
         bg.set_anchors_preset(Control.PRESET_FULL_RECT)
         add_child(bg)
-        _add_starfield(bg)
+        _add_glow_bg(bg)
 
         var center := CenterContainer.new()
         center.set_anchors_preset(Control.PRESET_FULL_RECT)
         add_child(center)
 
         var card := PanelContainer.new()
-        card.custom_minimum_size = Vector2(430, 0)
-        # v5.0: the midnight card — dark face, bold cabinet outline, deep shadow
-        var card_sb := StyleBoxFlat.new()
-        card_sb.bg_color = Color(0.071, 0.094, 0.149, 0.97)
-        card_sb.set_corner_radius_all(14)
-        card_sb.border_color = RetroUI.MENU_OUTLINE
-        card_sb.set_border_width_all(2)
-        card_sb.shadow_color = Color(0, 0, 0, 0.55)
-        card_sb.shadow_size = 22
-        card_sb.shadow_offset = Vector2(0, 8)
-        card_sb.content_margin_left = 24.0
-        card_sb.content_margin_right = 24.0
-        card_sb.content_margin_top = 22.0
+        card.custom_minimum_size = Vector2(420, 0)
+        # the WHITE card — the Roblox login read: big radius, NO border,
+        # one deep soft shadow doing all the separation
+        var card_sb := RetroUI.surface(18, Color("ffffff"), 30, 0.5)
+        card_sb.shadow_offset = Vector2(0, 10)
+        card_sb.content_margin_left = 26.0
+        card_sb.content_margin_right = 26.0
+        card_sb.content_margin_top = 24.0
         card_sb.content_margin_bottom = 20.0
         card.add_theme_stylebox_override("panel", card_sb)
         center.add_child(card)
 
         var box := VBoxContainer.new()
-        box.add_theme_constant_override("separation", 9)
-        box.custom_minimum_size = Vector2(360, 0)
+        box.add_theme_constant_override("separation", 10)
+        box.custom_minimum_size = Vector2(350, 0)
         card.add_child(box)
 
-        # your uploaded ReTROBLOX wordmark, straight on white
-        if ResourceLoader.exists("res://assets/ui/wordmark.png"):
-                var wm := TextureRect.new()
-                wm.texture = load("res://assets/ui/wordmark.png")
-                wm.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-                wm.custom_minimum_size = Vector2(340, 64)
-                wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-                box.add_child(wm)
-        else:
-                var lbl := Label.new()
-                lbl.text = "RETROBLOX"
-                lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-                lbl.theme_type_variation = "H1"
-                box.add_child(lbl)
+        # ---- the logo row: tilted red tile with the white R + the wordmark
+        var logo_row := HBoxContainer.new()
+        logo_row.alignment = BoxContainer.ALIGNMENT_CENTER
+        logo_row.add_theme_constant_override("separation", 10)
+        box.add_child(logo_row)
+        var tile := TextureRect.new()
+        tile.texture = _logo_tile_texture()
+        tile.custom_minimum_size = Vector2(44, 44)
+        tile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        tile.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        logo_row.add_child(tile)
+        var word := Label.new()
+        word.text = "RETROBLOX"
+        word.add_theme_font_override("font", RetroUI.gotham(800))
+        word.add_theme_font_size_override("font_size", 26)
+        word.add_theme_color_override("font_color", Color("15171a"))
+        logo_row.add_child(word)
 
         var sub := Label.new()
-        sub.text = "the midnight client — v%s" % VERSION
+        sub.text = "the roblox-style client — v%s" % VERSION
         sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        var retro: Font = RetroUI.pixel_font()
-        if retro != null:
-                sub.add_theme_font_override("font", retro)
-                sub.add_theme_font_size_override("font_size", 8)
-        sub.add_theme_color_override("font_color", RetroUI.MENU_GOLD)
+        sub.add_theme_font_override("font", RetroUI.source(600))
+        sub.add_theme_font_size_override("font_size", 12)
+        sub.add_theme_color_override("font_color", Color("9aa0a6"))
         box.add_child(sub)
 
-        # mode tabs — the segmented control: the active side wears the
-        # electric blue chip, the quiet side stays a dark key
+        # mode switch — the quiet segmented control: gray track, WHITE chip
         var tabs := HBoxContainer.new()
         tabs.add_theme_constant_override("separation", 0)
         tabs.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -96,14 +93,14 @@ func _build() -> void:
         _tab_login = Button.new()
         _tab_login.text = "LOG IN"
         _tab_login.toggle_mode = true
-        _tab_login.custom_minimum_size = Vector2(170, 36)
+        _tab_login.custom_minimum_size = Vector2(165, 36)
         _tab_login.focus_mode = Control.FOCUS_NONE
         _tab_login.pressed.connect(func() -> void: _set_mode("login"))
         tabs.add_child(_tab_login)
         _tab_signup = Button.new()
         _tab_signup.text = "SIGN UP"
         _tab_signup.toggle_mode = true
-        _tab_signup.custom_minimum_size = Vector2(170, 36)
+        _tab_signup.custom_minimum_size = Vector2(165, 36)
         _tab_signup.focus_mode = Control.FOCUS_NONE
         _tab_signup.pressed.connect(func() -> void: _set_mode("signup"))
         tabs.add_child(_tab_signup)
@@ -111,27 +108,30 @@ func _build() -> void:
         _user = LineEdit.new()
         _user.placeholder_text = "Username"
         _user.text = Api.saved_username   # remembered from last time
-        _user.custom_minimum_size = Vector2(0, 40)
+        _user.custom_minimum_size = Vector2(0, 46)
+        _style_light_input(_user)
         box.add_child(_user)
 
         _pass = LineEdit.new()
         _pass.placeholder_text = "Password"
         _pass.secret = true
-        _pass.custom_minimum_size = Vector2(0, 40)
+        _pass.custom_minimum_size = Vector2(0, 46)
+        _style_light_input(_pass)
         box.add_child(_pass)
 
         _go = Button.new()
         _go.text = "LOG IN"
         _go.theme_type_variation = "BtnBlue"
-        _go.custom_minimum_size = Vector2(0, 46)
+        _go.custom_minimum_size = Vector2(0, 48)
         _go.pressed.connect(_on_action)
         box.add_child(_go)
 
         var note := Label.new()
         note.text = "You only log in ONCE — after that you are signed in\nevery time you open RetroBlox, automatically."
         note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        note.theme_type_variation = "Small"
-        note.add_theme_color_override("font_color", RetroUI.MENU_MUTED)
+        note.add_theme_font_override("font", RetroUI.source(400))
+        note.add_theme_font_size_override("font_size", 12)
+        note.add_theme_color_override("font_color", Color("6b7076"))
         box.add_child(note)
         _status = Label.new()
         _status.text = ""
@@ -153,13 +153,38 @@ func _build() -> void:
         var footer := Label.new()
         footer.text = "Server: retro-blox.vercel.app  ·  locked  ·  your avatar loads from your account"
         footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        footer.theme_type_variation = "Small"
-        footer.add_theme_color_override("font_color", RetroUI.MENU_FAINT)
+        footer.add_theme_font_override("font", RetroUI.source(400))
+        footer.add_theme_font_size_override("font_size", 11)
+        footer.add_theme_color_override("font_color", Color("b3b8be"))
         box.add_child(footer)
 
         _user.text_submitted.connect(func(_t: String) -> void: _pass.grab_focus())
         _pass.text_submitted.connect(func(_t: String) -> void: _on_action())
         _set_mode("login")
+
+
+## The light input wells — the shared theme's LineEdit is the dark client
+## well, so the WHITE card gets its own quiet gray face + blue focus ring.
+func _style_light_input(field: LineEdit) -> void:
+        var normal := RetroUI.surface(10, Color("f2f3f5"), 0, 0.0)
+        normal.content_margin_left = 12.0
+        normal.content_margin_right = 12.0
+        normal.content_margin_top = 10.0
+        normal.content_margin_bottom = 10.0
+        var focus := normal.duplicate()
+        focus.set_border_width_all(2)
+        focus.border_color = RetroUI.BLUE
+        field.add_theme_stylebox_override("normal", normal)
+        field.add_theme_stylebox_override("focus", focus)
+        field.add_theme_stylebox_override("read_only", normal)
+        field.add_theme_color_override("font_color", Color("15171a"))
+        field.add_theme_color_override("font_placeholder_color", Color("9aa0a6"))
+        field.add_theme_color_override("caret_color", RetroUI.BLUE)
+        field.add_theme_color_override("selection_color", Color(0.0, 0.635, 1.0, 0.25))
+        var book: Font = RetroUI.source(400)
+        if book != null:
+                field.add_theme_font_override("font", book)
+                field.add_theme_font_size_override("font_size", 15)
 
 
 func _set_mode(mode: String) -> void:
@@ -168,57 +193,117 @@ func _set_mode(mode: String) -> void:
         _tab_signup.button_pressed = mode == "signup"
         _go.text = "LOG IN" if mode == "login" else "CREATE ACCOUNT"
         _status.text = ""
-        # the segmented-tab read: active = electric blue chip, quiet = dark key
+        # the segmented read: active = the WHITE chip with dark ink,
+        # quiet = transparent with gray ink — iOS-quiet, Roblox-quiet
         for pair in [[_tab_login, "login"], [_tab_signup, "signup"]]:
                 var b: Button = pair[0]
                 var on: bool = pair[1] == mode
                 var sb := StyleBoxFlat.new()
-                sb.bg_color = RetroUI.MENU_ACCENT_SOFT if on else Color("0d1220")
+                sb.bg_color = Color("ffffff") if on else Color(0, 0, 0, 0)
                 sb.set_corner_radius_all(9)
-                sb.border_color = RetroUI.MENU_ACCENT if on else RetroUI.MENU_EDGE
-                sb.set_border_width_all(1 if on else 1)
-                sb.content_margin_top = 6.0
-                sb.content_margin_bottom = 6.0
+                if on:
+                        sb.shadow_color = Color(0, 0, 0, 0.18)
+                        sb.shadow_size = 5
+                        sb.shadow_offset = Vector2(0, 1)
+                sb.content_margin_top = 7.0
+                sb.content_margin_bottom = 7.0
                 for st in ["normal", "hover", "pressed", "hover_pressed"]:
                         b.add_theme_stylebox_override(st, sb)
                 for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-                        b.add_theme_color_override(st, RetroUI.MENU_ACCENT_HI if on else RetroUI.MENU_MUTED)
-                if RetroUI.pixel_font() != null:
-                        b.add_theme_font_override("font", RetroUI.pixel_font())
-                b.add_theme_font_size_override("font_size", 8)
+                        b.add_theme_color_override(st,
+                                Color("15171a") if on else Color("6b7076"))
+                b.add_theme_font_override("font", RetroUI.gotham(700))
+                b.add_theme_font_size_override("font_size", 12)
 
 
-## A deep-night pixel starfield, drawn once in code: two sizes of moon-white
-## stars, a few electric blue and a few gold, scattered with a fixed seed so
-## the sky is the same every boot — the arcade cabinet's backdrop.
-func _add_starfield(bg: ColorRect) -> void:
-        var w := 320
-        var h := 180
-        var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
-        var rng := RandomNumberGenerator.new()
-        rng.seed = 20250101
-        for i in range(110):
-                var x := rng.randi_range(0, w - 1)
-                var y := rng.randi_range(0, h - 1)
-                var roll := rng.randf()
-                var col := Color(1, 1, 1, rng.randf_range(0.25, 0.85))
-                if roll < 0.10:
-                        col = Color(0.0, 0.635, 1.0, rng.randf_range(0.5, 0.9))
-                elif roll < 0.18:
-                        col = Color(0.96, 0.72, 0.24, rng.randf_range(0.45, 0.85))
-                img.set_pixel(x, y, col)
-                if roll > 0.93 and x < w - 1 and y < h - 1:
-                        # a handful of 2-pixel bright stars
-                        img.set_pixel(x + 1, y, Color(col.r, col.g, col.b, col.a * 0.55))
-                        img.set_pixel(x, y + 1, Color(col.r, col.g, col.b, col.a * 0.55))
-        var tex := ImageTexture.create_from_image(img)
-        var stars := TextureRect.new()
-        stars.texture = tex
-        stars.stretch_mode = TextureRect.STRETCH_SCALE
-        stars.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-        stars.set_anchors_preset(Control.PRESET_FULL_RECT)
-        stars.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        bg.add_child(stars)
+## The tilted red logo tile — a rounded square rotated 13 degrees with the
+## classic white R knocked out, drawn once in code (no image needed).
+func _logo_tile_texture() -> ImageTexture:
+        var s := 44
+        var big := 4          # supersample for smooth edges
+        var w := s * big
+        var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
+        var red := Color("e2231a")
+        var ink := Color("ffffff")
+        var half := float(w) / 2.0
+        var rad := deg_to_rad(13.0)
+        var cs := cos(rad)
+        var sn := sin(rad)
+        for y in range(w):
+                for x in range(w):
+                        # rotate the sample point around the center
+                        var dx := (float(x) + 0.5) - half
+                        var dy := (float(y) + 0.5) - half
+                        var rx := dx * cs - dy * sn
+                        var ry := dx * sn + dy * cs
+                        var bx := half + rx
+                        var by := half + ry
+                        var inset := w * 0.10
+                        var p := Vector2(bx, by)
+                        if not RetroUI._in_rounded_px(p,
+                                        Rect2(inset, inset, w - inset * 2.0, w - inset * 2.0),
+                                        w * 0.16):
+                                continue
+                        var col := red
+                        # the white R: two verticals + two diagonals, knocked
+                        # out of the tile — reads instantly at 44px
+                        var u := (bx - inset) / (w - inset * 2.0)   # 0..1 across the tile
+                        var v := (by - inset) / (w - inset * 2.0)
+                        var stroke := 0.11
+                        var in_r := false
+                        if v > 0.18 and v < 0.82:
+                                if u > 0.26 and u < 0.26 + stroke:
+                                        in_r = true          # the stem
+                                if v < 0.48 and u > 0.26 and u < 0.74:
+                                        var bowl := absf(v - 0.33) < stroke * 0.5
+                                        var wall := u > 0.74 - stroke
+                                        if bowl or wall:
+                                                in_r = true  # the bowl
+                                if v >= 0.48 and v < 0.82:
+                                        var leg := u - 0.26
+                                        var slope := (v - 0.48) * 1.25
+                                        if absf(leg - slope) < stroke * 0.9 and leg < 0.5:
+                                                in_r = true  # the leg
+                        if in_r:
+                                col = ink
+                        img.set_pixel(x, y, col)
+        img.resize(s, s, Image.INTERPOLATE_BILINEAR)
+        return ImageTexture.create_from_image(img)
+
+
+## The backdrop: two HUGE soft color glows (blue lower-left, warm orange
+## upper-right) over the deep backdrop — the modern Roblox sign-in mood.
+func _add_glow_bg(bg: ColorRect) -> void:
+        var size := 560
+        var img := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+        var c := Vector2(size / 2.0, size / 2.0)
+        for y in range(size):
+                for x in range(size):
+                        var d := Vector2(float(x) + 0.5, float(y) + 0.5).distance_to(c) / (size / 2.0)
+                        var a := clampf(1.0 - d, 0.0, 1.0)
+                        img.set_pixel(x, y, Color(1, 1, 1, a * a))   # soft falloff
+        var mask := ImageTexture.create_from_image(img)
+        for spec: Array in [
+                # [color, screen pos, size, alpha]
+                [Color("00a2ff"), Vector2(0.12, 0.88), 1.15, 0.16],
+                [Color("ff8a3d"), Vector2(0.90, 0.10), 1.0, 0.10],
+                [Color("7a4dff"), Vector2(0.85, 0.85), 0.9, 0.08],
+        ]:
+                var glow := TextureRect.new()
+                glow.texture = mask
+                glow.modulate = Color((spec[0] as Color).r, (spec[0] as Color).g,
+                        (spec[0] as Color).b, float(spec[3]))
+                var gsize := float(size) * float(spec[2])
+                glow.custom_minimum_size = Vector2(gsize, gsize)
+                glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                glow.stretch_mode = TextureRect.STRETCH_SCALE
+                glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                var pos: Vector2 = spec[1]
+                glow.offset_left = pos.x * 1280.0 - gsize / 2.0
+                glow.offset_top = pos.y * 720.0 - gsize / 2.0
+                glow.offset_right = glow.offset_left + gsize
+                glow.offset_bottom = glow.offset_top + gsize
+                bg.add_child(glow)
 
 
 func _set_status(text: String, is_error := true) -> void:

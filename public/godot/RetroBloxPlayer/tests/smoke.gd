@@ -534,14 +534,14 @@ func _run_all() -> void:
         check(bubble_src.contains("MAX_STACK := 3"),
                 "chat bubbles stack (Roblox-style tower, capped at 3)")
         # --- v3.9: the CLASSIC CLIENT — the ESC menu, rebuilt from scratch ---
-        check(game_src.contains("_menu_title_bar") and game_src.contains("_menu_footer"),
-                "the menu is a CLIENT WINDOW now (title bar + action footer)")
+        check(game_src.contains("_menu_header") and game_src.contains("_menu_footer"),
+                "the menu is a CLIENT WINDOW now (avatar header + action footer)")
         check(game_src.contains("_nav_button") and game_src.contains("_style_nav"),
-                "LEFT NAV RAIL: People/Settings keys with a red open-page notch")
+                "LEFT NAV RAIL: icon-only People/Settings keys, the open page lit blue")
         check(game_src.contains("_players_grid") and game_src.contains("_player_card"),
                 "People page is a CARD GRID (portrait + name + live stats)")
         check(game_src.contains("_render_portrait") and game_src.contains("_portrait_cache"),
-                "cards wear rendered AVATAR PORTRAITS (low-res pixel shots, cached)")
+                "cards wear rendered AVATAR PORTRAITS (hi-res shots, cached)")
         check(game_src.contains("_fps_chip") and game_src.contains("_ping_chip")
                 and game_src.contains("_update_live_stats"),
                 "YOUR fps + ping live in the rail and breathe every half second")
@@ -549,35 +549,44 @@ func _run_all() -> void:
                 "every card shows the OTHER player's real ping + fps")
         check(game_src.count("KEY_R") >= 2,
                 "R opens the ESC menu from the game (and still resets inside it)")
-        check(game_src.contains("_hint_chip"),
-                "menu hotkeys wear keycap chips ([ENTER] chat / [ESC] resume / [R] / [L])")
+        check(game_src.contains("_header_portrait"),
+                "the menu header wears YOUR mini avatar (the Roblox headshot slot)")
         check(game_src.contains("head_icon"),
                 "cards fall back to the classic smiley before the shot lands")
         check(game_src.contains("icon_texture"),
-                "action + nav buttons wear retro icons (play / door / people / gear)")
-        check(ResourceLoader.exists("res://assets/fonts/PressStart2P-Regular.ttf"), "pixel font ships (Press Start 2P)")
-        check(ResourceLoader.exists("res://assets/ui/steel_panel.jpg"), "brushed-steel texture ships")
+                "action + nav buttons wear the code-drawn icons (play / door / people / gear)")
+        # --- v6.0: THE BLOX CLIENT — the REAL ROBLOX look, Montserrat voice,
+        # near-black rounded surfaces, white primary key, ONE blue accent ---
+        check(ResourceLoader.exists("res://assets/fonts/Montserrat-Bold.ttf"),
+                "the Gotham voice ships (Montserrat static weights)")
+        check(ResourceLoader.exists("res://assets/fonts/SourceSans3-Regular.ttf"),
+                "the classic chat voice ships (Source Sans 3 static weights)")
         check(ResourceLoader.exists("res://assets/ui/clouds_bg.jpg"), "pixel-cloud backdrop ships")
         var theme_src := FileAccess.get_file_as_string("res://scripts/ui/retro_theme.gd")
-        check(theme_src.contains("PressStart2P"), "retro theme speaks in the pixel voice")
-        check(theme_src.contains("bevel_texture"),
-                "keycaps are TRUE bevels (light top/left, dark bottom/right)")
-        # --- v5.0: THE MIDNIGHT CLIENT — dark retro, pixel-first, blue accent ---
-        check(theme_src.contains("MENU_ACCENT := Color(\"00a2ff\")")
-                and theme_src.contains("MENU_INK := Color(\"eaf0fb\")")
-                and theme_src.contains("MENU_EDGE := Color(\"323d58\")")
-                and theme_src.contains("MENU_GOLD"),
-                "the menu wears the MIDNIGHT palette (dark glass, moon ink, blue accent, gold stats)")
-        check(theme_src.contains("clean_font") and theme_src.contains("LiberationSans-Bold.ttf"),
-                "the clean voice ships (Liberation for body + names)")
-        check(theme_src.contains("mono_surface"),
-                "every menu surface is one dark card (round corners, moonlit border)")
+        check(theme_src.contains("Montserrat-Bold.ttf") and theme_src.contains("GOTHAM_PATHS"),
+                "the theme speaks in the Montserrat voice with static per-weight files")
+        check(theme_src.contains("func gotham") and theme_src.contains("func source"),
+                "two text voices: gotham() for titles/buttons, source() for chat/body")
+        check(theme_src.contains('MENU_BG := Color(0.106, 0.114, 0.125, 0.97)')
+                and theme_src.contains('MENU_ACCENT := Color("00a2ff")')
+                and theme_src.contains('MENU_INK := Color("ffffff")')
+                and theme_src.contains('MENU_RED := Color("ff4a4a")'),
+                "the menu wears the BLOX palette (#1B1D20 glass, white ink, blue accent, red danger)")
+        check(theme_src.contains("func surface(") and theme_src.contains("func well(")
+                and theme_src.contains("func wash("),
+                "surfaces are borderless rounded cards with soft shadows (elevation, not outlines)")
+        check(theme_src.contains("BtnWhite"),
+                "the theme ships the WHITE primary button (the real client's Resume read)")
         check(theme_src.contains("\"people\"") and theme_src.contains("\"gear\""),
                 "nav icons drawn in code (people crowd + gear)")
         check(theme_src.contains("icon_texture(kind: String, ink"),
-                "icons draw in ANY ink (white on the blue key, moon ink on dark keys)")
+                "icons draw in ANY ink (dark on the white key, white on dark keys)")
+        check(not theme_src.contains("PressStart2P"),
+                "the pixel-cabinet voice is GONE from the theme (the Roblox look is smooth)")
+        check(not theme_src.contains("bevel_texture"),
+                "the bevel keycap engine is deleted (nothing chunky anywhere)")
         check(game_src.contains("MENU_ACCENT") and game_src.contains("MENU_INK"),
-                "nav + keys speak in moon ink with the blue accent (no dark-on-dark anywhere)")
+                "nav + keys speak in white ink with the blue accent (no dark-on-dark anywhere)")
 
         # --- v3.9: the wood is HISTORY ---
         check(not theme_src.contains("wood"),
@@ -603,21 +612,21 @@ func _run_all() -> void:
         check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
                 "the menu references zero texture helpers (flat dark cards)")
         check(not game_src.contains("_gloss_btn") and game_src.contains("_key_btn")
-                and game_src.contains("_accent_btn"),
-                "every menu key is a dark cabinet key (dark default, blue primary)")
-        check(game_src.contains("mono_surface(16"),
-                "the client window is midnight glass with ROUND corners")
-        check(game_src.contains("\"primary\")") and game_src.contains("\"danger\")"),
-                "Resume is the BLUE key, Leave speaks in red (functional color)")
+                and game_src.contains("_white_btn"),
+                "every menu key is family-styled (dark default, WHITE primary, red danger)")
+        check(game_src.contains("_client_style()") and game_src.contains("surface(18, RetroUI.MENU_BG"),
+                "the client window is a borderless near-black card with ROUND corners")
+        check(game_src.contains('"primary")') and game_src.contains('"danger")'),
+                "Resume is the WHITE key, Leave speaks in red (functional color)")
         check(theme_src.contains("MENU_RED :=") ,
                 "red exists ONLY as the danger voice (Leave, close-hover, badge)")
         check(theme_src.contains("f5cd30"),
                 "the fallback head is the CLASSIC YELLOW smiley again")
         check(not theme_src.contains("checker_texture"),
-                "the checker well is replaced by the deep midnight inset (avatar bg)")
+                "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains('ver.text = "v5.0"'), "the rail wears v5.0")
+        check(game_src.contains('ver.text = "v6.0"'), "the rail wears v6.0")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(game_src.contains("TEXTURE_FILTER_LINEAR"),
@@ -658,6 +667,13 @@ func _run_all() -> void:
         var proj_src := FileAccess.get_file_as_string("res://project.godot")
         check(proj_src.contains("msaa_3d=2") and proj_src.contains("anisotropic_filtering_level=4"),
                 "the renderer ships 4x MSAA + anisotropic filtering (nothing blurry)")
+        # --- the v6.0 HUD — the real client's chrome ---
+        check(game_src.contains("_health_track_w") and game_src.contains("PRESET_CENTER_BOTTOM"),
+                "the health bar lives BOTTOM-CENTER (the classic Roblox dock)")
+        check(game_src.contains("UserPill") and game_src.contains("_open_menu(\"settings\")"),
+                "the top-right user pill parks your name + the settings gear")
+        check(game_src.contains("KEY_SLASH"),
+                "the SLASH key opens the chat (the real client's 'press / key')")
         # --- the chat quality pass (v3.11) + the v4.0 daylight chat ---
         check(game_src.contains("KEY_F") and chat_src.contains("toggle_read")
                 and chat_src.contains("is_reading"),
@@ -670,12 +686,14 @@ func _run_all() -> void:
                 "LEAVE closes the game now (web reloads the place)")
         check(game_src.contains('_pill_button("res://assets/icons/logo.png", "ESC Menu")'),
                 "the pill's R button OPENS the ESC menu")
-        check(chat_src.contains("2b3550") and chat_src.contains("dfe8f6"),
-                "the chat is midnight glass now (moon-white text, moonlit border)")
+        check(chat_src.contains("To chat click here or press / key"),
+                "the chat input wears the AUTHENTIC Roblox placeholder")
+        check(chat_src.contains("f2f3f4") and chat_src.contains("surface(12"),
+                "the chat is near-black translucent glass now (white text, no border)")
         check(chat_src.contains("ffd23f"),
                 "chat name colors are tuned for the dark face (bright arcade set)")
         check(game_src.contains('RetroUI.icon_texture("chat", RetroUI.MENU_INK)'),
-                "the white pill's chat key wears the code-drawn ink bubble")
+                "the pill's chat key wears the code-drawn ink bubble")
         check(bubble_src.contains("SHOW_SECONDS := 9.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
                 "bubbles linger 9s and fade out SLOWLY")
         check(bubble_src.contains("_fade_out"),
@@ -688,10 +706,12 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "5.0"') and login_src4.contains("BtnBlue"),
-                "login wears the midnight arcade card (v5.0, blue action key)")
-        check(login_src4.contains("_add_starfield"),
-                "the login backdrop is the code-drawn pixel starfield")
+        check(login_src4.contains('VERSION := "6.0"') and login_src4.contains("BtnBlue"),
+                "login wears the BLOX white card (v6.0, blue action key)")
+        check(login_src4.contains("_add_glow_bg") and login_src4.contains("_logo_tile_texture"),
+                "the login backdrop is the glow field + the tilted red logo tile")
+        check(login_src4.contains("gotham(800)"),
+                "the login speaks Montserrat ExtraBold (the wordmark voice)")
 
         # --- v3.9: presence carries everyone's live stats ---
         var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")

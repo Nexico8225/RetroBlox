@@ -9,16 +9,16 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v5.0 "Midnight"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=5.0'
+const VERSION = 'v6.0 "BLOX"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=6.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['The MIDNIGHT client — a proper retro game UI', 'The whole client is rebuilt as a dark arcade cabinet: deep navy glass windows with bold outlines, chunky Press Start 2P type carrying every title, key and stat, ONE electric RetroBlox blue accent and gold arcade readouts. The blinding daylight skid is gone — the UI sits dark so the world carries the color and your eyes keep their night vision.'],
-  ['The avatar portrait is SHARP now', 'The ESC-menu cards rendered at 64x84 and upscaled — chunky pixel mush. They now render at 320x448 with 4x MSAA and draw smooth: your face, shirt, t-shirt decal and hat all land crisp before the one-shot snapshot fires.'],
-  ['STAIRS DOUBLED — walk up 2-stud ledges', 'The real culprit was a physics bug: move_and_slide\'s floor snap kept dragging the stair glide back down every frame, so anything over ~1 stud behaved like a wall. With the snap suspended during the glide and the step raised to 3.2 studs, 1-stud AND 2-stud platforms (and then some) roll under your feet like stairs — verified walking the real Happy Baseplate fort.'],
-  ['The AUTHENTIC Roblox stud', 'The stud tile is baked properly now: a raised bump with a lit top-left rim, a shaded bottom-right rim and a soft contact shadow, multiplied over the part color — tops read as real studded plastic from any distance.'],
-  ['The world stops blinding you', 'FILMIC tonemap was lifting every midtone into a pastel wash. LINEAR tonemap + calmer ambient + gentler sun = the classic flat plastic look: the gray baseplate reads gray, red bricks read red, and the studs actually show.'],
-  ['Nothing blurry', '4x MSAA on the world, anisotropic filtering on the stud tiles, the portrait at 5x resolution — edges and textures land crisp everywhere.'],
+  ['A COMPLETELY NEW UI — the REAL ROBLOX CLIENT look', 'Every pixel of the client chrome is rebuilt to read like the real thing: near-black rounded surfaces with soft shadows and NO borders, the WHITE Resume key with dark ink, Roblox blue as the single accent, Montserrat (the Gotham voice) on every title, button and name, Source Sans 3 in the chat. No more pixel type, no more arcade cabinet — just the clean, dark, familiar client.'],
+  ['The ESC menu, exactly like the real menu', 'One near-black window: YOUR headshot + name in the header, an icon rail on the left that lights up blue, the People cards with sharp portraits, and the footer keys — Resume = big WHITE key, Leave = red. The topbar gains the top-right USER PILL: your name + the settings gear, parked exactly where Roblox keeps them.'],
+  ['The classic bottom-center HEALTH BAR', 'The health bar leaves the side plate and sits BOTTOM-CENTER like the classic client: a dark rounded track, green fill, the number inside, draining red as you take damage.'],
+  ['The ROBLOX LOGIN page', 'A white rounded card on a deep backdrop with soft color glows: the tilted red logo tile + RETROBLOX wordmark in Montserrat ExtraBold, quiet gray wells, the blue LOG IN key — the sign-in screen looks like the site\'s.'],
+  ['Chat = the real chat', 'Near-black translucent rounded panels, Source Sans text, bright name colors, and the authentic input placeholder: "To chat click here or press / key" — and the / key actually opens the chat now.'],
+  ['Everything sharp stays sharp', 'The portrait pipeline (320x448 + 4x MSAA), 4x world MSAA, anisotropic stud tiles and LINEAR true-color lighting all carry over — and the menu header now wears a cropped HEADSHOT of your avatar, rendered from the same sharp shot.'],
 ]
 
 const FILES = [
@@ -27,7 +27,7 @@ const FILES = [
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The in-game login / SIGN UP card — server URL locked, guests welcome'],
-  ['scripts/ui/retro_theme.gd', 'The v5.0 midnight UI: dark navy glass + moon ink + RetroBlox blue + gold, Press Start 2P as the loud voice, TRUE bevel keycaps + pixel icons drawn in code, your cursors'],
+  ['scripts/ui/retro_theme.gd', 'The v6.0 BLOX UI: near-black rounded surfaces + soft shadows + NO borders, Montserrat (Gotham voice) + Source Sans 3, the WHITE primary key + Roblox blue accent, code-drawn icons, your cursors'],
   ['scripts/ui/avatar_portrait.gd', 'Renders each player\'s REAL avatar at 320x448 with 4x MSAA for the ESC menu People cards (offscreen viewport, cached)'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],

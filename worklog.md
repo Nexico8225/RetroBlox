@@ -194,3 +194,22 @@ Work Log:
 
 Stage Summary:
 - v5.0 "Midnight" live on main: dark retro arcade client, sharp 320x448 portraits, 2-stud stairs verified in the real world (the floor-snap bug was the true culprit all along), authentic studs, true-color lighting, 4x MSAA everywhere; owner must re-download the kit zip (?v=5.0 busts the cache)
+
+---
+Task ID: godot-v600-blox-client
+Agent: Super Z (main)
+Task: v6.0 — user (with screenshot): "i said make a completely new Good UI you dint i downloaded it from https://retro-blox.vercel.app/sdk and it dint work make a completely new UI like roblox"
+
+Work Log:
+- Diagnosed the "/sdk download" first: the repo zip IS the v5.0 build (md5 12f22bbd), the live Vercel etag matches it, a fresh unzip imports + boots + renders + passes the stairs verdict under Xvfb — the kit itself works, the user's failure was a stale/cached or transient download; ?v=6.0 busts it anyway
+- ROOT-CAUSED the thin-text trap: variable-font variation_opentype does NOT apply in this Godot build (ink test: w100 == w900 identical) and the Montserrat VF defaults to its THIN instance — so v6.0 ships STATIC per-weight TTFs (Montserrat Regular/Medium/SemiBold/Bold/ExtraBold from JulietaUla upstream, Source Sans 3 Regular/Semibold/Bold from Adobe upstream); PressStart2P is OUT of the kit entirely
+- retro_theme.gd rebuilt as the BLOX theme: #1B1D20-family palette, borderless rounded surfaces + soft shadows (surface/well/wash helpers), gotham()/source() voice loaders with static weights, BtnWhite primary variation, supersampled AA icons (2x draw + bilinear downscale), classic smiley fallback kept, cursors kept
+- game.gd: ESC menu rebuilt as the REAL client window — header with YOUR cropped HEADSHOT + name + "Playing <place>" + quiet X, icon-only nav rail (open page lit blue), People cards + blue-ringed own card, footer = WHITE Resume key + dark Reset/LogOut + red Leave + one hint line; topbar gains the TOP-RIGHT USER PILL (name + settings gear); health bar moved BOTTOM-CENTER (classic dock, green fill + number inside, drains right-to-left); toasts near-black; settings page restyled (flat dark anim keys, Source Sans toggles); SLASH now opens the chat
+- login.gd: the ROBLOX sign-in — white rounded card (code-drawn tilted red logo tile + RETROBLOX in Montserrat ExtraBold), light gray input wells with blue focus ring, segmented white-chip tabs, blue LOG IN key, soft color-glow backdrop (blue/orange/violet)
+- chat_box.gd: near-black translucent rounded panels, Source Sans log + bold names, the AUTHENTIC placeholder "To chat click here or press / key"
+- smoke.gd rewritten for v6.0 (fonts, BLOX palette, surface()/well(), BtnWhite, _white_btn, headshot header, UserPill, KEY_SLASH, bottom-center health, static-weight checks, no PressStart2P/bevel) — SMOKE_OK in-tree AND fresh-unzip (after --import)
+- v600_shot.gd boots the real game: portrait 320x448 + headshot + stairs verdict + menu/settings/HUD/world/login shots; screenshots copied to /download
+- Web: SdkView v6.0 "BLOX" 6 news entries + FILES updated, HomeView + SdkView zip ?v=6.0, sdk page title "Player v6"; npm build OK; kit README rewritten for v6.0; zip rebuilt (156 files md5 e6cc0c9b)
+
+Stage Summary:
+- v6.0 "BLOX" live on main: the completely-new Roblox-client UI (the user's exact ask), thin-text root cause killed with static font weights, download path verified end-to-end (fresh unzip boots, renders, passes); owner must re-download the kit zip (?v=6.0 busts the cache)

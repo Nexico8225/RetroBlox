@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://g1ds8ufmqhl1"
-path="res://.godot/imported/PressStart2P-Regular.ttf-e20d5ff307f5ecfa1e9984f5c6184197.fontdata"
+uid="uid://cmmh8px1ds5kg"
+path="res://.godot/imported/SourceSans3-Semibold.ttf-1712de9505b311d9420d1e4c798ccc88.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/PressStart2P-Regular.ttf"
-dest_files=["res://.godot/imported/PressStart2P-Regular.ttf-e20d5ff307f5ecfa1e9984f5c6184197.fontdata"]
+source_file="res://assets/fonts/SourceSans3-Semibold.ttf"
+dest_files=["res://.godot/imported/SourceSans3-Semibold.ttf-1712de9505b311d9420d1e4c798ccc88.fontdata"]
 
 [params]
 

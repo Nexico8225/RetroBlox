@@ -3,13 +3,15 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v5.0 "Midnight" is a proper retro game
-client: deep navy glass UI with chunky Press Start 2P type, one electric
-RetroBlox blue accent, gold arcade readouts — and the world renders in TRUE
-colors with the authentic Roblox studs. Stairs are DOUBLED (walk up 1- AND
-2-stud ledges like stairs), the ESC-menu portraits render sharp at
-320x448 with 4x MSAA, and the renderer ships 4x MSAA + anisotropic
-filtering so nothing is blurry.
+through the RetroBlox platform API. v6.0 "BLOX" is the REAL ROBLOX CLIENT
+look: near-black rounded surfaces with soft shadows, Montserrat carrying
+every title/button/name (the Gotham voice), Source Sans 3 in the chat, the
+WHITE Resume key, one Roblox blue accent, a top-right user pill with the
+settings gear, a bottom-center health bar, and the menu header wearing
+YOUR headshot. The world renders in TRUE colors with the authentic Roblox
+studs. Stairs are DOUBLED (walk up 1- AND 2-stud ledges like stairs), the
+ESC-menu portraits render sharp at 320x448 with 4x MSAA, and the renderer
+ships 4x MSAA + anisotropic filtering so nothing is blurry.
 
 > One platform, every engine. Everything here is plain HTTP + JSON against
 > `https://retro-blox.vercel.app` — the same API the website and the future
@@ -49,16 +51,16 @@ the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
-### The ESC menu — the 2016 skid client (v4.0)
+### The ESC menu — the BLOX client (v6.0)
 
-The menu is one clean WHITE glass window: round corners, a quiet gray
-border, a soft shadow, and RetroBlox blue as the single accent — the open
-page wears a soft blue chip with a blue notch, YOUR card wears the blue
-ring, and **Resume** is the big blue key (white icon + text). Reset /
-Log Out are clean white keys with muted ink icons; Leave speaks in red.
-The hint bar wears real light keycap chips (`[ENTER] chat · [ESC] resume ·
-[R] menu · [L] leave`). Titles and buttons speak a clean sans; the retro
-garnish (stats, clock, keycaps, version tag) stays Press Start 2P.
+The menu is one near-black rounded window with a big soft shadow and NO
+borders — elevation does the separating, exactly like the real client. The
+header parks YOUR headshot + name + the place you're playing; the left
+rail is icon-only (the open page lights up blue); **Resume** is the big
+WHITE key with dark ink, Reset/Log Out are dark keys, and Leave speaks in
+red. One quiet hint line rides the footer (`ESC resume · ENTER chat · F
+read · R menu · L leave · SHIFT shift-lock`). Montserrat speaks every
+title, button and name; Source Sans 3 reads the stats.
 
 ### Your avatar — the real account look, everywhere
 
@@ -70,23 +72,29 @@ website uses — so your equipped t-shirt is ON in-game. Opening the menu
 re-fetches your account avatar live: change your look on the site, reopen
 the menu, and your character re-dresses on the spot.
 
-### The HUD (the reference-video layout, original RetroBlox skin)
+### The HUD (the real client's chrome)
 
-- **Top-left pill** — white daylight pill: RetroBlox logo (opens the menu)
-  + chat (with a red unread badge while the chat is tucked away). Esc and
-  **R** open the menu too; P opens the player list.
-- The chat starts hidden — ENTER or the chat pill opens the log AND the
-  type box together, and closing removes both. Messages said while it is
-  hidden stack the badge.
-- **Right edge** — the vertical **Health** bar in a white plate with the
-  value chip; it drains red as you take fall damage and refills with the
-  classic 1%/s regen.
-- **Top-center** — white toast pills ("eh_raiderbomber joined you") when
-  someone new appears in the place.
+- **Top-left pills** — near-black rounded keys: the RetroBlox logo (opens
+  the menu) + chat (with a red unread badge while the chat is tucked
+  away). Esc and **R** open the menu too; **/** or Enter opens the chat.
+- **Top-right pill** — your username + the settings gear (opens the menu's
+  Settings page), parked exactly where the real client keeps them.
+- The chat starts hidden — ENTER, **/** or the chat pill opens the log AND
+  the type box together, and closing removes both. Messages said while it
+  is hidden stack the badge. The input wears the authentic placeholder:
+  "To chat click here or press / key".
+- **Bottom-center** — the classic horizontal **Health** bar: green fill,
+  the number inside, drains red as you take fall damage and refills with
+  the classic 1%/s regen.
+- **Top-center** — near-black toast pills ("eh_raiderbomber joined you")
+  when someone new appears in the place.
 - **Chat bubbles** appear over the head of whoever is talking — you too —
   and they STACK the Roblox way: every message is its own bubble, the
   newest parks just above the head and older ones climb up, up to three
   at a time.
+- **Login** — the Roblox sign-in card: a white rounded card (tilted red
+  logo tile + RETROBLOX wordmark in Montserrat ExtraBold), quiet gray
+  wells, the blue action key, and a deep backdrop with soft color glows.
 
 ### Settings (Esc → Settings)
 
