@@ -230,6 +230,145 @@ static func glass(alpha := 0.8, radius := 4) -> StyleBoxFlat:
         return sb
 
 
+# ---- v12.0 "SITE GLOSS" — the palette sampled OFF retro-blox.vercel.app:
+# the bright blue gloss chrome, the white paper cards, the steel-blue card
+# borders, and the three action glosses (green Play, red Log Out, steel).
+const SITE_BLUE := Color("0d80c6")        # the header gloss top
+const SITE_BLUE_DK := Color("0971b4")     # the header gloss bottom
+const SITE_BLUE_HI := Color("33a6e6")     # the hover / highlight blue
+const SITE_BLUE_INK := Color("1c3a52")    # steel-navy ink on paper
+const SITE_INK_MUTED := Color("5f7d99")   # secondary ink on paper
+const SITE_INK_FAINT := Color("8aa0b5")   # hints / stats
+const SITE_STEEL := Color("6e8ca8")       # the card border steel blue
+const SITE_STEEL_LO := Color("c9d7e4")    # the quiet hairline border
+const SITE_PAPER := Color("ffffff")       # the white card
+const SITE_PAGE := Color("ebf2f9")        # the page behind the cards
+const SITE_WELL := Color("e2e6ec")        # the sunken PFP well
+const SITE_GREEN := Color("02b757")       # the Play gloss face
+const SITE_GREEN_HI := Color("0cca65")
+const SITE_GREEN_LO := Color("029e4c")
+const SITE_GREEN_DK := Color("027e3c")    # the green outline
+const SITE_RED := Color("e63229")
+const SITE_RED_HI := Color("f04a40")
+const SITE_RED_LO := Color("c11d15")
+const SITE_RED_DK := Color("8c130d")
+const SITE_BTN_STEEL_HI := Color("fcfcfc")
+const SITE_BTN_STEEL := Color("efefef")
+const SITE_BTN_STEEL_LO := Color("dcdcdc")
+const SITE_BTN_STEEL_DK := Color("a9bccb")
+
+
+## The 2011 SITE GLOSS — the exact button the old website wore and the
+## rebuilt site wears today: a vertical gradient with a HARD shine cut
+## across the middle, a darker base, and a bold near-black outline baked
+## into the texture (StyleBoxFlat cannot gradient — this is a real 9-patch,
+## corners baked at 64px so every radius lands round and clean).
+static func gloss(top: Color, bottom: Color, outline: Color, radius := 8) -> StyleBoxTexture:
+        var key := "gloss_%s_%s_%s_%d" % [top.to_html(), bottom.to_html(), outline.to_html(), radius]
+        if _icon_cache.has(key):
+                var hit: StyleBoxTexture = _icon_cache[key]
+                return hit.duplicate() as StyleBoxTexture
+        var s := 64
+        var img := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
+        img.fill(Color(0, 0, 0, 0))
+        var rad := float(radius) * 2.0           # baked at 2x, margins scale it
+        var cut := float(s) * 0.46               # the hard gloss cut
+        for y in range(s):
+                for x in range(s):
+                        var p := Vector2(float(x) + 0.5, float(y) + 0.5)
+                        if not _in_rounded_px(p, Rect2(1, 1, s - 2, s - 2), rad):
+                                continue
+                        var col: Color
+                        if float(y) <= cut:
+                                # the shine half — from the bright top down to
+                                # the face color, with the white flash band
+                                # sitting right on the cut
+                                var t := float(y) / cut
+                                col = top.lerp(bottom, t * 0.55)
+                                if y > cut - 3.0:
+                                        col = col.lerp(Color(1, 1, 1), 0.42)
+                                elif y > cut - 5.0:
+                                        col = col.lerp(Color(1, 1, 1), 0.18)
+                        else:
+                                var t2 := (float(y) - cut) / float(s - cut)
+                                col = bottom.lerp(bottom.darkened(0.22), t2)
+                        # the bold outline ring — the 2011 read
+                        var inner := Rect2(3, 3, s - 6, s - 6)
+                        if not _in_rounded_px(p, inner, maxf(rad - 2.0, 1.0)):
+                                col = outline
+                        img.set_pixel(x, y, col)
+        var tex := ImageTexture.create_from_image(img)
+        var sb := StyleBoxTexture.new()
+        sb.texture = tex
+        var m := 10.0
+        sb.texture_margin_left = m
+        sb.texture_margin_right = m
+        sb.texture_margin_top = m
+        sb.texture_margin_bottom = m
+        sb.content_margin_left = 14.0
+        sb.content_margin_right = 14.0
+        sb.content_margin_top = 8.0
+        sb.content_margin_bottom = 8.0
+        _icon_cache[key] = sb
+        return sb.duplicate() as StyleBoxTexture
+
+
+## The wide SITE gloss key (footer actions, Apply): face colors + outline.
+static func gloss_key(hi: Color, lo: Color, outline: Color) -> StyleBox:
+        return gloss(hi, lo, outline, 8)
+
+
+## A tinted copy of a shipped icon PNG — the internet icons are white ink,
+## and the light paper surfaces need the steel-navy read too.
+static func icon_png_tinted(kind: String, ink: Color) -> Texture2D:
+        var key := "png_%s_%s" % [kind, ink.to_html()]
+        if _icon_cache.has(key):
+                return _icon_cache[key]
+        var src := icon_png(kind, ink)
+        if src == null:
+                return null
+        var img := src.get_image()
+        if img == null or img.is_empty():
+                return src
+        if img.is_compressed():
+                img.decompress()
+        if img.get_format() != Image.FORMAT_RGBA8:
+                img.convert(Image.FORMAT_RGBA8)
+        for y in range(img.get_height()):
+                for x in range(img.get_width()):
+                        var c := img.get_pixel(x, y)
+                        if c.a > 0.01:
+                                var lum := c.r * 0.4 + c.g * 0.45 + c.b * 0.15
+                                var shade := lerpf(0.35, 1.15, lum)
+                                img.set_pixel(x, y, Color(
+                                        clampf(ink.r * shade, 0, 1),
+                                        clampf(ink.g * shade, 0, 1),
+                                        clampf(ink.b * shade, 0, 1), c.a))
+        var tex := ImageTexture.create_from_image(img)
+        _icon_cache[key] = tex
+        return tex
+
+
+## The tinted icon at KEY size — the raw 140px PNG would fill the button
+## (the giant respawn arrow bug), so tint then downscale in one seat.
+static func icon_png_tinted_sized(kind: String, ink: Color, px: int) -> Texture2D:
+        var key := "png_%s_%s_%d" % [kind, ink.to_html(), px]
+        if _icon_cache.has(key):
+                return _icon_cache[key]
+        var src := icon_png_tinted(kind, ink)
+        if src == null:
+                return null
+        var img := src.get_image()
+        if img == null or img.is_empty():
+                return src
+        if img.is_compressed():
+                img.decompress()
+        img.resize(px, px, Image.INTERPOLATE_LANCZOS)
+        var tex := ImageTexture.create_from_image(img)
+        _icon_cache[key] = tex
+        return tex
+
+
 # ---------------------------------------------------------------- retro bits
 
 static var _icon_cache: Dictionary = {}

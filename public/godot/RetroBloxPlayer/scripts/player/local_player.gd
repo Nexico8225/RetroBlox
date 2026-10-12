@@ -117,6 +117,7 @@ var _step_dir := Vector3.ZERO     # last walk wish — step-ups probe THIS, not
                                   # the slid velocity (a head-on wall zeroes it)
 var _bounce_cd := 0.0
 var _time := 0.0
+var _settings: Node = null            # v12.0: the Settings autoload (bunny hop reads it live)
 var _steps_loop: AudioStreamPlayer3D
 var _climb_loop: AudioStreamPlayer3D
 var _fall_loop: AudioStreamPlayer3D
@@ -158,6 +159,7 @@ func _init() -> void:
 
 func _ready() -> void:
         # autoloads are reachable from _ready — never from _init
+        _settings = get_node_or_null("/root/Settings")
         _setup_character_sfx()
 
 
@@ -215,11 +217,14 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
                 _step_dir = wish.normalized()
 
         # jump buffering + coyote time — responsive without feeling floaty.
-        # HOLDING the key re-fills the buffer every grounded frame, so the
-        # player keeps hopping the moment they land (classic bunny hop)
+        # HOLDING the key re-fills the buffer every grounded frame so the
+        # player keeps hopping (classic bunny hop) — v12.0: only while the
+        # BUNNY HOP setting is on; off means one jump per press, exactly
+        # like the modern client.
+        var hop_on := (_settings == null) or bool(_settings.get("bunny_hop"))
         if just_pressed:
                 _jump_buffer_left = JUMP_BUFFER
-        elif jump_held and (grounded or _coyote > 0.0) and _climb_kind == ClimbKind.NONE:
+        elif jump_held and hop_on and (grounded or _coyote > 0.0) and _climb_kind == ClimbKind.NONE:
                 _jump_buffer_left = JUMP_BUFFER
         elif _jump_buffer_left > 0.0:
                 _jump_buffer_left -= delta

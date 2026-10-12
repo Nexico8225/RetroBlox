@@ -3,23 +3,28 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v11.0 "BLACK GLASS" — THE OLD LOGIN IS
-BACK: the white card, the tilted red tile, the RETROBLOX wordmark, the
-Log In / Sign Up tabs and the big CLASSIC GREEN Log In key, sitting on a
-real photograph of the classic baseplate. THE ESC MENU IS BLACK GLASS: a
-deep translucent-black rounded panel (the game stays live behind it) with
-two tabs — People / Settings — wearing REAL internet icon PNGs, the
-"In this server" card grid, and the footer keys [L] Leave / [R] Respawn /
-[ESC] Resume with Resume in the classic green. GALLERY / REPORT / HELP
+through the RetroBlox platform API. v12.0 "SITE GLOSS" — THE CLIENT WEARS
+THE SITE: the ESC menu is the retro-blox.vercel.app look, sampled off the
+real thing — a white PAPER card with the steel-blue border and a BLUE
+GLOSS header strip (logo + RETROBLOX + live clock), folder tabs wearing
+REAL internet icon PNGs, the "In this server" white card grid, and the
+three GLOSS keys — red Leave, steel Respawn, green Resume — the exact
+buttons the site speaks. INVITE FRIENDS IS GONE. GALLERY / REPORT / HELP
 are gone. YOUR FACE IS YOUR AVATAR: every headshot in the client is your
 ACCOUNT AVATAR from retro-blox.vercel.app — the same payload your 3D
-character wears, rendered headshot-style in-engine (PFP == in-game avatar
-== the site; the old bundled bacon thumbnail and the Roblox thumbnail API
-are deleted for good), and you can still paste ANY image URL
+character wears, framed head + hat + shoulders WITH MARGINS on the light
+site-paper backdrop, so it reads clean at every size (PFP == in-game
+avatar == the site; the old bundled bacon thumbnail and the Roblox
+thumbnail API are deleted for good; the cache lives in a fresh namespace
+so old bytes can never resurface) — and you can still paste ANY image URL
 (Settings → MY PICTURE or the editor). Bubbles wrap by REAL font metrics
 (text can never spill off the plate) and linger 12 seconds. The character
 collides as the REAL R6 hitbox — a 2 x 5 x 1 stud box — and the arm
 animations EASE between poses, so climbing and jumping never twitch.
+MORE SETTINGS: Show FPS, Show ping, Maximum FPS (Unlimited/30/60/120/240,
+applied live), See player names, Bunny hop (hold Space to keep bouncing),
+and RESET ALL SETTINGS — one red key back to factory. The FPS/ping/version
+chip rides bottom-left ALWAYS ON, and each stat hides when you say so.
 AND YOU CAN EDIT EVERYTHING: press **F2** and the UI Editor opens — click
 any element, drag to move it, scale it, edit its text, add your own
 labels, zoom the whole UI, then Save; your layout boots with you forever
@@ -73,27 +78,38 @@ the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
-### The 2008 look — v11.0
-- Every surface: real 9-patch bevel (light TL rim, dark BR rim), SQUARE corners, gray chrome — baked in code (retro_theme.gd)
-- One voice: ARIAL (Liberation Sans). The CLASSIC GREEN Log In / primary key. ROBLOX red danger. Classic Roblox blue accent.
-- LOGIN: a draggable beveled window (title bar + close X) on a baseplate of studs, folder tabs, WHITE sunken wells, the classic green key
-- The window opens COMPACT at 960x600 — never your whole screen
-- People cards show LIVE ping + fps; your card wears the classic blue selection frame
-- FIXED: the avatarUrl-null crash, the shift-lock race, the HTTP body type error, all editor warnings — the debugger is CLEAN
+### The site gloss — v12.0
+- The palette is sampled OFF retro-blox.vercel.app: bright blue gloss chrome, white paper cards, steel-blue borders, green/red/steel gloss buttons — all baked in code (retro_theme.gd `gloss()`)
+- The ESC menu: white paper panel (translucent — the game breathes through), blue gloss header, folder tabs, white People cards, gloss footer keys
+- The chat is the paper float; the world bubbles stay the classic white plates
+- The stats chip (FPS · ping · v12.0) is always on, bottom-left, gloss
+- One voice: ARIAL (Liberation Sans). The window opens COMPACT at 960x600
 
-## The ESC menu — the REAL client panel (v11.0)
+## The ESC menu — the SITE GLOSS panel (v12.0)
 
-The menu is ONE centered dark panel (about 62% of the screen — the game
-stays visible behind it) with the client's TOP TABS: People · Settings ·
-Gallery · Report · Help, each with its icon, the open tab wearing the
-white underline. The People tab carries **Invite Friends** (copies your
-invite link), "In this server" with grid/list toggles, and the card grid:
-PFP + name + @handle, exactly the real client's cards. The footer is the
-reference action row: [L] Leave · [R] Respawn · [ESC] Resume — Resume in
-fountain blue with the white key chip. Live FPS/ping/version sit in the
-tiny corner chip, bottom-left.
+The menu is ONE centered white paper card (about 64% of the screen — the
+game stays visible behind it under a soft navy veil) with the site's BLUE
+GLOSS header strip: the tilted red tile, the RETROBLOX wordmark and the
+live session clock. The folder tabs — People · Settings — wear the REAL
+internet icon PNGs; the open tab is the blue gloss with white ink. The
+People tab is the server roster, nothing else (no invite button): "In
+this server" with grid/list toggles and the white card grid — PFP + name
++ @handle + live ping/fps, your card wearing the classic blue ring. The
+footer is the site's own button trio: red Leave · steel Respawn · green
+Resume, each with the white key chip.
 
-### THE UI EDITOR — press F2, edit EVERYTHING (v11.0)
+### MORE SETTINGS (v12.0)
+
+- **PERFORMANCE** — Show FPS, Show ping (each hides its part of the stats
+  chip live) and MAXIMUM FPS: Unlimited / 30 / 60 / 120 / 240, applied
+  the moment you click (Engine.max_fps).
+- **CHARACTER** — See player names (the nameplates above every avatar,
+  yours and everyone's) and Bunny hop (hold Space to keep bouncing — the
+  classic read; off means one jump per press).
+- **RESET ALL SETTINGS** — the red gloss key: every option back to
+  default, applied and saved, the page rebuilt in front of you.
+
+### THE UI EDITOR — press F2, edit EVERYTHING (v12.0)
 
 This client is YOURS. **F2** (or Settings → Edit anything) opens the
 editor:

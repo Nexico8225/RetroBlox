@@ -706,10 +706,14 @@ func _run_all() -> void:
                 "the gradient plate + glass textures are OUT of the kit")
         check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
                 "the menu references zero texture helpers (flat dark cards)")
-        check(not game_src.contains("_gloss_btn") and game_src.contains("_key_btn"),
-                "every menu key is family-styled (beveled rows, the BLUE primary)")
-        check(game_src.contains("_blue_btn") and game_src.contains('Color("3e9c35")'),
-                "Resume is the CLASSIC GREEN key (the 2006 action green)")
+        check(game_src.contains("_gloss_btn_style") and game_src.contains("_gloss_key_style"),
+                "the HUD + footer keys wear the SITE GLOSS (baked 9-patch, bold outline)")
+        check(game_src.contains("_blue_btn") and theme_src.contains("SITE_GREEN :="),
+                "Resume is the GREEN PLAY GLOSS (the site's action green)")
+        check(theme_src.contains("SITE_BLUE :=") and theme_src.contains("SITE_PAPER :="),
+                "the theme speaks the SITE palette (blue chrome, white paper, steel borders)")
+        check(theme_src.contains("static func gloss("),
+                "the gloss builder exists (gradient + shine cut + outline baked in code)")
         check(theme_src.contains("MENU_RED :=") ,
                 "red exists ONLY as the danger voice (Leave, close-hover, badge)")
         check(theme_src.contains("f5cd30"),
@@ -718,7 +722,7 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains("v11.0"), "the corner chip wears v11.0")
+        check(game_src.contains("v12.0"), "the corner chip wears v12.0")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(portrait_src.contains("HEADSHOT_SIZE") and portrait_src.contains("headshot := false"),
@@ -782,10 +786,10 @@ func _run_all() -> void:
                 "the topbar's hamburger key wears the REAL internet icon and opens the menu")
         check(chat_src.contains("To chat click here or press / key"),
                 "the chat input wears the AUTHENTIC Roblox placeholder")
-        check(chat_src.contains("f2f3f4") and chat_src.contains("RetroUI.glass("),
-                "the chat is the classic dark glass float (thin light frame, white text)")
-        check(chat_src.contains("ffd23f"),
-                "chat name colors are tuned for the dark face (bright arcade set)")
+        check(chat_src.contains("SITE_STEEL") and chat_src.contains("SITE_BLUE_INK"),
+                "the chat is the PAPER float (white card, steel border, dark ink)")
+        check(chat_src.contains("d19a1e"),
+                "chat name colors are tuned for the paper face (readable on white)")
         check(game_src.contains('chat_btn.icon = RetroUI.icon_png("chat"'),
                 "the pill's chat key wears the REAL internet chat icon")
         check(bubble_src.contains("SHOW_SECONDS := 12.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
@@ -800,13 +804,40 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "11.0"') and login_src4.contains("BtnPrimary"),
-                "login wears the OLD page again (v11.0, the CLASSIC GREEN Log In key)")
+        check(login_src4.contains('VERSION := "12.0"') and login_src4.contains("BtnPrimary"),
+                "login wears the OLD page again (v12.0, the CLASSIC GREEN Log In key)")
         check(login_src4.contains("_logo_tile_texture") and login_src4.contains("_add_backdrop"),
                 "the login sits on the REAL baseplate photograph (the internet image)")
         check(login_src4.contains('"Log In"') and login_src4.contains('"Sign Up"')
                 and not login_src4.contains("Sign In"),
                 "the OLD tabs are back: Log In + Sign Up — no Sign In anywhere")
+        # --- v12.0: THE SITE GLOSS + THE INVITE PURGE + THE NEW SETTINGS ---
+        check(not game_src.contains("Invite Friends"),
+                "INVITE FRIENDS IS GONE from the People tab (nobody asked for it)")
+        check(theme_src.contains("SITE_PAPER :=") and game_src.contains("_menu_panel_style"),
+                "the menu panel is the SITE PAPER card (white, steel border, translucent)")
+        check(game_src.contains("MenuHeader") and game_src.contains("RETROBLOX"),
+                "the menu wears the BLUE GLOSS header strip (logo + wordmark + clock)")
+        var pfp2_src := FileAccess.get_file_as_string("res://scripts/ui/pfp_service.gd")
+        check(pfp2_src.contains("pfp_cache_v12"),
+                "the PFP cache rides the v12 namespace (stale bacon bytes can't resurface)")
+        var settings_src := FileAccess.get_file_as_string("res://scripts/core/settings.gd")
+        check(settings_src.contains("show_fps") and settings_src.contains("show_ping")
+                and settings_src.contains("max_fps") and settings_src.contains("player_names")
+                and settings_src.contains("bunny_hop") and settings_src.contains("func reset_all"),
+                "Settings carries show fps / show ping / max fps / player names / bunny hop + RESET ALL")
+        check(settings_src.contains("Engine.max_fps"),
+                "MAXIMUM FPS applies live (Engine.max_fps)")
+        check(game_src.contains("_build_stats_chip") and game_src.contains("_update_live_stats"),
+                "the stats chip is ALWAYS ON (show fps / show ping hide each part)")
+        check(game_src.contains("_apply_nameplates") and game_src.contains("set_display_name"),
+                "SEE PLAYER NAMES stamps or clears every rig's nameplate")
+        check(game_src.contains("_rebuild_settings_tab") and game_src.contains("Reset all settings"),
+                "RESET ALL rebuilds the Settings page on the defaults")
+        check(local_src.contains("hop_on"),
+                "BUNNY HOP gates the hold-to-jump (one jump per press when off)")
+        check(portrait_src.contains("_paper_backdrop"),
+                "PFP headshots land on the SITE PAPER backdrop (readable at any size)")
         check(login_src4.contains("gotham(800)"),
                 "the login speaks ExtraBold ARIAL (the RETROBLOX wordmark voice)")
 

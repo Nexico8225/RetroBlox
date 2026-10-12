@@ -134,8 +134,9 @@ func fetch(uid: String, uname: String) -> Texture2D:
                                 _ram[key] = site
                                 return site
 
-        # 1. the disk cache — v11 namespace (the old folder held the bacon
-        # thumbnails; a fresh name guarantees they can never resurface)
+        # 1. the disk cache — v12 namespace (the pre-v11 folder held the
+        # bacon thumbnails; a fresh name guarantees they can never resurface
+        # even from an old install)
         var cached := _load_cache(lower)
         if cached != null:
                 cached = rounded(cached)
@@ -179,7 +180,7 @@ func forget(uid: String, uname: String) -> void:
 # ---------------------------------------------------------------- internals
 
 func _load_cache(lower: String) -> Texture2D:
-        var path := "user://pfp_cache/%s.png" % lower
+        var path := "user://pfp_cache_v12/%s.png" % lower
         if not FileAccess.file_exists(path):
                 return null
         var age := 0.0
@@ -195,11 +196,11 @@ func _load_cache(lower: String) -> Texture2D:
 
 
 func _save_cache(lower: String, tex: Texture2D) -> void:
-        DirAccess.make_dir_recursive_absolute("user://pfp_cache")
+        DirAccess.make_dir_recursive_absolute("user://pfp_cache_v12")
         var img := tex.get_image()
         if img == null or img.is_empty():
                 return
-        img.save_png("user://pfp_cache/%s.png" % lower)
+        img.save_png("user://pfp_cache_v12/%s.png" % lower)
 
 
 ## Rounded corners, the client's headshot read (r = 14% of the side).

@@ -9,23 +9,23 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v11.0 "BLACK GLASS"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=11.0'
+const VERSION = 'v12.0 "SITE GLOSS"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=12.0'
 
 const NEW_STUFF: [string, string][] = [
-  ['THE BACON IS DEAD — YOUR AVATAR IS YOUR FACE', 'The old kit shipped a BAKED-IN Roblox thumbnail as "your PFP" — it was literally a bacon hair, everywhere in the UI. Deleted. Now every face in the client (topbar pill, ESC menu, People cards, Settings preview) is YOUR ACCOUNT AVATAR from retro-blox.vercel.app: the same payload your 3D character wears, dressed and photographed headshot-style in-engine. PFP == in-game avatar == the site. No Roblox thumbnail API anywhere.'],
-  ['THE ESC MENU IS BLACK GLASS', 'The gray bevel panel is scrapped. The new menu is a deep translucent-BLACK glass panel — rounded, hairline edge, the game alive behind it — with the classic green Resume key, Roblox-blue selection rings and the CLASSIC GREEN tab underline. Retro and appealing, any color you asked for.'],
-  ['REAL INTERNET ICONS + THE REAL BASEPLATE', 'The UI now ships actual icon PNGs downloaded from the web (Icons8 + Pixabay): the hamburger, the settings gear, the people crowd, the chat bubble, the respawn arrow. The LOGIN sits on a real photograph of the classic baseplate. Credits live in the kit README.'],
-  ['GALLERY / REPORT / HELP — REMOVED', 'The ESC menu carries exactly two tabs now: People and Settings. No gallery, no report, no help.'],
-  ['THE OLD LOGIN IS BACK', 'The white card, the tilted red tile, the RETROBLOX wordmark, the Log In / Sign Up tabs, the white wells and the big CLASSIC GREEN Log In key — on the real baseplate photo. No more window experiments.'],
-  ['BUBBLES THAT FIT + LINGER', 'Chat bubbles now wrap by REAL font metrics — the text can physically never spill outside the white plate (the giant-WWW overflow is impossible). They also linger 12 seconds (was 9) and fade slowly.'],
-  ['THE R6 HITBOX', 'The character collides as the REAL Roblox box — 2 studs wide, 5 tall, 1 deep — instead of a fat capsule. Plus: arm animations EASE between walk/climb/jump poses and the climb playback speed glides, so the climb/jump arm twitch is gone.'],
+  ['THE MENU WEARS THE SITE', 'The ESC menu is the retro-blox.vercel.app look, sampled off the real site: a white PAPER card with the steel-blue border, a BLUE GLOSS header strip (logo + RETROBLOX + live clock), folder tabs with the internet icons, white People cards, and the three GLOSS keys — red Leave, steel Respawn, green Resume. The exact buttons the site speaks. Some surfaces ride translucent so the game breathes through.'],
+  ['YOUR PFP, FINALLY READABLE', 'The headshot camera pulls BACK — head + hat + shoulders fit the square with margins (the old shot zoomed INTO the helmet and read as nothing). Every render lands on the light site-paper backdrop, so the chip, the cards and the preview read clean at any size, on any surface. Fresh cache namespace, so old bytes can never resurface.'],
+  ['INVITE FRIENDS — REMOVED', 'Nobody asked for it. The People tab is the server roster, nothing else: your card (blue ring) + everyone in this server, ping/fps live.'],
+  ['MORE SETTINGS', 'PERFORMANCE: Show FPS, Show ping, Maximum FPS (Unlimited/30/60/120/240 — applied live). CHARACTER: See player names (nameplates above every avatar), Bunny hop (hold Space to keep bouncing — off means one jump per press). Plus RESET ALL SETTINGS — the red key that puts every option back to default in one press.'],
+  ['THE STATS CHIP', 'FPS · ping · version now ride a small blue gloss chip parked bottom-left ALWAYS ON — the classic performance-stats read, and the Show FPS / Show ping toggles hide each part.'],
+  ['THE PAPER CHAT', 'The chat float + typing line wear the site paper too: white card, steel border, dark ink, re-tuned name colors that read on white. The world chat bubbles stay the classic white plates.'],
+  ['EVERYTHING FROM v11 STAYS', 'Your account avatar everywhere (no bacon, no Roblox thumbnail API), the old login on the real baseplate photo, People + Settings only, R6 2x5x1 hitbox, font-metric bubbles that linger 12s, eased arm animations.'],
 ]
 
 const FILES = [
   ['scripts/core/api.gd', 'The one HTTP door to the platform — auth, avatars, assets, place chat + presence'],
   ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache — and the saved login that signs you in automatically next launch'],
-  ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock)'],
+  ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock, show FPS/ping, max FPS, player names, bunny hop, reset all)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The OLD LOGIN, back: the white card + tilted red tile + RETROBLOX wordmark on the REAL baseplate photograph, Log In / Sign Up tabs, white wells, the classic GREEN key, server URL locked'],
   ['scripts/ui/retro_theme.gd', 'The engine: ARIAL, the classic palette (green primary, ROBLOX red, classic blue) + icon_png() — the REAL internet icon PNGs with a code-drawn fallback — bevels, wells, glass, cursors'],

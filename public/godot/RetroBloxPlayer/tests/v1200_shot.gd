@@ -1,6 +1,6 @@
 extends SceneTree
 
-## v11.0 shot — boot the REAL game and screenshot the BLACK GLASS client:
+## v12.0 shot — boot the REAL game and screenshot the SITE GLOSS client:
 ## the centered glass ESC panel (People cards + REAL internet icons), the
 ## Settings page, the HUD (glass pills), the UI EDITOR, and the OLD login
 ## page on the real baseplate photo. Plus: the site-avatar PFP render, the
@@ -33,7 +33,7 @@ func _initialize() -> void:
                 await physics_frame
         var me: Node3D = game.get("player")
         if me == null:
-                print("V1100_SHOTS_FAIL no player")
+                print("V1200_SHOTS_FAIL no player")
                 quit(1)
                 return
         var fake_pos: Array = [me.global_position.x + 7.0, me.global_position.y, me.global_position.z - 3.0]
@@ -60,21 +60,21 @@ func _initialize() -> void:
         for i in range(14):
                 await process_frame
         shot = root.get_viewport().get_texture().get_image()
-        shot.save_png("user://shots/v1100_menu_people.png")
+        shot.save_png("user://shots/v1200_menu_people.png")
 
         # settings page (MY PICTURE + EDIT THIS UI)
         game.call("_open_menu", "settings")
         for i in range(6):
                 await process_frame
         shot = root.get_viewport().get_texture().get_image()
-        shot.save_png("user://shots/v1100_menu_settings.png")
+        shot.save_png("user://shots/v1200_menu_settings.png")
 
         # close menu — HUD with glass pills + health + the bubble fit
         game.call("_toggle_menu")
         for i in range(6):
                 await process_frame
         shot = root.get_viewport().get_texture().get_image()
-        shot.save_png("user://shots/v1100_hud.png")
+        shot.save_png("user://shots/v1200_hud.png")
 
         # ---- the UI EDITOR live ----
         var editor: Node = root.get_node_or_null("/root/UiEditor")
@@ -83,7 +83,7 @@ func _initialize() -> void:
                 for i in range(8):
                         await process_frame
                 shot = root.get_viewport().get_texture().get_image()
-                shot.save_png("user://shots/v1100_editor.png")
+                shot.save_png("user://shots/v1200_editor.png")
                 editor.call("set_enabled", false)
 
         # ---- THE STAIRS VERDICT: the real fort risers, straight up ----
@@ -116,7 +116,7 @@ func _initialize() -> void:
         for i in range(8):
                 await process_frame
         shot = root.get_viewport().get_texture().get_image()
-        shot.save_png("user://shots/v1100_world.png")
+        shot.save_png("user://shots/v1200_world.png")
 
         # ---- the login page ----
         var login: Node = load("res://scenes/login.tscn").instantiate()
@@ -124,7 +124,7 @@ func _initialize() -> void:
         await process_frame
         await process_frame
         shot = root.get_viewport().get_texture().get_image()
-        shot.save_png("user://shots/v1100_login.png")
+        shot.save_png("user://shots/v1200_login.png")
         login.queue_free()
-        print("V1100_SHOTS_OK")
+        print("V1200_SHOTS_OK")
         quit(0)

@@ -94,9 +94,13 @@ static func render(host: Node, api, payload: Dictionary, headshot := false) -> T
         # v11.0 HEADSHOT: pull close and aim at the head + shoulders — the
         # square PFP framing the topbar pill and the People cards wear.
         if headshot:
-                cam.position = Vector3(-1.15, 4.1, -3.5)
+                # v12.0 REFRAME: the old framing zoomed INTO the helmet — the
+                # hat filled the square and the PFP read as "not my avatar".
+                # Pull back so the HEAD + HAT + SHOULDERS fit with margins,
+                # exactly the framing a profile picture needs.
+                cam.position = Vector3(-1.2, 4.45, -4.55)
                 vp.add_child(cam)
-                cam.look_at_from_position(cam.position, Vector3(0.1, 3.9, 0.0), Vector3.UP)
+                cam.look_at_from_position(cam.position, Vector3(0.05, 4.22, 0.0), Vector3.UP)
         else:
                 cam.position = Vector3(-2.0, 3.3, -8.8)
                 vp.add_child(cam)
@@ -124,4 +128,26 @@ static func render(host: Node, api, payload: Dictionary, headshot := false) -> T
         if img == null or img.is_empty():
                 return null
         img.convert(Image.FORMAT_RGBA8)
+        # v12.0: the headshot lands on the SITE's light paper (the old shot
+        # kept a transparent bg, so the chip + dark wells made it read as a
+        # black square — the exact reason it looked like nothing loaded)
+        if headshot:
+                img = _paper_backdrop(img)
         return ImageTexture.create_from_image(img)
+
+
+## Composite the square render onto the retro-blox.vercel.app paper: the
+## light blue-gray vertical wash the site's cards sit on — profile pictures
+## that read clean at 26px AND at 320px, on any surface, dark or light.
+static func _paper_backdrop(shot: Image) -> Image:
+        var w := shot.get_width()
+        var h := shot.get_height()
+        var out := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+        var top := Color("dce8f4")
+        var bottom := Color("eef3f9")
+        for y in range(h):
+                var row := top.lerp(bottom, float(y) / float(maxi(h - 1, 1)))
+                for x in range(w):
+                        out.set_pixel(x, y, row)
+        out.blend_rect(shot, Rect2i(0, 0, w, h), Vector2i(0, 0))
+        return out
