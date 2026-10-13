@@ -68,7 +68,7 @@ export function GameCard({ game }: { game: GameSummary }) {
       }}
       aria-label={`Open ${game.name}`}
     >
-      <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#dde5ec', border: '1px solid #c3cdd7' }}>
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#ececee', border: '1px solid #c9c9cf' }}>
         <GameCover src={cover} name={game.name} />
         <span
           style={{
@@ -466,7 +466,7 @@ export function HomeView() {
               style={{
                 width: 58,
                 height: 58,
-                border: '2px dashed #8ba0b3',
+                border: '2px dashed #b3b3ba',
                 fontSize: 26,
                 color: '#5a7b9a',
                 background: '#eef4fa',
