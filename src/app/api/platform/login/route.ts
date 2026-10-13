@@ -17,15 +17,32 @@ export async function POST(req: NextRequest) {
   const username = (body?.username || '').trim()
   const password = body?.password || ''
   if (!username || !password) {
-    return NextResponse.json({ error: 'Username and password required' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Username and password required', code: 'missing' },
+      { status: 400, headers: PLATFORM_CORS }
+    )
   }
 
-  const user = await db.user.findFirst({
+  // v12.2: the SAME specific messages the website login gives — "no
+  // account" and "wrong password" are DIFFERENT words now, so a mistyped
+  // password can never again read as a mystery (the owner demanded this).
+  let user = await db.user.findFirst({
     where: { OR: [{ username }, { usernameLower: username.toLowerCase() }] },
   })
-  // same generic message for unknown user + wrong password
-  if (!user || !verifyPassword(password, user.passwordHash)) {
-    return NextResponse.json({ error: 'Incorrect username or password' }, { status: 401 })
+  if (!user) {
+    return NextResponse.json(
+      {
+        error: `No account named "${username}" exists here yet — create one on retro-blox.vercel.app!`,
+        code: 'no_user',
+      },
+      { status: 401, headers: PLATFORM_CORS }
+    )
+  }
+  if (!verifyPassword(password, user.passwordHash)) {
+    return NextResponse.json(
+      { error: `Wrong password for "${user.username}" — try again.`, code: 'bad_password' },
+      { status: 401, headers: PLATFORM_CORS }
+    )
   }
 
   // Best-effort session row: on serverless hosts the filesystem is

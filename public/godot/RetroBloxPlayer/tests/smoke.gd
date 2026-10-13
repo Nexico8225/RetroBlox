@@ -628,15 +628,15 @@ func _run_all() -> void:
         check(pfp_src.contains("/api/users/%s/pfp") and pfp_src.contains("avatarUrl"),
                 "EVERY player's site PFP loads — GET /api/users/{id}/pfp, not just mine")
         check(pfp_src.contains("func default_pfp") and pfp_src.contains("letter_avatar"),
-                "the DEFAULT PFP loads: the site's letter avatar (new accounts wear it)")
+                "the letter avatar stays as the LAST RESORT (guests / offline)")
         check(pfp_src.contains("func peek("),
                 "peek() answers instantly for chat lines (RAM or the default letter)")
-        check(not pfp_src.contains("AvatarPortrait.render"),
-                "PFP seats wear the SITE PROFILE — the 3D render moved to the identity block")
+        check(pfp_src.contains("AvatarPortrait.render") and pfp_src.contains("Session.my_avatar_data"),
+                "PFP seats wear the SITE PROFILE — the DEFAULT PFP is the account's avatar, rendered")
         check(pfp_src.contains("func rounded(") and pfp_src.contains("_round_image"),
                 "every PFP lands with the client's rounded corners")
         check(pfp_src.contains("fallback_pfp") and pfp_src.contains("head_icon"),
-                "no-data players fall back to the classic smiley (never a 3D render)")
+                "no-data players fall back to the classic smiley (guests only)")
         check(game_src.contains("Pfp.fetch") and game_src.contains("_apply_pfp"),
                 "the menu + cards + topbar all wear REAL PFPs (one pipeline)")
         check(game_src.contains("_render_identity") and game_src.contains("AvatarPortrait.render"),
@@ -829,13 +829,15 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "12.1"') and login_src4.contains("BtnPrimary"),
-                "login wears the OLD page again (v12.1, the CLASSIC GREEN Log In key)")
-        check(login_src4.contains("_logo_tile_texture") and login_src4.contains("_add_backdrop"),
-                "the login sits on the REAL baseplate photograph (the internet image)")
-        check(login_src4.contains('"Log In"') and login_src4.contains('"Sign Up"')
-                and not login_src4.contains("Sign In"),
-                "the OLD tabs are back: Log In + Sign Up — no Sign In anywhere")
+        check(login_src4.contains('VERSION := "12.2"') and login_src4.contains("_red_key"),
+                "login wears the SITE's own page again (v12.2, the RED Log In key)")
+        check(login_src4.contains("_wordmark_textures") and login_src4.contains("login_backdrop"),
+                "the login sits on the SITE's roller-coaster key art + the sprite-letter wordmark")
+        check(login_src4.contains('"Log In"') and not login_src4.contains("Sign Up")
+                and not login_src4.contains("Create Account") and not login_src4.contains("Sign In"),
+                "LOG IN ONLY: the Create Account / Sign Up form is GONE, no Sign In anywhere")
+        check(login_src4.contains("1e78c8") and login_src4.contains("Login and start having fun"),
+                "the card wears the site's BLUE frame + the site's own headline")
         # --- v12.0/12.1: THE SETTINGS + THE INVITE PURGE + RETRO NIGHT ---
         check(not game_src.contains("Invite Friends"),
                 "INVITE FRIENDS IS GONE from the People tab (nobody asked for it)")
@@ -846,8 +848,10 @@ func _run_all() -> void:
         check(game_src.contains("MenuHeader") and game_src.contains("RETROBLOX"),
                 "the menu wears the BLUE GLOSS header strip (logo + wordmark + clock)")
         var pfp2_src := FileAccess.get_file_as_string("res://scripts/ui/pfp_service.gd")
-        check(pfp2_src.contains("pfp_cache_v13"),
-                "the PFP cache rides the v13 namespace (stale v12/v11 bytes can't resurface)")
+        check(pfp2_src.contains("pfp_cache_v14"),
+                "the PFP cache rides the v14 namespace (stale v13/v12/v11 bytes can't resurface)")
+        check(pfp2_src.contains("AvatarPortrait.render") and pfp2_src.contains("my_avatar_data"),
+                "THE DEFAULT PFP IS THE AVATAR ITSELF (the site payload, rendered headshot-style)")
         check(theme_src.contains("LETTER_COLORS") and theme_src.contains("func circle_badge"),
                 "the theme ships the site's letter-avatar palette + the badge cropper")
         var settings_src := FileAccess.get_file_as_string("res://scripts/core/settings.gd")
@@ -867,7 +871,9 @@ func _run_all() -> void:
                 "BUNNY HOP gates the hold-to-jump (one jump per press when off)")
         check(portrait_src.contains("_paper_backdrop"),
                 "headshots can land on the SITE PAPER backdrop (readable at any size)")
-        check(game_src.contains("v12.1"), "the corner chip wears v12.1")
+        check(game_src.contains("v12.2"), "the corner chip wears v12.2")
+        check(game_src.contains("SITE_BLUE") and game_src.contains("THE OLD BLUE ONE"),
+                "THE OLD CHAT ICON IS BACK: the topbar wears the site's blue gloss")
         check(login_src4.contains("gotham(800)"),
                 "the login speaks ExtraBold ARIAL (the RETROBLOX wordmark voice)")
 

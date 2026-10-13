@@ -1,37 +1,51 @@
 extends Control
-## Login — the front door of the new player. Log in or sign up; that's the
-## only way in. The FIRST login saves a session token on disk, and from then
-## on every boot auto-signs in with zero typing — you log in once, ever.
-## The server is LOCKED to the official RetroBlox platform: it is a label,
-## not a field, so it can never be pointed somewhere else.
+## Login — THE OLD LOGIN PAGE, BACK FOR REAL: it IS the retro-blox.vercel.app
+## sign-in, rebuilt 1:1 inside the player. The same roller-coaster key art,
+## the same chunky sprite-letter RETROBLOX wordmark, the same white card with
+## the blue frame, the same labels, wells and the big RED Log In key.
+## The site is the truth — the game's front door now looks exactly like it.
 ##
-## v11.0 — THE OLD LOGIN PAGE, BACK BY POPULAR DEMAND: the white card, the
-## tilted red tile, the big RETROBLOX wordmark, the two classic tabs
-## (Log In / Sign Up), the soft wells and the big CLASSIC GREEN key. The
-## churned window experiments are over. What's new is honest: the backdrop
-## is now a REAL photograph of the classic baseplate (shipped with the kit,
-## downloaded from the web) instead of a code-drawn grid.
+## LOG IN ONLY: the account-creation form is GONE (you asked). An
+## account is made on the website, once — the player just signs you in.
+## The FIRST login saves a session token on disk; every boot after that
+## auto-signs in with zero typing. The server is LOCKED to the official
+## RetroBlox platform — a label, not a field.
+##
+## The server now answers with the site's SPECIFIC errors ("No account named
+## X exists here yet" vs "Wrong password for X"), so a wrong password can
+## never again read as a mystery.
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
-const VERSION := "12.1"
+const VERSION := "12.2"
 
-## the card's palette (the old page's light voice, against the dark chrome)
-const CARD_BG := Color("f6f7f8")
-const CARD_EDGE := Color("d5d9dd")
-const WELL_BG := Color("ffffff")
-const WELL_EDGE := Color("c3c9cf")
-const INK := Color("1f2427")
-const INK_MUTED := Color("6a7178")
+## the site's own login palette (AuthPages.tsx, color for color)
+const SKY := Color("63b3ec")              # the key-art fallback sky
+const CARD_TOP := Color("ffffff")         # card gradient face
+const CARD_BOTTOM := Color("f2f7fb")
+const CARD_FRAME := Color("1e78c8")       # the 3px blue frame
+const INK_HEAD := Color("1c3a52")         # "Login and start having fun"
+const LABEL_INK := Color("43505c")        # the uppercase field labels
+const WELL_EDGE := Color("b9c6d0")        # the well border
+const INK := Color("1c2733")              # typed ink
+const RED_TOP := Color("f0392f")          # the Log In key gradient
+const RED_MID := Color("d21f16")
+const RED_BOT := Color("b81b13")
+const WORD_SHADOW := Color("a8231c")      # the wordmark's hard drop shadow
 
-var _mode := "login"   # login | signup
+const LETTERS := "RETROBLOX"
+const WORD_H := 54.0                      # sprite letter height
+
 var _user: LineEdit
 var _pass: LineEdit
-var _status: Label
+var _err: PanelContainer
+var _err_label: Label
+var _info: Label
 var _go: Button
 var _offline: Button
-var _tab_login: Button
-var _tab_signup: Button
 var _working := false
+var _wm_root: Control                     # the bobbing wordmark
+var _wm_base_y := 0.0
+var _bob_t := 0.0
 
 
 func _ready() -> void:
@@ -41,162 +55,19 @@ func _ready() -> void:
         _try_auto_login()
 
 
+func _process(delta: float) -> void:
+        # the wordmark's gentle bob — the site's rb-auth-bob keyframe
+        if _wm_root != null and is_instance_valid(_wm_root):
+                _bob_t += delta
+                _wm_root.position.y = _wm_base_y + sin(_bob_t * 2.2) * 3.5
+
+
 func _build() -> void:
-        # ---- the backdrop: the REAL classic baseplate photograph ----
+        # ---- the stage: the site's roller-coaster key art, full-bleed ----
         var bg := ColorRect.new()
-        bg.color = Color("2b2f33")
+        bg.color = SKY
         bg.set_anchors_preset(Control.PRESET_FULL_RECT)
         add_child(bg)
-        _add_backdrop(bg)
-
-        var center := CenterContainer.new()
-        center.set_anchors_preset(Control.PRESET_FULL_RECT)
-        add_child(center)
-
-        # ---- THE CARD — the old white sheet, rounded, quietly shadowed ----
-        var card := PanelContainer.new()
-        card.custom_minimum_size = Vector2(430, 0)
-        card.add_theme_stylebox_override("panel", _card_style())
-        center.add_child(card)
-
-        var body_margin := MarginContainer.new()
-        body_margin.add_theme_constant_override("margin_left", 36)
-        body_margin.add_theme_constant_override("margin_right", 36)
-        body_margin.add_theme_constant_override("margin_top", 26)
-        body_margin.add_theme_constant_override("margin_bottom", 24)
-        card.add_child(body_margin)
-        var body := VBoxContainer.new()
-        body.add_theme_constant_override("separation", 10)
-        body_margin.add_child(body)
-
-        # ---- the brand row: tilted red tile + the RETROBLOX wordmark ----
-        var brand := HBoxContainer.new()
-        brand.alignment = BoxContainer.ALIGNMENT_CENTER
-        brand.add_theme_constant_override("separation", 12)
-        body.add_child(brand)
-        var tile := TextureRect.new()
-        tile.texture = _logo_tile_texture()
-        tile.custom_minimum_size = Vector2(54, 54)
-        tile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        tile.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        brand.add_child(tile)
-        var word := Label.new()
-        word.text = "RETROBLOX"
-        word.add_theme_font_override("font", RetroUI.gotham(800))
-        word.add_theme_font_size_override("font_size", 33)
-        word.add_theme_color_override("font_color", INK)
-        brand.add_child(word)
-
-        var sub := Label.new()
-        sub.text = "the classic roblox-style client — v%s" % VERSION
-        sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        sub.add_theme_font_override("font", RetroUI.gotham(400))
-        sub.add_theme_font_size_override("font_size", 12)
-        sub.add_theme_color_override("font_color", INK_MUTED)
-        body.add_child(sub)
-        body.add_child(_gap(8))
-
-        # ---- the classic TABS — Log In / Sign Up, the old pair ----
-        var tabs := HBoxContainer.new()
-        tabs.add_theme_constant_override("separation", 8)
-        tabs.alignment = BoxContainer.ALIGNMENT_CENTER
-        body.add_child(tabs)
-        _tab_login = Button.new()
-        _tab_login.text = "Log In"
-        _tab_login.toggle_mode = true
-        _tab_login.custom_minimum_size = Vector2(170, 36)
-        _tab_login.focus_mode = Control.FOCUS_NONE
-        _tab_login.pressed.connect(func() -> void: _set_mode("login"))
-        tabs.add_child(_tab_login)
-        _tab_signup = Button.new()
-        _tab_signup.text = "Sign Up"
-        _tab_signup.toggle_mode = true
-        _tab_signup.custom_minimum_size = Vector2(170, 36)
-        _tab_signup.focus_mode = Control.FOCUS_NONE
-        _tab_signup.pressed.connect(func() -> void: _set_mode("signup"))
-        tabs.add_child(_tab_signup)
-        body.add_child(_gap(4))
-
-        # ---- the WHITE WELLS — the classic form fields ----
-        _user = LineEdit.new()
-        _user.placeholder_text = "Username"
-        _user.text = Api.saved_username   # remembered from last time
-        _user.custom_minimum_size = Vector2(0, 42)
-        _style_well(_user)
-        body.add_child(_user)
-
-        _pass = LineEdit.new()
-        _pass.placeholder_text = "Password"
-        _pass.secret = true
-        _pass.custom_minimum_size = Vector2(0, 42)
-        _style_well(_pass)
-        body.add_child(_pass)
-
-        # ---- THE CLASSIC GREEN KEY ----
-        _go = Button.new()
-        _go.text = "Log In"
-        _go.theme_type_variation = "BtnPrimary"
-        _go.custom_minimum_size = Vector2(0, 46)
-        _go.pressed.connect(_on_action)
-        body.add_child(_go)
-        body.add_child(_gap(2))
-
-        var note := Label.new()
-        note.text = "You only log in ONCE — after that you are signed in\nevery time you open RetroBlox, automatically."
-        note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        note.add_theme_font_override("font", RetroUI.gotham(400))
-        note.add_theme_font_size_override("font_size", 12)
-        note.add_theme_color_override("font_color", INK_MUTED)
-        body.add_child(note)
-        _status = Label.new()
-        _status.text = ""
-        _status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        _status.custom_minimum_size = Vector2(0, 40)
-        _status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        body.add_child(_status)
-
-        # offline escape hatch — appears ONLY when the server cannot be
-        # reached, so a dead Wi-Fi day never bricks the player
-        _offline = Button.new()
-        _offline.text = "Can't connect — play offline instead"
-        _offline.theme_type_variation = "BtnGhost"
-        _offline.custom_minimum_size = Vector2(0, 30)
-        _offline.visible = false
-        _offline.pressed.connect(_on_offline)
-        body.add_child(_offline)
-
-        var footer := Label.new()
-        footer.text = "Server: retro-blox.vercel.app  ·  locked  ·  your avatar loads from your account"
-        footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        footer.add_theme_font_override("font", RetroUI.gotham(400))
-        footer.add_theme_font_size_override("font_size", 11)
-        footer.add_theme_color_override("font_color", INK_MUTED)
-        body.add_child(footer)
-
-        # ---- under the card: the copyright line the old client wore ----
-        var legal := Label.new()
-        legal.text = "RetroBlox Player v%s  ·  ©2006-2013 RetroBlox — not affiliated with Roblox" % VERSION
-        legal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        legal.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-        legal.grow_vertical = Control.GROW_DIRECTION_BEGIN
-        legal.offset_top = -34.0
-        legal.offset_bottom = -16.0
-        legal.offset_left = -420.0
-        legal.offset_right = 420.0
-        legal.add_theme_font_override("font", RetroUI.gotham(400))
-        legal.add_theme_font_size_override("font_size", 11)
-        legal.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-        add_child(legal)
-
-        _user.text_submitted.connect(func(_t: String) -> void: _pass.grab_focus())
-        _pass.text_submitted.connect(func(_t: String) -> void: _on_action())
-        _set_mode("login")
-
-
-## The backdrop photograph: the classic baseplate, cover-fitted, gently
-## dimmed so the white card pops — the image the old site's own login sat on.
-func _add_backdrop(bg: ColorRect) -> void:
         var tex := RetroUI.login_backdrop()
         if tex != null:
                 var photo := TextureRect.new()
@@ -206,136 +77,320 @@ func _add_backdrop(bg: ColorRect) -> void:
                 photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
                 photo.set_anchors_preset(Control.PRESET_FULL_RECT)
                 bg.add_child(photo)
-        # a quiet darkening so the card pops — the old site's dim canvas
-        var shade := ColorRect.new()
-        shade.color = Color(0, 0, 0, 0.38)
-        shade.set_anchors_preset(Control.PRESET_FULL_RECT)
-        shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        bg.add_child(shade)
+
+        # ---- the column: wordmark on top, the white card under it ----
+        var center := CenterContainer.new()
+        center.set_anchors_preset(Control.PRESET_FULL_RECT)
+        add_child(center)
+        var col := VBoxContainer.new()
+        col.alignment = BoxContainer.ALIGNMENT_CENTER
+        col.add_theme_constant_override("separation", 10)
+        center.add_child(col)
+
+        # ---- THE WORDMARK — the site's chunky sprite letters, shadowed ----
+        var word := _wordmark_block()
+        if word != null:
+                col.add_child(word)
+
+        var gap := Control.new()
+        gap.custom_minimum_size = Vector2(0, 14)
+        gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        col.add_child(gap)
+
+        # ---- THE CARD — the site's white sheet with the BLUE frame ----
+        var card := PanelContainer.new()
+        card.custom_minimum_size = Vector2(400, 0)
+        card.add_theme_stylebox_override("panel", _card_style())
+        col.add_child(card)
+
+        var body := VBoxContainer.new()
+        body.add_theme_constant_override("separation", 13)
+        card.add_child(body)
+
+        var h1 := Label.new()
+        h1.text = "Login and start having fun"
+        h1.add_theme_font_override("font", RetroUI.gotham(800))
+        h1.add_theme_font_size_override("font_size", 19)
+        h1.add_theme_color_override("font_color", INK_HEAD)
+        body.add_child(h1)
+
+        # ---- USERNAME — the site's uppercase label + white well ----
+        body.add_child(_field_label("USERNAME"))
+        _user = LineEdit.new()
+        _user.placeholder_text = "e.g. Nexico8225"
+        _user.text = Api.saved_username   # remembered from last time
+        _user.max_length = 20
+        _user.custom_minimum_size = Vector2(0, 40)
+        _style_well(_user)
+        body.add_child(_user)
+
+        # ---- PASSWORD ----
+        body.add_child(_field_label("PASSWORD"))
+        _pass = LineEdit.new()
+        _pass.placeholder_text = "Password"
+        _pass.secret = true
+        _pass.custom_minimum_size = Vector2(0, 40)
+        _style_well(_pass)
+        body.add_child(_pass)
+
+        # ---- THE ERROR BANNER — the site's AuthError, inside the card ----
+        _err = PanelContainer.new()
+        _err.add_theme_stylebox_override("panel", _error_style())
+        _err.visible = false
+        body.add_child(_err)
+        _err_label = Label.new()
+        _err_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        _err_label.add_theme_font_override("font", RetroUI.gotham(600))
+        _err_label.add_theme_font_size_override("font_size", 12)
+        _err_label.add_theme_color_override("font_color", Color("ffd9d6"))
+        _err.add_child(_err_label)
+
+        # ---- THE RED LOG IN KEY — the site's exact gradient ----
+        _go = Button.new()
+        _go.text = "Log In"
+        _go.custom_minimum_size = Vector2(0, 46)
+        _go.focus_mode = Control.FOCUS_NONE
+        _go.add_theme_stylebox_override("normal", _red_key())
+        var red_hover := _red_key()
+        red_hover.modulate_color = Color(1.06, 1.06, 1.06)
+        _go.add_theme_stylebox_override("hover", red_hover)
+        _go.add_theme_stylebox_override("pressed", _red_key())
+        _go.add_theme_stylebox_override("hover_pressed", _red_key())
+        _go.add_theme_font_override("font", RetroUI.gotham(700))
+        _go.add_theme_font_size_override("font_size", 15)
+        _go.add_theme_color_override("font_color", Color.WHITE)
+        _go.add_theme_color_override("font_hover_color", Color.WHITE)
+        _go.add_theme_color_override("font_pressed_color", Color.WHITE)
+        _go.pressed.connect(_on_action)
+        body.add_child(_go)
+
+        # ---- quiet helper lines + the offline escape hatch ----
+        _info = Label.new()
+        _info.text = ""
+        _info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        _info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        _info.add_theme_font_override("font", RetroUI.gotham(400))
+        _info.add_theme_font_size_override("font_size", 12)
+        _info.add_theme_color_override("font_color", Color("5a6b7b"))
+        body.add_child(_info)
+
+        _offline = Button.new()
+        _offline.text = "Can't connect — play offline instead"
+        _offline.theme_type_variation = "BtnGhost"
+        _offline.custom_minimum_size = Vector2(0, 30)
+        _offline.visible = false
+        _offline.pressed.connect(_on_offline)
+        body.add_child(_offline)
+
+        var footer := Label.new()
+        footer.text = "Accounts live on retro-blox.vercel.app  ·  your avatar loads from your account"
+        footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        footer.add_theme_font_override("font", RetroUI.gotham(400))
+        footer.add_theme_font_size_override("font_size", 11)
+        footer.add_theme_color_override("font_color", INK_HEAD)
+        body.add_child(footer)
+
+        # ---- under everything: the copyright line ----
+        var legal := Label.new()
+        legal.text = "RetroBlox Player v%s  ·  ©2006-2013 RetroBlox — not affiliated with Roblox" % VERSION
+        legal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        legal.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+        legal.grow_vertical = Control.GROW_DIRECTION_BEGIN
+        legal.offset_top = -30.0
+        legal.offset_bottom = -14.0
+        legal.offset_left = -420.0
+        legal.offset_right = 420.0
+        legal.add_theme_font_override("font", RetroUI.gotham(400))
+        legal.add_theme_font_size_override("font_size", 11)
+        legal.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+        add_child(legal)
+
+        _user.text_submitted.connect(func(_t: String) -> void: _pass.grab_focus())
+        _pass.text_submitted.connect(func(_t: String) -> void: _on_action())
 
 
-## The white card: rounded 10, hairline edge, one soft drop shadow.
+## The wordmark block: the site's sprite-letter RETROBLOX (the font-sheet
+## PNGs the website itself uses), rotated -2deg, with the hard #a8231c
+## drop-shadow copy and the soft white halo, bobbing on a sine.
+func _wordmark_block() -> Control:
+        var pair := _wordmark_textures()
+        if pair.is_empty():
+                return null
+        var main: Texture2D = pair[0]
+        var shadow: Texture2D = pair[1]
+        var w := main.get_width()
+        var h := main.get_height()
+
+        var root := Control.new()
+        root.custom_minimum_size = Vector2(w + 60, h + 34)
+        root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+        # the soft white halo (the site's radial glow behind the letters)
+        var halo := TextureRect.new()
+        halo.texture = _halo_texture()
+        halo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        halo.stretch_mode = TextureRect.STRETCH_SCALE
+        halo.size = Vector2(w + 150, h + 110)
+        halo.position = Vector2((w + 60) / 2.0 - halo.size.x / 2.0,
+                (h + 34) / 2.0 - halo.size.y / 2.0)
+        halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        root.add_child(halo)
+
+        # the shadow copy — the silhouette recolored, hard 5px offset
+        var sh := TextureRect.new()
+        sh.texture = shadow
+        sh.position = Vector2(30, 17 + 5)
+        sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        root.add_child(sh)
+
+        # the letters themselves
+        var face := TextureRect.new()
+        face.texture = main
+        face.position = Vector2(30, 17)
+        face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        root.add_child(face)
+
+        root.rotation = deg_to_rad(-2.0)
+        root.pivot_offset = root.custom_minimum_size / 2.0
+        _wm_root = root
+        _wm_base_y = 0.0
+        return root
+
+
+## Composite the sprite letters into one texture (+ the shadow silhouette).
+func _wordmark_textures() -> Array:
+        var h := int(WORD_H)
+        var step := int(WORD_H * 0.07)
+        var loaded: Array[Image] = []
+        var total := 0
+        for i in range(LETTERS.length()):
+                var path := "res://assets/ui/font/%s.png" % LETTERS[i]
+                if not ResourceLoader.exists(path):
+                        continue
+                var tex: Texture2D = load(path)
+                if tex == null:
+                        continue
+                var img := tex.get_image()
+                if img == null or img.is_empty():
+                        continue
+                if img.is_compressed():
+                        img.decompress()
+                var w := int(round(float(h) * float(img.get_width()) / float(img.get_height())))
+                img.resize(w, h, Image.INTERPOLATE_LANCZOS)
+                loaded.append(img)
+                total += w + step
+        if loaded.is_empty():
+                return []
+        total -= step
+        var comp := Image.create_empty(total, h, false, Image.FORMAT_RGBA8)
+        var x := 0
+        for img in loaded:
+                comp.blend_rect(img, Rect2i(0, 0, img.get_width(), img.get_height()), Vector2i(x, 0))
+                x += img.get_width() + step
+        # the shadow silhouette — same alpha, flat shadow color
+        var sh := Image.create_empty(total, h, false, Image.FORMAT_RGBA8)
+        for y in range(h):
+                for xx in range(total):
+                        var px := comp.get_pixel(xx, y)
+                        if px.a > 0.02:
+                                sh.set_pixel(xx, y, Color(WORD_SHADOW.r, WORD_SHADOW.g, WORD_SHADOW.b, px.a))
+        return [ImageTexture.create_from_image(comp), ImageTexture.create_from_image(sh)]
+
+
+## The soft white radial halo behind the wordmark (the site's blurred glow).
+func _halo_texture() -> ImageTexture:
+        var s := 128
+        var img := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
+        var c := Vector2(s / 2.0, s / 2.0)
+        for y in range(s):
+                for x in range(s):
+                        var d := Vector2(float(x) + 0.5, float(y) + 0.5).distance_to(c) / (s / 2.0)
+                        var a := clampf(1.0 - d, 0.0, 1.0)
+                        img.set_pixel(x, y, Color(1, 1, 1, a * a * 0.55))
+        return ImageTexture.create_from_image(img)
+
+
+## The card: white sheet, 3px blue frame, rounded 12, one deep shadow —
+## the site's exact `border: 3px solid #1e78c8` read.
 func _card_style() -> StyleBoxFlat:
         var sb := StyleBoxFlat.new()
-        sb.bg_color = CARD_BG
-        sb.set_corner_radius_all(10)
+        sb.bg_color = CARD_TOP
+        sb.set_corner_radius_all(12)
         sb.anti_aliasing = true
-        sb.set_border_width_all(1)
-        sb.border_color = CARD_EDGE
-        sb.shadow_color = Color(0, 0, 0, 0.45)
-        sb.shadow_size = 22
-        sb.shadow_offset = Vector2(0, 6)
-        sb.content_margin_left = 0.0
-        sb.content_margin_right = 0.0
-        sb.content_margin_top = 0.0
-        sb.content_margin_bottom = 0.0
+        sb.set_border_width_all(3)
+        sb.border_color = CARD_FRAME
+        sb.shadow_color = Color(0.06, 0.2, 0.34, 0.4)
+        sb.shadow_size = 24
+        sb.shadow_offset = Vector2(0, 10)
+        sb.content_margin_left = 30.0
+        sb.content_margin_right = 30.0
+        sb.content_margin_top = 24.0
+        sb.content_margin_bottom = 26.0
         return sb
 
 
-## The light wells: white face, gray hairline, ink caret, blue focus ring.
+## The site's field label: tiny, uppercase, bold, quiet steel ink.
+func _field_label(txt: String) -> Label:
+        var l := Label.new()
+        l.text = txt
+        l.add_theme_font_override("font", RetroUI.gotham(700))
+        l.add_theme_font_size_override("font_size", 11)
+        l.add_theme_color_override("font_color", LABEL_INK)
+        return l
+
+
+## The white wells: white face, gray 2px border, ink caret, blue focus ring —
+## the site's INPUT style to the pixel.
 func _style_well(w: LineEdit) -> void:
         var normal := StyleBoxFlat.new()
-        normal.bg_color = WELL_BG
-        normal.set_corner_radius_all(6)
-        normal.set_border_width_all(1)
+        normal.bg_color = Color.WHITE
+        normal.set_corner_radius_all(8)
+        normal.set_border_width_all(2)
         normal.border_color = WELL_EDGE
         normal.content_margin_left = 12.0
         normal.content_margin_right = 12.0
-        normal.content_margin_top = 6.0
-        normal.content_margin_bottom = 6.0
+        normal.content_margin_top = 8.0
+        normal.content_margin_bottom = 8.0
         var focus := normal.duplicate() as StyleBoxFlat
-        focus.border_color = RetroUI.BLUE
+        focus.border_color = CARD_FRAME
         focus.set_border_width_all(2)
         w.add_theme_stylebox_override("normal", normal)
         w.add_theme_stylebox_override("focus", focus)
         w.add_theme_color_override("font_color", INK)
-        w.add_theme_color_override("font_placeholder_color", Color(INK_MUTED, 0.75))
-        w.add_theme_color_override("caret_color", RetroUI.BLUE)
-        w.add_theme_color_override("selection_color", Color(RetroUI.BLUE, 0.35))
+        w.add_theme_color_override("font_placeholder_color", Color(LABEL_INK, 0.6))
+        w.add_theme_color_override("caret_color", CARD_FRAME)
+        w.add_theme_color_override("selection_color", Color(CARD_FRAME, 0.25))
         if RetroUI.gotham(400) != null:
                 w.add_theme_font_override("font", RetroUI.gotham(400))
-        w.add_theme_font_size_override("font_size", 15)
+        w.add_theme_font_size_override("font_size", 14)
 
 
-func _gap(h: float) -> Control:
-        var c := Control.new()
-        c.custom_minimum_size = Vector2(0, h)
-        c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        return c
+## The RED Log In key — the site's exact gradient (#f0392f → #b81b13).
+func _red_key() -> StyleBoxTexture:
+        return RetroUI.gloss(RED_TOP, RED_BOT, RED_BOT.darkened(0.3), 8)
 
 
-func _set_mode(mode: String) -> void:
-        _mode = mode
-        _tab_login.button_pressed = mode == "login"
-        _tab_signup.button_pressed = mode == "signup"
-        _go.text = "Log In" if mode == "login" else "Create Account"
-        _status.text = ""
-        # the classic segmented chips: active = white with the blue ring,
-        # quiet = flat gray — exactly how the old page's tabs read
-        for pair in [[_tab_login, "login"], [_tab_signup, "signup"]]:
-                var b: Button = pair[0]
-                var on: bool = pair[1] == mode
-                var sb := StyleBoxFlat.new()
-                sb.bg_color = Color.WHITE if on else Color("e4e7ea")
-                sb.set_corner_radius_all(6)
-                sb.set_border_width_all(1)
-                sb.border_color = RetroUI.BLUE if on else WELL_EDGE
-                sb.content_margin_top = 6.0
-                sb.content_margin_bottom = 6.0
-                b.add_theme_stylebox_override("normal", sb)
-                var hb := sb.duplicate() as StyleBoxFlat
-                if not on:
-                        hb.bg_color = Color("eef0f2")
-                b.add_theme_stylebox_override("hover", hb)
-                b.add_theme_stylebox_override("pressed", sb)
-                b.add_theme_stylebox_override("hover_pressed", sb)
-                for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-                        b.add_theme_color_override(st, INK if on else INK_MUTED)
-                b.add_theme_font_override("font", RetroUI.gotham(600))
-                b.add_theme_font_size_override("font_size", 14)
+## The error banner — the site's AuthError read, docked inside the card.
+func _error_style() -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color("2a0f0d")
+        sb.set_corner_radius_all(8)
+        sb.set_border_width_all(1)
+        sb.border_color = Color("ff6259")
+        sb.content_margin_left = 12.0
+        sb.content_margin_right = 12.0
+        sb.content_margin_top = 8.0
+        sb.content_margin_bottom = 8.0
+        return sb
 
 
-## The tilted-square logo — the Roblox mark's read: a red rounded square,
-## rotated, with the square hole knocked out, drawn once in code.
-func _logo_tile_texture() -> ImageTexture:
-        var s := 48
-        var big := 4          # supersample for smooth edges
-        var w := s * big
-        var img := Image.create_empty(w, w, false, Image.FORMAT_RGBA8)
-        var red := Color("e2231a")
-        var half := float(w) / 2.0
-        var rad := deg_to_rad(14.0)
-        var cs := cos(rad)
-        var sn := sin(rad)
-        for y in range(w):
-                for x in range(w):
-                        # rotate the sample point around the center
-                        var dx := (float(x) + 0.5) - half
-                        var dy := (float(y) + 0.5) - half
-                        var rx := dx * cs - dy * sn
-                        var ry := dx * sn + dy * cs
-                        var bx := half + rx
-                        var by := half + ry
-                        var inset := w * 0.10
-                        var p := Vector2(bx, by)
-                        if not RetroUI._in_rounded_px(p,
-                                        Rect2(inset, inset, w - inset * 2.0, w - inset * 2.0),
-                                        w * 0.14):
-                                continue
-                        # the square hole, knocked out of the tile
-                        var hole := w * 0.13
-                        var hp := Rect2(half - hole, half - hole, hole * 2.0, hole * 2.0)
-                        if RetroUI._in_rounded_px(p, hp, w * 0.03):
-                                continue
-                        img.set_pixel(x, y, red)
-        img.resize(s, s, Image.INTERPOLATE_BILINEAR)
-        return ImageTexture.create_from_image(img)
+func _show_error(text: String) -> void:
+        _err_label.text = text
+        _err.visible = text != ""
 
 
-func _set_status(text: String, is_error := true) -> void:
-        _status.text = text
-        _status.add_theme_color_override("font_color",
-                Color("b3261e") if is_error else RetroUI.GREEN)
+func _set_info(text: String) -> void:
+        _info.text = text
 
 
 ## Auto sign-in on boot: the saved token (180-day server-side TTL) brings
@@ -345,7 +400,7 @@ func _try_auto_login() -> void:
         if Api.token == "":
                 return
         _working = true
-        _set_status("Logging you in…", false)
+        _set_info("Logging you in…")
         var me: Dictionary = await Api.get_me()
         _working = false
         if me.get("ok", false):
@@ -353,11 +408,11 @@ func _try_auto_login() -> void:
                 return
         if int(me.get("status", 0)) == 401:
                 Api.clear_session()
-                _set_status("Your session expired — log in one more time.")
+                _set_info("Your session expired — log in one more time.")
         else:
                 # offline: KEEP the token, offer offline play, retry works
                 _offline.visible = true
-                _set_status("Could not reach RetroBlox just now. Your saved session was kept — check your internet and press LOG IN to retry.")
+                _set_info("Could not reach RetroBlox just now. Your saved session was kept — check your internet and press LOG IN to retry.")
 
 
 func _on_action() -> void:
@@ -366,32 +421,33 @@ func _on_action() -> void:
         var uname := _user.text.strip_edges()
         var pwd := _pass.text
         if uname == "" or pwd == "":
-                _set_status("Type your username and password first.")
+                _show_error("Write your username and password first!")
                 return
         _working = true
         _go.disabled = true
         _offline.visible = false
-        _set_status("Talking to RetroBlox…", false)
-        var res: Dictionary
-        if _mode == "login":
-                res = await Api.login(uname, pwd)
-        else:
-                res = await Api.signup(uname, pwd)
+        _show_error("")
+        _set_info("Talking to RetroBlox…")
+        var res: Dictionary = await Api.login(uname, pwd)
         _working = false
         _go.disabled = false
         if not res.get("ok", false):
-                _set_status(String(res.get("error", "Could not reach RetroBlox.")))
+                # the server's OWN words — "No account named X exists here
+                # yet" vs "Wrong password for X" — land here verbatim
+                _show_error(String(res.get("error", "Could not reach RetroBlox.")))
+                _set_info("")
                 # network dead? show the offline hatch (401-style answers keep it hidden)
                 if not res.has("status"):
                         _offline.visible = true
                 return
         Api.token = String(res.get("token", ""))
         Api.save_session(uname)   # log in once — remembered from now on
+        _set_info("Welcome back, %s…" % uname)
         var me: Dictionary = await Api.get_me()
         if me.get("ok", false):
                 _finish_login(me)
         else:
-                _set_status("Signed in, but the avatar fetch failed — try again.")
+                _show_error("Signed in, but the avatar fetch failed — try again.")
 
 
 func _finish_login(me: Dictionary) -> void:
@@ -399,8 +455,7 @@ func _finish_login(me: Dictionary) -> void:
         # hard-crashes with "Invalid call 'String' constructor"
         Session.sign_in(me, Api.txt(me.get("userId", "")), Api.txt(me.get("username", ""), "Player"),
                 Api.txt(me.get("role", ""), "user"))
-        # v3.6: the game-select hub is retired — sign in and you are instantly
-        # playing the classic baseplate
+        # sign in and you are instantly playing the classic baseplate
         get_tree().change_scene_to_file("res://scenes/game.tscn")
 
 

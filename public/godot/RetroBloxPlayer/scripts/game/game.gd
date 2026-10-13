@@ -437,7 +437,7 @@ func _build_stats_chip() -> void:
         _corner_stats = Label.new()
         _corner_stats.name = "CornerStats"
         _corner_stats.text = "—"
-        _text(_corner_stats, 12, RetroUI.NIGHT_INK)
+        _text(_corner_stats, 12, Color.WHITE)
         var pill := PanelContainer.new()
         pill.name = "StatsChip"
         pill.add_theme_stylebox_override("panel", _pill_style())
@@ -468,10 +468,11 @@ func _build_topbar() -> void:
         logo_btn.pressed.connect(func() -> void: _toggle_menu())
         cluster.add_child(logo_btn)
 
-        # the chat key — the REAL internet icon PNG (Icons8) + the red badge
+        # the chat key — THE OLD BLUE ONE: the white bubble on the site's
+        # blue gloss square, exactly the v12.0 topbar the owner wants back
         var chat_btn := _topbar_key()
         chat_btn.tooltip_text = "Chat (ENTER)"
-        chat_btn.icon = RetroUI.icon_png("chat", RetroUI.NIGHT_INK)
+        chat_btn.icon = RetroUI.icon_png("chat", Color.WHITE)
         chat_btn.pressed.connect(func() -> void:
                 if chat.is_open:
                         chat.close()
@@ -537,14 +538,14 @@ func _build_topbar() -> void:
         uname.text = Session.username
         uname.add_theme_font_override("font", RetroUI.gotham(600))
         uname.add_theme_font_size_override("font_size", 13)
-        uname.add_theme_color_override("font_color", RetroUI.NIGHT_INK)
+        uname.add_theme_color_override("font_color", Color.WHITE)
         uname.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
         urow.add_child(uname)
         var gear_btn := Button.new()
         gear_btn.custom_minimum_size = Vector2(34, 34)
         gear_btn.focus_mode = Control.FOCUS_NONE
         gear_btn.tooltip_text = "Settings (ESC)"
-        gear_btn.icon = RetroUI.icon_png("settings", RetroUI.NIGHT_INK_MUTED)
+        gear_btn.icon = RetroUI.icon_png("settings", Color.WHITE)
         gear_btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
         gear_btn.expand_icon = true
         gear_btn.add_theme_stylebox_override("normal", _dark_key_style(false))
@@ -569,20 +570,19 @@ func _topbar_key() -> Button:
         return b
 
 
-## The dark HUD key face — translucent black bevel, hover lifts it a touch.
+## The BLUE GLOSS HUD key face — v12.2: THE OLD CHAT ICON IS BACK. The
+## topbar keys wear the site's blue header gloss again (the v12.0 read the
+## owner calls "the blue one"), white ink on top, hover lifts it.
 func _dark_key_style(hover: bool) -> StyleBox:
-        return RetroUI.raised(4, Color(0.0, 0.0, 0.0, 0.55)) if hover \
-                else RetroUI.raised(4, Color(0.0, 0.0, 0.0, 0.42))
+        return RetroUI.gloss(
+                RetroUI.SITE_BLUE.lightened(0.06) if hover else RetroUI.SITE_BLUE,
+                RetroUI.SITE_BLUE_DK, RetroUI.SITE_BLUE_DK.darkened(0.35), 8)
 
 
-## The topbar/stats pill — the dark translucent rounded float.
+## The topbar/stats pill — the site's blue header gloss (the old read).
 func _pill_style() -> StyleBox:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.02, 0.035, 0.055, 0.72)
-        sb.set_corner_radius_all(8)
-        sb.anti_aliasing = true
-        sb.set_border_width_all(1)
-        sb.border_color = Color(1, 1, 1, 0.14)
+        var sb: StyleBoxTexture = RetroUI.gloss(RetroUI.SITE_BLUE, RetroUI.SITE_BLUE_DK,
+                RetroUI.SITE_BLUE_DK.darkened(0.35), 8)
         sb.content_margin_left = 6.0
         sb.content_margin_right = 6.0
         sb.content_margin_top = 4.0
@@ -1690,7 +1690,7 @@ func _update_live_stats() -> void:
                         parts.append("FPS %d" % int(roundf(_fps_smooth)))
                 if want_ping:
                         parts.append("PING %s" % (("%dms" % _last_ping_ms) if _last_ping_ms > 0 else "—"))
-                parts.append("v12.1")
+                parts.append("v12.2")
                 _corner_stats.text = "   ·   ".join(parts)
         if _time_label != null and is_instance_valid(_time_label):
                 _time_label.text = _clock_text()

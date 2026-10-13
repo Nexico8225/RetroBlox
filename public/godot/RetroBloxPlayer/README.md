@@ -3,7 +3,7 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v12.1 "RETRO NIGHT" — THE CLIENT GOES
+through the RetroBlox platform API. v12.2 "THE OLD FRONT DOOR" — THE CLIENT GOES
 DARK RETRO: the ESC menu is a deep translucent SLATE panel (the 2012
 client's read — dark, calm, NOTHING blinding) with light ink everywhere so
 every option stays readable, the BLUE GLOSS header strip (logo + RETROBLOX
@@ -79,16 +79,16 @@ the screen so you always know where your aim is. Holding **Space** hops
 over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
-### Retro night — v12.1
+### The old front door — v12.2
 - The chrome goes DARK RETRO: translucent slate surfaces (retro_theme.gd `NIGHT_*`), light ink, the SAME blue gloss chrome + green/red gloss keys — nothing blinds, everything reads
 - The ESC menu: dark slate panel (translucent — the game breathes through), blue gloss header, folder tabs, dark People cards, gloss footer keys
 - The IDENTITY BLOCK: your full-body avatar render + your site PFP badge (bottom-right corner) + name/@handle/live stats
 - The chat is the dark glass float again; every line leads with the speaker's PFP; the type box is ALWAYS visible (click to type, click off to release)
 - The health bar is VERTICAL on the right edge — navy track, green fill climbing from the bottom, the number chip on top
-- The stats chip (FPS · ping · v12.1) is always on, bottom-left, dark
+- The stats chip (FPS · ping · v12.2) is always on, bottom-left, dark
 - One voice: ARIAL (Liberation Sans). The window opens COMPACT at 960x600
 
-## The ESC menu — the RETRO NIGHT panel (v12.1)
+## The ESC menu — the RETRO NIGHT panel (v12.2)
 
 The menu is ONE centered translucent slate card (about 64% of the screen —
 the game stays visible behind it under a deep veil) with the site's BLUE
@@ -104,7 +104,7 @@ ping/fps, your card wearing the classic blue ring), list = compact rows.
 The footer is the site's own button trio: red Leave · steel Respawn ·
 green Resume, each with the white key chip.
 
-### MORE SETTINGS (v12.0) + ACCOUNT (v12.1)
+### MORE SETTINGS (v12.0) + ACCOUNT (v12.2)
 
 - **PERFORMANCE** — Show FPS, Show ping (each hides its part of the stats
   chip live) and MAXIMUM FPS: Unlimited / 30 / 60 / 120 / 240, applied
@@ -122,7 +122,7 @@ green Resume, each with the white key chip.
 The editor still lives behind **F2**: click any element (topbar, user
 pill, health bar, toasts — the chat is OFF the editor now), drag to move,
 scale, edit text, add your own labels, Save to `user://ui_config.json`.
-The Settings page entry is gone (v12.1) — F2 is the door.
+The Settings page entry is gone (v12.2) — F2 is the door.
 
 ### Your face — your PFP, everywhere
 

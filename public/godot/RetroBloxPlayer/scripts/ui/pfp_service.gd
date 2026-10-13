@@ -1,27 +1,32 @@
 extends Node
-## PfpService — the REAL PROFILE PICTURE engine (v12.1).
+## PfpService — the REAL PROFILE PICTURE engine (v12.2).
 ## Every face this client shows IS the player's retro-blox.vercel.app
-## PROFILE PICTURE — exactly what the website itself shows:
-##
-##   a player signs up  ->  they wear the DEFAULT PFP (the letter avatar:
-##   first letter of the name, white, on a stable color from their name)
-##   they upload one    ->  avatarUrl points at it and EVERY client loads it.
+## PROFILE — and the DEFAULT PFP IS THE AVATAR ITSELF, exactly what the
+## owner decreed: a player who never uploaded a picture wears their own
+## 3D avatar, rendered headshot-style from the site's avatar payload.
+## THE SITE PROFILE IS SYNCED TO THE PLAYER SYSTEM — no more letter-N
+## sitting where the golden-helmet avatar belongs.
 ##
 ## Resolution order for (uid, username):
 ##   0. CUSTOM PFP     the URL the player set in this client's own Settings
 ##                     (saved in ui_config — this wins over EVERYTHING)
-##   1. SITE PFP       the account's avatarUrl: mine arrives via
+##   1. SITE PFP       the account's uploaded avatarUrl: mine arrives via
 ##                     /api/platform/me at login, everyone else's via the
 ##                     public GET /api/users/{id}/pfp
-##   2. DEFAULT PFP    the site's letter avatar, drawn in code (same
-##                     palette as the website) — no network, instant
+##   2. DEFAULT PFP    THE AVATAR RENDER — the site's avatar payload (the
+##                     same one the 3D rig wears) dressed and photographed
+##                     headshot-style by AvatarPortrait
+##   3. LAST RESORT    the site's letter avatar (offline / guests / no
+##                     payload) — first letter on a stable color
 ##
-## A small disk cache (user://pfp_cache_v13) keeps fetched site pictures
-## warm for 6h. All network happens off the main flow (await), nothing
-## blocks a frame, and every fetch is cached in RAM. peek() answers
-## INSTANTLY (RAM or default letter) for chat lines that cannot wait.
+## A small disk cache (user://pfp_cache_v14) keeps fetched/rendered
+## pictures warm for 6h. All network happens off the main flow (await),
+## nothing blocks a frame, and every fetch is cached in RAM. peek()
+## answers INSTANTLY (RAM or letter) for chat lines that cannot wait.
 
-const CACHE_TTL := 21600.0        # six hours per fetched site picture
+const AvatarPortrait := preload("res://scripts/ui/avatar_portrait.gd")
+
+const CACHE_TTL := 21600.0        # six hours per fetched/rendered picture
 const TIMEOUT := 10.0
 
 signal pfp_changed(uid: String)   # v9.0: a custom/site PFP landed — repaint seats
@@ -129,7 +134,7 @@ func fetch(uid: String, uname: String) -> Texture2D:
                 _ram[key] = _custom_tex
                 return _custom_tex
 
-        # 1. the disk cache — v13 namespace (older folders held renders and
+        # 1. the disk cache — v14 namespace (older folders held letters and
         # pre-v11 bacon bytes; a fresh name guarantees they can never resurface)
         var cached := _load_cache(lower)
         if cached != null:
@@ -137,9 +142,9 @@ func fetch(uid: String, uname: String) -> Texture2D:
                 _ram[key] = cached
                 return cached
 
-        # 2. THE SITE PFP — the account's avatarUrl. Mine rides the session
-        # (/api/platform/me); everyone else's comes from the public endpoint
-        # GET /api/users/{id}/pfp. A null avatarUrl means the DEFAULT pfp.
+        # 2. THE SITE PFP — an UPLOADED picture wins once it exists. Mine
+        # rides the session (/api/platform/me); everyone else's comes from
+        # the public endpoint GET /api/users/{id}/pfp.
         var url := site_pfp_url if uid == Session.user_id else ""
         if url == "" and not Session.is_guest:
                 var res: Dictionary = await Api.get_json("/api/users/%s/pfp" % uid)
@@ -153,7 +158,32 @@ func fetch(uid: String, uname: String) -> Texture2D:
                         _ram[key] = site
                         return site
 
-        # 3. THE DEFAULT PFP — the site's letter avatar, drawn in code
+        # 3. THE DEFAULT PFP — THE AVATAR ITSELF. No upload? Then the face
+        # everyone sees is the player's REAL avatar: the site's payload (the
+        # exact one the 3D rig wears), dressed and shot headshot-style.
+        # THE SITE PROFILE, SYNCED INTO THE PLAYER SYSTEM.
+        if not Session.is_guest:
+                var payload: Dictionary = {}
+                if uid == Session.user_id:
+                        payload = Session.my_avatar_data()
+                elif not _inflight.get(key, false):
+                        _inflight[key] = true
+                        var res2: Dictionary = await Api.avatar_of(uid)
+                        _inflight.erase(key)
+                        if res2.get("ok", false) and res2.get("avatar", null) is Dictionary:
+                                payload = res2["avatar"]
+                                Session.cache_avatar(uid, res2)
+                if not payload.is_empty() and not _inflight.get(key, false):
+                        _inflight[key] = true
+                        var shot: Texture2D = await AvatarPortrait.render(self, Api, payload, true)
+                        _inflight.erase(key)
+                        if shot != null:
+                                _save_cache(lower, shot)
+                                shot = rounded(shot)
+                                _ram[key] = shot
+                                return shot
+
+        # 4. LAST RESORT — the letter avatar (offline, guests, no payload)
         var fb := default_pfp(uname)
         _ram[key] = fb
         return fb
@@ -189,7 +219,7 @@ func forget(uid: String, uname: String) -> void:
 # ---------------------------------------------------------------- internals
 
 func _load_cache(lower: String) -> Texture2D:
-        var path := "user://pfp_cache_v13/%s.png" % lower
+        var path := "user://pfp_cache_v14/%s.png" % lower
         if not FileAccess.file_exists(path):
                 return null
         var age := 0.0
@@ -205,11 +235,11 @@ func _load_cache(lower: String) -> Texture2D:
 
 
 func _save_cache(lower: String, tex: Texture2D) -> void:
-        DirAccess.make_dir_recursive_absolute("user://pfp_cache_v13")
+        DirAccess.make_dir_recursive_absolute("user://pfp_cache_v14")
         var img := tex.get_image()
         if img == null or img.is_empty():
                 return
-        img.save_png("user://pfp_cache_v13/%s.png" % lower)
+        img.save_png("user://pfp_cache_v14/%s.png" % lower)
 
 
 ## Rounded corners, the client's headshot read (r = 14% of the side).
