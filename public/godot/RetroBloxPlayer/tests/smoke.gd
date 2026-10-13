@@ -537,13 +537,13 @@ func _run_all() -> void:
         check(game_src.contains("_tab_button") and game_src.contains("_style_tab"),
                 "TOP TABS: icon rows with the white underline, the open page lit")
         check(game_src.contains("_players_grid") and game_src.contains("_player_card"),
-                "People page is a CARD GRID (portrait + name + @handle)")
+                "People page is a CARD GRID (avatar + name — simple)")
         check(game_src.contains("_render_portrait") and game_src.contains("_portrait_cache"),
-                "cards wear REAL PFP headshots (fetched once, cached)")
+                "the topbar + chat wear REAL PFPs (fetched once, cached)")
         check(game_src.contains("_corner_stats") and game_src.contains("_update_live_stats"),
                 "YOUR fps + ping live in the corner chip and breathe every half second")
-        check(game_src.contains("_remote_stats") and game_src.contains('p.get("ping", null)'),
-                "every card shows the OTHER player's real ping + fps")
+        check(not game_src.contains("_remote_stats") and not game_src.contains("_set_people_view"),
+                "v12.3 SIMPLE: no per-card stats, no view toggles — avatar + name only")
         check(game_src.count("KEY_R") >= 2,
                 "R opens the ESC menu from the game (and still resets inside it)")
         check(game_src.contains("_topbar_pfp") and game_src.contains("_pfp_preview"),
@@ -639,12 +639,12 @@ func _run_all() -> void:
                 "no-data players fall back to the classic smiley (guests only)")
         check(game_src.contains("Pfp.fetch") and game_src.contains("_apply_pfp"),
                 "the menu + cards + topbar all wear REAL PFPs (one pipeline)")
-        check(game_src.contains("_render_identity") and game_src.contains("AvatarPortrait.render"),
-                "the ESC menu LOADS YOUR AVATAR — the full-body render in the identity block")
-        check(game_src.contains("PfpBadge") and game_src.contains("circle_badge"),
-                "the PFP badge sits on the loaded avatar's bottom-right corner")
-        check(game_src.contains("_set_people_view") and game_src.contains('_people_view == "tiles"'),
-                "the TILES and LIST views both rebuild the roster (fixed)")
+        check(game_src.contains("_render_menu_avatar") and game_src.contains("AvatarPortrait.render"),
+                "the ESC menu shows EVERY PLAYER'S AVATAR — full-body renders + names (the old read)")
+        check(not game_src.contains("PfpBadge") and not game_src.contains("_render_identity"),
+                "the identity block + PFP badge are GONE — the avatar IS the picture")
+        check(game_src.contains("_menu_avatar_worker") and game_src.contains("_body_cache"),
+                "menu avatar renders are lazy + session-cached (players can wait, perf first)")
         check(game_src.contains("_log_out") and game_src.contains("clear_session"),
                 "LOG OUT wipes the session and lands on the login page")
         check(game_src.contains('MenuCenter') and game_src.contains("MenuPanel"),
@@ -742,7 +742,7 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains("v12.1"), "the corner chip wears v12.1")
+        check(game_src.contains("v12.3"), "the corner chip wears v12.3")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(portrait_src.contains("HEADSHOT_SIZE") and portrait_src.contains("headshot := false"),
@@ -778,13 +778,21 @@ func _run_all() -> void:
                 "the ambient wash is CALM — colors read true, nothing bleaches")
         check(world_src.contains("var n := 128") and world_src.contains("bump_top"),
                 "the stud tile is the AUTHENTIC Roblox stud (lit + shaded rims, contact shadow)")
-        check(local_src.contains("MAX_STEP := 3.2 * STUD"),
-                "v5.0 STAIRS DOUBLED: 2-stud ledges walk over like stairs (3.2 step)")
+        check(local_src.contains("MAX_STEP := 2.0 * STUD"),
+                "v12.3 STEP TUNED: 2-stud, 1-stud and lower ledges walk over like stairs")
         check(local_src.contains("WALL_GRAB_MIN_H := MAX_STEP + 0.05"),
                 "the climb grip only starts on faces TALLER than the stair step")
+        check(local_src.contains("heading = cam_yaw"),
+                "v12.3 SHIFT LOCK IS INSTANT: the body snaps to the camera yaw, no swing-around")
         var proj_src := FileAccess.get_file_as_string("res://project.godot")
-        check(proj_src.contains("msaa_3d=2") and proj_src.contains("anisotropic_filtering_level=4"),
-                "the renderer ships 4x MSAA + anisotropic filtering (nothing blurry)")
+        check(proj_src.contains("msaa_3d=1") and proj_src.contains("anisotropic_filtering_level=4"),
+                "the renderer ships 2x MSAA (v12.3 perf) + anisotropic filtering")
+        check(proj_src.contains("occlusion_culling/use_occlusion_culling=true"),
+                "v12.3 PERF: occlusion culling is ON")
+        check(world_src.contains("BoxOccluder3D"),
+                "v12.3 PERF: solid world parts ship matching occluders")
+        check(FileAccess.get_file_as_string("res://scripts/player/remote_player.gd").contains("is_position_in_frustum"),
+                "v12.3 PERF: far/offscreen remotes tick their walk rig at 4 Hz")
         # --- the v12.1 HUD — the real client's chrome, RETRO NIGHT ---
         check(game_src.contains("_health_track_h") and game_src.contains("PRESET_CENTER_RIGHT"),
                 "the health bar is VERTICAL on the RIGHT edge (the classic client dock)")
@@ -829,10 +837,11 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "12.2"') and login_src4.contains("_red_key"),
-                "login wears the SITE's own page again (v12.2, the RED Log In key)")
-        check(login_src4.contains("_wordmark_textures") and login_src4.contains("login_backdrop"),
-                "the login sits on the SITE's roller-coaster key art + the sprite-letter wordmark")
+        check(login_src4.contains('VERSION := "12.3"') and login_src4.contains("_red_key"),
+                "login is SIMPLE (v12.3): flat sky + bold wordmark + the RED Log In key")
+        check(not login_src4.contains("_wordmark_textures") and not login_src4.contains("login_backdrop")
+                and login_src4.contains("RETROBLOX"),
+                "the login is one flat sky + one bold TEXT wordmark (no photo, no sprite letters)")
         check(login_src4.contains('"Log In"') and not login_src4.contains("Sign Up")
                 and not login_src4.contains("Create Account") and not login_src4.contains("Sign In"),
                 "LOG IN ONLY: the Create Account / Sign Up form is GONE, no Sign In anywhere")
@@ -871,7 +880,7 @@ func _run_all() -> void:
                 "BUNNY HOP gates the hold-to-jump (one jump per press when off)")
         check(portrait_src.contains("_paper_backdrop"),
                 "headshots can land on the SITE PAPER backdrop (readable at any size)")
-        check(game_src.contains("v12.2"), "the corner chip wears v12.2")
+        check(game_src.contains("v12.3"), "the corner chip wears v12.3")
         check(game_src.contains("SITE_BLUE") and game_src.contains("THE OLD BLUE ONE"),
                 "THE OLD CHAT ICON IS BACK: the topbar wears the site's blue gloss")
         check(login_src4.contains("gotham(800)"),

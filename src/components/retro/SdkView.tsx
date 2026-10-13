@@ -9,17 +9,17 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v12.2 "THE OLD FRONT DOOR"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=12.2'
+const VERSION = 'v12.3 "SIMPLE WORKS"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=12.3'
 
 const NEW_STUFF: [string, string][] = [
-  ['THE OLD LOGIN PAGE IS BACK — IT IS THE SITE\'S OWN', 'The game\'s front door is now the retro-blox.vercel.app sign-in, rebuilt 1:1: the roller-coaster key art, the chunky sprite-letter RETROBLOX wordmark bobbing over it, and the classic white card with the BLUE frame. Log in with the SAME username and password you use on the website — it is the same account, the same database, one platform.'],
-  ['CREATE ACCOUNT — REMOVED', 'The Sign Up tab and the Create Account button are GONE from the player. Accounts are made on the website (retro-blox.vercel.app), once; the game just logs you in. Log in once and you never type it again — the saved session signs you in every launch.'],
-  ['LOGIN ERRORS SPEAK ENGLISH NOW', 'The server answers with the website\'s exact words: "No account named X exists here yet" vs "Wrong password for X" — so a mistyped password can never again show a useless "Incorrect username or password". The error banner is the site\'s red AuthError style, inside the card.'],
-  ['YOUR PROFILE IS SYNCED — THE DEFAULT PFP IS YOUR AVATAR', 'No uploaded picture? Then every face in the client (topbar chip, chat lines, People cards) wears YOUR REAL AVATAR — the site\'s payload photographed headshot-style in-engine. No more letter-N sitting where the golden helmet belongs. Upload a picture on the site and that wins automatically; the letter avatar only returns for guests/offline.'],
-  ['THE OLD CHAT ICON — THE BLUE ONE — IS BACK', 'The topbar wears the site\'s blue header gloss again: the white chat bubble on the blue gloss square, the logo key beside it, and the user pill + gear + stats chip all in the same blue. Exactly the v12.0 topbar, back by demand.'],
-  ['ADMIN PANEL: ACCOUNT TOOLS', 'The site\'s Admin Panel gained the master key: set any account\'s password (yours included) — the old password stops working everywhere the moment you save. Never locked out again.'],
-  ['EVERYTHING FROM v12.1 STAYS', 'Dark retro menu with your full-body avatar in the identity block, PFP + name chat lines, click-to-type / click-off chat, vertical right-edge health bar, working Tiles + List views, Log Out, R6 hitbox, eased arms, 12s bubbles.'],
+  ['THE ESC MENU IS SIMPLE — THE WAY IT SHOULD BE', 'Open ESC and see EVERY PLAYER: their real AVATAR (a full-body render of the exact look their rig wears) with their NAME under it. No identity block, no PFP badges, no tiles/list toggles, no @handles, no ping/fps rows — one clean grid, my card wearing the classic blue ring. Simple UI wins.'],
+  ['SHIFT LOCK IS INSTANT', 'Press Shift and your character SNAPS to your camera direction the same frame — exactly how Roblox shift lock works. No more slow swing-around while the body eases toward the camera.'],
+  ['STAIRS TUNED DOWN: 2 STUDS', 'The step-up was 3.2 studs (you could walk up walls). Now 2-stud, 1-stud and lower ledges roll under your feet like stairs; anything taller wants the climb grip — the classic read.'],
+  ['THE LOGIN IS SIMPLE', 'One flat sky, one bold RETROBLOX wordmark, one clean card: username, password, the red Log In key. No photo backdrop, no sprite-letter compositing — the same specific server errors, the same auto-login.'],
+  ['PERFORMANCE PASS', 'OCCLUSION CULLING is on and every solid world part ships a matching occluder (blocks behind walls skip drawing entirely), MSAA dropped to 2x, and remote players far away or off screen tick their walk rigs at 4 Hz instead of every frame.'],
+  ['REMOTE AVATARS DRESS RIGHT — BUG FIX', 'Found and fixed a real bug: other players were being dressed from the API wrapper instead of the inner avatar payload, so they could fall back to plain noob colors. Everyone now wears their real site look, in the world AND in the menu.'],
+  ['EVERYTHING FROM v12.2 STAYS', 'Log In only (no Create Account), specific login errors, the default PFP is your avatar render, the blue gloss topbar, click-to-type chat with PFP + name lines, 12s bubbles, vertical health bar, Log Out, the six settings + Reset All.'],
 ]
 
 const FILES = [
@@ -27,7 +27,7 @@ const FILES = [
   ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache — and the saved login that signs you in automatically next launch'],
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock, show FPS/ping, max FPS, player names, bunny hop, reset all)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
-  ['scripts/ui/login.gd', 'THE OLD LOGIN, the site\'s own: the roller-coaster key art + the sprite-letter RETROBLOX wordmark (bobbing, hard shadow) + the white card with the blue frame + uppercase labels + white wells + the RED Log In key. LOG IN ONLY — no Create Account. Specific server errors in the site\'s red banner'],
+  ['scripts/ui/login.gd', 'THE SIMPLE LOGIN: one flat sky, one bold RETROBLOX wordmark, one clean card — uppercase labels, white wells, the RED Log In key. LOG IN ONLY — no Create Account. Specific server errors in the red banner, saved session auto-login'],
   ['scripts/ui/retro_theme.gd', 'The engine: ARIAL, the RETRO NIGHT slate palette + the site gloss keys, the site letter-avatar palette + pixel glyphs, the circle-badge cropper, icon_png() internet PNGs with a code-drawn fallback, bevels, wells, glass, cursors'],
   ['scripts/ui/pfp_service.gd', 'The PFP engine, SYNCED: custom URL → uploaded avatarUrl (yours via /me, everyone else via GET /api/users/{id}/pfp) → THE DEFAULT = YOUR AVATAR RENDERED headshot-style → letter avatar last resort; peek() for instant chat lines, 6h disk cache v14, rounded corners. NO bundled bacon, NO Roblox thumbnails'],
   ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, global UI scale, your PFP URL — user://ui_config.json, boots with you'],
@@ -35,11 +35,11 @@ const FILES = [
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — font-metric wrapping (text NEVER spills off the plate), 12s linger, slow fade, stacked the Roblox way'],
-  ['scripts/player/local_player.gd', 'Classic controller at the classic size: the REAL R6 hitbox (2x5x1 stud box), WalkSpeed 16, 2-stud gliding STAIRS, ladders + stud-edge grabs, trampolines, fall damage, dust'],
+  ['scripts/player/local_player.gd', 'Classic controller at the classic size: the REAL R6 hitbox (2x5x1 stud box), WalkSpeed 16, INSTANT shift-lock snap, 2-stud gliding STAIRS, ladders + stud-edge grabs, trampolines, fall damage, dust'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the RETRO NIGHT ESC menu (identity block with your avatar render + PFP badge, tiles/list views, People + Settings tabs, [L]/[R]/[ESC] footer, Log Out), respawn flow, the vertical right-edge health bar'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the SIMPLE ESC menu (every player as a full-body AVATAR render + name, People + Settings tabs, [L]/[R]/[ESC] footer, Log Out), respawn flow, the vertical right-edge health bar'],
   ['scripts/game/chat_box.gd', 'The classic chat: always-visible type box (click to type, click off to release), dark glass log with PFP + name lines, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, and Shift Lock shoulder park'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],

@@ -89,5 +89,9 @@ toggle_players={
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/anisotropic_filtering_level=4
-anti_aliasing/quality/msaa_3d=2
+; v12.3 PERF: OCCLUSION CULLING — whole blocks hidden behind walls/floors
+; are skipped entirely (every solid world part ships a matching occluder)
+occlusion_culling/use_occlusion_culling=true
+; v12.3 PERF: 2x MSAA (was 4x) — nearly half the AA cost, edges still clean
+anti_aliasing/quality/msaa_3d=1
 environment/defaults/default_clear_color=Color(0.623529, 0.843137, 1, 1)

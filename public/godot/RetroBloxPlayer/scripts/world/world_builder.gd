@@ -190,6 +190,19 @@ static func _build_part(root: Node3D, part: Dictionary, tex: ImageTexture, spawn
         mesh_node.material_override = _part_material(color, mat_kind, tex, part.get("no_studs", false))
         body.add_child(mesh_node)
 
+        # v12.3 PERF: every solid box part also ships a matching OCCLUDER —
+        # the engine's occlusion culling then skips whole blocks that hide
+        # behind walls / floors / towers instead of drawing them. Only box
+        # parts big enough to actually hide anything bother (a 1-stud plate
+        # occludes nothing; skip the noise).
+        if shape == "box" and size.x >= 1.0 and size.y >= 1.0 and size.z >= 1.0:
+                var occ := OccluderInstance3D.new()
+                occ.name = "Occluder"
+                var box_occ := BoxOccluder3D.new()
+                box_occ.size = size
+                occ.occluder = box_occ
+                body.add_child(occ)
+
         if group != "":
                 body.add_to_group(group)
         if group == "spawn":

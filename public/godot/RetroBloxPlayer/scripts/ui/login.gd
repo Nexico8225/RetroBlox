@@ -1,9 +1,7 @@
 extends Control
-## Login — THE OLD LOGIN PAGE, BACK FOR REAL: it IS the retro-blox.vercel.app
-## sign-in, rebuilt 1:1 inside the player. The same roller-coaster key art,
-## the same chunky sprite-letter RETROBLOX wordmark, the same white card with
-## the blue frame, the same labels, wells and the big RED Log In key.
-## The site is the truth — the game's front door now looks exactly like it.
+## Login — v12.3 SIMPLE. One flat sky, one bold RETROBLOX wordmark, one
+## clean card: username, password, the red Log In key. Nothing else —
+## simple UI beats busy UI every time.
 ##
 ## LOG IN ONLY: the account-creation form is GONE (you asked). An
 ## account is made on the website, once — the player just signs you in.
@@ -11,29 +9,24 @@ extends Control
 ## auto-signs in with zero typing. The server is LOCKED to the official
 ## RetroBlox platform — a label, not a field.
 ##
-## The server now answers with the site's SPECIFIC errors ("No account named
+## The server answers with the site's SPECIFIC errors ("No account named
 ## X exists here yet" vs "Wrong password for X"), so a wrong password can
 ## never again read as a mystery.
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
-const VERSION := "12.2"
+const VERSION := "12.3"
 
-## the site's own login palette (AuthPages.tsx, color for color)
-const SKY := Color("63b3ec")              # the key-art fallback sky
-const CARD_TOP := Color("ffffff")         # card gradient face
-const CARD_BOTTOM := Color("f2f7fb")
+## the login palette (the site's own colors, quieted down)
+const SKY := Color("63b3ec")              # the flat sky behind everything
+const CARD_TOP := Color("ffffff")         # card face
 const CARD_FRAME := Color("1e78c8")       # the 3px blue frame
-const INK_HEAD := Color("1c3a52")         # "Login and start having fun"
+const INK_HEAD := Color("1c3a52")         # the headline
 const LABEL_INK := Color("43505c")        # the uppercase field labels
 const WELL_EDGE := Color("b9c6d0")        # the well border
 const INK := Color("1c2733")              # typed ink
 const RED_TOP := Color("f0392f")          # the Log In key gradient
-const RED_MID := Color("d21f16")
 const RED_BOT := Color("b81b13")
 const WORD_SHADOW := Color("a8231c")      # the wordmark's hard drop shadow
-
-const LETTERS := "RETROBLOX"
-const WORD_H := 54.0                      # sprite letter height
 
 var _user: LineEdit
 var _pass: LineEdit
@@ -43,9 +36,6 @@ var _info: Label
 var _go: Button
 var _offline: Button
 var _working := false
-var _wm_root: Control                     # the bobbing wordmark
-var _wm_base_y := 0.0
-var _bob_t := 0.0
 
 
 func _ready() -> void:
@@ -55,30 +45,14 @@ func _ready() -> void:
         _try_auto_login()
 
 
-func _process(delta: float) -> void:
-        # the wordmark's gentle bob — the site's rb-auth-bob keyframe
-        if _wm_root != null and is_instance_valid(_wm_root):
-                _bob_t += delta
-                _wm_root.position.y = _wm_base_y + sin(_bob_t * 2.2) * 3.5
-
-
 func _build() -> void:
-        # ---- the stage: the site's roller-coaster key art, full-bleed ----
+        # ---- the stage: ONE flat sky — no photo, no noise ----
         var bg := ColorRect.new()
         bg.color = SKY
         bg.set_anchors_preset(Control.PRESET_FULL_RECT)
         add_child(bg)
-        var tex := RetroUI.login_backdrop()
-        if tex != null:
-                var photo := TextureRect.new()
-                photo.texture = tex
-                photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-                photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-                photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-                photo.set_anchors_preset(Control.PRESET_FULL_RECT)
-                bg.add_child(photo)
 
-        # ---- the column: wordmark on top, the white card under it ----
+        # ---- the column: wordmark on top, the card under it ----
         var center := CenterContainer.new()
         center.set_anchors_preset(Control.PRESET_FULL_RECT)
         add_child(center)
@@ -87,17 +61,24 @@ func _build() -> void:
         col.add_theme_constant_override("separation", 10)
         center.add_child(col)
 
-        # ---- THE WORDMARK — the site's chunky sprite letters, shadowed ----
-        var word := _wordmark_block()
-        if word != null:
-                col.add_child(word)
+        # ---- THE WORDMARK — simple: bold white text, one hard shadow ----
+        var word := Label.new()
+        word.text = "RETROBLOX"
+        word.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        word.add_theme_font_override("font", RetroUI.gotham(800))
+        word.add_theme_font_size_override("font_size", 44)
+        word.add_theme_color_override("font_color", Color.WHITE)
+        word.add_theme_color_override("font_shadow_color", WORD_SHADOW)
+        word.add_theme_constant_override("shadow_offset_x", 3)
+        word.add_theme_constant_override("shadow_offset_y", 4)
+        col.add_child(word)
 
         var gap := Control.new()
-        gap.custom_minimum_size = Vector2(0, 14)
+        gap.custom_minimum_size = Vector2(0, 10)
         gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
         col.add_child(gap)
 
-        # ---- THE CARD — the site's white sheet with the BLUE frame ----
+        # ---- THE CARD — one clean sheet with the blue frame ----
         var card := PanelContainer.new()
         card.custom_minimum_size = Vector2(400, 0)
         card.add_theme_stylebox_override("panel", _card_style())
@@ -207,107 +188,6 @@ func _build() -> void:
 
         _user.text_submitted.connect(func(_t: String) -> void: _pass.grab_focus())
         _pass.text_submitted.connect(func(_t: String) -> void: _on_action())
-
-
-## The wordmark block: the site's sprite-letter RETROBLOX (the font-sheet
-## PNGs the website itself uses), rotated -2deg, with the hard #a8231c
-## drop-shadow copy and the soft white halo, bobbing on a sine.
-func _wordmark_block() -> Control:
-        var pair := _wordmark_textures()
-        if pair.is_empty():
-                return null
-        var main: Texture2D = pair[0]
-        var shadow: Texture2D = pair[1]
-        var w := main.get_width()
-        var h := main.get_height()
-
-        var root := Control.new()
-        root.custom_minimum_size = Vector2(w + 60, h + 34)
-        root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-        # the soft white halo (the site's radial glow behind the letters)
-        var halo := TextureRect.new()
-        halo.texture = _halo_texture()
-        halo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        halo.stretch_mode = TextureRect.STRETCH_SCALE
-        halo.size = Vector2(w + 150, h + 110)
-        halo.position = Vector2((w + 60) / 2.0 - halo.size.x / 2.0,
-                (h + 34) / 2.0 - halo.size.y / 2.0)
-        halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        root.add_child(halo)
-
-        # the shadow copy — the silhouette recolored, hard 5px offset
-        var sh := TextureRect.new()
-        sh.texture = shadow
-        sh.position = Vector2(30, 17 + 5)
-        sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        root.add_child(sh)
-
-        # the letters themselves
-        var face := TextureRect.new()
-        face.texture = main
-        face.position = Vector2(30, 17)
-        face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        root.add_child(face)
-
-        root.rotation = deg_to_rad(-2.0)
-        root.pivot_offset = root.custom_minimum_size / 2.0
-        _wm_root = root
-        _wm_base_y = 0.0
-        return root
-
-
-## Composite the sprite letters into one texture (+ the shadow silhouette).
-func _wordmark_textures() -> Array:
-        var h := int(WORD_H)
-        var step := int(WORD_H * 0.07)
-        var loaded: Array[Image] = []
-        var total := 0
-        for i in range(LETTERS.length()):
-                var path := "res://assets/ui/font/%s.png" % LETTERS[i]
-                if not ResourceLoader.exists(path):
-                        continue
-                var tex: Texture2D = load(path)
-                if tex == null:
-                        continue
-                var img := tex.get_image()
-                if img == null or img.is_empty():
-                        continue
-                if img.is_compressed():
-                        img.decompress()
-                var w := int(round(float(h) * float(img.get_width()) / float(img.get_height())))
-                img.resize(w, h, Image.INTERPOLATE_LANCZOS)
-                loaded.append(img)
-                total += w + step
-        if loaded.is_empty():
-                return []
-        total -= step
-        var comp := Image.create_empty(total, h, false, Image.FORMAT_RGBA8)
-        var x := 0
-        for img in loaded:
-                comp.blend_rect(img, Rect2i(0, 0, img.get_width(), img.get_height()), Vector2i(x, 0))
-                x += img.get_width() + step
-        # the shadow silhouette — same alpha, flat shadow color
-        var sh := Image.create_empty(total, h, false, Image.FORMAT_RGBA8)
-        for y in range(h):
-                for xx in range(total):
-                        var px := comp.get_pixel(xx, y)
-                        if px.a > 0.02:
-                                sh.set_pixel(xx, y, Color(WORD_SHADOW.r, WORD_SHADOW.g, WORD_SHADOW.b, px.a))
-        return [ImageTexture.create_from_image(comp), ImageTexture.create_from_image(sh)]
-
-
-## The soft white radial halo behind the wordmark (the site's blurred glow).
-func _halo_texture() -> ImageTexture:
-        var s := 128
-        var img := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
-        var c := Vector2(s / 2.0, s / 2.0)
-        for y in range(s):
-                for x in range(s):
-                        var d := Vector2(float(x) + 0.5, float(y) + 0.5).distance_to(c) / (s / 2.0)
-                        var a := clampf(1.0 - d, 0.0, 1.0)
-                        img.set_pixel(x, y, Color(1, 1, 1, a * a * 0.55))
-        return ImageTexture.create_from_image(img)
 
 
 ## The card: white sheet, 3px blue frame, rounded 12, one deep shadow —

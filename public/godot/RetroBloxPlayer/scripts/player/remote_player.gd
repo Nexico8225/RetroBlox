@@ -18,6 +18,8 @@ var _target_heading := 0.0
 var _prev_pos := Vector3.ZERO
 var _has_target := false
 var _time := 0.0
+var _anim_accum := 0.0    # v12.3: walk-phase time owed to the rig
+var _anim_clock := 0.0    # v12.3: seconds until the next far/offscreen anim tick
 
 
 func _init() -> void:
@@ -61,8 +63,25 @@ func _process(delta: float) -> void:
         var before := global_position
         global_position = global_position.lerp(_target_pos, k)
         avatar.rotation.y = lerp_angle(avatar.rotation.y, _target_heading, 1.0 - exp(-10.0 * delta))
-        var speed := before.distance_to(global_position) / maxf(delta, 0.0001)
-        avatar.call("animate", delta, speed, true, false)
+        # v12.3 PERF: the walk rig is CPU work every frame for EVERY remote
+        # player. Players far away or not on screen (behind you, behind a
+        # wall) tick their animation at a quiet 4 Hz instead — movement
+        # still glides smoothly (that part never sleeps), and nobody can
+        # see a distant walk cycle anyway. Banked phase time keeps the
+        # stride length identical when they come back into view.
+        _anim_accum += delta
+        _anim_clock -= delta
+        var on_stage := true
+        var cam := get_viewport().get_camera_3d()
+        if cam != null:
+                var head := global_position + Vector3(0.0, 2.5, 0.0)
+                on_stage = global_position.distance_to(cam.global_position) < 70.0 \
+                        and cam.is_position_in_frustum(head)
+        if on_stage or _anim_clock <= 0.0:
+                var speed := before.distance_to(global_position) / maxf(delta, 0.0001)
+                avatar.call("animate", maxf(_anim_accum, 0.0001), speed, true, false)
+                _anim_accum = 0.0
+                _anim_clock = 0.0 if on_stage else 0.25
 
 
 ## The classic white bubble over their head for a few seconds.

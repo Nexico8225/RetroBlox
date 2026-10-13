@@ -7,9 +7,9 @@ extends CharacterBody3D
 ## and multiplied by STUD, so the classic numbers still rule the feel:
 ## WalkSpeed 16, JumpPower 50, workspace gravity 196.2.
 ##
-## Features: crisp ground accel + air control, 3.2-stud step-up (stairs —
-## v5.0 DOUBLED the old walk-over: 1-stud AND 2-stud platforms now roll
-## under your feet like stairs), TrussPart-style ladders (even ones built
+## Features: crisp ground accel + air control, 2-stud step-up (stairs —
+## v12.3 TUNED DOWN from 3.2: 2-stud, 1-stud and lower ledges roll under
+## your feet like stairs, taller faces want the climb grip), TrussPart-style ladders (even ones built
 ## from segments with 1-3 stud gaps
 ## between them — the climb grace carries you across the gap), stud-edge
 ## climbing (walk into any TALL platform edge while FACING it and W climbs
@@ -39,8 +39,8 @@ const BRAKE_GROUND := 170.0 * STUD  # stop on release, classic style
 const COYOTE_TIME := 0.08         # grace window after walking off a ledge
 const JUMP_BUFFER := 0.12         # pressing jump just before landing still jumps
 
-const MAX_STEP := 3.2 * STUD      # v5.0: walk over 2-stud ledges like stairs
-                                  # (doubled from the old ~1.5 effective step)
+const MAX_STEP := 2.0 * STUD      # v12.3: walk over 2-stud and 1-stud and
+                                  # lower ledges like stairs (was 3.2 — too tall)
 const MIN_STEP := 0.05 * STUD
 const STEP_FORWARD := 0.6 * STUD
 const STEP_PROBE_AHEAD := 1.7 * STUD  # down-ray lands BEYOND the capsule radius
@@ -63,14 +63,15 @@ const CLIMB_FACE_STAY := 0.35    # fall below this while climbing = let go + fal
 const CLIMB_GRACE := 0.45         # seconds the climb survives rung/gap stretches
 const WALL_REACH := 3.0 * STUD    # probe ray length for stud edges
 const HUG_PRESSURE := 1.2 * STUD  # gentle push into the surface while climbing
-## A climb only STARTS on faces TALLER than the stair step (3.25 studs):
-## 1-2 stud steps stay stairs (the step-up walks over them) — touching a
-## low step with your legs must NEVER put the body into the climb grip.
+## A climb only STARTS on faces TALLER than the stair step (2.05 studs):
+## 2-stud and 1-stud steps stay stairs (the step-up walks over them) —
+## touching a low step with your legs must NEVER put the body into the
+## climb grip.
 const WALL_GRAB_MIN_H := MAX_STEP + 0.05
 ## Heights (studs above the feet) of the vertical probe rays — spread so
 ## plate towers with gaps always have at least one ray on a plate. The
-## 3.25 ray catches faces just over the stair limit.
-const WALL_PROBE_HS: Array = [0.5, 1.7, 2.7, 2.9, 3.25, 4.1]
+## 2.1 ray catches faces just over the stair limit.
+const WALL_PROBE_HS: Array = [0.5, 1.7, 2.7, 2.9, 4.1]
 
 const LAND_SOUND_FALL := 22.0 * STUD  # impact speed that triggers the landing thud
 const FALL_WIND_SPEED := 34.0 * STUD  # downward speed where the wind loop kicks in
@@ -239,12 +240,14 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         # facing — while CLIMBING the torso locks onto the ladder / wall face
         # and NEVER twists left or right: A/D and S climb and duck without
         # spinning the body, so the grip — and the Climb clip — cannot break
-        # from body spin. Shift lock / first person square up to the camera;
-        # otherwise face the run.
+        # from body spin. v12.3 SHIFT LOCK IS INSTANT: the body SNAPS to the
+        # camera yaw the same frame (toggle it on and the character is
+        # already facing where the camera looks — Roblox-style — never the
+        # old slow swing-around). Otherwise face the run.
         if _climb_kind != ClimbKind.NONE:
                 heading = lerp_angle(heading, atan2(-_climb_face.x, -_climb_face.z), 1.0 - exp(-22.0 * delta))
         elif use_shiftlock or first_person:
-                heading = lerp_angle(heading, cam_yaw, 1.0 - exp(-14.0 * delta))
+                heading = cam_yaw
         elif wish.length_squared() > 0.005:
                 heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
 
@@ -552,7 +555,7 @@ func _step_along(dir: Vector3) -> bool:
         if space == null:
                 return false
         var feet := global_position.y
-        # v5.0: TWO horizontal probes — shin height AND knee height — with a
+        # v12.3: TWO horizontal probes — shin height AND knee height — with a
         # longer reach, so a 2-3 stud ledge is found whether you press into
         # it low or high, head-on or eased against the face.
         var touched := false

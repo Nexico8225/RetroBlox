@@ -3,25 +3,30 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v12.2 "THE OLD FRONT DOOR" — THE CLIENT GOES
-DARK RETRO: the ESC menu is a deep translucent SLATE panel (the 2012
-client's read — dark, calm, NOTHING blinding) with light ink everywhere so
-every option stays readable, the BLUE GLOSS header strip (logo + RETROBLOX
-+ live clock), folder tabs wearing REAL internet icon PNGs, the three GLOSS
-keys — red Leave, steel Respawn, green Resume — and the IDENTITY BLOCK:
-the menu opens on YOUR AVATAR, the full-body render of the exact look your
-rig wears (320x448, 4x MSAA), with your SITE PFP badged on its
-bottom-right corner. THE REAL PLAYER-PROFILE PFP: everyone's face loads
-from retro-blox.vercel.app — GET /api/users/{id}/pfp — and accounts
-without an upload wear the DEFAULT PFP, the site's letter avatar (your
-initial on your stable color), exactly what the website gives new
-accounts; your own custom URL (Settings → MY PICTURE) still wins. CHAT
-LINES WEAR THE PFP: every line leads with the speaker's site picture +
-their name in the classic bright palette on the dark glass float, and the
-type box is ALWAYS visible — click it to type, click off (or ESC) and the
-keyboard goes back to the game. THE THREE-LINE BUTTON IS GONE and the
-UI editor is off the chat. THE HEALTH BAR IS VERTICAL on the right edge.
-TILES + LIST views both work. LOG OUT lives in Settings → ACCOUNT.
+through the RetroBlox platform API. v12.3 "SIMPLE WORKS" — SIMPLE UI WINS:
+the ESC menu is ONE clean grid — open it and you see EVERY PLAYER as their
+real AVATAR (a full-body render of the exact look their rig wears, cached
+for the session) with their NAME under it; my card wears the classic blue
+ring. No identity block, no PFP badges, no tiles/list toggles, no handles,
+no stat rows. SHIFT LOCK IS INSTANT: press Shift and the character SNAPS
+to the camera direction the same frame, Roblox-style — no swing-around.
+STAIRS ARE TUNED to 2 studs: 2-stud, 1-stud and lower ledges walk over
+like stairs; taller faces want the climb grip. THE LOGIN IS SIMPLE: one
+flat sky, one bold RETROBLOX wordmark, one clean card — username,
+password, the red Log In key (LOG IN ONLY, specific server errors,
+auto-login). THE PERFORMANCE PASS: occlusion culling is ON and every
+solid world part ships a matching occluder, MSAA is 2x, and remote
+players far away or off screen tick their walk rigs at 4 Hz. Remote
+avatars now dress from the INNER payload (a real bug fix — no more plain
+noob remotes). STILL TRUE: the dark translucent slate menu with the BLUE
+GLOSS header + tabs + red/steel/green keys (dark, calm, NOTHING blinding),
+the topbar's blue gloss chat key + user pill, chat lines with PFP + name,
+click-to-type / click-off chat, the VERTICAL right-edge health bar, LOG
+OUT in Settings → ACCOUNT, bubbles that wrap by real font metrics and
+linger 12 seconds, the REAL R6 hitbox (2 x 5 x 1 stud box), eased arm
+animations, Show FPS / Show ping / Maximum FPS / See player names / Bunny
+hop / RESET ALL SETTINGS, and the DEFAULT PFP is your avatar render
+(your own custom URL still wins).
 Bubbles wrap by REAL font metrics (text can never spill off the plate)
 and linger 12 seconds. The character collides as the REAL R6 hitbox —
 a 2 x 5 x 1 stud box — and the arm animations EASE between poses, so

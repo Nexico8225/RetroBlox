@@ -68,16 +68,20 @@ func reset() -> void:
 
 
 ## Cache another player's avatar payload so re-entering places is instant.
+## v12.3: callers now store the INNER avatar data (colors/body/shirt/...)
+## — the shape the dresser and the portrait renderer read directly.
 func cache_avatar(p_user_id: String, payload: Dictionary) -> void:
         avatar_cache[p_user_id] = _nullless(payload)
 
 
 ## v10.0: set MY avatar payload (null-sanitized) — used by game.gd when the
-## /me payload refreshes mid-session.
+## /me payload refreshes mid-session. v12.3: the per-user cache holds the
+## INNER avatar data too, so cached_avatar(uid) always dresses directly.
 func set_avatar(payload: Dictionary) -> void:
         avatar = _nullless(payload)
         if user_id != "":
-                avatar_cache[user_id] = avatar.duplicate()
+                var inner: Variant = avatar.get("avatar", null)
+                avatar_cache[user_id] = _nullless(inner if inner is Dictionary else {})
 
 
 func cached_avatar(p_user_id: String) -> Dictionary:

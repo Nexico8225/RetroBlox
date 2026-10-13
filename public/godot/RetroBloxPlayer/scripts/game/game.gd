@@ -28,31 +28,23 @@ var _topbar_pfp: TextureRect         # the topbar user pill's PFP
 var _names_by_uid: Dictionary = {}   # userId -> username (PFP fetches)
 var _health_track_h := 220.0         # v12.1: the VERTICAL right-edge bar height
 var _menu: Control
-var _players_grid: GridContainer     # the People page — a card grid, not a list
+var _players_grid: GridContainer     # the People page — the simple avatar grid
 var _settings_tab: VBoxContainer
-var _people_title: Label             # "In this server · N" page heading
+var _people_title: Label             # "Players — N" page heading
 var _time_label: Label               # live session clock in the page header
 var _corner_stats: Label             # the tiny FPS/ping/version chip (bottom-left)
-var _my_card_stats: Label            # the stat line on my own card
-var _identity_avatar: TextureRect    # v12.1: MY AVATAR (full-body render) in the menu
-var _identity_badge: TextureRect     # v12.1: my PFP badge (bottom-right corner of the avatar)
-var _identity_name: Label            # v12.1: identity block name
-var _identity_handle: Label          # v12.1: identity block @handle
-var _identity_stats: Label           # v12.1: identity block live stats
-var _people_view := "tiles"          # v12.1: "tiles" | "list" (the view toggles)
-var _view_btns: Dictionary = {}      # v12.1: view id -> toggle Button
 var _tab_buttons: Dictionary = {}    # v9.0: tab id -> Button (top tabs)
 var _pages: Dictionary = {}          # v9.0: tab id -> page Control
 var _pfp_preview: TextureRect        # v9.0: MY PICTURE preview in Settings
 var _pfp_url_edit: LineEdit          # v9.0: the PFP URL field (Settings)
 var _fps_smooth := 60.0              # v3.9: eased fps so the chip doesn't flicker
 var _menu_tick := 0.5                # v3.9: live stats refresh cadence
-var _remote_stats: Dictionary = {}   # v3.9: userId -> {"ping": int, "fps": int}
 var _people_total := 1               # v4.0: last known online count (header)
-var _portrait_cache: Dictionary = {} # userId -> rendered avatar Texture2D
-var _body_cache: Dictionary = {}     # v12.1: userId -> full-body render (identity block)
-var _body_pending: Dictionary = {}   # v12.1: identity renders in flight
-var _portrait_nodes: Dictionary = {} # userId -> the card TextureRect to swap when ready
+var _portrait_cache: Dictionary = {} # userId -> rendered PFP Texture2D (topbar + chat)
+var _body_cache: Dictionary = {}     # v12.3: userId -> full-body avatar render (menu cards)
+var _body_pending: Dictionary = {}   # v12.3: menu avatar renders in flight
+var _avatar_nodes: Dictionary = {}   # v12.3: userId -> the card TextureRect to swap when ready
+var _portrait_nodes: Dictionary = {} # userId -> the PFP TextureRect to swap when ready
 var _portrait_pending: Dictionary = {} # PFP fetches already in flight
 var _remotes: Dictionary = {}      # userId -> RemotePlayer
 var _seen_messages: Dictionary = {} # message id -> true
@@ -894,9 +886,11 @@ func _build_menu() -> Control:
         pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
         body.add_child(pages)
 
-        # ---- PEOPLE — the IDENTITY BLOCK (YOUR AVATAR — the real full-body
-        # render, your SITE PFP badged on its bottom-right corner), then
-        # "In this server" with the TILES / LIST view toggles
+        # ---- PEOPLE — v12.3 SIMPLE: a heading, then ONE grid. Every card
+        # is a player: their real AVATAR (a full-body render of the payload
+        # their rig wears) with their NAME under it — the old version's
+        # read: open ESC, see everyone and who they are. No PFP fetches, no
+        # view toggles, no handles, no stats. Simple UI wins.
         var players_page := VBoxContainer.new()
         players_page.name = "PeoplePage"
         players_page.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -904,103 +898,14 @@ func _build_menu() -> Control:
         pages.add_child(players_page)
         _pages["players"] = players_page
 
-        # ---- THE IDENTITY BLOCK — the avatar that LOADED, with the PFP
-        # badge parked on its bottom-right corner, name + @handle beside it
-        var identity := PanelContainer.new()
-        identity.name = "IdentityBlock"
-        identity.custom_minimum_size = Vector2(0, 168)
-        identity.add_theme_stylebox_override("panel", _identity_style())
-        players_page.add_child(identity)
-        var irow := HBoxContainer.new()
-        irow.add_theme_constant_override("separation", 14)
-        identity.add_child(irow)
-
-        # the avatar well — the full-body render draws here when it lands
-        var avatar_well := Control.new()
-        avatar_well.name = "AvatarWell"
-        avatar_well.custom_minimum_size = Vector2(128, 144)
-        avatar_well.clip_contents = false
-        irow.add_child(avatar_well)
-        var avatar_frame := PanelContainer.new()
-        avatar_frame.name = "AvatarFrame"
-        avatar_frame.add_theme_stylebox_override("panel", _well_texture_style())
-        avatar_frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-        avatar_frame.offset_right = -14.0   # room for the badge to overhang
-        avatar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        avatar_frame.clip_contents = true
-        avatar_well.add_child(avatar_frame)
-        _identity_avatar = TextureRect.new()
-        _identity_avatar.name = "IdentityAvatar"
-        _identity_avatar.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-        _identity_avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        _identity_avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        _identity_avatar.texture = RetroUI.head_icon()
-        _identity_avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        _identity_avatar.set_anchors_preset(Control.PRESET_FULL_RECT)
-        _identity_avatar.offset_right = -14.0
-        _identity_avatar.offset_bottom = -6.0
-        _identity_avatar.offset_top = 6.0
-        avatar_frame.add_child(_identity_avatar)
-        # the PFP BADGE — the bottom-right corner of the avatar that loaded
-        _identity_badge = TextureRect.new()
-        _identity_badge.name = "PfpBadge"
-        _identity_badge.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-        _identity_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        _identity_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        _identity_badge.custom_minimum_size = Vector2(44, 44)
-        _identity_badge.size = Vector2(44, 44)
-        _identity_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        _identity_badge.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-        _identity_badge.offset_left = -50.0
-        _identity_badge.offset_right = -6.0
-        _identity_badge.offset_top = -50.0
-        _identity_badge.offset_bottom = -6.0
-        avatar_well.add_child(_identity_badge)
-
-        # name + @handle + the live session stats
-        var icol := VBoxContainer.new()
-        icol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        icol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-        icol.add_theme_constant_override("separation", 3)
-        irow.add_child(icol)
-        _identity_name = Label.new()
-        _identity_name.text = Session.username
-        _identity_name.clip_text = true
-        _title(_identity_name, 21, RetroUI.NIGHT_INK, 700)
-        icol.add_child(_identity_name)
-        _identity_handle = Label.new()
-        _identity_handle.text = "@%s" % Session.username
-        _identity_handle.clip_text = true
-        _text(_identity_handle, 13, RetroUI.NIGHT_INK_MUTED)
-        icol.add_child(_identity_handle)
-        _identity_stats = Label.new()
-        _identity_stats.text = "—"
-        _text(_identity_stats, 12, RetroUI.NIGHT_INK_FAINT)
-        icol.add_child(_identity_stats)
-        var id_hint := Label.new()
-        id_hint.text = "Playing on retro-blox.vercel.app"
-        _text(id_hint, 11, RetroUI.NIGHT_INK_FAINT)
-        icol.add_child(id_hint)
-
         var p_head := HBoxContainer.new()
         p_head.add_theme_constant_override("separation", 8)
         players_page.add_child(p_head)
         _people_title = Label.new()
-        _people_title.text = "In this server"
+        _people_title.text = "Players"
         _title(_people_title, 17, RetroUI.NIGHT_INK)
         p_head.add_child(_people_title)
         p_head.add_child(_spacer())
-        # ---- THE VIEW TOGGLES — Tiles / Icons, with a real pressed state
-        var tiles_btn := _ghost_icon_btn("grid")
-        var list_btn := _ghost_icon_btn("list")
-        tiles_btn.tooltip_text = "Tiles view"
-        list_btn.tooltip_text = "List view"
-        tiles_btn.pressed.connect(func() -> void: _set_people_view("tiles"))
-        list_btn.pressed.connect(func() -> void: _set_people_view("list"))
-        _view_btns = {"tiles": tiles_btn, "list": list_btn}
-        p_head.add_child(tiles_btn)
-        p_head.add_child(list_btn)
-        _style_view_toggles()
 
         var scroll := ScrollContainer.new()
         scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1012,7 +917,7 @@ func _build_menu() -> Control:
         players_page.add_child(scroll)
         _players_grid = GridContainer.new()
         _players_grid.name = "PeopleGrid"
-        _players_grid.columns = 3
+        _players_grid.columns = 4
         _players_grid.add_theme_constant_override("h_separation", 10)
         _players_grid.add_theme_constant_override("v_separation", 10)
         _players_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1145,66 +1050,6 @@ func _style_tab(b: Button, on: bool) -> void:
                 kind = String(b.get_meta("icon_kind"))
         b.icon = RetroUI.icon_png(kind, Color.WHITE) if on else RetroUI.icon_png_tinted(kind, RetroUI.NIGHT_INK_MUTED)
 
-
-## A quiet ghost icon button (the tiles/list view toggles) — light muted
-## ink on the slate; the ACTIVE one wears the blue gloss with white ink.
-func _ghost_icon_btn(kind: String) -> Button:
-        var b := Button.new()
-        b.custom_minimum_size = Vector2(34, 34)
-        b.focus_mode = Control.FOCUS_NONE
-        b.icon = RetroUI.icon_png_tinted(kind, RetroUI.NIGHT_INK_MUTED)
-        b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        b.expand_icon = true
-        b.set_meta("ghost_kind", kind)
-        var ghost := StyleBoxFlat.new()
-        ghost.bg_color = Color(0, 0, 0, 0)
-        ghost.set_corner_radius_all(7)
-        ghost.anti_aliasing = true
-        b.add_theme_stylebox_override("normal", ghost)
-        var hov := ghost.duplicate() as StyleBoxFlat
-        hov.bg_color = Color(1, 1, 1, 0.08)
-        b.add_theme_stylebox_override("hover", hov)
-        b.add_theme_stylebox_override("pressed", hov)
-        return b
-
-
-## The tiles/list toggle states — the picked view glows blue, the other
-## stays a ghost, so you always know which one you are in.
-func _style_view_toggles() -> void:
-        for vid in _view_btns.keys():
-                var b: Button = _view_btns[vid]
-                if not is_instance_valid(b):
-                        continue
-                var active: bool = String(vid) == _people_view
-                var kind := String(b.get_meta("ghost_kind"))
-                if active:
-                        var g: StyleBoxTexture = RetroUI.gloss(RetroUI.SITE_BLUE,
-                                RetroUI.SITE_BLUE_DK, RetroUI.SITE_BLUE_DK.darkened(0.4), 7)
-                        b.add_theme_stylebox_override("normal", g)
-                        b.add_theme_stylebox_override("hover", g)
-                        b.add_theme_stylebox_override("pressed", g)
-                        b.icon = RetroUI.icon_png(kind, Color.WHITE)
-                else:
-                        var ghost := StyleBoxFlat.new()
-                        ghost.bg_color = Color(0, 0, 0, 0)
-                        ghost.set_corner_radius_all(7)
-                        ghost.anti_aliasing = true
-                        b.add_theme_stylebox_override("normal", ghost)
-                        var hov := ghost.duplicate() as StyleBoxFlat
-                        hov.bg_color = Color(1, 1, 1, 0.08)
-                        b.add_theme_stylebox_override("hover", hov)
-                        b.add_theme_stylebox_override("pressed", hov)
-                        b.icon = RetroUI.icon_png_tinted(kind, RetroUI.NIGHT_INK_MUTED)
-
-
-## TILES vs LIST — the People page's two reads. Tiles: the 3-wide card
-## grid. List: one column of compact rows. The roster rebuilds in place.
-func _set_people_view(view: String) -> void:
-        if _people_view == view:
-                return
-        _people_view = view
-        _style_view_toggles()
-        _refresh_player_list(_last_presence)
 
 ## The menu's text voices (v8.0): BOTH speak the Montserrat family —
 ## `_title` bold, `_text` regular — inside the client's dark surfaces.
@@ -1377,12 +1222,13 @@ func _spacer() -> Control:
         return c
 
 
-# ---- the player CARD — the site's read, in TILES and in LIST -------------
+# ---- the player CARD — v12.3 SIMPLE: the avatar + the name ---------------
 
-## One People-page card. TILES: the square PFP well over the name, the
-## @handle and the live stats. LIST: one compact row — small PFP, name +
-## @handle inline, stats on the right. MY card wears the classic blue ring.
-func _player_card(uid: String, uname: String, is_me: bool, ping: Variant = null, fps: Variant = null) -> PanelContainer:
+## One People-page card: the player's AVATAR (the full-body render drops
+## in when it's ready — the classic smiley holds the seat) and their NAME.
+## That's the whole card — the old version's read. MY card wears the
+## classic blue ring.
+func _player_card(uid: String, uname: String, is_me: bool) -> PanelContainer:
         var card := PanelContainer.new()
         card.name = "Card_" + uid
         card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1391,118 +1237,36 @@ func _player_card(uid: String, uname: String, is_me: bool, ping: Variant = null,
         # cards collapse into skinny bars
         card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         card.add_theme_stylebox_override("panel", _card_casing(is_me))
-        var p_txt := ""
-        var f_txt := ""
-        if ping != null and ping is int and int(ping) > 0:
-                p_txt = "%dms" % int(ping)
-        elif ping is float:
-                p_txt = "%dms" % int(ping)
-        if fps != null and (fps is int or fps is float) and float(fps) > 0.0:
-                f_txt = "%dfps" % int(fps)
-        var parts: PackedStringArray = []
-        if p_txt != "":
-                parts.append(p_txt)
-        if f_txt != "":
-                parts.append(f_txt)
-        var stats_text := " · ".join(parts) if parts.size() > 0 else "—"
-
-        if _people_view == "list":
-                # ---- the LIST row: small PFP + name/handle + stats right
-                var lrow := HBoxContainer.new()
-                lrow.add_theme_constant_override("separation", 10)
-                card.add_child(lrow)
-                var swatch := TextureRect.new()
-                swatch.name = "Portrait"
-                swatch.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-                swatch.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-                swatch.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-                swatch.custom_minimum_size = Vector2(40, 40)
-                swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-                swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
-                swatch.texture = RetroUI.head_icon()
-                lrow.add_child(swatch)
-                _portrait_nodes[uid] = swatch
-                var names_col := VBoxContainer.new()
-                names_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-                names_col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-                names_col.add_theme_constant_override("separation", 0)
-                lrow.add_child(names_col)
-                var name_l := Label.new()
-                name_l.text = uname
-                name_l.clip_text = true
-                name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-                _title(name_l, 13, RetroUI.NIGHT_INK, 600)
-                names_col.add_child(name_l)
-                var handle := Label.new()
-                handle.text = "@%s" % uname
-                handle.clip_text = true
-                handle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-                _text(handle, 11, RetroUI.NIGHT_INK_FAINT)
-                names_col.add_child(handle)
-                var stats_r := Label.new()
-                stats_r.name = "Stats"
-                stats_r.text = stats_text
-                stats_r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-                stats_r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-                _text(stats_r, 11, RetroUI.NIGHT_INK_FAINT)
-                lrow.add_child(stats_r)
-                if is_me:
-                        _my_card_stats = stats_r
-                return card
-
-        # ---- the TILE card: the PFP well + name + @handle + stats
         var box := VBoxContainer.new()
         box.add_theme_constant_override("separation", 7)
         card.add_child(box)
 
-        # the PFP well: the player's OWN picture drops in when the fetch
-        # lands (the classic smiley holds the seat until then)
+        # the avatar well — the player's own avatar drops in when the
+        # render lands (the classic smiley holds the seat until then)
         var well := PanelContainer.new()
         well.add_theme_stylebox_override("panel", _well_texture_style())
-        well.custom_minimum_size = Vector2(0, 140)
+        well.custom_minimum_size = Vector2(0, 150)
         well.mouse_filter = Control.MOUSE_FILTER_IGNORE
         well.clip_contents = true
         box.add_child(well)
         var portrait := TextureRect.new()
-        portrait.name = "Portrait"
+        portrait.name = "Avatar"
         portrait.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
         portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-        portrait.custom_minimum_size = Vector2(0, 132)
+        portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        portrait.custom_minimum_size = Vector2(0, 142)
         portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
         portrait.texture = RetroUI.head_icon()
         well.add_child(portrait)
-        _portrait_nodes[uid] = portrait
+        _avatar_nodes[uid] = portrait
 
-        var name_l2 := Label.new()
-        name_l2.text = uname
-        name_l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        name_l2.clip_text = true
-        name_l2.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        _title(name_l2, 13, RetroUI.NIGHT_INK, 600)
-        box.add_child(name_l2)
-
-        # the @handle — the real client shows the plain @username under the name
-        var handle2 := Label.new()
-        handle2.name = "Handle"
-        handle2.text = "@%s" % uname
-        handle2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        handle2.clip_text = true
-        handle2.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        _text(handle2, 12, RetroUI.NIGHT_INK_MUTED)
-        box.add_child(handle2)
-
-        # the live stats line — ping + fps ride the presence feed, so
-        # every card can show them (mine updates live via _my_card_stats)
-        var stats := Label.new()
-        stats.name = "Stats"
-        stats.text = stats_text
-        stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        stats.clip_text = true
-        _text(stats, 11, RetroUI.NIGHT_INK_FAINT)
-        box.add_child(stats)
-        if is_me:
-                _my_card_stats = stats   # the live-stats hook rides this label
+        var name_l := Label.new()
+        name_l.text = uname
+        name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        name_l.clip_text = true
+        name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        _title(name_l, 14, RetroUI.NIGHT_INK, 600)
+        box.add_child(name_l)
         return card
 
 
@@ -1521,22 +1285,6 @@ func _card_casing(is_me: bool) -> StyleBox:
         sb.content_margin_left = 8.0
         sb.content_margin_right = 8.0
         sb.content_margin_top = 8.0
-        sb.content_margin_bottom = 10.0
-        return sb
-
-
-## The identity block face — a slightly raised night card with the blue
-## hairline, the header of the People page.
-func _identity_style() -> StyleBox:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.NIGHT_CARD
-        sb.set_corner_radius_all(10)
-        sb.anti_aliasing = true
-        sb.set_border_width_all(1)
-        sb.border_color = RetroUI.SITE_BLUE_DK
-        sb.content_margin_left = 12.0
-        sb.content_margin_right = 12.0
-        sb.content_margin_top = 10.0
         sb.content_margin_bottom = 10.0
         return sb
 
@@ -1582,7 +1330,7 @@ func _pfp_worker(uid: String, redress := false) -> void:
                 if fresh.get("ok", false) and fresh.get("avatar", null) is Dictionary:
                         var payload: Dictionary = fresh["avatar"]
                         Session.set_avatar(fresh)
-                        Session.cache_avatar(uid, fresh)
+                        Session.cache_avatar(uid, payload)
                         var sig := JSON.stringify(payload)
                         if sig != _dressed_signature and player != null and is_instance_valid(player):
                                 _dressed_signature = sig
@@ -1598,9 +1346,9 @@ func _pfp_worker(uid: String, redress := false) -> void:
         _apply_pfp(uid)
 
 
-## Swap a landed PFP into every live seat: the card node, (for me) the
-## topbar user pill, the identity block's PFP badge and the Settings
-## preview.
+## Swap a landed PFP into every live seat: (for me) the topbar user pill
+## and the Settings MY PICTURE preview. The People cards wear AVATARS now,
+## not PFPs — they ride _render_menu_avatar instead.
 func _apply_pfp(uid: String) -> void:
         var tex: Texture2D = _portrait_cache.get(uid, null)
         if tex == null:
@@ -1612,10 +1360,6 @@ func _apply_pfp(uid: String) -> void:
                         _topbar_pfp.texture = tex
                 if _pfp_preview != null and is_instance_valid(_pfp_preview):
                         _pfp_preview.texture = tex
-                if _identity_badge != null and is_instance_valid(_identity_badge):
-                        var circ: Texture2D = RetroUI.circle_badge(tex, 96)
-                        if circ != null:
-                                _identity_badge.texture = circ
 
 
 ## v12.1: THE CHAT LINE PFP — answered instantly for every new line:
@@ -1632,47 +1376,57 @@ func _chat_pfp_for(uid: String, uname: String) -> Texture2D:
         return Pfp.peek(uid, name_hint)
 
 
-## v12.1: THE IDENTITY BLOCK — the ESC menu loads YOUR AVATAR: the real
-## full-body render of the payload your rig wears (the same dressed look
-## the world shows), with your SITE PFP badged on its bottom-right corner.
-func _render_identity() -> void:
-        if _identity_avatar == null or not is_instance_valid(_identity_avatar):
+## v12.3 THE SIMPLE PEOPLE — every card wears the player's AVATAR: a
+## full-body render of the exact payload their rig wears (the same look
+## the world shows). No PFP here — the avatar IS the picture. Renders are
+## lazy (only while the menu is open), unhurried (the classic smiley holds
+## the seat while the player waits) and cached for the whole session.
+func _render_menu_avatar(uid: String) -> void:
+        if _body_cache.has(uid):
+                _apply_menu_avatar(uid)
                 return
-        # the badge paints from the PFP pipeline immediately
-        if not _portrait_cache.has(Session.user_id):
-                _render_portrait(Session.user_id)
-        elif _identity_badge != null and is_instance_valid(_identity_badge) \
-                        and _identity_badge.texture == null:
-                var circ0: Texture2D = RetroUI.circle_badge(_portrait_cache[Session.user_id], 96)
-                if circ0 != null:
-                        _identity_badge.texture = circ0
-        if _body_cache.has(Session.user_id):
-                _identity_avatar.texture = _body_cache[Session.user_id]
+        if _body_pending.has(uid):
                 return
-        if _body_pending.has(Session.user_id) or Session.is_guest:
-                return
-        _body_pending[Session.user_id] = true
-        _identity_worker()
+        _body_pending[uid] = true
+        _menu_avatar_worker(uid)
 
 
-## The async half: dress a pocket rig with MY payload and photograph it
-## full-body (320x448, 4x MSAA) — the exact avatar the world sees.
-func _identity_worker() -> void:
-        var payload: Dictionary = Session.my_avatar_data()
-        if payload.is_empty():
-                var me: Dictionary = await Api.get_me()
-                if me.get("ok", false):
-                        Session.set_avatar(me)
-                        payload = Session.my_avatar_data()
+func _apply_menu_avatar(uid: String) -> void:
+        if not _body_cache.has(uid):
+                return
+        if _avatar_nodes.has(uid) and is_instance_valid(_avatar_nodes[uid]):
+                (_avatar_nodes[uid] as TextureRect).texture = _body_cache[uid]
+
+
+## The async half: resolve the player's payload (mine from the session,
+## everyone else's from the public avatar endpoint, both cached), dress a
+## pocket rig and photograph it full-body (320x448, 4x MSAA).
+func _menu_avatar_worker(uid: String) -> void:
+        var payload: Dictionary = {}
+        if uid == Session.user_id:
+                payload = Session.my_avatar_data()
+                if payload.is_empty() and not Session.is_guest:
+                        var me: Dictionary = await Api.get_me()
+                        if me.get("ok", false):
+                                Session.set_avatar(me)
+                                payload = Session.my_avatar_data()
+        else:
+                payload = Session.cached_avatar(uid)
+                if payload.is_empty():
+                        var res: Dictionary = await Api.avatar_of(uid)
+                        if res.get("ok", false):
+                                var raw: Variant = res.get("avatar", null)
+                                if raw is Dictionary:
+                                        Session.cache_avatar(uid, raw)
+                                        payload = raw
         var shot: Texture2D = null
         if not payload.is_empty():
                 shot = await AvatarPortrait.render(self, Api, payload, false)
-        _body_pending.erase(Session.user_id)
+        _body_pending.erase(uid)
         if shot == null:
                 return
-        _body_cache[Session.user_id] = shot
-        if _identity_avatar != null and is_instance_valid(_identity_avatar):
-                _identity_avatar.texture = shot
+        _body_cache[uid] = shot
+        _apply_menu_avatar(uid)
 
 
 ## The menu's pulse: the corner chip + header clock breathe every half
@@ -1690,13 +1444,10 @@ func _update_live_stats() -> void:
                         parts.append("FPS %d" % int(roundf(_fps_smooth)))
                 if want_ping:
                         parts.append("PING %s" % (("%dms" % _last_ping_ms) if _last_ping_ms > 0 else "—"))
-                parts.append("v12.2")
+                parts.append("v12.3")
                 _corner_stats.text = "   ·   ".join(parts)
         if _time_label != null and is_instance_valid(_time_label):
                 _time_label.text = _clock_text()
-        if _identity_stats != null and is_instance_valid(_identity_stats):
-                _identity_stats.text = "FPS %d   ·   PING %s" % [int(roundf(_fps_smooth)),
-                        ("%dms" % _last_ping_ms) if _last_ping_ms > 0 else "—"]
 
 
 ## The page heading — the People page carries the live count like the real
@@ -1704,7 +1455,7 @@ func _update_live_stats() -> void:
 func _update_people_title() -> void:
         if _people_title == null or not is_instance_valid(_people_title):
                 return
-        _people_title.text = "In this server — %d" % _people_total
+        _people_title.text = "Players — %d" % _people_total
 
 
 func _clock_text() -> String:
@@ -2236,18 +1987,10 @@ func _toggle_menu() -> void:
                 create_tween().tween_property(_menu, "modulate:a", 1.0, 0.14)
                 camera_rig.set_ui_blocked(true)
                 # v4.0: render the pocketed presence snapshot RIGHT AWAY —
-                # the roster is on screen the moment the menu opens
+                # the roster is on screen the moment the menu opens, and every
+                # card kicks its (cached) avatar render from here
                 _refresh_player_list(_last_presence)
                 _update_live_stats()
-                # v12.1: THE IDENTITY BLOCK — the menu opens on YOUR AVATAR
-                # (the full-body render) + your SITE PFP badge
-                _render_identity()
-                # the header's PFP rides the same pipeline as the cards
-                if _topbar_pfp != null and is_instance_valid(_topbar_pfp):
-                        if _portrait_cache.has(Session.user_id) and _portrait_cache[Session.user_id] != null:
-                                _apply_pfp(Session.user_id)
-                        else:
-                                _render_portrait(Session.user_id, true)
         else:
                 _menu.modulate.a = 1.0
                 camera_rig.set_ui_blocked(false)
@@ -2393,11 +2136,6 @@ func _reconcile_players(players: Array) -> void:
                         continue
                 seen[uid] = true
                 _names_by_uid[uid] = String(p.get("username", ""))
-                # v3.9: pocket everyone's live ping/fps for the People cards
-                _remote_stats[uid] = {
-                        "ping": p.get("ping", null),
-                        "fps": p.get("fps", null),
-                }
                 var pos_arr: Array = p.get("pos", [0, 0, 0])
                 var pos := Vector3(float(pos_arr[0]), float(pos_arr[1]), float(pos_arr[2]))
                 if _remotes.has(uid):
@@ -2425,7 +2163,6 @@ func _reconcile_players(players: Array) -> void:
                         var rp: Node3D = _remotes[uid]
                         rp.fade_out()
                         _remotes.erase(uid)
-                        _remote_stats.erase(uid)
         # v4.0 PERF: the People page is only visible with the menu open —
         # rebuilding its cards (and re-hanging portrait nodes) every 2.5s
         # poll while playing was pure garbage churn. Pocket the snapshot;
@@ -2438,35 +2175,37 @@ func _reconcile_players(players: Array) -> void:
 func _dress_remote(rp: Node3D, uid: String) -> void:
         var res: Dictionary = await Api.avatar_of(uid)
         if res.get("ok", false) and is_instance_valid(rp):
-                Session.cache_avatar(uid, res)
-                await rp.dress(Api, res)
+                # v12.3 FIX: the dresser (and the portrait renderer) want the
+                # INNER avatar payload — colors/body/shirt/pants — not the
+                # full response wrapper. The old code fed them the wrapper
+                # and remote players dressed as plain noobs.
+                var raw: Variant = res.get("avatar", null)
+                var payload: Dictionary = raw if raw is Dictionary else {}
+                Session.cache_avatar(uid, payload)
+                await rp.dress(Api, payload)
 
 
 ## The People page: me first (the blue ring), then everyone the presence
-## feed reports — rebuilt per poll in the CURRENT view (tiles or list);
-## portraits come from cache or start their async fetch.
+## feed reports — ONE simple grid of avatar cards, rebuilt only while the
+## menu is open; every card kicks its (cached) avatar render.
 func _refresh_player_list(players: Array) -> void:
         if _players_grid == null or not is_instance_valid(_players_grid):
                 return
-        _players_grid.columns = 3 if _people_view == "tiles" else 1
-        _portrait_nodes.clear()
+        _avatar_nodes.clear()
         for child in _players_grid.get_children():
                 child.queue_free()
         var total := 1 + players.size()
         _people_total = total
         _update_people_title()
         # my card first — the blue-ringed one
-        _players_grid.add_child(_player_card(Session.user_id, Session.username, true,
-                _last_ping_ms, int(_fps_smooth)))
-        _render_portrait(Session.user_id)
+        _players_grid.add_child(_player_card(Session.user_id, Session.username, true))
+        _render_menu_avatar(Session.user_id)
         for p in players:
                 var uid := String(p.get("userId", ""))
                 var uname := String(p.get("username", ""))
                 if uid == "" or uid == Session.user_id or uname == "":
                         continue
                 _names_by_uid[uid] = uname
-                var st: Dictionary = _remote_stats.get(uid, {})
-                _players_grid.add_child(_player_card(uid, uname, false,
-                        st.get("ping", null), st.get("fps", null)))
-                _render_portrait(uid)
+                _players_grid.add_child(_player_card(uid, uname, false))
+                _render_menu_avatar(uid)
         _update_live_stats()
