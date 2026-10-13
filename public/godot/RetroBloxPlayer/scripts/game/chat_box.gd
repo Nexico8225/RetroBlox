@@ -3,15 +3,14 @@ extends Control
 ## the TYPE BOX is ALWAYS visible (the authentic "To chat click here or
 ## press / key" line), the log opens when you click it / press Enter.
 ## CLICK the type box -> you are typing. CLICK OFF (or ESC) -> the keyboard
-## goes back to the game. Every line carries the speaker's PFP + name.
+## goes back to the game. Every line carries the speaker's name.
 ## Unread messages count on the topbar chat button's red badge while the
 ## log is hidden. Plain text only — nothing can inject markup.
 ##
 ## v3.11: F READS — a read-only mode that shows the log WITHOUT grabbing
 ## the keyboard, so you can catch up on chat while you keep moving.
 ## v12.1: RETRO NIGHT — the dark glass float is back (the white paper chat
-## was blinding), names wear the CLASSIC bright palette, and every line
-## leads with the speaker's SITE PFP (custom -> avatarUrl -> letter avatar).
+## was blinding), names wear the CLASSIC bright palette.
 
 signal submitted(text: String)
 signal opened
@@ -40,9 +39,6 @@ var is_open := false
 var is_reading := false        # v3.11: log shown, keyboard free, you keep moving
 var log_collapsed := false
 var _unread := 0
-## v12.1: uid -> Texture2D, answered INSTANTLY (RAM or the default letter
-## avatar). game.gd owns it — it knows everyone's name and PFP pipeline.
-var pfp_resolver: Callable = Callable()
 
 
 func _init() -> void:
@@ -238,12 +234,11 @@ func _on_input_gui(event: InputEvent) -> void:
                         get_viewport().set_input_as_handled()
 
 
-## One chat line — the speaker's PFP (an inline image), their name in the
+## One chat line — the speaker's name in the
 ## classic bright palette, then the message. name_color is a hex string.
 ## v3.11: the "#1" seq chips are GONE (you asked) — a clean line.
 func add_chat(username: String, _seq_id: int, text: String, name_color: String = "", self_style := false, uid := "") -> void:
         var color := _color_for(username, name_color)
-        _log.add_image(_pfp_for(uid, username), 18, 18, Color.WHITE, INLINE_ALIGNMENT_CENTER)
         var line := " [b][color=#%s]%s:[/color][/b] %s" % [color, _esc(username), _esc(text)]
         if self_style:
                 line = "[i]" + line + "[/i]"
@@ -252,16 +247,6 @@ func add_chat(username: String, _seq_id: int, text: String, name_color: String =
         _prune()
 
 
-## The speaker's picture RIGHT NOW: the resolver (game.gd) answers from
-## its PFP pipeline — cache if warm, otherwise the DEFAULT letter avatar,
-## which is exactly what the site shows for players without a picture.
-func _pfp_for(uid: String, username: String) -> Texture2D:
-        if pfp_resolver.is_valid():
-                var tex: Texture2D = pfp_resolver.call(uid, username)
-                if tex != null:
-                        return tex
-        var theme := load("res://scripts/ui/retro_theme.gd")
-        return theme.call("head_icon")
 
 
 func add_system(text: String) -> void:

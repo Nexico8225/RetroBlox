@@ -13,7 +13,6 @@ const SAVE_PATH := "user://ui_config.json"
 
 # ---- the data ------------------------------------------------------------
 var ui_scale := 1.0               # global HUD/menu scale (0.6 .. 1.6)
-var pfp_url := ""                 # the player's OWN picture URL (wins over all)
 var elements: Dictionary = {}     # id -> {"dx": float, "dy": float, "scale": float, "text": String}
 var labels: Array = []            # [{id, text, x, y, size, color}] — the details THEY add
 
@@ -35,7 +34,6 @@ func load_config() -> void:
                 return
         var d: Dictionary = parsed
         ui_scale = clampf(float(d.get("ui_scale", 1.0)), 0.6, 1.6)
-        pfp_url = String(d.get("pfp_url", ""))
         var el: Variant = d.get("elements", {})
         if typeof(el) == TYPE_DICTIONARY:
                 elements = el
@@ -47,7 +45,6 @@ func load_config() -> void:
 func save_config() -> void:
         var d := {
                 "ui_scale": ui_scale,
-                "pfp_url": pfp_url,
                 "elements": elements,
                 "labels": labels,
                 "saved_at": int(Time.get_unix_time_from_system()),
@@ -85,7 +82,6 @@ func clear_all() -> void:
         elements.clear()
         labels.clear()
         ui_scale = 1.0
-        pfp_url = ""
         save_config()
 
 

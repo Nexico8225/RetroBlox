@@ -9,17 +9,19 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v12.3 "SIMPLE WORKS"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=12.3'
+const VERSION = 'v12.4 "NO PFP, JUST AVATARS"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=12.4'
 
 const NEW_STUFF: [string, string][] = [
-  ['THE ESC MENU IS SIMPLE — THE WAY IT SHOULD BE', 'Open ESC and see EVERY PLAYER: their real AVATAR (a full-body render of the exact look their rig wears) with their NAME under it. No identity block, no PFP badges, no tiles/list toggles, no @handles, no ping/fps rows — one clean grid, my card wearing the classic blue ring. Simple UI wins.'],
+  ['THE PFP SYSTEM IS GONE — FOR REAL THIS TIME', 'Every profile-picture fetch is DELETED: the PfpService file, its autoload, the topbar pill picture, the chat line pictures, the Settings MY PICTURE editor, all of it. If a picture cannot load, it does not ship. The avatar IS the picture.'],
+  ['THE ESC MENU IS ALIVE — LITERAL 3D', 'Every People card now hosts the player\'s REAL RIG on its own live 3D stage: DRAG to spin them around and see every side, drag up/down to tilt, the wheel zooms in close. A gentle turntable plays until your first grab, then holds perfectly still so you can look them over carefully. My card keeps the classic blue ring.'],
+  ['THE STAGES COST NOTHING CLOSED', 'Every card\'s 3D stage renders ONLY while the ESC menu is actually open — the moment you resume, all of them stop drawing. Rigs dress ONCE per session (the players can wait), your spin/zoom survives the 2.5s roster refresh, and anyone who leaves takes their stage with them.'],
   ['SHIFT LOCK IS INSTANT', 'Press Shift and your character SNAPS to your camera direction the same frame — exactly how Roblox shift lock works. No more slow swing-around while the body eases toward the camera.'],
   ['STAIRS TUNED DOWN: 2 STUDS', 'The step-up was 3.2 studs (you could walk up walls). Now 2-stud, 1-stud and lower ledges roll under your feet like stairs; anything taller wants the climb grip — the classic read.'],
   ['THE LOGIN IS SIMPLE', 'One flat sky, one bold RETROBLOX wordmark, one clean card: username, password, the red Log In key. No photo backdrop, no sprite-letter compositing — the same specific server errors, the same auto-login.'],
   ['PERFORMANCE PASS', 'OCCLUSION CULLING is on and every solid world part ships a matching occluder (blocks behind walls skip drawing entirely), MSAA dropped to 2x, and remote players far away or off screen tick their walk rigs at 4 Hz instead of every frame.'],
   ['REMOTE AVATARS DRESS RIGHT — BUG FIX', 'Found and fixed a real bug: other players were being dressed from the API wrapper instead of the inner avatar payload, so they could fall back to plain noob colors. Everyone now wears their real site look, in the world AND in the menu.'],
-  ['EVERYTHING FROM v12.2 STAYS', 'Log In only (no Create Account), specific login errors, the default PFP is your avatar render, the blue gloss topbar, click-to-type chat with PFP + name lines, 12s bubbles, vertical health bar, Log Out, the six settings + Reset All.'],
+  ['EVERYTHING FROM v12.3 STAYS', 'Log In only (no Create Account), the simple login, the instant shift-lock snap, 2-stud stairs, occlusion culling + the perf pass, the blue gloss topbar, click-to-type chat, 12s bubbles, vertical health bar, Log Out, the six settings + Reset All.'],
 ]
 
 const FILES = [
@@ -29,9 +31,9 @@ const FILES = [
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'THE SIMPLE LOGIN: one flat sky, one bold RETROBLOX wordmark, one clean card — uppercase labels, white wells, the RED Log In key. LOG IN ONLY — no Create Account. Specific server errors in the red banner, saved session auto-login'],
   ['scripts/ui/retro_theme.gd', 'The engine: ARIAL, the RETRO NIGHT slate palette + the site gloss keys, the site letter-avatar palette + pixel glyphs, the circle-badge cropper, icon_png() internet PNGs with a code-drawn fallback, bevels, wells, glass, cursors'],
-  ['scripts/ui/pfp_service.gd', 'The PFP engine, SYNCED: custom URL → uploaded avatarUrl (yours via /me, everyone else via GET /api/users/{id}/pfp) → THE DEFAULT = YOUR AVATAR RENDERED headshot-style → letter avatar last resort; peek() for instant chat lines, 6h disk cache v14, rounded corners. NO bundled bacon, NO Roblox thumbnails'],
-  ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, global UI scale, your PFP URL — user://ui_config.json, boots with you'],
-  ['scripts/ui/ui_editor.gd', 'THE UI EDITOR (F2): pick layer hit-testing, drag to move, X/Y/Scale steppers, text editing, add/remove labels, global zoom, PFP URL, Save/Reset'],
+  ['scripts/ui/avatar_viewer.gd', 'THE LIVE AVATAR STAGE: every ESC-menu card hosts the player\'s real rig in its own SubViewport — drag to spin, drag to tilt, wheel to zoom; the turntable stops the moment you grab it; renders only while the menu is open, and the lights ride the camera so the face you look at is always lit'],
+  ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, global UI scale — user://ui_config.json, boots with you'],
+  ['scripts/ui/ui_editor.gd', 'THE UI EDITOR (F2): pick layer hit-testing, drag to move, X/Y/Scale steppers, text editing, add/remove labels, global zoom, Save/Reset'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — font-metric wrapping (text NEVER spills off the plate), 12s linger, slow fade, stacked the Roblox way'],
@@ -39,8 +41,8 @@ const FILES = [
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the SIMPLE ESC menu (every player as a full-body AVATAR render + name, People + Settings tabs, [L]/[R]/[ESC] footer, Log Out), respawn flow, the vertical right-edge health bar'],
-  ['scripts/game/chat_box.gd', 'The classic chat: always-visible type box (click to type, click off to release), dark glass log with PFP + name lines, injection-proof'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the SIMPLE ESC menu (every player as a LIVE 3D AVATAR you can drag-spin + zoom, People + Settings tabs, [L]/[R]/[ESC] footer, Log Out), respawn flow, the vertical right-edge health bar'],
+  ['scripts/game/chat_box.gd', 'The classic chat: always-visible type box (click to type, click off to release), dark glass log with classic bright name lines, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, and Shift Lock shoulder park'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],
 ]
@@ -50,7 +52,6 @@ const ENDPOINTS = [
   ['POST /api/platform/login', 'username + password → session token'],
   ['GET /api/platform/me', 'current player + avatar + your account avatarUrl (Bearer token)'],
   ['GET /api/users/{userId}/avatar', "any player's avatar config (public)"],
-  ['GET /api/users/{userId}/pfp', "any player's site profile picture — username + avatarUrl (public, v9.0+)"],
   ['GET /api/assets/{assetId}', 'asset service: color / image / 3D model + finish for an id'],
   ['GET /api/files/{fileId}', 'the actual bytes (images, GLB, audio)'],
   ['GET /api/placechat/{placeId}', 'latest chat lines + who is online (with their live ping/fps)'],

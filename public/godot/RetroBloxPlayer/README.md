@@ -3,12 +3,16 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v12.3 "SIMPLE WORKS" — SIMPLE UI WINS:
-the ESC menu is ONE clean grid — open it and you see EVERY PLAYER as their
-real AVATAR (a full-body render of the exact look their rig wears, cached
-for the session) with their NAME under it; my card wears the classic blue
-ring. No identity block, no PFP badges, no tiles/list toggles, no handles,
-no stat rows. SHIFT LOCK IS INSTANT: press Shift and the character SNAPS
+through the RetroBlox platform API. v12.4 "NO PFP, JUST AVATARS" — the
+profile-picture system is DELETED (the service, the autoload, the topbar
+picture, the chat line pictures, the Settings MY PICTURE editor — if a
+picture can't load, it doesn't ship) and the ESC menu is ALIVE: every
+People card hosts the player's REAL RIG on its own LIVE 3D stage — DRAG
+to spin them around and see every side, drag to tilt, the wheel zooms in
+close. A gentle turntable plays until your first grab, then holds still
+so you can inspect them carefully. Stages render only while the menu is
+open, rigs dress once per session, and your card wears the classic blue
+ring. SHIFT LOCK IS INSTANT: press Shift and the character SNAPS
 to the camera direction the same frame, Roblox-style — no swing-around.
 STAIRS ARE TUNED to 2 studs: 2-stud, 1-stud and lower ledges walk over
 like stairs; taller faces want the climb grip. THE LOGIN IS SIMPLE: one
@@ -20,13 +24,12 @@ players far away or off screen tick their walk rigs at 4 Hz. Remote
 avatars now dress from the INNER payload (a real bug fix — no more plain
 noob remotes). STILL TRUE: the dark translucent slate menu with the BLUE
 GLOSS header + tabs + red/steel/green keys (dark, calm, NOTHING blinding),
-the topbar's blue gloss chat key + user pill, chat lines with PFP + name,
-click-to-type / click-off chat, the VERTICAL right-edge health bar, LOG
-OUT in Settings → ACCOUNT, bubbles that wrap by real font metrics and
-linger 12 seconds, the REAL R6 hitbox (2 x 5 x 1 stud box), eased arm
-animations, Show FPS / Show ping / Maximum FPS / See player names / Bunny
-hop / RESET ALL SETTINGS, and the DEFAULT PFP is your avatar render
-(your own custom URL still wins).
+the topbar's blue gloss chat key + user pill (name + gear — no picture),
+click-to-type / click-off chat with classic bright name lines, the
+VERTICAL right-edge health bar, LOG OUT in Settings → ACCOUNT, bubbles
+that wrap by real font metrics and linger 12 seconds, the REAL R6 hitbox
+(2 x 5 x 1 stud box), eased arm animations, and Show FPS / Show ping /
+Maximum FPS / See player names / Bunny hop / RESET ALL SETTINGS.
 Bubbles wrap by REAL font metrics (text can never spill off the plate)
 and linger 12 seconds. The character collides as the REAL R6 hitbox —
 a 2 x 5 x 1 stud box — and the arm animations EASE between poses, so
@@ -87,25 +90,27 @@ the character eases up the step exactly like Roblox.
 ### The old front door — v12.2
 - The chrome goes DARK RETRO: translucent slate surfaces (retro_theme.gd `NIGHT_*`), light ink, the SAME blue gloss chrome + green/red gloss keys — nothing blinds, everything reads
 - The ESC menu: dark slate panel (translucent — the game breathes through), blue gloss header, folder tabs, dark People cards, gloss footer keys
-- The IDENTITY BLOCK: your full-body avatar render + your site PFP badge (bottom-right corner) + name/@handle/live stats
-- The chat is the dark glass float again; every line leads with the speaker's PFP; the type box is ALWAYS visible (click to type, click off to release)
+- The PEOPLE GRID: every player as their LIVE 3D avatar (drag to spin, wheel to zoom) + name
+- The chat is the dark glass float again; every line is name + text; the type box is ALWAYS visible (click to type, click off to release)
 - The health bar is VERTICAL on the right edge — navy track, green fill climbing from the bottom, the number chip on top
-- The stats chip (FPS · ping · v12.2) is always on, bottom-left, dark
+- The stats chip (FPS · ping · v12.4) is always on, bottom-left, dark
 - One voice: ARIAL (Liberation Sans). The window opens COMPACT at 960x600
 
-## The ESC menu — the RETRO NIGHT panel (v12.2)
+## The ESC menu — the RETRO NIGHT panel with LIVE avatars (v12.4)
 
 The menu is ONE centered translucent slate card (about 64% of the screen —
 the game stays visible behind it under a deep veil) with the site's BLUE
 GLOSS header strip: the tilted red tile, the RETROBLOX wordmark and the
 live session clock. The folder tabs — People · Settings — wear the REAL
 internet icon PNGs; the open tab is the blue gloss with white ink. The
-People page opens on the IDENTITY BLOCK — YOUR AVATAR, the full-body
-render of the exact payload your rig wears, your SITE PFP badged on its
-bottom-right corner, name + @handle + live FPS/ping beside it — then "In
-this server" with the TILES / LIST view toggles (the active one glows
-blue): tiles = the 3-wide card grid (PFP + name + @handle + live
-ping/fps, your card wearing the classic blue ring), list = compact rows.
+People page is ONE grid of LIVE CARDS: every player is their real 3D
+avatar standing on its own stage — drag the card to spin them around and
+see every side, drag up/down tilts, the mouse wheel zooms in close — with
+their name under it. A gentle turntable plays until your first grab, then
+the stage holds still so you can look them over carefully. The stage
+renders ONLY while the menu is open (resume = zero cost), the rig dresses
+once per session (players can wait), and your spin/zoom survives the
+roster refreshes. My card wears the classic blue ring.
 The footer is the site's own button trio: red Leave · steel Respawn ·
 green Resume, each with the white key chip.
 
@@ -129,19 +134,14 @@ pill, health bar, toasts — the chat is OFF the editor now), drag to move,
 scale, edit text, add your own labels, Save to `user://ui_config.json`.
 The Settings page entry is gone (v12.2) — F2 is the door.
 
-### Your face — your PFP, everywhere
+### No PFP anywhere — the avatar IS the picture (v12.4)
 
-The PFP engine wears the SITE'S OWN RULES, in this order: the URL YOU set
-in Settings → MY PICTURE (wins over everything), then your account's
-`avatarUrl` from retro-blox.vercel.app (loaded at login — the SAME face
-the website shows, data URLs decode inline), then the DEFAULT PFP — the
-site's letter avatar, your initial on your stable color, drawn in code
-with the site's exact palette. Everyone else's face comes from the public
-`GET /api/users/{id}/pfp` the same way: their upload if they set one, the
-default letter avatar if they did not — exactly what the website shows
-for them. Chat lines, cards, the topbar pill and the identity block's
-badge all wear it; the 3D render lives only in the identity block, where
-YOUR AVATAR is photographed full-body.
+The whole profile-picture pipeline is GONE: `pfp_service.gd` is deleted,
+its autoload is removed, the topbar pill wears just your name + gear,
+chat lines are plain name + text, and the Settings MY PICTURE editor is
+gone. Nothing fetches a profile picture ever again. Wherever a face
+matters, the game shows the REAL THING: the player's actual 3D avatar,
+live on its own stage in the ESC menu — drag to spin, wheel to zoom.
 
 ### The HUD (the real client's chrome)
 
@@ -149,12 +149,13 @@ YOUR AVATAR is photographed full-body.
   read: the RetroBlox logo and the chat bubble with the red unread badge
   (the three-line button is GONE). Esc and **R** open the menu too;
   **/** or Enter opens the chat.
-- **Top-right pill** — your PFP + username + the settings gear (opens the
+- **Top-right pill** — your username + the settings gear (opens the
   menu's Settings page), parked exactly where the real client keeps them.
 - The chat's TYPE BOX is ALWAYS visible — click it and you are typing
   (the log un-hides); CLICK OFF anywhere and the keyboard goes back to
   the game; ESC closes too. Messages said while the log is hidden stack
-  the badge. Every line leads with the speaker's PFP. The input wears the
+  the badge. Every line is the speaker's name in the classic bright
+  palette + their text. The input wears the
   authentic placeholder: "To chat click here or press / key".
 - **Right edge** — the classic VERTICAL **Health** bar: deep navy track,
   the green fill climbing from the bottom, the number chip parked on top;
@@ -180,7 +181,6 @@ Everything applies live and persists to `user://retroblox_settings.cfg`:
 - Shift-lock default
 - **Animations** buttons — pose your character with the rig's own clips
   (Sit / Climb / Walk / Jump / Idle); moving cancels the pose.
-- **MY PICTURE** — your PFP URL + Apply, or "Use my account picture".
 - **ACCOUNT** — signed-in-as + the red **Log Out** key (wipes the saved
   session, lands on the login page).
 

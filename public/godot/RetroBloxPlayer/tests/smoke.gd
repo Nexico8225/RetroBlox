@@ -38,6 +38,7 @@ func _run_all() -> void:
                 "res://scripts/ui/login.gd",
                 "res://scripts/ui/retro_theme.gd",
                 "res://scripts/ui/avatar_portrait.gd",
+                "res://scripts/ui/avatar_viewer.gd",
         ]:
                 # load() returns a resource even for a broken script —
                 # can_instantiate() is the real parse/compile gate
@@ -436,10 +437,10 @@ func _run_all() -> void:
         chat.call("open")
         check(int(chat.get("_unread")) == 0 and input_panel.visible,
                 "reopening clears the badge and shows the type box")
-        check(chat.get("pfp_resolver") != null and chat.get("pfp_resolver").is_valid() == false,
-                "chat exposes the pfp_resolver hook (game wires it)")
-        chat.call("add_chat", "Cid", 5, "with pfp", "", false, "uid-123")
-        check(true, "chat lines accept a uid (the PFP seat)")
+        check(chat.get("pfp_resolver") == null,
+                "v12.4: the chat has NO PFP hook — plain name + text lines")
+        chat.call("add_chat", "Cid", 5, "plain line", "", false, "uid-123")
+        check(true, "chat lines accept a uid")
 
         # --- camera: huge zoom range + first person toggle ---
         var cam_script: Script = load("res://scripts/game/camera_rig.gd")
@@ -538,18 +539,19 @@ func _run_all() -> void:
                 "TOP TABS: icon rows with the white underline, the open page lit")
         check(game_src.contains("_players_grid") and game_src.contains("_player_card"),
                 "People page is a CARD GRID (avatar + name — simple)")
-        check(game_src.contains("_render_portrait") and game_src.contains("_portrait_cache"),
-                "the topbar + chat wear REAL PFPs (fetched once, cached)")
+        check(game_src.contains("_attach_viewer") and game_src.contains("AvatarViewerScript"),
+                "the People cards host LIVE AvatarViewers (real 3D rigs, not photos)")
         check(game_src.contains("_corner_stats") and game_src.contains("_update_live_stats"),
                 "YOUR fps + ping live in the corner chip and breathe every half second")
         check(not game_src.contains("_remote_stats") and not game_src.contains("_set_people_view"),
-                "v12.3 SIMPLE: no per-card stats, no view toggles — avatar + name only")
+                "v12.4 SIMPLE: no per-card stats, no view toggles — avatar + name only")
         check(game_src.count("KEY_R") >= 2,
                 "R opens the ESC menu from the game (and still resets inside it)")
-        check(game_src.contains("_topbar_pfp") and game_src.contains("_pfp_preview"),
-                "the topbar pill + the Settings preview wear YOUR REAL PFP")
-        check(game_src.contains("head_icon"),
-                "cards fall back to the classic smiley before the shot lands")
+        check(not game_src.contains("_topbar_pfp") and not game_src.contains("_pfp_preview")
+                and not game_src.contains("MY PICTURE"),
+                "v12.4: NO PFP seats anywhere — topbar pill is name + gear, Settings has no MY PICTURE")
+        check(not game_src.contains("head_icon"),
+                "v12.4: no smiley placeholders — the LIVE rig itself holds every card seat")
         check(game_src.contains("icon_texture"),
                 "action + nav buttons wear the code-drawn icons (play / door / people / gear)")
         # --- v10.0: THE 2008 CLIENT — the OLD language, as an engine: real
@@ -610,41 +612,28 @@ func _run_all() -> void:
                 and rig_v11.contains("_walk_rate") and rig_v11.contains("_climb_rate"),
                 "the arms EASE between poses and the playback speeds glide (no twitch)")
 
-        # --- v11.0 THE PFP ENGINE — the SITE AVATAR, rendered. NO bacon. ---
-        check(FileAccess.file_exists("res://scripts/ui/pfp_service.gd"),
-                "PfpService ships (the real headshot engine)")
+        # --- v12.4 THE PFP IS DEAD — the LIVE AVATAR replaced it ---
+        check(not FileAccess.file_exists("res://scripts/ui/pfp_service.gd"),
+                "PfpService is DELETED (if it can't load, it doesn't ship)")
         var proj_v8 := FileAccess.get_file_as_string("res://project.godot")
-        check(proj_v8.contains('Pfp="*res://scripts/ui/pfp_service.gd"'),
-                "PfpService is an autoload (boot-ready)")
+        check(not proj_v8.contains("pfp_service"),
+                "the Pfp autoload is GONE from project.godot")
         check(not FileAccess.file_exists("res://assets/pfp/nexico8225.png"),
                 "THE BACON IS GONE — no bundled Roblox thumbnail ships in the kit")
-        var pfp_src := FileAccess.get_file_as_string("res://scripts/ui/pfp_service.gd")
-        check(not pfp_src.contains("users.roblox.com") and not pfp_src.contains("thumbnails.roblox.com"),
-                "the Roblox thumbnail API is DEAD — the PFP comes from RetroBlox only")
-        check(not pfp_src.contains("assets/pfp/%s.png"),
-                "no bundled headshot overrides — the account avatar is the only face")
-        check(pfp_src.contains("pfp_cache_v") and pfp_src.contains("CACHE_TTL"),
-                "fetched site pictures cache on disk in a fresh namespace (old bytes can't resurface)")
-        check(pfp_src.contains("/api/users/%s/pfp") and pfp_src.contains("avatarUrl"),
-                "EVERY player's site PFP loads — GET /api/users/{id}/pfp, not just mine")
-        check(pfp_src.contains("func default_pfp") and pfp_src.contains("letter_avatar"),
-                "the letter avatar stays as the LAST RESORT (guests / offline)")
-        check(pfp_src.contains("func peek("),
-                "peek() answers instantly for chat lines (RAM or the default letter)")
-        check(pfp_src.contains("AvatarPortrait.render") and pfp_src.contains("Session.my_avatar_data"),
-                "PFP seats wear the SITE PROFILE — the DEFAULT PFP is the account's avatar, rendered")
-        check(pfp_src.contains("func rounded(") and pfp_src.contains("_round_image"),
-                "every PFP lands with the client's rounded corners")
-        check(pfp_src.contains("fallback_pfp") and pfp_src.contains("head_icon"),
-                "no-data players fall back to the classic smiley (guests only)")
-        check(game_src.contains("Pfp.fetch") and game_src.contains("_apply_pfp"),
-                "the menu + cards + topbar all wear REAL PFPs (one pipeline)")
-        check(game_src.contains("_render_menu_avatar") and game_src.contains("AvatarPortrait.render"),
-                "the ESC menu shows EVERY PLAYER'S AVATAR — full-body renders + names (the old read)")
-        check(not game_src.contains("PfpBadge") and not game_src.contains("_render_identity"),
-                "the identity block + PFP badge are GONE — the avatar IS the picture")
-        check(game_src.contains("_menu_avatar_worker") and game_src.contains("_body_cache"),
-                "menu avatar renders are lazy + session-cached (players can wait, perf first)")
+        check(not game_src.contains("Pfp.") and not game_src.contains("PfpService"),
+                "game.gd speaks ZERO PFP — the avatar IS the picture")
+        var viewer_src := FileAccess.get_file_as_string("res://scripts/ui/avatar_viewer.gd")
+        check(viewer_src.contains("class_name AvatarViewer") and viewer_src.contains("SubViewportContainer"),
+                "AvatarViewer ships — every card is a LIVE 3D stage")
+        check(viewer_src.contains("_yaw") and viewer_src.contains("MOUSE_BUTTON_WHEEL_UP")
+                and viewer_src.contains("DRAG_SPEED"),
+                "the stage DRAG-SPINS (yaw) + wheel-ZOOMS so you can see them carefully")
+        check(viewer_src.contains("IDLE_SPIN") and viewer_src.contains("_grabbed"),
+                "a gentle turntable plays until the first grab, then holds still")
+        check(viewer_src.contains("UPDATE_DISABLED") and viewer_src.contains("NOTIFICATION_VISIBILITY_CHANGED"),
+                "the stage renders ONLY while the menu shows it (menu-closed = zero cost)")
+        check(game_src.contains("_viewer_payload_job") and game_src.contains("_viewer_dressed"),
+                "viewer rigs dress ONCE per session (players can wait, perf first)")
         check(game_src.contains("_log_out") and game_src.contains("clear_session"),
                 "LOG OUT wipes the session and lands on the login page")
         check(game_src.contains('MenuCenter') and game_src.contains("MenuPanel"),
@@ -675,7 +664,7 @@ func _run_all() -> void:
         check(FileAccess.file_exists("res://scripts/core/ui_config.gd"),
                 "UiConfig ships (every edit saved to user://ui_config.json)")
         check(FileAccess.file_exists("res://scripts/ui/ui_editor.gd"),
-                "UiEditor ships (F2: select, drag, scale, text, labels, PFP, save)")
+                "UiEditor ships (F2: select, drag, scale, text, labels, save)")
         var editor_src := FileAccess.get_file_as_string("res://scripts/ui/ui_editor.gd")
         check(editor_src.contains("KEY_F2") and editor_src.contains("func register"),
                 "the editor opens with F2 and registers HUD elements")
@@ -692,15 +681,10 @@ func _run_all() -> void:
         check(game_src.contains('_footer_key("L", "Leave", false')
                 and game_src.contains('_footer_key("ESC", "Resume", true'),
                 "the footer is [L] Leave / [R] Respawn / [ESC] Resume")
-        check(game_src.contains("_apply_pfp_url") and game_src.contains("Pfp.set_custom_pfp"),
-                "Settings applies YOUR PFP URL live (saved to ui_config)")
-        check(game_src.contains('Pfp.set_site_pfp') and game_src.contains('avatarUrl'),
-                "the client loads YOUR ACCOUNT PFP from retro-blox.vercel.app /me")
-        check(pfp_src.contains("set_site_pfp") and pfp_src.contains("set_custom_pfp")
-                and pfp_src.contains("_image_from_data_url"),
-                "PfpService wears the site avatarUrl + the custom URL (data URLs decode)")
-        check(pfp_src.contains("/pfp") or pfp_src.contains("avatar_of"),
-                "other players' faces arrive from the site (the avatar render path)")
+        check(not game_src.contains("_apply_pfp_url") and not game_src.contains("MY PICTURE"),
+                "Settings has NO MY PICTURE section (the PFP editor is dead)")
+        check(not game_src.contains("Pfp.set_site_pfp") and not game_src.contains("Pfp.set_custom_pfp"),
+                "the client never fetches a PFP again")
 
 
         # --- v3.9: the wood is HISTORY ---
@@ -742,13 +726,13 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains("v12.3"), "the corner chip wears v12.3")
+        check(game_src.contains("v12.4"), "the corner chip wears v12.4")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(portrait_src.contains("HEADSHOT_SIZE") and portrait_src.contains("headshot := false"),
                 "the HEADSHOT framing exists — the square PFP shot the UI wears")
-        check(game_src.contains("TEXTURE_FILTER_LINEAR"),
-                "the portrait TextureRect draws LINEAR (smooth, not chunky)")
+        check(viewer_src.contains("MSAA_2X"),
+                "the live stage renders with 2x MSAA (smooth, not chunky)")
         # --- the v4.0 AVATAR PIPELINE — the real site look, everywhere ---
         var rig_src := FileAccess.get_file_as_string("res://scripts/player/avatar_rig.gd")
         check(rig_src.contains("func set_tshirt"),
@@ -779,20 +763,20 @@ func _run_all() -> void:
         check(world_src.contains("var n := 128") and world_src.contains("bump_top"),
                 "the stud tile is the AUTHENTIC Roblox stud (lit + shaded rims, contact shadow)")
         check(local_src.contains("MAX_STEP := 2.0 * STUD"),
-                "v12.3 STEP TUNED: 2-stud, 1-stud and lower ledges walk over like stairs")
+                "v12.4 STEP TUNED: 2-stud, 1-stud and lower ledges walk over like stairs")
         check(local_src.contains("WALL_GRAB_MIN_H := MAX_STEP + 0.05"),
                 "the climb grip only starts on faces TALLER than the stair step")
         check(local_src.contains("heading = cam_yaw"),
-                "v12.3 SHIFT LOCK IS INSTANT: the body snaps to the camera yaw, no swing-around")
+                "v12.4 SHIFT LOCK IS INSTANT: the body snaps to the camera yaw, no swing-around")
         var proj_src := FileAccess.get_file_as_string("res://project.godot")
         check(proj_src.contains("msaa_3d=1") and proj_src.contains("anisotropic_filtering_level=4"),
-                "the renderer ships 2x MSAA (v12.3 perf) + anisotropic filtering")
+                "the renderer ships 2x MSAA (v12.4 perf) + anisotropic filtering")
         check(proj_src.contains("occlusion_culling/use_occlusion_culling=true"),
-                "v12.3 PERF: occlusion culling is ON")
+                "v12.4 PERF: occlusion culling is ON")
         check(world_src.contains("BoxOccluder3D"),
-                "v12.3 PERF: solid world parts ship matching occluders")
+                "v12.4 PERF: solid world parts ship matching occluders")
         check(FileAccess.get_file_as_string("res://scripts/player/remote_player.gd").contains("is_position_in_frustum"),
-                "v12.3 PERF: far/offscreen remotes tick their walk rig at 4 Hz")
+                "v12.4 PERF: far/offscreen remotes tick their walk rig at 4 Hz")
         # --- the v12.1 HUD — the real client's chrome, RETRO NIGHT ---
         check(game_src.contains("_health_track_h") and game_src.contains("PRESET_CENTER_RIGHT"),
                 "the health bar is VERTICAL on the RIGHT edge (the classic client dock)")
@@ -821,8 +805,8 @@ func _run_all() -> void:
                 "the chat is the DARK GLASS float again (never blinding)")
         check(chat_src.contains("fd2943"),
                 "chat names wear the CLASSIC BRIGHT palette (readable on dark glass)")
-        check(chat_src.contains("add_image") and chat_src.contains("pfp_resolver"),
-                "every chat line leads with the speaker's PFP")
+        check(not chat_src.contains("add_image") and not chat_src.contains("pfp_resolver"),
+                "v12.4: chat lines are NAME + TEXT — no PFP images anywhere")
         check(game_src.contains('chat_btn.icon = RetroUI.icon_png("chat"'),
                 "the pill's chat key wears the REAL internet chat icon")
         check(bubble_src.contains("SHOW_SECONDS := 12.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
@@ -837,8 +821,8 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "12.3"') and login_src4.contains("_red_key"),
-                "login is SIMPLE (v12.3): flat sky + bold wordmark + the RED Log In key")
+        check(login_src4.contains('VERSION := "12.4"') and login_src4.contains("_red_key"),
+                "login is SIMPLE (v12.4): flat sky + bold wordmark + the RED Log In key")
         check(not login_src4.contains("_wordmark_textures") and not login_src4.contains("login_backdrop")
                 and login_src4.contains("RETROBLOX"),
                 "the login is one flat sky + one bold TEXT wordmark (no photo, no sprite letters)")
@@ -856,11 +840,8 @@ func _run_all() -> void:
                 "the site palette stays (gloss keys, steel borders, action colors)")
         check(game_src.contains("MenuHeader") and game_src.contains("RETROBLOX"),
                 "the menu wears the BLUE GLOSS header strip (logo + wordmark + clock)")
-        var pfp2_src := FileAccess.get_file_as_string("res://scripts/ui/pfp_service.gd")
-        check(pfp2_src.contains("pfp_cache_v14"),
-                "the PFP cache rides the v14 namespace (stale v13/v12/v11 bytes can't resurface)")
-        check(pfp2_src.contains("AvatarPortrait.render") and pfp2_src.contains("my_avatar_data"),
-                "THE DEFAULT PFP IS THE AVATAR ITSELF (the site payload, rendered headshot-style)")
+        check(not FileAccess.file_exists("res://scripts/ui/pfp_service.gd"),
+                "the PFP cache died WITH the service (no stale bytes can ever resurface)")
         check(theme_src.contains("LETTER_COLORS") and theme_src.contains("func circle_badge"),
                 "the theme ships the site's letter-avatar palette + the badge cropper")
         var settings_src := FileAccess.get_file_as_string("res://scripts/core/settings.gd")
@@ -880,7 +861,7 @@ func _run_all() -> void:
                 "BUNNY HOP gates the hold-to-jump (one jump per press when off)")
         check(portrait_src.contains("_paper_backdrop"),
                 "headshots can land on the SITE PAPER backdrop (readable at any size)")
-        check(game_src.contains("v12.3"), "the corner chip wears v12.3")
+        check(game_src.contains("v12.4"), "the corner chip wears v12.4")
         check(game_src.contains("SITE_BLUE") and game_src.contains("THE OLD BLUE ONE"),
                 "THE OLD CHAT ICON IS BACK: the topbar wears the site's blue gloss")
         check(login_src4.contains("gotham(800)"),

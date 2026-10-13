@@ -33,7 +33,6 @@ var _scale_spin: SpinBox
 var _text_edit: LineEdit
 var _text_row: HBoxContainer
 var _scale_ui_spin: SpinBox
-var _pfp_edit: LineEdit
 var _labels_box: VBoxContainer
 var _hint: Label
 var _sel_outline: Panel
@@ -155,10 +154,6 @@ func _apply_boot() -> void:
         # the global scale rides the root window's content scale
         get_tree().root.content_scale_factor = UiConfig.ui_scale
         spawn_labels()
-        var pfp := UiConfig.pfp_url
-        if pfp != "":
-                Pfp.custom_pfp_url = pfp
-                Pfp.set_custom_pfp(pfp)
 
 
 # ---------------------------------------------------------------- toggle
@@ -332,33 +327,6 @@ func _build_chrome() -> void:
         _labels_box.add_theme_constant_override("separation", 4)
         col.add_child(_labels_box)
 
-        var pfp_l := Label.new()
-        pfp_l.text = "MY PICTURE (PFP URL)"
-        pfp_l.add_theme_font_override("font", RETRO.gotham(700))
-        pfp_l.add_theme_font_size_override("font_size", 11)
-        pfp_l.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
-        col.add_child(pfp_l)
-        _pfp_edit = LineEdit.new()
-        _pfp_edit.placeholder_text = "paste an image URL and press Enter"
-        _pfp_edit.add_theme_font_size_override("font_size", 11)
-        _pfp_edit.text = UiConfig.pfp_url
-        _pfp_edit.text_submitted.connect(func(t: String) -> void: _on_pfp(t))
-        col.add_child(_pfp_edit)
-        var pfp_row := HBoxContainer.new()
-        pfp_row.add_theme_constant_override("separation", 6)
-        col.add_child(pfp_row)
-        var pfp_apply := Button.new()
-        pfp_apply.text = "Apply PFP"
-        pfp_apply.pressed.connect(func() -> void: _on_pfp(_pfp_edit.text))
-        _style_key(pfp_apply, Color("1f3a5a"))
-        pfp_row.add_child(pfp_apply)
-        var pfp_clear := Button.new()
-        pfp_clear.text = "Clear"
-        pfp_clear.pressed.connect(func() -> void:
-                _pfp_edit.text = ""
-                _on_pfp(""))
-        _style_key(pfp_clear, Color("33363b"))
-        pfp_row.add_child(pfp_clear)
 
         col.add_child(_hspace(4))
 
@@ -562,12 +530,6 @@ func _on_delete_label() -> void:
         select(_first_selectable())
 
 
-func _on_pfp(url: String) -> void:
-        url = url.strip_edges()
-        UiConfig.pfp_url = url
-        UiConfig.save_config()
-        Pfp.set_custom_pfp(url)
-
 
 func _on_save() -> void:
         UiConfig.save_config()
@@ -585,8 +547,6 @@ func _on_reset() -> void:
                 # custom labels get rebuilt from the (now empty) list
         get_tree().root.content_scale_factor = 1.0
         _scale_ui_spin.set_value_no_signal(1.0)
-        _pfp_edit.text = ""
-        Pfp.set_custom_pfp("")
         spawn_labels()
         select(_first_selectable())
         _hint.text = "RESET — everything is back to factory."

@@ -11,6 +11,7 @@ const ChatBoxScript := preload("res://scripts/game/chat_box.gd")
 const PlacesScript := preload("res://scripts/world/places.gd")
 const WorldBuilderScript := preload("res://scripts/world/world_builder.gd")
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
+const AvatarViewerScript := preload("res://scripts/ui/avatar_viewer.gd")
 
 const POLL_SECONDS := 2.5       # chat + presence feed
 const HEARTBEAT_SECONDS := 4.0  # my presence out
@@ -24,8 +25,7 @@ var hud: CanvasLayer
 
 var _health_fill: Panel              # the green fill inside the track
 var _health_value: Label
-var _topbar_pfp: TextureRect         # the topbar user pill's PFP
-var _names_by_uid: Dictionary = {}   # userId -> username (PFP fetches)
+var _names_by_uid: Dictionary = {}   # userId -> username (the People list)
 var _health_track_h := 220.0         # v12.1: the VERTICAL right-edge bar height
 var _menu: Control
 var _players_grid: GridContainer     # the People page — the simple avatar grid
@@ -35,17 +35,12 @@ var _time_label: Label               # live session clock in the page header
 var _corner_stats: Label             # the tiny FPS/ping/version chip (bottom-left)
 var _tab_buttons: Dictionary = {}    # v9.0: tab id -> Button (top tabs)
 var _pages: Dictionary = {}          # v9.0: tab id -> page Control
-var _pfp_preview: TextureRect        # v9.0: MY PICTURE preview in Settings
-var _pfp_url_edit: LineEdit          # v9.0: the PFP URL field (Settings)
 var _fps_smooth := 60.0              # v3.9: eased fps so the chip doesn't flicker
 var _menu_tick := 0.5                # v3.9: live stats refresh cadence
 var _people_total := 1               # v4.0: last known online count (header)
-var _portrait_cache: Dictionary = {} # userId -> rendered PFP Texture2D (topbar + chat)
-var _body_cache: Dictionary = {}     # v12.3: userId -> full-body avatar render (menu cards)
-var _body_pending: Dictionary = {}   # v12.3: menu avatar renders in flight
-var _avatar_nodes: Dictionary = {}   # v12.3: userId -> the card TextureRect to swap when ready
-var _portrait_nodes: Dictionary = {} # userId -> the PFP TextureRect to swap when ready
-var _portrait_pending: Dictionary = {} # PFP fetches already in flight
+var _viewers: Dictionary = {}        # v12.4: userId -> the LIVE AvatarViewer (survives card rebuilds)
+var _viewer_dressed: Dictionary = {} # v12.4: userId -> true once the viewer's rig wears the real look
+var _viewer_pending: Dictionary = {} # v12.4: viewer payload jobs already in flight
 var _remotes: Dictionary = {}      # userId -> RemotePlayer
 var _seen_messages: Dictionary = {} # message id -> true
 var _chat_history_done := false     # v3.11: the first feed is history, not new lines
@@ -121,16 +116,6 @@ func _ready() -> void:
 
         _build_hud()
 
-        # ---- v9.0: MY PICTURE — the account's avatarUrl from
-        # retro-blox.vercel.app arrives with the /me payload at login; the
-        # Editor's own custom URL (saved in ui_config) wins over it.
-        # Api.txt is null-safe: the platform returns "avatarUrl": null for
-        # accounts without a site PFP, and String(null) hard-crashes.
-        if not Session.is_guest:
-                Pfp.set_site_pfp(Api.txt(Session.avatar.get("avatarUrl", "")))
-        Pfp.pfp_changed.connect(func(_uid: String) -> void:
-                _portrait_cache.erase(Session.user_id)
-                _render_portrait(Session.user_id))
         UiEditor.edit_mode_changed.connect(func(on: bool) -> void:
                 if on:
                         camera_rig.set_ui_blocked(true)
@@ -392,10 +377,6 @@ func _build_hud() -> void:
                 if not _menu_open:
                         camera_rig.set_ui_blocked(false))
         hud.add_child(chat)
-        # v12.1: the chat's PFP resolver — every line leads with the
-        # speaker's SITE picture (cache if warm, the DEFAULT letter avatar
-        # if not — exactly what retro-blox.vercel.app shows for them)
-        chat.pfp_resolver = _chat_pfp_for
 
         _build_topbar()
         _build_health()
@@ -498,7 +479,7 @@ func _build_topbar() -> void:
         cluster.add_child(chat_btn)
         UiEditor.register("topbar", cluster, false)
 
-        # ---- the TOP-RIGHT USER PILL — PFP + name + the settings gear,
+        # ---- the TOP-RIGHT USER PILL — name + the settings gear,
         # parked exactly where the real client keeps them
         var user_pill := PanelContainer.new()
         user_pill.name = "UserPill"
@@ -511,20 +492,7 @@ func _build_topbar() -> void:
         var urow := HBoxContainer.new()
         urow.add_theme_constant_override("separation", 6)
         user_pill.add_child(urow)
-        # YOUR SITE PFP leads the pill — custom URL, account avatarUrl, or
-        # the DEFAULT letter avatar (the exact read of the website)
-        var pfp_rect := TextureRect.new()
-        pfp_rect.name = "UserPfp"
-        pfp_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-        pfp_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        pfp_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-        pfp_rect.custom_minimum_size = Vector2(26, 26)
-        pfp_rect.texture = RetroUI.head_icon()
-        pfp_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        urow.add_child(pfp_rect)
-        _topbar_pfp = pfp_rect
         _names_by_uid[Session.user_id] = Session.username
-        _render_portrait(Session.user_id)
         var uname := Label.new()
         uname.name = "UserName"
         uname.text = Session.username
@@ -769,9 +737,8 @@ func _setup_audio() -> void:
 ## and ONE centered translucent SLATE panel (the 2012 client's read: dark,
 ## calm, nothing blinding) carries the BLUE GLOSS header strip — logo +
 ## RETROBLOX + the live clock — the folder tabs (People / Settings, real
-## internet icons), the IDENTITY BLOCK (YOUR AVATAR — the full-body render
-## — with your SITE PFP badged on its bottom-right corner), the "In this
-## server" dark card grid with working TILES / LIST view toggles, and the
+## internet icons), the PEOPLE GRID (every player's LIVE AVATAR — drag to
+## spin them around, wheel to zoom — with their NAME under it), and the
 ## three GLOSS footer keys: red Leave, steel Respawn, green Resume.
 
 
@@ -886,11 +853,10 @@ func _build_menu() -> Control:
         pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
         body.add_child(pages)
 
-        # ---- PEOPLE — v12.3 SIMPLE: a heading, then ONE grid. Every card
-        # is a player: their real AVATAR (a full-body render of the payload
-        # their rig wears) with their NAME under it — the old version's
-        # read: open ESC, see everyone and who they are. No PFP fetches, no
-        # view toggles, no handles, no stats. Simple UI wins.
+        # ---- PEOPLE — v12.4 SIMPLE + ALIVE: a heading, then ONE grid.
+        # Every card is a player: their real AVATAR LIVE on a 3D stage
+        # (drag to spin them around, wheel to zoom in close) with their
+        # NAME under it. No PFP fetches — the avatar IS the picture.
         var players_page := VBoxContainer.new()
         players_page.name = "PeoplePage"
         players_page.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -923,7 +889,7 @@ func _build_menu() -> Control:
         _players_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         scroll.add_child(_players_grid)
 
-        # ---- SETTINGS — the game sliders + MY PICTURE + ACCOUNT (Log Out)
+        # ---- SETTINGS — the game sliders + ACCOUNT (Log Out)
         _settings_tab = _build_settings_tab()
         _settings_tab.name = "SettingsPage"
         _settings_tab.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1224,9 +1190,9 @@ func _spacer() -> Control:
 
 # ---- the player CARD — v12.3 SIMPLE: the avatar + the name ---------------
 
-## One People-page card: the player's AVATAR (the full-body render drops
-## in when it's ready — the classic smiley holds the seat) and their NAME.
-## That's the whole card — the old version's read. MY card wears the
+## One People-page card: the player's LIVE AVATAR (a real 3D rig you can
+## drag to spin and zoom — the classic noob holds the seat until their
+## look lands) and their NAME. That's the whole card. MY card wears the
 ## classic blue ring.
 func _player_card(uid: String, uname: String, is_me: bool) -> PanelContainer:
         var card := PanelContainer.new()
@@ -1241,24 +1207,16 @@ func _player_card(uid: String, uname: String, is_me: bool) -> PanelContainer:
         box.add_theme_constant_override("separation", 7)
         card.add_child(box)
 
-        # the avatar well — the player's own avatar drops in when the
-        # render lands (the classic smiley holds the seat until then)
+        # the avatar stage — the player's LIVE avatar: drag to spin them,
+        # wheel to zoom. The rig dresses once per session and the camera
+        # angle survives every 2.5s roster refresh (the viewer is cached).
         var well := PanelContainer.new()
         well.add_theme_stylebox_override("panel", _well_texture_style())
         well.custom_minimum_size = Vector2(0, 150)
         well.mouse_filter = Control.MOUSE_FILTER_IGNORE
         well.clip_contents = true
         box.add_child(well)
-        var portrait := TextureRect.new()
-        portrait.name = "Avatar"
-        portrait.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-        portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        portrait.custom_minimum_size = Vector2(0, 142)
-        portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        portrait.texture = RetroUI.head_icon()
-        well.add_child(portrait)
-        _avatar_nodes[uid] = portrait
+        _attach_viewer(well, uid)
 
         var name_l := Label.new()
         name_l.text = uname
@@ -1289,8 +1247,7 @@ func _card_casing(is_me: bool) -> StyleBox:
         return sb
 
 
-## The PFP well — the deep night inset the picture sits on (the letter
-## avatars and site photos both read clean inside it).
+## The stage well — the deep night inset the LIVE avatar stands on.
 func _well_texture_style() -> StyleBox:
         var sb := StyleBoxFlat.new()
         sb.bg_color = RetroUI.NIGHT_WELL
@@ -1305,103 +1262,31 @@ func _well_texture_style() -> StyleBox:
         return sb
 
 
-## Fire the PFP pipeline for one uid — cached texture drops in instantly,
-## a fetch in flight is never doubled, and the fallback head icon holds
-## the card until the real headshot arrives. `redress` also re-checks MY
-## account look so the in-world rig stays live (the UI shows the PFP).
-func _render_portrait(uid: String, redress := false) -> void:
-        if _portrait_cache.has(uid):
-                _apply_pfp(uid)
-                return
-        if _portrait_pending.has(uid):
-                return
-        _portrait_pending[uid] = true
-        _pfp_worker(uid, redress)
+## v12.4 THE LIVE PEOPLE — every card hosts the player's real rig on its
+## own 3D stage. The VIEWER is cached per uid (your spin/zoom survive the
+## roster refreshes; the rig dresses once per session) and the stage
+## renders ONLY while the menu is open. No PFP anywhere — the avatar IS
+## the picture.
+func _attach_viewer(well: PanelContainer, uid: String) -> void:
+        var viewer = null
+        if _viewers.has(uid) and is_instance_valid(_viewers[uid]):
+                viewer = _viewers[uid]
+                var old = viewer.get_parent()
+                if old != null and is_instance_valid(old):
+                        old.remove_child(viewer)
+        else:
+                viewer = AvatarViewerScript.new()
+                _viewers[uid] = viewer
+        well.add_child(viewer)
+        if not _viewer_dressed.get(uid, false) and not _viewer_pending.has(uid):
+                _viewer_payload_job(uid)
 
 
-## The async half — the REAL headshot pipeline: bundled override first
-## (zero network for shipped players), then Roblox's own thumbnail API,
-## then the classic smiley. NO 3D renders in the UI, ever again.
-func _pfp_worker(uid: String, redress := false) -> void:
-        if redress and uid == Session.user_id and not Session.is_guest:
-                # the RIG still re-dresses live when the account look changed
-                # on the site (no relog needed) — the UI above shows the PFP
-                var fresh: Dictionary = await Api.avatar_of(uid)
-                if fresh.get("ok", false) and fresh.get("avatar", null) is Dictionary:
-                        var payload: Dictionary = fresh["avatar"]
-                        Session.set_avatar(fresh)
-                        Session.cache_avatar(uid, payload)
-                        var sig := JSON.stringify(payload)
-                        if sig != _dressed_signature and player != null and is_instance_valid(player):
-                                _dressed_signature = sig
-                                player.call("dress", Api, payload)
-        var uname := String(_names_by_uid.get(uid, ""))
-        if uid == Session.user_id:
-                uname = Session.username
-        var tex: Texture2D = await Pfp.fetch(uid, uname)
-        _portrait_pending.erase(uid)
-        if tex == null:
-                return
-        _portrait_cache[uid] = tex
-        _apply_pfp(uid)
-
-
-## Swap a landed PFP into every live seat: (for me) the topbar user pill
-## and the Settings MY PICTURE preview. The People cards wear AVATARS now,
-## not PFPs — they ride _render_menu_avatar instead.
-func _apply_pfp(uid: String) -> void:
-        var tex: Texture2D = _portrait_cache.get(uid, null)
-        if tex == null:
-                return
-        if _portrait_nodes.has(uid) and is_instance_valid(_portrait_nodes[uid]):
-                (_portrait_nodes[uid] as TextureRect).texture = tex
-        if uid == Session.user_id:
-                if _topbar_pfp != null and is_instance_valid(_topbar_pfp):
-                        _topbar_pfp.texture = tex
-                if _pfp_preview != null and is_instance_valid(_pfp_preview):
-                        _pfp_preview.texture = tex
-
-
-## v12.1: THE CHAT LINE PFP — answered instantly for every new line:
-## the warm cache, otherwise the DEFAULT letter avatar (which IS the
-## correct site picture for anyone without an upload). The async fetch
-## still runs underneath, so the next line carries the real photo.
-func _chat_pfp_for(uid: String, uname: String) -> Texture2D:
-        if _portrait_cache.has(uid):
-                return _portrait_cache[uid]
-        var name_hint := uname
-        if name_hint == "":
-                name_hint = String(_names_by_uid.get(uid, "Player"))
-        _render_portrait(uid)
-        return Pfp.peek(uid, name_hint)
-
-
-## v12.3 THE SIMPLE PEOPLE — every card wears the player's AVATAR: a
-## full-body render of the exact payload their rig wears (the same look
-## the world shows). No PFP here — the avatar IS the picture. Renders are
-## lazy (only while the menu is open), unhurried (the classic smiley holds
-## the seat while the player waits) and cached for the whole session.
-func _render_menu_avatar(uid: String) -> void:
-        if _body_cache.has(uid):
-                _apply_menu_avatar(uid)
-                return
-        if _body_pending.has(uid):
-                return
-        _body_pending[uid] = true
-        _menu_avatar_worker(uid)
-
-
-func _apply_menu_avatar(uid: String) -> void:
-        if not _body_cache.has(uid):
-                return
-        if _avatar_nodes.has(uid) and is_instance_valid(_avatar_nodes[uid]):
-                (_avatar_nodes[uid] as TextureRect).texture = _body_cache[uid]
-
-
-## The async half: resolve the player's payload (mine from the session,
-## everyone else's from the public avatar endpoint, both cached), dress a
-## pocket rig and photograph it full-body (320x448, 4x MSAA).
-func _menu_avatar_worker(uid: String) -> void:
+## Resolve the player's payload (mine from the session, everyone else's
+## from the public avatar endpoint, both cached) and hand it to the rig
+## on their stage. An empty payload retries on the next roster refresh.
+func _viewer_payload_job(uid: String) -> void:
+        _viewer_pending[uid] = true
         var payload: Dictionary = {}
         if uid == Session.user_id:
                 payload = Session.my_avatar_data()
@@ -1419,14 +1304,12 @@ func _menu_avatar_worker(uid: String) -> void:
                                 if raw is Dictionary:
                                         Session.cache_avatar(uid, raw)
                                         payload = raw
-        var shot: Texture2D = null
-        if not payload.is_empty():
-                shot = await AvatarPortrait.render(self, Api, payload, false)
-        _body_pending.erase(uid)
-        if shot == null:
+        _viewer_pending.erase(uid)
+        if payload.is_empty():
                 return
-        _body_cache[uid] = shot
-        _apply_menu_avatar(uid)
+        if _viewers.has(uid) and is_instance_valid(_viewers[uid]):
+                await _viewers[uid].dress(Api, payload)
+                _viewer_dressed[uid] = true
 
 
 ## The menu's pulse: the corner chip + header clock breathe every half
@@ -1444,7 +1327,7 @@ func _update_live_stats() -> void:
                         parts.append("FPS %d" % int(roundf(_fps_smooth)))
                 if want_ping:
                         parts.append("PING %s" % (("%dms" % _last_ping_ms) if _last_ping_ms > 0 else "—"))
-                parts.append("v12.3")
+                parts.append("v12.4")
                 _corner_stats.text = "   ·   ".join(parts)
         if _time_label != null and is_instance_valid(_time_label):
                 _time_label.text = _clock_text()
@@ -1756,74 +1639,6 @@ func _build_settings_tab() -> VBoxContainer:
                 _notify("All settings reset", true))
         reset_col.add_child(reset_btn)
 
-        # ---- MY PICTURE — your PFP URL, applied EVERYWHERE live ----
-        page.add_child(_hspace(6))
-        var pfp_title := Label.new()
-        pfp_title.text = "MY PICTURE"
-        _title(pfp_title, 13, RetroUI.NIGHT_INK_MUTED, 600)
-        page.add_child(pfp_title)
-        var pfp_row := HBoxContainer.new()
-        pfp_row.add_theme_constant_override("separation", 12)
-        page.add_child(pfp_row)
-        var preview_frame := PanelContainer.new()
-        preview_frame.add_theme_stylebox_override("panel", RetroUI.flat(8, RetroUI.NIGHT_WELL))
-        preview_frame.custom_minimum_size = Vector2(56, 56)
-        preview_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        preview_frame.clip_contents = true
-        pfp_row.add_child(preview_frame)
-        _pfp_preview = TextureRect.new()
-        _pfp_preview.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-        _pfp_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        _pfp_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-        _pfp_preview.texture = RetroUI.head_icon()
-        _pfp_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        preview_frame.add_child(_pfp_preview)
-        if _portrait_cache.has(Session.user_id) and _portrait_cache[Session.user_id] != null:
-                _pfp_preview.texture = _portrait_cache[Session.user_id]
-        var pfp_col := VBoxContainer.new()
-        pfp_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        pfp_col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-        pfp_col.add_theme_constant_override("separation", 6)
-        pfp_row.add_child(pfp_col)
-        _pfp_url_edit = LineEdit.new()
-        _pfp_url_edit.placeholder_text = "Paste an image URL (or data URL) — your face, everywhere"
-        _pfp_url_edit.text = UiConfig.pfp_url
-        _pfp_url_edit.custom_minimum_size = Vector2(0, 36)
-        _pfp_url_edit.text_submitted.connect(func(t: String) -> void: _apply_pfp_url(t))
-        pfp_col.add_child(_pfp_url_edit)
-        var pfp_btns := HBoxContainer.new()
-        pfp_btns.add_theme_constant_override("separation", 8)
-        pfp_col.add_child(pfp_btns)
-        var pfp_apply := Button.new()
-        pfp_apply.text = "Apply"
-        pfp_apply.custom_minimum_size = Vector2(110, 34)
-        pfp_apply.focus_mode = Control.FOCUS_NONE
-        pfp_apply.add_theme_stylebox_override("normal", _blue_btn(false))
-        pfp_apply.add_theme_stylebox_override("hover", _blue_btn(true))
-        pfp_apply.add_theme_stylebox_override("pressed", _blue_btn(true))
-        pfp_apply.add_theme_color_override("font_color", Color.WHITE)
-        pfp_apply.add_theme_color_override("font_hover_color", Color.WHITE)
-        pfp_apply.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 0.85))
-        if RetroUI.gotham(600) != null:
-                pfp_apply.add_theme_font_override("font", RetroUI.gotham(600))
-        pfp_apply.add_theme_font_size_override("font_size", 13)
-        pfp_apply.pressed.connect(func() -> void: _apply_pfp_url(_pfp_url_edit.text))
-        pfp_btns.add_child(pfp_apply)
-        var pfp_clear := Button.new()
-        pfp_clear.text = "Use my account picture"
-        pfp_clear.custom_minimum_size = Vector2(190, 34)
-        pfp_clear.focus_mode = Control.FOCUS_NONE
-        pfp_clear.add_theme_stylebox_override("normal", _key_btn())
-        pfp_clear.add_theme_stylebox_override("hover", _key_btn(true))
-        pfp_clear.add_theme_stylebox_override("pressed", _key_btn(true))
-        pfp_clear.add_theme_color_override("font_color", RetroUI.NIGHT_INK)
-        if RetroUI.gotham(600) != null:
-                pfp_clear.add_theme_font_override("font", RetroUI.gotham(600))
-        pfp_clear.add_theme_font_size_override("font_size", 13)
-        pfp_clear.pressed.connect(func() -> void:
-                _pfp_url_edit.text = ""
-                _apply_pfp_url(""))
-        pfp_btns.add_child(pfp_clear)
 
         # ---- ACCOUNT — who is signed in, and the way OUT ----
         page.add_child(_hspace(6))
@@ -1873,15 +1688,6 @@ func _log_out() -> void:
         Api.clear_session()
         Session.reset()
         get_tree().change_scene_to_file("res://scenes/login.tscn")
-
-
-## Apply the PFP URL typed in Settings — saves to ui_config, repaints seats.
-func _apply_pfp_url(url: String) -> void:
-        url = url.strip_edges()
-        UiConfig.pfp_url = url
-        UiConfig.save_config()
-        Pfp.set_custom_pfp(url)
-        _notify("My picture updated" if url != "" else "Back to my account picture", false)
 
 
 ## v12.0 — RESET: rebuild the whole Settings page so every slider, check
@@ -2186,26 +1992,34 @@ func _dress_remote(rp: Node3D, uid: String) -> void:
 
 
 ## The People page: me first (the blue ring), then everyone the presence
-## feed reports — ONE simple grid of avatar cards, rebuilt only while the
-## menu is open; every card kicks its (cached) avatar render.
+## feed reports — ONE simple grid of LIVE avatar cards, rebuilt only while
+## the menu is open; the viewers are cached so nothing re-dresses.
 func _refresh_player_list(players: Array) -> void:
         if _players_grid == null or not is_instance_valid(_players_grid):
                 return
-        _avatar_nodes.clear()
         for child in _players_grid.get_children():
                 child.queue_free()
         var total := 1 + players.size()
         _people_total = total
         _update_people_title()
+        var seen := {}
         # my card first — the blue-ringed one
         _players_grid.add_child(_player_card(Session.user_id, Session.username, true))
-        _render_menu_avatar(Session.user_id)
+        seen[Session.user_id] = true
         for p in players:
                 var uid := String(p.get("userId", ""))
                 var uname := String(p.get("username", ""))
                 if uid == "" or uid == Session.user_id or uname == "":
                         continue
                 _names_by_uid[uid] = uname
+                seen[uid] = true
                 _players_grid.add_child(_player_card(uid, uname, false))
-                _render_menu_avatar(uid)
+        # anyone who left: their stage goes with them
+        for uid in _viewers.keys():
+                if not seen.has(uid):
+                        if is_instance_valid(_viewers[uid]):
+                                _viewers[uid].queue_free()
+                        _viewers.erase(uid)
+                        _viewer_dressed.erase(uid)
+                        _viewer_pending.erase(uid)
         _update_live_stats()
