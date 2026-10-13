@@ -1327,7 +1327,7 @@ func _update_live_stats() -> void:
                         parts.append("FPS %d" % int(roundf(_fps_smooth)))
                 if want_ping:
                         parts.append("PING %s" % (("%dms" % _last_ping_ms) if _last_ping_ms > 0 else "—"))
-                parts.append("v12.4")
+                parts.append("v1")
                 _corner_stats.text = "   ·   ".join(parts)
         if _time_label != null and is_instance_valid(_time_label):
                 _time_label.text = _clock_text()

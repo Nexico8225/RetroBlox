@@ -9,8 +9,8 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v12.4 "NO PFP, JUST AVATARS"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=12.4'
+const VERSION = 'v1 "AVATARS, NOT PICTURES"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=1'
 
 const NEW_STUFF: [string, string][] = [
   ['THE PFP SYSTEM IS GONE — FOR REAL THIS TIME', 'Every profile-picture fetch is DELETED: the PfpService file, its autoload, the topbar pill picture, the chat line pictures, the Settings MY PICTURE editor, all of it. If a picture cannot load, it does not ship. The avatar IS the picture.'],
@@ -21,7 +21,7 @@ const NEW_STUFF: [string, string][] = [
   ['THE LOGIN IS SIMPLE', 'One flat sky, one bold RETROBLOX wordmark, one clean card: username, password, the red Log In key. No photo backdrop, no sprite-letter compositing — the same specific server errors, the same auto-login.'],
   ['PERFORMANCE PASS', 'OCCLUSION CULLING is on and every solid world part ships a matching occluder (blocks behind walls skip drawing entirely), MSAA dropped to 2x, and remote players far away or off screen tick their walk rigs at 4 Hz instead of every frame.'],
   ['REMOTE AVATARS DRESS RIGHT — BUG FIX', 'Found and fixed a real bug: other players were being dressed from the API wrapper instead of the inner avatar payload, so they could fall back to plain noob colors. Everyone now wears their real site look, in the world AND in the menu.'],
-  ['EVERYTHING FROM v12.3 STAYS', 'Log In only (no Create Account), the simple login, the instant shift-lock snap, 2-stud stairs, occlusion culling + the perf pass, the blue gloss topbar, click-to-type chat, 12s bubbles, vertical health bar, Log Out, the six settings + Reset All.'],
+  ['EVERYTHING BEFORE STAYS', 'Log In only (no Create Account), the simple login, the instant shift-lock snap, 2-stud stairs, occlusion culling + the perf pass, the blue gloss topbar, click-to-type chat, 12s bubbles, vertical health bar, Log Out, the six settings + Reset All.'],
 ]
 
 const FILES = [

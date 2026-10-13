@@ -3,7 +3,7 @@
 The official RetroBlox player for **Godot 4.5+**: sign in (or sign up, or
 play as a guest) inside the game, spawn STRAIGHT into the classic
 baseplate wearing your real account avatar, and chat with everyone online
-through the RetroBlox platform API. v12.4 "NO PFP, JUST AVATARS" — the
+through the RetroBlox platform API. v1 "AVATARS, NOT PICTURES" — the
 profile-picture system is DELETED (the service, the autoload, the topbar
 picture, the chat line pictures, the Settings MY PICTURE editor — if a
 picture can't load, it doesn't ship) and the ESC menu is ALIVE: every
@@ -93,10 +93,10 @@ the character eases up the step exactly like Roblox.
 - The PEOPLE GRID: every player as their LIVE 3D avatar (drag to spin, wheel to zoom) + name
 - The chat is the dark glass float again; every line is name + text; the type box is ALWAYS visible (click to type, click off to release)
 - The health bar is VERTICAL on the right edge — navy track, green fill climbing from the bottom, the number chip on top
-- The stats chip (FPS · ping · v12.4) is always on, bottom-left, dark
+- The stats chip (FPS · ping · v1) is always on, bottom-left, dark
 - One voice: ARIAL (Liberation Sans). The window opens COMPACT at 960x600
 
-## The ESC menu — the RETRO NIGHT panel with LIVE avatars (v12.4)
+## The ESC menu — the RETRO NIGHT panel with LIVE avatars (v1)
 
 The menu is ONE centered translucent slate card (about 64% of the screen —
 the game stays visible behind it under a deep veil) with the site's BLUE
@@ -134,7 +134,7 @@ pill, health bar, toasts — the chat is OFF the editor now), drag to move,
 scale, edit text, add your own labels, Save to `user://ui_config.json`.
 The Settings page entry is gone (v12.2) — F2 is the door.
 
-### No PFP anywhere — the avatar IS the picture (v12.4)
+### No PFP anywhere — the avatar IS the picture (v1)
 
 The whole profile-picture pipeline is GONE: `pfp_service.gd` is deleted,
 its autoload is removed, the topbar pill wears just your name + gear,

@@ -14,7 +14,7 @@ extends Control
 ## never again read as a mystery.
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
-const VERSION := "12.4"
+const VERSION := "1"
 
 ## the login palette (the site's own colors, quieted down)
 const SKY := Color("63b3ec")              # the flat sky behind everything
