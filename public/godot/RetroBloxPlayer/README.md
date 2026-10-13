@@ -11,7 +11,7 @@ People card hosts the player's REAL RIG on its own LIVE 3D stage — DRAG
 to spin them around and see every side, drag to tilt, the wheel zooms in
 close. A gentle turntable plays until your first grab, then holds still
 so you can inspect them carefully. Stages render only while the menu is
-open, rigs dress once per session, and your card wears the classic blue
+open, rigs dress once per session, and your card wears the classic WHITE
 ring. SHIFT LOCK IS INSTANT: press Shift and the character SNAPS
 to the camera direction the same frame, Roblox-style — no swing-around.
 STAIRS ARE TUNED to 2 studs: 2-stud, 1-stud and lower ledges walk over
@@ -22,9 +22,17 @@ auto-login). THE PERFORMANCE PASS: occlusion culling is ON and every
 solid world part ships a matching occluder, MSAA is 2x, and remote
 players far away or off screen tick their walk rigs at 4 Hz. Remote
 avatars now dress from the INNER payload (a real bug fix — no more plain
-noob remotes). STILL TRUE: the dark translucent slate menu with the BLUE
-GLOSS header + tabs + red/steel/green keys (dark, calm, NOTHING blinding),
-the topbar's blue gloss chat key + user pill (name + gear — no picture),
+noob remotes). THE ESC MENU IS THE BLACK & WHITE ROBLOX LAYOUT (v1.1):
+a slim icon rail on the left (a hand-drawn person for People, a gear for
+Settings — every glyph drawn in pure code, no textures), a KINDA BIGGER
+card (680 x 580), a COMPLETELY REDESIGNED SETTINGS PAGE (sections with an
+icon on EVERY row, pill switches, white sliders, human labels — "Bunny
+Hop", not a paragraph) and WAY MORE SETTINGS: UI OPACITY (fades the menu
++ the chat live), Invert Camera Y, VSync, Render Scale (the honest FPS
+dial), Chat Bubbles, and Music volume join the crew. RESUME is the
+primary — a WHITE button with black ink; no red, no blue.
+STILL TRUE: the dark translucent slate menu card (dark, calm, NOTHING
+blinding), the topbar's blue gloss chat key + user pill (name + gear — no picture),
 click-to-type / click-off chat with classic bright name lines, the
 VERTICAL right-edge health bar, LOG OUT in Settings → ACCOUNT, bubbles
 that wrap by real font metrics and linger 12 seconds, the REAL R6 hitbox
@@ -34,9 +42,8 @@ Bubbles wrap by REAL font metrics (text can never spill off the plate)
 and linger 12 seconds. The character collides as the REAL R6 hitbox —
 a 2 x 5 x 1 stud box — and the arm animations EASE between poses, so
 climbing and jumping never twitch. MORE SETTINGS: Show FPS, Show ping,
-Maximum FPS (Unlimited/30/60/120/240, applied live), See player names,
-Bunny hop (hold Space to keep bouncing), and RESET ALL SETTINGS — one red
-key back to factory. The FPS/ping/version chip rides bottom-left ALWAYS
+Maximum FPS (Unlimited/30/60/120/240, applied live), Player Names,
+Bunny Hop, and RESET ALL SETTINGS — one hairline key back to factory. The FPS/ping/version chip rides bottom-left ALWAYS
 ON, and each stat hides when you say so. The world renders in TRUE colors
 with the authentic Roblox studs. Stairs are DOUBLED (walk up 1- AND 2-stud
 ledges like stairs), and the renderer ships 4x MSAA + anisotropic

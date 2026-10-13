@@ -641,8 +641,8 @@ func _run_all() -> void:
                 "LOG OUT wipes the session and lands on the login page")
         check(game_src.contains('MenuCenter') and game_src.contains("MenuPanel"),
                 "the ESC menu is the CENTERED simple card — the game stays visible behind")
-        check(game_src.contains('v1 THE TAB ROW') and game_src.contains('_style_tab'),
-                "the tabs are PLAIN TEXT pills — no banner, no icons, no gloss")
+        check(game_src.contains('v1.1 THE TAB RAIL') and game_src.contains('_style_tab'),
+                "the rail is ICON squares (person + gear) — no banner, no gloss")
         check(game_src.contains('_flat_key_face') and not game_src.contains('_gloss_key_style'),
                 "the footer is three FLAT buttons (Leave / Respawn / Resume) — no gloss keys")
         check(not game_src.contains('"gallery", "Gallery"')
@@ -716,8 +716,8 @@ func _run_all() -> void:
                 "the menu references zero texture helpers (flat dark cards)")
         check(game_src.contains("_flat_key_face"),
                 "the footer keys are FLAT color washes (no gloss, no bevel)")
-        check(game_src.contains("_blue_btn") and theme_src.contains("SITE_GREEN :="),
-                "Resume is the GREEN PLAY GLOSS (the site's action green)")
+        check(not game_src.contains("_blue_btn") and game_src.contains("Color.WHITE"),
+                "Resume is the WHITE primary card (black & white only — no gloss)")
         check(theme_src.contains("SITE_BLUE :=") and theme_src.contains("SITE_PAPER :="),
                 "the theme speaks the SITE palette (blue chrome, paper, steel borders)")
         check(theme_src.contains("static func gloss("),
@@ -730,7 +730,7 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains("v12.4"), "the corner chip wears v12.4")
+        check(game_src.contains('parts.append("v1")'), "the corner chip wears v1")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(portrait_src.contains("HEADSHOT_SIZE") and portrait_src.contains("headshot := false"),
@@ -859,17 +859,50 @@ func _run_all() -> void:
                 "the stats chip is ALWAYS ON (show fps / show ping hide each part)")
         check(game_src.contains("_apply_nameplates") and game_src.contains("set_display_name"),
                 "SEE PLAYER NAMES stamps or clears every rig's nameplate")
-        check(game_src.contains("_rebuild_settings_tab") and game_src.contains("Reset all settings"),
+        check(game_src.contains("_rebuild_settings_tab") and game_src.contains("Reset All Settings"),
                 "RESET ALL rebuilds the Settings page on the defaults")
         check(local_src.contains("hop_on"),
                 "BUNNY HOP gates the hold-to-jump (one jump per press when off)")
         check(portrait_src.contains("_paper_backdrop"),
                 "headshots can land on the SITE PAPER backdrop (readable at any size)")
-        check(game_src.contains("v12.4"), "the corner chip wears v12.4")
+        check(game_src.contains('parts.append("v1")'), "the corner chip wears v1")
         check(game_src.contains("SITE_BLUE") and game_src.contains("THE OLD BLUE ONE"),
                 "THE OLD CHAT ICON IS BACK: the topbar wears the site's blue gloss")
         check(login_src4.contains("gotham(800)"),
                 "the login speaks ExtraBold ARIAL (the RETROBLOX wordmark voice)")
+
+        # --- v1.1: THE BLACK & WHITE MENU — icon rail, switch rows, more
+        # settings, human labels ("Bunny Hop"), UI opacity, all live ---
+        check(FileAccess.file_exists("res://scripts/ui/menu_icons.gd"),
+                "menu_icons.gd ships (hand-drawn monochrome glyphs, no textures)")
+        var icons_src := FileAccess.get_file_as_string("res://scripts/ui/menu_icons.gd")
+        check(icons_src.contains("func _draw()") and icons_src.contains("draw_polyline"),
+                "the glyphs are DRAWN IN CODE (draw_polyline/draw_arc, pure ink)")
+        for glyph_kind in ["person", "gear", "mouse", "lock", "camera", "sun",
+                        "layers", "bubble", "bounce", "sync", "invert"]:
+                check(icons_src.contains("\"%s\"" % glyph_kind),
+                        "the glyph vocabulary speaks: %s" % glyph_kind)
+        check(game_src.contains("MenuIcons.new()") and game_src.contains("_section(page"),
+                "the settings page is SECTIONS with ICON ROWS (the Roblox read)")
+        check(game_src.contains("_row_toggle") and game_src.contains("_style_switch"),
+                "toggles are pill SWITCHES (white ON / dark OFF — monochrome)")
+        check(game_src.contains("\"Bunny Hop\""),
+                "HUMAN LABELS: 'Bunny Hop', not a paragraph of instructions")
+        check(not game_src.contains("hold Space to keep bouncing"),
+                "the old paragraph toggle label is GONE (human names only)")
+        var settings_src := FileAccess.get_file_as_string("res://scripts/core/settings.gd")
+        for key in ["ui_opacity", "invert_y", "vsync", "render_scale", "chat_bubbles"]:
+                check(settings_src.contains("var %s" % key) and game_src.contains("\"%s\"" % key),
+                        "the NEW SETTING ships + is wired in the menu: %s" % key)
+        check(settings_src.contains("func apply_vsync") and settings_src.contains("apply_render_scale"),
+                "VSync + Render Scale APPLY LIVE (the honest FPS dial)")
+        check(game_src.contains("_apply_ui_opacity") and game_src.contains("_menu_panel.modulate"),
+                "UI OPACITY fades the menu card + the chat float, live")
+        var rig_src := FileAccess.get_file_as_string("res://scripts/game/camera_rig.gd")
+        check(rig_src.contains("invert_y"),
+                "INVERT CAMERA Y flips the vertical look in the camera rig")
+        check(game_src.contains("chat_bubbles") and settings_src.contains("chat_bubbles"),
+                "CHAT BUBBLES switch can silence the 3D bubbles")
 
         # --- v3.9: presence carries everyone's live stats ---
         var api9 := FileAccess.get_file_as_string("res://scripts/core/api.gd")

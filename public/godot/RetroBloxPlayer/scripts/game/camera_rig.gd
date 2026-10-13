@@ -131,11 +131,15 @@ func _unhandled_input(event: InputEvent) -> void:
                         return
                 var mm := event as InputEventMouseMotion
                 var sens := 1.0
+                var invert := false
                 var settings: Node = get_node_or_null("/root/Settings")
                 if settings != null:
                         sens = maxf(float(settings.get("mouse_sensitivity")), 0.05)
+                        invert = bool(settings.get("invert_y"))
                 yaw -= mm.relative.x * 0.0032 * sens
-                pitch -= mm.relative.y * 0.0032 * sens
+                # v1.1: INVERT CAMERA Y — the settings switch flips the
+                # vertical look (flight-sim style) without touching the yaw
+                pitch += mm.relative.y * 0.0032 * sens * (-1.0 if not invert else 1.0)
                 pitch = clampf(pitch, deg_to_rad(-72.0), deg_to_rad(80.0))
         elif event is InputEventMouseButton and event.is_pressed():
                 var mb := event as InputEventMouseButton

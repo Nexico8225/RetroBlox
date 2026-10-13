@@ -21,6 +21,11 @@ var show_ping := true             # v12.0: ping in the corner stats chip
 var max_fps := 0                  # v12.0: 0 = unlimited, else Engine.max_fps
 var player_names := true          # v12.0: nameplates above every avatar
 var bunny_hop := true             # v12.0: holding Space keeps hopping (classic)
+var ui_opacity := 1.0             # v1.1: menu + chat opacity (0.3..1.0)
+var invert_y := false             # v1.1: flip the camera's vertical look
+var vsync := true                 # v1.1: vertical sync on/off
+var render_scale := 1.0           # v1.1: 3D render scale (0.5..1.0, the FPS dial)
+var chat_bubbles := true          # v1.1: the classic speech bubbles over heads
 
 
 func _ready() -> void:
@@ -29,7 +34,12 @@ func _ready() -> void:
         apply_audio()
         apply_window()
         apply_max_fps()
-        changed.connect(func(_k: String, _v: Variant) -> void: apply_window())
+        apply_vsync()
+        apply_render_scale()
+        changed.connect(func(_k: String, _v: Variant) -> void:
+                apply_window()
+                apply_vsync()
+                apply_render_scale())
 
 
 func _ensure_buses() -> void:
@@ -69,6 +79,11 @@ func load_settings() -> void:
         max_fps = int(cf.get_value("graphics", "max_fps", 0))
         player_names = bool(cf.get_value("world", "player_names", true))
         bunny_hop = bool(cf.get_value("input", "bunny_hop", true))
+        ui_opacity = clampf(float(cf.get_value("ui", "ui_opacity", 1.0)), 0.3, 1.0)
+        invert_y = bool(cf.get_value("input", "invert_y", false))
+        vsync = bool(cf.get_value("graphics", "vsync", true))
+        render_scale = clampf(float(cf.get_value("graphics", "render_scale", 1.0)), 0.5, 1.0)
+        chat_bubbles = bool(cf.get_value("world", "chat_bubbles", true))
 
 
 func save_settings() -> void:
@@ -86,6 +101,11 @@ func save_settings() -> void:
         cf.set_value("hud", "show_ping", show_ping)
         cf.set_value("world", "player_names", player_names)
         cf.set_value("input", "bunny_hop", bunny_hop)
+        cf.set_value("ui", "ui_opacity", ui_opacity)
+        cf.set_value("input", "invert_y", invert_y)
+        cf.set_value("graphics", "vsync", vsync)
+        cf.set_value("graphics", "render_scale", render_scale)
+        cf.set_value("world", "chat_bubbles", chat_bubbles)
         cf.save(SAVE_PATH)
 
 
@@ -136,6 +156,18 @@ func set_key(key: String, value: Variant) -> void:
                         player_names = bool(value)
                 "bunny_hop":
                         bunny_hop = bool(value)
+                "ui_opacity":
+                        ui_opacity = clampf(float(value), 0.3, 1.0)
+                "invert_y":
+                        invert_y = bool(value)
+                "vsync":
+                        vsync = bool(value)
+                        apply_vsync()
+                "render_scale":
+                        render_scale = clampf(float(value), 0.5, 1.0)
+                        apply_render_scale()
+                "chat_bubbles":
+                        chat_bubbles = bool(value)
                 _:
                         return
         save_settings()
@@ -145,6 +177,25 @@ func set_key(key: String, value: Variant) -> void:
 ## v12.0: the FPS ceiling, applied live (0 = unlimited, vsync governs web).
 func apply_max_fps() -> void:
         Engine.max_fps = maxi(max_fps, 0)
+
+
+## v1.1: vertical sync, applied live (headless has no window to sync).
+func apply_vsync() -> void:
+        if DisplayServer.get_name() == "headless":
+                return
+        var mode := DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED
+        if DisplayServer.window_get_vsync_mode() != mode:
+                DisplayServer.window_set_vsync_mode(mode)
+
+
+## v1.1: the 3D render scale, applied live — the honest FPS dial
+## (0.5 = half resolution = the fastest, 1.0 = native).
+func apply_render_scale() -> void:
+        if DisplayServer.get_name() == "headless":
+                return
+        var vp := get_viewport()
+        if vp != null:
+                vp.scaling_3d_scale = clampf(render_scale, 0.5, 1.0)
 
 
 ## v12.0 — RESET ALL SETTINGS: every key back to its default, saved, and
@@ -163,11 +214,19 @@ func reset_all() -> void:
         max_fps = 0
         player_names = true
         bunny_hop = true
+        ui_opacity = 1.0
+        invert_y = false
+        vsync = true
+        render_scale = 1.0
+        chat_bubbles = true
         apply_audio()
         apply_window()
         apply_max_fps()
+        apply_vsync()
+        apply_render_scale()
         save_settings()
         for key in ["mouse_sensitivity", "fov", "master_volume", "sfx_volume",
                 "music_volume", "shadows", "shift_lock", "fullscreen",
-                "show_fps", "show_ping", "max_fps", "player_names", "bunny_hop"]:
+                "show_fps", "show_ping", "max_fps", "player_names", "bunny_hop",
+                "ui_opacity", "invert_y", "vsync", "render_scale", "chat_bubbles"]:
                 changed.emit(key, null)

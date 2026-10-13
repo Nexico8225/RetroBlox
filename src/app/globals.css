@@ -1,9 +1,9 @@
 /* ============================================================
-   RetroBlox global theme — "2016 Classic": the old Roblox look
-   (solid blue top bar, light gray page, white cards, Source Sans
-   Pro feel) sampled from the user's 2016 screenshots — nav blue
-   #0070b6, page #e3e3e3, action green #02b757, link blue #00A2FF.
-   Still RetroBlox: chunky retro cursors and the sprite logo stay.
+   RetroBlox global theme — "MONOCHROME" (v1.1): the user's order —
+   no too much colors, BLACK & WHITE, Roblox-like. Near-black chrome,
+   white cards, gray page, white-on-black action buttons. One color
+   survives: danger red (destructive keys + errors). Chunky retro
+   cursors and the sprite logo stay.
    ============================================================ */
 
 /* ---------- Source Sans Pro — THE 2016 Roblox font, self-hosted ----------
@@ -34,21 +34,21 @@
 :root {
   --rb-red: #e2231a;
   --rb-red-dark: #b81b13;
-  --rb-blue: #00A2FF;
-  --rb-blue-dark: #0083d1;
-  --rb-blue-darker: #00639e;
-  --rb-green: #02b757;
-  --rb-green-dark: #029a4a;
-  --rb-bg: #e3e3e3;
+  --rb-blue: #1a1b1e;
+  --rb-blue-dark: #101114;
+  --rb-blue-darker: #000000;
+  --rb-green: #26282e;
+  --rb-green-dark: #101114;
+  --rb-bg: #e7e7e9;
   --rb-box: #ffffff;
-  --rb-border: #b6c0cb;
-  --rb-border-light: #dde3ea;
+  --rb-border: #c3c3c9;
+  --rb-border-light: #e4e4e7;
   --rb-head-grad-a: #f5f6f7;
   --rb-head-grad-b: #ebedee;
   --rb-text: #191919;
   --rb-text-dim: #68737f;
-  --rb-nav: #0070b6;
-  --rb-nav-hover: #0085cf;
+  --rb-nav: #16181d;
+  --rb-nav-hover: #26282e;
 }
 
 html,
@@ -61,11 +61,11 @@ body {
   font-size: 13px;
   line-height: 1.55;
   color: var(--rb-text);
-  background-color: #e6eaf0;
+  background-color: #e9e9eb;
   /* soft daylight sheen + a whisper of sky glow + the 2016 print-dot paper */
   background-image:
     linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(235, 240, 246, 0.35) 40%, rgba(214, 222, 232, 0.55) 100%),
-    radial-gradient(1200px 460px at 50% -160px, rgba(0, 162, 255, 0.09), transparent 65%),
+    radial-gradient(1200px 460px at 50% -160px, rgba(0, 0, 0, 0.045), transparent 65%),
     radial-gradient(rgba(0, 0, 0, 0.016) 1px, transparent 1px);
   background-size: auto, auto, 9px 9px;
   background-attachment: fixed;
@@ -190,8 +190,8 @@ a:focus-visible,
   transition: filter 100ms;
 }
 .rb-btn:hover {
-  background: linear-gradient(180deg, #ffffff 0%, #eaf4fb 50%, #d9ecf8 100%);
-  border-color: #7cbde0;
+  background: linear-gradient(180deg, #ffffff 0%, #f0f0f1 50%, #e4e4e6 100%);
+  border-color: #b9b9c0;
 }
 .rb-btn:active {
   background: linear-gradient(180deg, #dcdcdc 0%, #ededed 100%);
@@ -203,16 +203,15 @@ a:focus-visible,
 
 /* 2016 blue action — the Sign Up / primary button on the old bar */
 .rb-btn-blue {
-  background: linear-gradient(180deg, #2ea3e0 0%, #0d69ac 100%);
-  border-color: #005f9c;
+  background: linear-gradient(180deg, #3a3d44 0%, #1c1e24 100%);
+  border-color: #0c0d10;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 .rb-btn-blue:hover {
-  background: linear-gradient(180deg, #45b1e8 0%, #1173b8 100%);
+  background: linear-gradient(180deg, #4a4d55 0%, #26282e 100%);
 }
 .rb-btn-blue:active {
-  background: linear-gradient(180deg, #0d69ac 0%, #005f9c 100%);
+  background: linear-gradient(180deg, #1c1e24 0%, #0c0d10 100%);
 }
 
 .rb-btn-red {
@@ -228,15 +227,15 @@ a:focus-visible,
 }
 
 .rb-btn-green {
-  background: linear-gradient(180deg, #0fd06a 0%, #02b757 55%, #029a4a 100%);
-  border-color: #028a42;
+  background: linear-gradient(180deg, #2b2d33 0%, #16181d 55%, #0c0d10 100%);
+  border-color: #000000;
   color: #fff;
 }
 .rb-btn-green:hover {
-  background: linear-gradient(180deg, #2fdc7e 0%, #0ac760 55%, #06a551 100%);
+  background: linear-gradient(180deg, #3a3d44 0%, #22242a 55%, #16181d 100%);
 }
 .rb-btn-green:active {
-  background: linear-gradient(180deg, #029a4a 0%, #02b757 100%);
+  background: linear-gradient(180deg, #16181d 0%, #0c0d10 100%);
 }
 
 /* retro inputs — soft squares, 2016 style */
@@ -359,8 +358,8 @@ a:focus-visible,
 
 /* ---------- header / sidebar / footer ---------- */
 .rb-header {
-  background: linear-gradient(180deg, #0f83c9 0%, var(--rb-nav) 45%, #005f9c 100%);
-  border-bottom: 1px solid #004e83;
+  background: linear-gradient(180deg, #26282e 0%, var(--rb-nav) 45%, #0b0c0f 100%);
+  border-bottom: 1px solid #000000;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
   position: sticky;
   top: 0;
@@ -381,14 +380,13 @@ a:focus-visible,
 
 /* the 2016 header search — white box with the blue Go button */
 .rb-header-search .rb-btn {
-  background: linear-gradient(180deg, #2ea3e0 0%, #0d69ac 100%);
-  border-color: #005f9c;
+  background: linear-gradient(180deg, #3a3d44 0%, #1c1e24 100%);
+  border-color: #0c0d10;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 .rb-header-search .rb-btn:hover {
-  background: linear-gradient(180deg, #45b1e8 0%, #1173b8 100%);
-  border-color: #005f9c;
+  background: linear-gradient(180deg, #4a4d55 0%, #26282e 100%);
+  border-color: #0c0d10;
 }
 .rb-header-inner {
   max-width: 1200px;
@@ -442,13 +440,13 @@ a:focus-visible,
   flex-shrink: 0;
 }
 .rb-navbar-item:hover {
-  background: #e1f2fb;
-  color: #00639e;
+  background: #ececee;
+  color: #101114;
 }
 .rb-navbar-item.rb-navbar-active {
-  background: #e1f2fb;
-  color: #00639e;
-  border-color: #b5d9ee;
+  background: #1a1b1e;
+  color: #ffffff;
+  border-color: #1a1b1e;
 }
 
 /* sidebar group headers ("Play", "Create", "Avatar & Shop"...) */
@@ -894,7 +892,7 @@ select.rb-magic option {
 }
 .rb-chat-meta {
   font-size: 9px;
-  color: #7b8896;
+  color: #6d6d74;
   margin-bottom: 2px;
 }
 .rb-chat-text {
@@ -1017,7 +1015,7 @@ body.rb-konami .rb-header {
 body.rb-konami .rb-header-inner::after {
   content: 'KONAMI MODE';
   font-size: 9px;
-  color: #ffd34e;
+  color: #d4d4d8;
   letter-spacing: 2px;
   align-self: center;
   padding-left: 8px;
@@ -1141,15 +1139,15 @@ body.rb-konami .rb-header-inner::after {
     width: 38px;
     height: 38px;
     flex-shrink: 0;
-    background: linear-gradient(180deg, #0085cf, #0069a8);
-    border: 1px solid #005f9c;
+    background: linear-gradient(180deg, #3a3d44, #1c1e24);
+    border: 1px solid #0c0d10;
     border-radius: 4px;
     box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35);
     color: #fff;
     padding: 0;
   }
   .rb-mobile-burger:active {
-    background: linear-gradient(180deg, #0069a8, #005f9c);
+    background: linear-gradient(180deg, #26282e, #0c0d10);
   }
 
   /* ---- slide-in drawer: every page the tab bar can't fit ---- */
@@ -1226,11 +1224,12 @@ body.rb-konami .rb-header-inner::after {
     border-bottom: 1px solid #ececec;
   }
   .rb-drawer-item:active {
-    background: #e1f2fb;
+    background: #ececee;
   }
   .rb-drawer-item.rb-drawer-active {
-    background: #e1f2fb;
-    box-shadow: inset 3px 0 0 #ffd34e;
+    background: #1a1b1e;
+    color: #ffffff;
+    box-shadow: inset 3px 0 0 #ffffff;
   }
   .rb-drawer-logout {
     margin: 12px 10px 2px;
@@ -1258,7 +1257,7 @@ body.rb-konami .rb-header-inner::after {
     bottom: 0;
     z-index: 55;
     background: var(--rb-nav);
-    border-top: 1px solid #005f9c;
+    border-top: 1px solid #000000;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
@@ -1303,10 +1302,10 @@ body.rb-konami .rb-header-inner::after {
     width: 46px;
     height: 46px;
     border-radius: 11px;
-    background: linear-gradient(180deg, #ffe07a 0%, #f5b81e 100%);
-    border: 2px solid #b5890f;
+    background: linear-gradient(180deg, #f5f5f6 0%, #d4d4d8 100%);
+    border: 2px solid #8f8f96;
     box-shadow:
-      0 3px 0 #b5890f,
+      0 3px 0 #8f8f96,
       0 5px 9px rgba(0, 0, 0, 0.25);
     display: flex;
     align-items: center;
@@ -1656,13 +1655,13 @@ body.rb-konami .rb-header-inner::after {
   }
   20%, 24%, 55% {
     opacity: 0.55;
-    text-shadow: 0 0 2px #18e0d0, 0 0 6px rgba(24, 224, 208, 0.4);
+    text-shadow: 0 0 2px #9a9aa2, 0 0 6px rgba(0, 0, 0, 0.35);
   }
 }
 
 /* --- fire: burning gradient with heat flicker --- */
 .fx-fire {
-  background: linear-gradient(180deg, #ffdd55 0%, #ff9500 45%, #ff5a1f 75%, #e2231a 100%);
+  background: linear-gradient(180deg, #f5f5f6 0%, #b9b9c0 45%, #71717a 75%, #3f3f46 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -1731,17 +1730,17 @@ body.rb-konami .rb-header-inner::after {
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 4px;
-  border: 1px solid #7cbde0;
-  background: linear-gradient(180deg, #ffffff, #dceefb);
-  color: #0a5c8f;
+  border: 1px solid #b9b9c0;
+  background: linear-gradient(180deg, #ffffff, #ececee);
+  color: #1a1b1e;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
 }
 .rb-fx-toggle:hover {
-  background: linear-gradient(180deg, #ffffff, #c8e6f9);
-  border-color: #0d69ac;
+  background: linear-gradient(180deg, #ffffff, #e2e2e5);
+  border-color: #8f8f96;
 }
 .rb-fx-toggle-open {
-  background: linear-gradient(180deg, #dceefb, #b3d9f2);
+  background: linear-gradient(180deg, #ececee, #dcdcdf);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 .rb-fx-caret {
@@ -1750,14 +1749,14 @@ body.rb-konami .rb-header-inner::after {
 }
 .rb-fxbar-hint {
   font-size: 10px;
-  color: #7b8896;
+  color: #6d6d74;
 }
 .rb-fx-pop {
   z-index: 220;
   background: #fff;
-  border: 2px solid #0d69ac;
+  border: 2px solid #55565c;
   border-radius: 6px;
-  box-shadow: 0 8px 26px rgba(6, 30, 50, 0.35), 0 2px 6px rgba(6, 30, 50, 0.2);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.30), 0 2px 6px rgba(0, 0, 0, 0.18);
   padding: 10px 12px 12px;
   font-family: var(--rb-display);
 }
@@ -1788,7 +1787,7 @@ body.rb-konami .rb-header-inner::after {
   overflow: hidden;
 }
 .rb-fxbtn:hover {
-  border-color: #0d69ac;
+  border-color: #8f8f96;
   background: linear-gradient(180deg, #ffffff, #e3f2fd);
 }
 .rb-fxbtn-label {
@@ -1798,9 +1797,9 @@ body.rb-konami .rb-header-inner::after {
 }
 .rb-fx-preview {
   margin-top: 10px;
-  border: 1px dashed #7cbde0;
+  border: 1px dashed #b9b9c0;
   border-radius: 5px;
-  background: #f4faff;
+  background: #f6f6f7;
   overflow: hidden;
 }
 .rb-fx-preview-head {
@@ -1843,7 +1842,7 @@ body.rb-konami .rb-header-inner::after {
   padding: 6px 11px;
   background: linear-gradient(180deg, #eef6fc, #e2eef8);
   border-bottom: 1px dashed #a8d4ef;
-  color: #0a5c8f;
+  color: #1a1b1e;
   font-size: 10px;
   letter-spacing: 1.1px;
   text-transform: uppercase;
@@ -1872,7 +1871,7 @@ body.rb-konami .rb-header-inner::after {
   display: block;
 }
 a.rb-post-title:hover {
-  color: #0d69ac;
+  color: #1a1b1e;
   text-decoration: none;
 }
 .rb-post-title-plain {
@@ -1935,7 +1934,7 @@ a.rb-post-title:hover {
   transform: scale(1.06);
 }
 .rb-thumb:hover {
-  border-color: #0d69ac;
+  border-color: #8f8f96;
 }
 .rb-thumb-count {
   position: absolute;

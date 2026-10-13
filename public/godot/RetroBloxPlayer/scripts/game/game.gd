@@ -12,6 +12,7 @@ const PlacesScript := preload("res://scripts/world/places.gd")
 const WorldBuilderScript := preload("res://scripts/world/world_builder.gd")
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
 const AvatarViewerScript := preload("res://scripts/ui/avatar_viewer.gd")
+const MenuIcons := preload("res://scripts/ui/menu_icons.gd")
 
 const POLL_SECONDS := 2.5       # chat + presence feed
 const HEARTBEAT_SECONDS := 4.0  # my presence out
@@ -28,6 +29,7 @@ var _health_value: Label
 var _names_by_uid: Dictionary = {}   # userId -> username (the People list)
 var _health_track_h := 220.0         # v12.1: the VERTICAL right-edge bar height
 var _menu: Control
+var _menu_panel: PanelContainer      # v1.1: the card the UI OPACITY fades
 var _players_grid: GridContainer     # the People page — the simple avatar grid
 var _settings_tab: VBoxContainer
 var _people_title: Label             # "Players — N" page heading
@@ -55,7 +57,7 @@ var _menu_open := false
 var _chat_badge: Label
 var _chat_badge_panel: PanelContainer
 var _toast_box: VBoxContainer
-var _shift_check: CheckButton
+var _shift_check: Button
 var _center_cursor: TextureRect   # the visible mouse parked mid-screen in first person
 var _loading: Control             # the v3.6 loading veil (no more load hitch)
 var _session_start_ms := 0        # the match timer
@@ -204,14 +206,28 @@ func _hide_loading() -> void:
 # ---------------------------------------------------------------- dressing
 
 ## v12.0: the Settings page flips — repaint the live HUD bits instantly.
+## v1.1: UI OPACITY rides here too — the menu card + the chat float fade
+## together, live, no reopen needed.
 func _on_setting_changed(key: String, _value: Variant) -> void:
         match key:
                 "show_fps", "show_ping":
                         _update_live_stats()
                 "player_names":
                         _apply_nameplates()
+                "ui_opacity":
+                        _apply_ui_opacity()
                 _:
                         pass
+
+
+## v1.1 UI OPACITY — one dial for the menu card + the chat float.
+func _apply_ui_opacity() -> void:
+        var settings: Node = get_node_or_null("/root/Settings")
+        var a := 1.0 if settings == null else clampf(float(settings.get("ui_opacity")), 0.3, 1.0)
+        if _menu_panel != null and is_instance_valid(_menu_panel):
+                _menu_panel.modulate = Color(1, 1, 1, a)
+        if chat != null and is_instance_valid(chat):
+                chat.modulate = Color(1, 1, 1, a)
 
 
 func _dress_me() -> void:
@@ -393,12 +409,14 @@ func _build_hud() -> void:
         hud.add_child(_toast_box)
         UiEditor.register("toasts", _toast_box, false)
 
-        # ---- center: esc menu with Players + Settings tabs ----
+        # ---- center: esc menu with the icon rail (People / Settings) ----
         _menu = _build_menu()
         # the shared retro theme never reaches a CanvasLayer on its own —
         # hand it over so the menu buttons speak in the pixel voice too
         _menu.theme = RetroUI.shared
         hud.add_child(_menu)
+        # v1.1: honor the saved UI OPACITY the moment the menu exists
+        _apply_ui_opacity()
 
 
 # ---- topbar ------------------------------------------------------------
@@ -753,7 +771,7 @@ func _build_menu() -> Control:
         dim.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.add_child(dim)
 
-        # the centered panel — about 62% of the screen, never full-bleed
+        # the centered panel — KINDA BIGGER (your order), still not full-bleed
         var center := CenterContainer.new()
         center.name = "MenuCenter"
         center.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -763,48 +781,59 @@ func _build_menu() -> Control:
         panel.custom_minimum_size = _menu_panel_size()
         panel.add_theme_stylebox_override("panel", _menu_panel_style())
         center.add_child(panel)
+        _menu_panel = panel
 
-        var root := VBoxContainer.new()
+        # ---- v1.1 THE TAB RAIL — the ROBLOX layout: a slim icon rail down
+        # the LEFT (a person glyph for People, a gear for Settings), the
+        # page on the right. Icons carry the menu now — black & white,
+        # hand-drawn in code, no gloss, no banner, no clock.
+        var root := HBoxContainer.new()
         root.name = "MenuRoot"
         panel.add_child(root)
 
-        # ---- v1 THE TAB ROW — two plain text tabs on one quiet line.
-        # No banner, no logo, no clock, no icons — just the words.
-        var tabs := HBoxContainer.new()
-        tabs.name = "Tabs"
-        tabs.add_theme_constant_override("separation", 6)
-        root.add_child(tabs)
+        var rail := VBoxContainer.new()
+        rail.name = "Tabs"
+        rail.custom_minimum_size = Vector2(78, 0)
+        rail.add_theme_constant_override("separation", 6)
+        root.add_child(rail)
         var tab_defs := [
-                ["players", "People", "people"],
-                ["settings", "Settings", "settings"],
+                ["players", "People", "person"],
+                ["settings", "Settings", "gear"],
         ]
         for td in tab_defs:
                 var b := _tab_button(String(td[1]), String(td[2]))
                 _tab_buttons[String(td[0])] = b
-                tabs.add_child(b)
+                rail.add_child(b)
 
-        # the 1px rule under the tab row (the client's quiet line)
+        # the 1px rule between the rail and the page (the quiet divide)
         var rule := ColorRect.new()
         rule.name = "TabRule"
         rule.color = RetroUI.MENU_EDGE
-        rule.custom_minimum_size = Vector2(0, 1)
+        rule.custom_minimum_size = Vector2(1, 0)
+        rule.size_flags_vertical = Control.SIZE_EXPAND_FILL
         root.add_child(rule)
 
-        # ---- the pages live in one margin box ----
+        # ---- the right column: the pages + the footer action row ----
+        var right := VBoxContainer.new()
+        right.name = "MenuRight"
+        right.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        root.add_child(right)
         var body := MarginContainer.new()
         body.name = "MenuBody"
         body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-        body.add_theme_constant_override("margin_left", 4)
-        body.add_theme_constant_override("margin_right", 4)
+        body.add_theme_constant_override("margin_left", 14)
+        body.add_theme_constant_override("margin_right", 14)
         body.add_theme_constant_override("margin_top", 12)
-        body.add_theme_constant_override("margin_bottom", 12)
-        root.add_child(body)
+        body.add_theme_constant_override("margin_bottom", 10)
+        right.add_child(body)
         var pages := Control.new()
         pages.name = "Pages"
         pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        pages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         body.add_child(pages)
 
-        # ---- PEOPLE — v12.4 SIMPLE + ALIVE: a heading, then ONE grid.
+        # ---- PEOPLE — SIMPLE + ALIVE: a heading, then ONE grid.
         # Every card is a player: their real AVATAR LIVE on a 3D stage
         # (drag to spin them around, wheel to zoom in close) with their
         # NAME under it. No PFP fetches — the avatar IS the picture.
@@ -820,7 +849,7 @@ func _build_menu() -> Control:
         players_page.add_child(p_head)
         _people_title = Label.new()
         _people_title.text = "Players"
-        _title(_people_title, 17, RetroUI.NIGHT_INK)
+        _title(_people_title, 18, RetroUI.NIGHT_INK)
         p_head.add_child(_people_title)
         p_head.add_child(_spacer())
 
@@ -835,12 +864,12 @@ func _build_menu() -> Control:
         _players_grid = GridContainer.new()
         _players_grid.name = "PeopleGrid"
         _players_grid.columns = 3
-        _players_grid.add_theme_constant_override("h_separation", 10)
-        _players_grid.add_theme_constant_override("v_separation", 10)
+        _players_grid.add_theme_constant_override("h_separation", 12)
+        _players_grid.add_theme_constant_override("v_separation", 12)
         _players_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         scroll.add_child(_players_grid)
 
-        # ---- SETTINGS — the game sliders + ACCOUNT (Log Out)
+        # ---- SETTINGS — the redesigned icon-row page + ACCOUNT (Log Out)
         _settings_tab = _build_settings_tab()
         _settings_tab.name = "SettingsPage"
         _settings_tab.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -862,19 +891,19 @@ func _build_menu() -> Control:
         _menu_switch = set_tab
 
         # ---- the footer action row ----
-        root.add_child(_menu_footer())
+        right.add_child(_menu_footer())
         set_tab.call("players")
         return overlay
 
 
-## The panel's size — v1 COMPACT: a small card in the middle of the
-## screen (max 520 x 500), never a screen-filling veil.
+## The panel's size — v1.1 KINDA BIGGER (your order): a real menu now,
+## max 680 x 580 — the avatar stages get room, the settings breathe.
 func _menu_panel_size() -> Vector2:
         var vp := Vector2(1280.0, 720.0)
         var viewport := get_viewport()
         if viewport != null:
                 vp = viewport.get_visible_rect().size
-        return Vector2(minf(vp.x * 0.42, 520.0), minf(vp.y * 0.74, 500.0))
+        return Vector2(minf(vp.x * 0.58, 680.0), minf(vp.y * 0.84, 580.0))
 
 
 ## The panel face — v1 THE SIMPLE CARD: one deep, quiet, near-opaque
@@ -895,45 +924,65 @@ func _menu_panel_style() -> StyleBox:
         return sb
 
 
-## One TOP TAB — v1: a PLAIN TEXT pill. No icon, no gloss — the open tab
-## is white ink on a faint white pill, the rest just muted gray text.
+## One RAIL TAB — v1.1: an icon square (the hand-drawn glyph on top, the
+## word under it). No gloss, no banner — the open tab is a white-ink glyph
+## on a faint white pill, the rest stay muted gray.
 func _tab_button(label: String, icon_kind: String) -> Button:
         var b := Button.new()
-        b.text = label
-        b.custom_minimum_size = Vector2(0, 30)
+        b.tooltip_text = label
+        b.custom_minimum_size = Vector2(70, 60)
         b.focus_mode = Control.FOCUS_NONE
+        var col := VBoxContainer.new()
+        col.set_anchors_preset(Control.PRESET_FULL_RECT)
+        col.alignment = BoxContainer.ALIGNMENT_CENTER
+        col.add_theme_constant_override("separation", 3)
+        col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        b.add_child(col)
+        var icon := MenuIcons.new()
+        icon.name = "Glyph"
+        icon.kind = icon_kind
+        icon.custom_minimum_size = Vector2(24, 24)
+        icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+        icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        col.add_child(icon)
+        var l := Label.new()
+        l.name = "TabLabel"
+        l.text = label
+        l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        col.add_child(l)
         _style_tab(b, false)
         return b
 
 
-## The tab pill faces — flat, quiet, readable at a glance.
+## The rail tab faces — v1.1 MONOCHROME: flat quiet squares, the active
+## one lifts (faint white pill) while its glyph + word light up white and
+## the rest stay muted gray.
 func _style_tab(b: Button, on: bool) -> void:
         var sb := StyleBoxFlat.new()
-        sb.set_corner_radius_all(8)
+        sb.set_corner_radius_all(10)
         sb.anti_aliasing = true
-        sb.bg_color = Color(1, 1, 1, 0.08) if on else Color(0, 0, 0, 0)
-        sb.content_margin_left = 14.0
-        sb.content_margin_right = 14.0
-        sb.content_margin_top = 4.0
-        sb.content_margin_bottom = 4.0
+        sb.bg_color = Color(1, 1, 1, 0.09) if on else Color(0, 0, 0, 0)
+        sb.expand_margin_left = 4.0
+        sb.expand_margin_right = 4.0
         b.add_theme_stylebox_override("normal", sb)
         var hb := StyleBoxFlat.new()
-        hb.set_corner_radius_all(8)
+        hb.set_corner_radius_all(10)
         hb.anti_aliasing = true
-        hb.bg_color = Color(1, 1, 1, 0.12) if on else Color(1, 1, 1, 0.05)
-        hb.content_margin_left = 14.0
-        hb.content_margin_right = 14.0
-        hb.content_margin_top = 4.0
-        hb.content_margin_bottom = 4.0
+        hb.bg_color = Color(1, 1, 1, 0.13) if on else Color(1, 1, 1, 0.05)
+        hb.expand_margin_left = 4.0
+        hb.expand_margin_right = 4.0
         b.add_theme_stylebox_override("hover", hb)
         b.add_theme_stylebox_override("pressed", sb)
         b.add_theme_stylebox_override("hover_pressed", sb)
         b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-        for st in ["font_color", "font_pressed_color", "font_hover_color"]:
-                b.add_theme_color_override(st, Color.WHITE if on else RetroUI.NIGHT_INK_MUTED)
-        if RetroUI.gotham(600) != null:
-                b.add_theme_font_override("font", RetroUI.gotham(600))
-        b.add_theme_font_size_override("font_size", 13)
+        var ink := Color.WHITE if on else Color(0.62, 0.66, 0.72)
+        var glyph: Control = b.get_node_or_null("Glyph")
+        if glyph != null and is_instance_valid(glyph):
+                glyph.set("ink", ink)
+        var l: Label = b.get_node_or_null("TabLabel")
+        if l != null and is_instance_valid(l):
+                _title(l, 12, ink, 600)
 
 
 ## The menu's text voices (v8.0): BOTH speak the Montserrat family —
@@ -954,8 +1003,10 @@ func _text(l: Label, size: int, color: Color) -> void:
         l.add_theme_color_override("font_color", color)
 
 
-## The action row — v1: three equal FLAT buttons, Leave · Respawn ·
-## Resume. No key chips, no gloss — the words carry it.
+## The action row — v1.1 BLACK & WHITE (your order: no too much colors):
+## three equal flat buttons — Leave · Respawn · Resume — all gray on the
+## dark card, and RESUME is the primary: a WHITE button with black ink,
+## exactly how the Roblox menu marks its main action. No red, no blue.
 func _menu_footer() -> VBoxContainer:
         var col := VBoxContainer.new()
         col.add_theme_constant_override("separation", 6)
@@ -974,14 +1025,14 @@ func _menu_footer() -> VBoxContainer:
         return col
 
 
-## One footer button — v1 FLAT: one quiet face, one hover lift, no icons,
-## no gloss, no key chips. Leave speaks soft red, Resume speaks blue,
-## Respawn stays neutral. Simple.
+## One footer button — v1.1 FLAT MONOCHROME: one quiet face, one hover
+## lift, no icons, no gloss, no key chips. Resume inverts (white face,
+## black ink) — the primary carries itself.
 func _footer_key(key: String, _label: String, _primary: bool, handler: Callable) -> Button:
         var b := Button.new()
         b.text = _label
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        b.custom_minimum_size = Vector2(0, 36)
+        b.custom_minimum_size = Vector2(0, 38)
         b.focus_mode = Control.FOCUS_NONE
         var face := _flat_key_face(key, false)
         var face_hover := _flat_key_face(key, true)
@@ -989,14 +1040,12 @@ func _footer_key(key: String, _label: String, _primary: bool, handler: Callable)
         b.add_theme_stylebox_override("hover", face_hover)
         b.add_theme_stylebox_override("pressed", face)
         b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-        var ink := Color(0.92, 0.95, 0.98)
-        if key == "L":
-                ink = Color(1, 0.88, 0.86)
-        elif key == "ESC":
-                ink = Color(0.88, 0.94, 1)
+        var ink := Color(0.92, 0.93, 0.95)
+        if key == "ESC":
+                ink = Color(0.07, 0.08, 0.10)
         for st in ["font_color", "font_hover_color"]:
                 b.add_theme_color_override(st, ink)
-        b.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 0.8))
+        b.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 0.7) if key != "ESC" else Color(0.1, 0.1, 0.12, 0.8))
         if RetroUI.gotham(600) != null:
                 b.add_theme_font_override("font", RetroUI.gotham(600))
         b.add_theme_font_size_override("font_size", 13)
@@ -1004,26 +1053,27 @@ func _footer_key(key: String, _label: String, _primary: bool, handler: Callable)
         return b
 
 
-## The v1 flat footer faces — muted color washes on the dark card:
-## Leave a dim red, Respawn a neutral gray, Resume a dim blue.
+## The v1.1 flat footer faces — GRAY only, on the dark card: Leave wears a
+## white hairline (the exit), Respawn stays plain, Resume is the WHITE card.
 func _flat_key_face(key: String, hover: bool) -> StyleBox:
         var sb := StyleBoxFlat.new()
         sb.set_corner_radius_all(8)
         sb.anti_aliasing = true
-        var a := 0.16 if hover else 0.10
         match key:
                 "L":
-                        sb.bg_color = Color(0.78, 0.22, 0.18, a if hover else 0.14)
+                        sb.bg_color = Color(1, 1, 1, 0.07 if hover else 0.045)
+                        sb.set_border_width_all(1)
+                        sb.border_color = Color(1, 1, 1, 0.30 if hover else 0.20)
                 "ESC":
-                        sb.bg_color = Color(0.16, 0.42, 0.72, a if hover else 0.13)
+                        sb.bg_color = Color(0.96, 0.96, 0.97) if hover else Color.WHITE
                 _:
-                        sb.bg_color = Color(1, 1, 1, 0.05 if not hover else 0.09)
-        sb.set_border_width_all(1)
-        sb.border_color = Color(1, 1, 1, 0.08)
+                        sb.bg_color = Color(1, 1, 1, 0.09 if hover else 0.05)
+                        sb.set_border_width_all(1)
+                        sb.border_color = Color(1, 1, 1, 0.10)
         sb.content_margin_left = 10.0
         sb.content_margin_right = 10.0
-        sb.content_margin_top = 7.0
-        sb.content_margin_bottom = 7.0
+        sb.content_margin_top = 8.0
+        sb.content_margin_bottom = 8.0
         return sb
 
 
@@ -1036,18 +1086,6 @@ func _row_btn(hover := false, _pushed := false) -> StyleBox:
         sb.anti_aliasing = true
         sb.set_border_width_all(1)
         sb.border_color = RetroUI.NIGHT_EDGE_LO
-        sb.content_margin_left = 14.0
-        sb.content_margin_right = 14.0
-        sb.content_margin_top = 9.0
-        sb.content_margin_bottom = 9.0
-        return sb
-
-
-## THE GREEN PLAY GLOSS — Resume + Apply: the site's action green, white ink.
-func _blue_btn(hover := false) -> StyleBox:
-        var sb: StyleBoxTexture = RetroUI.gloss(
-                RetroUI.SITE_GREEN_HI if hover else RetroUI.SITE_GREEN,
-                RetroUI.SITE_GREEN_LO, RetroUI.SITE_GREEN_DK, 8)
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
         sb.content_margin_top = 9.0
@@ -1107,9 +1145,9 @@ func _player_card(uid: String, uname: String, is_me: bool) -> PanelContainer:
 
 
 func _card_casing(is_me: bool) -> StyleBox:
-        # v12.1: the dark slate card — raised bevel face, steel hairline;
-        # MY card wears the classic blue ring the real client draws around
-        # your own row
+        # v1.1: the dark slate card — raised bevel face, steel hairline;
+        # MY card wears the WHITE ring now (black & white only — the old
+        # blue ring retired with the color order)
         var sb := StyleBoxFlat.new()
         sb.bg_color = RetroUI.NIGHT_CARD
         sb.set_corner_radius_all(10)
@@ -1117,7 +1155,7 @@ func _card_casing(is_me: bool) -> StyleBox:
         sb.set_border_width_all(2)
         sb.border_color = RetroUI.NIGHT_EDGE_LO
         if is_me:
-                sb.border_color = RetroUI.SITE_BLUE_HI
+                sb.border_color = Color.WHITE
         sb.content_margin_left = 8.0
         sb.content_margin_right = 8.0
         sb.content_margin_top = 8.0
@@ -1226,48 +1264,6 @@ func _clock_text() -> String:
 
 # ---- the client's one-voice surfaces --------------------------------------
 
-## The NIGHT key face — the dark raised-bevel secondary button (the
-## Unlimited/30/60 chips, the Animations grid, Use-my-account-picture).
-func _key_btn(hover := false) -> StyleBox:
-        var sb: StyleBox = RetroUI.raised(4, RetroUI.NIGHT_CARD_HI if hover else RetroUI.NIGHT_CARD)
-        sb.content_margin_left = 16.0
-        sb.content_margin_right = 16.0
-        sb.content_margin_top = 9.0
-        sb.content_margin_bottom = 9.0
-        return sb
-
-
-## The MAX FPS chip row — the picked value wears the blue gloss, the rest
-## stay night keys with light ink. (Each chip carries its fps_value meta.)
-func _style_maxfps_row(btns: Array[Button], value: int) -> void:
-        for b in btns:
-                if not is_instance_valid(b):
-                        continue
-                var on: bool = int(b.get_meta("fps_value")) == value
-                if on:
-                        var g: StyleBoxTexture = RetroUI.gloss(RetroUI.SITE_BLUE,
-                                RetroUI.SITE_BLUE_DK, RetroUI.SITE_BLUE_DK.darkened(0.4), 7)
-                        g.content_margin_left = 8.0
-                        g.content_margin_right = 8.0
-                        g.content_margin_top = 5.0
-                        g.content_margin_bottom = 5.0
-                        b.add_theme_stylebox_override("normal", g)
-                        b.add_theme_stylebox_override("hover", g)
-                        b.add_theme_stylebox_override("pressed", g)
-                        b.add_theme_color_override("font_color", Color.WHITE)
-                        b.add_theme_color_override("font_hover_color", Color.WHITE)
-                else:
-                        var s := _key_btn(false)
-                        s.content_margin_left = 8.0
-                        s.content_margin_right = 8.0
-                        s.content_margin_top = 5.0
-                        s.content_margin_bottom = 5.0
-                        b.add_theme_stylebox_override("normal", s)
-                        b.add_theme_stylebox_override("hover", _key_btn(true))
-                        b.add_theme_stylebox_override("pressed", s)
-                        b.add_theme_color_override("font_color", RetroUI.NIGHT_INK_MUTED)
-                        b.add_theme_color_override("font_hover_color", RetroUI.NIGHT_INK)
-
 
 ## Leave = CLOSE THE GAME (v3.11, exactly as asked): the window quits on
 ## desktop. The web build can't close its own tab, so there Leave reloads
@@ -1290,223 +1286,185 @@ func _open_menu(tab: String) -> void:
                 _menu_switch.call(tab)
 
 
-## The settings page: mouse, camera, audio, graphics — saved to disk and
-## applied live. Plus the classic Animations buttons for the rig's clips.
+## The settings page — v1.1 THE COMPLETE REDESIGN (your order: "make a
+## redesign to the settings and add way more settings... using Icons and
+## a complete new redesign"). Every row carries a hand-drawn black &
+## white ICON, every toggle is a pill SWITCH, sliders fill white, and the
+## labels are HUMAN — "Bunny Hop", not "Bunny hop (hold Space to keep
+## bouncing)". Way more settings, too: UI OPACITY, Invert Camera Y,
+## VSync, Render Scale, Chat Bubbles join the crew — 18 live controls,
+## all saved to disk. Black & white only.
 func _build_settings_tab() -> VBoxContainer:
         var tab := VBoxContainer.new()
         tab.add_theme_constant_override("separation", 6)
         var settings: Node = get_node_or_null("/root/Settings")
 
-        # v12.0: the settings page now SCROLLS — the new sections made it
-        # taller than the panel, and the footer keys used to cover the tail
+        # the page SCROLLS — 18 settings is a lot of good
         var scroll := ScrollContainer.new()
         scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
         scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
         var page := VBoxContainer.new()
         page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        page.add_theme_constant_override("separation", 6)
+        page.add_theme_constant_override("separation", 10)
         scroll.add_child(page)
         tab.add_child(scroll)
 
-        var row := HBoxContainer.new()
-        row.add_theme_constant_override("separation", 12)
-        page.add_child(row)
-
-        # left column: sliders
-        var left := VBoxContainer.new()
-        left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        left.add_theme_constant_override("separation", 7)
-        row.add_child(left)
-
-        _slider_row(left, "Mouse sensitivity", 0.1, 3.0,
+        # ---- CONTROLS ------------------------------------------------
+        _section(page, "mouse", "CONTROLS")
+        _slider_row(page, "mouse", "Mouse Sensitivity", 0.1, 3.0,
                 float(settings.get("mouse_sensitivity")) if settings != null else 1.0,
+                func(v: float) -> String: return "%.2fx" % v,
                 func(v: float) -> void:
                         if settings != null:
                                 settings.set_key("mouse_sensitivity", v))
-        _slider_row(left, "Camera FOV", 40.0, 110.0,
-                float(settings.get("fov")) if settings != null else 70.0,
-                func(v: float) -> void:
-                        if settings != null:
-                                settings.set_key("fov", v))
-        _slider_row(left, "Master volume", 0.0, 1.0,
-                float(settings.get("master_volume")) if settings != null else 1.0,
-                func(v: float) -> void:
-                        if settings != null:
-                                settings.set_key("master_volume", v))
-        _slider_row(left, "Sound effects", 0.0, 1.0,
-                float(settings.get("sfx_volume")) if settings != null else 1.0,
-                func(v: float) -> void:
-                        if settings != null:
-                                settings.set_key("sfx_volume", v))
-
-        # right column: toggles + animations
-        var right := VBoxContainer.new()
-        right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        right.add_theme_constant_override("separation", 7)
-        row.add_child(right)
-
-        var shadows := _paper_check("Sun shadows",
-                bool(settings.get("shadows")) if settings != null else true,
+        _row_toggle(page, "invert", "Invert Camera Y",
+                bool(settings.get("invert_y")) if settings != null else false,
                 func(on: bool) -> void:
                         if settings != null:
-                                settings.set_key("shadows", on))
-        right.add_child(shadows)
-
-        var fullscreen := _paper_check("Fullscreen",
-                bool(settings.get("fullscreen")) if settings != null else false,
-                func(on: bool) -> void:
-                        if settings != null:
-                                settings.set_key("fullscreen", on))
-        right.add_child(fullscreen)
-
-        var shift := _paper_check("Shift lock (also SHIFT key)",
+                                settings.set_key("invert_y", on))
+        _shift_check = _row_toggle(page, "lock", "Shift Lock",
                 bool(settings.get("shift_lock")) if settings != null else false,
                 func(on: bool) -> void:
                         if settings != null:
                                 settings.set_key("shift_lock", on)
                         camera_rig.shift_locked = on)
-        right.add_child(shift)
-        _shift_check = shift
 
-        var anim_title := Label.new()
-        anim_title.text = "Animations"
-        _title(anim_title, 13, RetroUI.NIGHT_INK_MUTED, 600)
-        right.add_child(anim_title)
-        var grid := GridContainer.new()
-        grid.columns = 3
-        grid.add_theme_constant_override("h_separation", 6)
-        grid.add_theme_constant_override("v_separation", 6)
-        right.add_child(grid)
-        for anim in ["Sit", "Climb", "Walk", "Jump", "Idle", "Stop"]:
-                var b := Button.new()
-                b.text = anim
-                b.custom_minimum_size = Vector2(72, 34)
-                b.focus_mode = Control.FOCUS_NONE
-                b.add_theme_stylebox_override("normal", _key_btn())
-                b.add_theme_stylebox_override("hover", _key_btn(true))
-                b.add_theme_stylebox_override("pressed", _key_btn(true))
-                b.add_theme_color_override("font_color", RetroUI.NIGHT_INK)
-                if RetroUI.source(600) != null:
-                        b.add_theme_font_override("font", RetroUI.source(600))
-                b.add_theme_font_size_override("font_size", 12)
-                var clip: String = "" if anim == "Stop" else anim
-                b.pressed.connect(func() -> void:
-                        if player != null and is_instance_valid(player):
-                                player.avatar.call("play_emote", clip))
-                grid.add_child(b)
-        # the settings page speaks the Source Sans voice — quiet toggles
-        var book: Font = RetroUI.source(400)
-        if book != null:
-                for cb in [shadows, fullscreen, shift]:
-                        cb.add_theme_font_override("font", book)
-                        cb.add_theme_font_size_override("font_size", 13)
+        # ---- CAMERA --------------------------------------------------
+        _section(page, "camera", "CAMERA")
+        _slider_row(page, "camera", "Field of View", 40.0, 110.0,
+                float(settings.get("fov")) if settings != null else 70.0,
+                func(v: float) -> String: return "%d°" % int(roundf(v)),
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("fov", v))
 
-        # ---- v12.0 PERFORMANCE — show fps / show ping / maximum fps ----
-        var perf_row := HBoxContainer.new()
-        perf_row.add_theme_constant_override("separation", 12)
-        page.add_child(perf_row)
-        var perf_left := VBoxContainer.new()
-        perf_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        perf_left.add_theme_constant_override("separation", 2)
-        perf_row.add_child(perf_left)
-        var perf_title := Label.new()
-        perf_title.text = "PERFORMANCE"
-        _title(perf_title, 13, RetroUI.NIGHT_INK_MUTED, 600)
-        perf_left.add_child(perf_title)
-        var show_fps_cb := _paper_check("Show FPS",
+        # ---- AUDIO ---------------------------------------------------
+        _section(page, "speaker", "AUDIO")
+        _slider_row(page, "speaker", "Master Volume", 0.0, 1.0,
+                float(settings.get("master_volume")) if settings != null else 1.0,
+                _fmt_pct,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("master_volume", v))
+        _slider_row(page, "speaker", "Sound Effects", 0.0, 1.0,
+                float(settings.get("sfx_volume")) if settings != null else 1.0,
+                _fmt_pct,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("sfx_volume", v))
+        _slider_row(page, "note", "Music", 0.0, 1.0,
+                float(settings.get("music_volume")) if settings != null else 0.7,
+                _fmt_pct,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("music_volume", v))
+
+        # ---- GRAPHICS ------------------------------------------------
+        _section(page, "monitor", "GRAPHICS")
+        _row_toggle(page, "sun", "Sun Shadows",
+                bool(settings.get("shadows")) if settings != null else true,
+                func(on: bool) -> void:
+                        if settings != null:
+                                settings.set_key("shadows", on))
+        _slider_row(page, "monitor", "Render Scale", 0.5, 1.0,
+                float(settings.get("render_scale")) if settings != null else 1.0,
+                _fmt_pct,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("render_scale", v))
+        var fps_opts: Array = [["Unlimited", 0], ["30", 30], ["60", 60], ["120", 120], ["240", 240]]
+        _row_chips(page, "gauge", "Max FPS", fps_opts,
+                int(settings.get("max_fps")) if settings != null else 0,
+                func(v: int) -> void:
+                        if settings != null:
+                                settings.set_key("max_fps", v))
+        _row_toggle(page, "expand", "Fullscreen",
+                bool(settings.get("fullscreen")) if settings != null else false,
+                func(on: bool) -> void:
+                        if settings != null:
+                                settings.set_key("fullscreen", on))
+        _row_toggle(page, "sync", "VSync",
+                bool(settings.get("vsync")) if settings != null else true,
+                func(on: bool) -> void:
+                        if settings != null:
+                                settings.set_key("vsync", on))
+
+        # ---- INTERFACE -----------------------------------------------
+        _section(page, "layers", "INTERFACE")
+        _slider_row(page, "layers", "UI Opacity", 0.3, 1.0,
+                float(settings.get("ui_opacity")) if settings != null else 1.0,
+                _fmt_pct,
+                func(v: float) -> void:
+                        if settings != null:
+                                settings.set_key("ui_opacity", v))
+        _row_toggle(page, "chart", "Show FPS",
                 bool(settings.get("show_fps")) if settings != null else true,
                 func(on: bool) -> void:
                         if settings != null:
                                 settings.set_key("show_fps", on))
-        perf_left.add_child(show_fps_cb)
-        var show_ping_cb := _paper_check("Show ping",
+        _row_toggle(page, "signal", "Show Ping",
                 bool(settings.get("show_ping")) if settings != null else true,
                 func(on: bool) -> void:
                         if settings != null:
                                 settings.set_key("show_ping", on))
-        perf_left.add_child(show_ping_cb)
-        var maxfps_col := VBoxContainer.new()
-        maxfps_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        maxfps_col.add_theme_constant_override("separation", 2)
-        perf_row.add_child(maxfps_col)
-        var maxfps_title := Label.new()
-        maxfps_title.text = "MAXIMUM FPS"
-        _title(maxfps_title, 13, RetroUI.NIGHT_INK_MUTED, 600)
-        maxfps_col.add_child(maxfps_title)
-        var maxfps_row := HBoxContainer.new()
-        maxfps_row.add_theme_constant_override("separation", 6)
-        maxfps_col.add_child(maxfps_row)
-        var maxfps_btns: Array[Button] = []
-        for opt in [[0, "Unlimited"], [30, "30"], [60, "60"], [120, "120"], [240, "240"]]:
-                var val := int(opt[0])
-                var mb := Button.new()
-                mb.text = String(opt[1])
-                mb.custom_minimum_size = Vector2(0, 32)
-                mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-                mb.focus_mode = Control.FOCUS_NONE
-                mb.set_meta("fps_value", val)
-                mb.pressed.connect(func() -> void:
-                        if settings != null:
-                                settings.set_key("max_fps", val)
-                        _style_maxfps_row(maxfps_btns, val))
-                maxfps_row.add_child(mb)
-                maxfps_btns.append(mb)
-        _style_maxfps_row(maxfps_btns,
-                int(settings.get("max_fps")) if settings != null else 0)
-
-        # ---- v12.0 CHARACTER — nameplates + the classic bunny hop ----
-        var char_row := HBoxContainer.new()
-        char_row.add_theme_constant_override("separation", 12)
-        page.add_child(char_row)
-        var char_left := VBoxContainer.new()
-        char_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        char_left.add_theme_constant_override("separation", 2)
-        char_row.add_child(char_left)
-        var char_title := Label.new()
-        char_title.text = "CHARACTER"
-        _title(char_title, 13, RetroUI.NIGHT_INK_MUTED, 600)
-        char_left.add_child(char_title)
-        var names_cb := _paper_check("See player names",
+        _row_toggle(page, "tag", "Player Names",
                 bool(settings.get("player_names")) if settings != null else true,
                 func(on: bool) -> void:
                         if settings != null:
                                 settings.set_key("player_names", on))
-        char_left.add_child(names_cb)
-        var hop_cb := _paper_check("Bunny hop (hold Space to keep bouncing)",
+        _row_toggle(page, "bubble", "Chat Bubbles",
+                bool(settings.get("chat_bubbles")) if settings != null else true,
+                func(on: bool) -> void:
+                        if settings != null:
+                                settings.set_key("chat_bubbles", on))
+
+        # ---- CHARACTER -----------------------------------------------
+        _section(page, "bounce", "CHARACTER")
+        _row_toggle(page, "bounce", "Bunny Hop",
                 bool(settings.get("bunny_hop")) if settings != null else true,
                 func(on: bool) -> void:
                         if settings != null:
                                 settings.set_key("bunny_hop", on))
-        char_left.add_child(hop_cb)
-        var reset_col := VBoxContainer.new()
-        reset_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        reset_col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-        reset_col.add_theme_constant_override("separation", 2)
-        char_row.add_child(reset_col)
-        var reset_title := Label.new()
-        reset_title.text = "SETTINGS"
-        _title(reset_title, 13, RetroUI.NIGHT_INK_MUTED, 600)
-        reset_col.add_child(reset_title)
-        var reset_btn := Button.new()
-        reset_btn.text = "Reset all settings"
-        reset_btn.custom_minimum_size = Vector2(200, 40)
-        reset_btn.focus_mode = Control.FOCUS_NONE
-        var reset_gloss: StyleBoxTexture = RetroUI.gloss(RetroUI.SITE_RED,
-                RetroUI.SITE_RED_LO, RetroUI.SITE_RED_DK, 8)
-        reset_gloss.content_margin_left = 14.0
-        reset_gloss.content_margin_right = 14.0
-        reset_gloss.content_margin_top = 9.0
-        reset_gloss.content_margin_bottom = 9.0
-        reset_btn.add_theme_stylebox_override("normal", reset_gloss)
-        reset_btn.add_theme_stylebox_override("hover", RetroUI.gloss(RetroUI.SITE_RED_HI,
-                RetroUI.SITE_RED_LO, RetroUI.SITE_RED_DK, 8))
-        reset_btn.add_theme_stylebox_override("pressed", reset_gloss)
+        _row_chips(page, "person", "Play Animation",
+                [["Sit", "Sit"], ["Climb", "Climb"], ["Walk", "Walk"],
+                ["Jump", "Jump"], ["Idle", "Idle"], ["Stop", ""]],
+                0,
+                func(v: int) -> void: pass,
+                func(txt: String) -> void:
+                        if player != null and is_instance_valid(player):
+                                player.avatar.call("play_emote", txt))
+
+        # ---- ACCOUNT — who is signed in, and the ways OUT ------------
+        _section(page, "person", "ACCOUNT")
+        var acct := _row(page, "tag", "Signed in as %s" % Session.username)
+        var out_btn := Button.new()
+        out_btn.text = "Log Out"
+        out_btn.custom_minimum_size = Vector2(110, 30)
+        out_btn.focus_mode = Control.FOCUS_NONE
+        out_btn.add_theme_stylebox_override("normal", _white_btn_face(false))
+        out_btn.add_theme_stylebox_override("hover", _white_btn_face(true))
+        out_btn.add_theme_stylebox_override("pressed", _white_btn_face(false))
         for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-                reset_btn.add_theme_color_override(st, Color.WHITE)
+                out_btn.add_theme_color_override(st, Color(0.08, 0.09, 0.11))
+        if RetroUI.gotham(600) != null:
+                out_btn.add_theme_font_override("font", RetroUI.gotham(600))
+        out_btn.add_theme_font_size_override("font_size", 12)
+        out_btn.pressed.connect(_log_out)
+        acct.add_child(out_btn)
+        var danger := _row(page, "reset", "Start everything over")
+        var reset_btn := Button.new()
+        reset_btn.text = "Reset All Settings"
+        reset_btn.custom_minimum_size = Vector2(170, 30)
+        reset_btn.focus_mode = Control.FOCUS_NONE
+        reset_btn.add_theme_stylebox_override("normal", _hairline_btn_face(false))
+        reset_btn.add_theme_stylebox_override("hover", _hairline_btn_face(true))
+        reset_btn.add_theme_stylebox_override("pressed", _hairline_btn_face(false))
+        for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+                reset_btn.add_theme_color_override(st, Color(0.92, 0.93, 0.95))
         if RetroUI.gotham(600) != null:
                 reset_btn.add_theme_font_override("font", RetroUI.gotham(600))
-        reset_btn.add_theme_font_size_override("font_size", 14)
+        reset_btn.add_theme_font_size_override("font_size", 12)
         reset_btn.pressed.connect(func() -> void:
                 if settings != null:
                         settings.call("reset_all")
@@ -1515,47 +1473,230 @@ func _build_settings_tab() -> VBoxContainer:
                 _update_live_stats()
                 _rebuild_settings_tab()
                 _notify("All settings reset", true))
-        reset_col.add_child(reset_btn)
-
-
-        # ---- ACCOUNT — who is signed in, and the way OUT ----
-        page.add_child(_hspace(6))
-        var acct_title := Label.new()
-        acct_title.text = "ACCOUNT"
-        _title(acct_title, 13, RetroUI.NIGHT_INK_MUTED, 600)
-        page.add_child(acct_title)
-        var acct_row := HBoxContainer.new()
-        acct_row.add_theme_constant_override("separation", 12)
-        page.add_child(acct_row)
-        var acct_label := Label.new()
-        acct_label.text = "Signed in as %s" % Session.username
-        acct_label.clip_text = true
-        acct_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        acct_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-        _text(acct_label, 13, RetroUI.NIGHT_INK)
-        acct_row.add_child(acct_label)
-        var logout_btn := Button.new()
-        logout_btn.text = "Log Out"
-        logout_btn.custom_minimum_size = Vector2(150, 40)
-        logout_btn.focus_mode = Control.FOCUS_NONE
-        var out_gloss: StyleBoxTexture = RetroUI.gloss(RetroUI.SITE_RED,
-                RetroUI.SITE_RED_LO, RetroUI.SITE_RED_DK, 8)
-        out_gloss.content_margin_left = 14.0
-        out_gloss.content_margin_right = 14.0
-        out_gloss.content_margin_top = 9.0
-        out_gloss.content_margin_bottom = 9.0
-        logout_btn.add_theme_stylebox_override("normal", out_gloss)
-        logout_btn.add_theme_stylebox_override("hover", RetroUI.gloss(RetroUI.SITE_RED_HI,
-                RetroUI.SITE_RED_LO, RetroUI.SITE_RED_DK, 8))
-        logout_btn.add_theme_stylebox_override("pressed", out_gloss)
-        for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-                logout_btn.add_theme_color_override(st, Color.WHITE)
-        if RetroUI.gotham(600) != null:
-                logout_btn.add_theme_font_override("font", RetroUI.gotham(600))
-        logout_btn.add_theme_font_size_override("font_size", 14)
-        logout_btn.pressed.connect(_log_out)
-        acct_row.add_child(logout_btn)
+        danger.add_child(reset_btn)
         return tab
+
+
+# ---- v1.1 settings helpers — the icon row kit -----------------------------
+
+## One section header: a small glyph + the caps title, quiet gray.
+func _section(page: VBoxContainer, kind: String, text: String) -> void:
+        var head := HBoxContainer.new()
+        head.add_theme_constant_override("separation", 7)
+        page.add_child(head)
+        var ic := MenuIcons.new()
+        ic.kind = kind
+        ic.custom_minimum_size = Vector2(15, 15)
+        ic.ink = Color(0.55, 0.58, 0.64)
+        ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        head.add_child(ic)
+        var l := Label.new()
+        l.text = text
+        _title(l, 12, Color(0.55, 0.58, 0.64), 700)
+        head.add_child(l)
+
+
+## One settings row: the icon, the human label, and room on the right for
+## the caller's control (a switch, a slider, chips...). Returns the row.
+func _row(parent: VBoxContainer, kind: String, label_text: String) -> HBoxContainer:
+        var r := HBoxContainer.new()
+        r.add_theme_constant_override("separation", 10)
+        parent.add_child(r)
+        var ic := MenuIcons.new()
+        ic.kind = kind
+        ic.custom_minimum_size = Vector2(18, 18)
+        ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        r.add_child(ic)
+        var l := Label.new()
+        l.text = label_text
+        l.clip_text = true
+        l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        _text(l, 13, RetroUI.NIGHT_INK)
+        r.add_child(l)
+        return r
+
+
+## A pill SWITCH row (the toggle voice of the new page): white pill +
+## black ON when live, faint dark pill + gray OFF otherwise. Fully
+## monochrome — no green, no blue.
+func _row_toggle(parent: VBoxContainer, kind: String, label_text: String, value: bool, on_toggle: Callable) -> Button:
+        var r := _row(parent, kind, label_text)
+        var sw := Button.new()
+        sw.toggle_mode = true
+        sw.button_pressed = value
+        sw.custom_minimum_size = Vector2(56, 24)
+        sw.focus_mode = Control.FOCUS_NONE
+        _style_switch(sw, value)
+        sw.toggled.connect(func(on: bool) -> void:
+                _style_switch(sw, on)
+                on_toggle.call(on))
+        r.add_child(sw)
+        return sw
+
+
+func _style_switch(sw: Button, on: bool) -> void:
+        var face := StyleBoxFlat.new()
+        face.set_corner_radius_all(12)
+        face.anti_aliasing = true
+        face.content_margin_left = 12.0
+        face.content_margin_right = 12.0
+        face.content_margin_top = 3.0
+        face.content_margin_bottom = 3.0
+        if on:
+                face.bg_color = Color.WHITE
+        else:
+                face.bg_color = Color(1, 1, 1, 0.07)
+                face.set_border_width_all(1)
+                face.border_color = Color(1, 1, 1, 0.16)
+        sw.add_theme_stylebox_override("normal", face)
+        var hv := face.duplicate() as StyleBoxFlat
+        if on:
+                hv.bg_color = Color(0.85, 0.86, 0.89)
+        else:
+                hv.bg_color = Color(1, 1, 1, 0.12)
+        sw.add_theme_stylebox_override("hover", hv)
+        sw.add_theme_stylebox_override("pressed", face)
+        sw.text = "ON" if on else "OFF"
+        sw.add_theme_color_override("font_color", Color(0.07, 0.08, 0.10) if on else RetroUI.NIGHT_INK_MUTED)
+        sw.add_theme_color_override("font_hover_color", Color(0.07, 0.08, 0.10) if on else RetroUI.NIGHT_INK)
+        sw.add_theme_color_override("font_pressed_color", Color(0.07, 0.08, 0.10) if on else RetroUI.NIGHT_INK_MUTED)
+        if RetroUI.gotham(700) != null:
+                sw.add_theme_font_override("font", RetroUI.gotham(700))
+        sw.add_theme_font_size_override("font_size", 10)
+
+
+## A slider row — icon, human label, the WHITE slider, and the value in
+## human units (percents, degrees, multipliers) on the right.
+func _slider_row(parent: VBoxContainer, kind: String, label_text: String, minv: float, maxv: float, value: float, fmt: Callable, on_change: Callable) -> void:
+        var r := _row(parent, kind, label_text)
+        var s := HSlider.new()
+        s.min_value = minv
+        s.max_value = maxv
+        s.step = 0.01
+        s.value = value
+        s.custom_minimum_size = Vector2(130, 20)
+        s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        s.focus_mode = Control.FOCUS_NONE
+        _paper_slider(s)
+        r.add_child(s)
+        var v := Label.new()
+        v.text = String(fmt.call(value))
+        v.custom_minimum_size = Vector2(46, 0)
+        v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        _text(v, 12, RetroUI.NIGHT_INK_MUTED)
+        r.add_child(v)
+        s.value_changed.connect(func(val: float) -> void:
+                v.text = String(fmt.call(val))
+                on_change.call(val))
+
+
+## A chip row (Max FPS, Play Animation): small square chips, the picked
+## one wears the WHITE face with black ink — the monochrome pick mark.
+func _row_chips(parent: VBoxContainer, kind: String, label_text: String, opts: Array, value: int, on_pick: Callable, on_text: Callable = Callable()) -> void:
+        var r := _row(parent, kind, label_text)
+        var chips := HBoxContainer.new()
+        chips.add_theme_constant_override("separation", 5)
+        r.add_child(chips)
+        var btns: Array[Button] = []
+        for opt in opts:
+                var val: Variant = opt[1]
+                var cb := Button.new()
+                cb.text = String(opt[0])
+                cb.custom_minimum_size = Vector2(0, 26)
+                cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                cb.focus_mode = Control.FOCUS_NONE
+                cb.set_meta("chip_value", opt[1])
+                var is_text_pick: bool = on_text.is_valid()
+                cb.pressed.connect(func() -> void:
+                        on_pick.call(val)
+                        if is_text_pick:
+                                on_text.call(String(opt[1]))
+                        else:
+                                _style_chips(btns, int(val)))
+                chips.add_child(cb)
+                btns.append(cb)
+        if on_text.is_valid():
+                _style_chips_textless(btns)
+        else:
+                _style_chips(btns, value)
+
+
+## Paint the chip row for VALUE picks (Max FPS): the picked chip inverts.
+func _style_chips(btns: Array[Button], value: int) -> void:
+        for b in btns:
+                if not is_instance_valid(b):
+                        continue
+                var on: bool = int(b.get_meta("chip_value")) == value
+                b.add_theme_stylebox_override("normal", _chip_face(on))
+                b.add_theme_stylebox_override("hover", _chip_face(on, true))
+                b.add_theme_stylebox_override("pressed", _chip_face(on))
+                var ink := Color(0.07, 0.08, 0.10) if on else RetroUI.NIGHT_INK_MUTED
+                for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+                        b.add_theme_color_override(st, ink)
+
+
+## The Animation chips are momentary (no persistent pick) — all quiet.
+func _style_chips_textless(btns: Array[Button]) -> void:
+        for b in btns:
+                if not is_instance_valid(b):
+                        continue
+                b.add_theme_stylebox_override("normal", _chip_face(false))
+                b.add_theme_stylebox_override("hover", _chip_face(false, true))
+                b.add_theme_stylebox_override("pressed", _chip_face(false))
+                for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+                        b.add_theme_color_override(st, RetroUI.NIGHT_INK)
+
+
+func _chip_face(on: bool, hover := false) -> StyleBox:
+        var sb := StyleBoxFlat.new()
+        sb.set_corner_radius_all(7)
+        sb.anti_aliasing = true
+        sb.content_margin_left = 9.0
+        sb.content_margin_right = 9.0
+        sb.content_margin_top = 3.0
+        sb.content_margin_bottom = 3.0
+        if on:
+                sb.bg_color = Color(0.85, 0.86, 0.89) if hover else Color.WHITE
+        else:
+                sb.bg_color = Color(1, 1, 1, 0.12 if hover else 0.06)
+                sb.set_border_width_all(1)
+                sb.border_color = Color(1, 1, 1, 0.16 if hover else 0.10)
+        return sb
+
+
+## The Log Out face — the WHITE pill (the account's primary action).
+func _white_btn_face(hover: bool) -> StyleBox:
+        var sb := StyleBoxFlat.new()
+        sb.set_corner_radius_all(8)
+        sb.anti_aliasing = true
+        sb.bg_color = Color(0.85, 0.86, 0.89) if hover else Color.WHITE
+        sb.content_margin_left = 14.0
+        sb.content_margin_right = 14.0
+        sb.content_margin_top = 5.0
+        sb.content_margin_bottom = 5.0
+        return sb
+
+
+## The Reset face — dark with a white hairline (the careful action).
+func _hairline_btn_face(hover: bool) -> StyleBox:
+        var sb := StyleBoxFlat.new()
+        sb.set_corner_radius_all(8)
+        sb.anti_aliasing = true
+        sb.bg_color = Color(1, 1, 1, 0.08 if hover else 0.045)
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.28 if hover else 0.18)
+        sb.content_margin_left = 14.0
+        sb.content_margin_right = 14.0
+        sb.content_margin_top = 5.0
+        sb.content_margin_bottom = 5.0
+        return sb
+
+
+## The percent voice — "80%" (volumes, opacity, render scale).
+func _fmt_pct(v: float) -> String:
+        return "%d%%" % int(roundf(v * 100.0))
 
 
 ## v12.1 — LOG OUT: the session is wiped (the saved token too) and the
@@ -1598,33 +1739,14 @@ func _apply_nameplates() -> void:
                                 String(_names_by_uid.get(uid, "")) if on else "")
 
 
-func _hspace(h: int) -> Control:
+func _hspace(_h: int) -> Control:
+        # kept for older callers — the new settings page builds its own spacing
         var c := Control.new()
-        c.custom_minimum_size = Vector2(0, h)
         return c
 
 
-func _slider_row(parent: VBoxContainer, label_text: String, minv: float, maxv: float, value: float, on_change: Callable) -> void:
-        var l := Label.new()
-        l.text = "%s  —  %.2f" % [label_text, value]
-        _text(l, 13, RetroUI.NIGHT_INK_MUTED)
-        parent.add_child(l)
-        var s := HSlider.new()
-        s.min_value = minv
-        s.max_value = maxv
-        s.step = 0.01
-        s.value = value
-        s.custom_minimum_size = Vector2(0, 20)
-        s.focus_mode = Control.FOCUS_NONE
-        _paper_slider(s)
-        s.value_changed.connect(func(v: float) -> void:
-                l.text = "%s  —  %.2f" % [label_text, v]
-                on_change.call(v))
-        parent.add_child(s)
-
-
-## v12.1: the slider voice on the NIGHT panel — a deep groove with the
-## blue fill (the classic blue read, visible on dark).
+## v1.1: the slider voice on the NIGHT panel — a deep groove with the
+## WHITE fill (black & white only now, visible on dark).
 func _paper_slider(s: HSlider) -> void:
         var groove := StyleBoxFlat.new()
         groove.bg_color = RetroUI.NIGHT_EDGE_LO
@@ -1632,32 +1754,8 @@ func _paper_slider(s: HSlider) -> void:
         groove.content_margin_top = 3.0
         groove.content_margin_bottom = 3.0
         s.add_theme_stylebox_override("slider", groove)
-        s.add_theme_stylebox_override("grabber_area", RetroUI.flat(3, RetroUI.SITE_BLUE))
-        s.add_theme_stylebox_override("grabber_area_highlight", RetroUI.flat(3, RetroUI.SITE_BLUE_HI))
-
-
-## v12.1: the CheckButton voice on the NIGHT panel — light ink, no dark
-## pill (the default Godot pill vanished on the dark card).
-func _paper_check(text: String, pressed_val: bool, on_toggle: Callable) -> CheckButton:
-        var cb := CheckButton.new()
-        cb.text = text
-        cb.button_pressed = pressed_val
-        cb.focus_mode = Control.FOCUS_NONE
-        for st in ["normal", "hover", "pressed", "hover_pressed"]:
-                var sb := StyleBoxFlat.new()
-                sb.bg_color = Color(0, 0, 0, 0)
-                sb.content_margin_left = 2.0
-                sb.content_margin_top = 2.0
-                sb.content_margin_bottom = 2.0
-                cb.add_theme_stylebox_override(st, sb)
-        for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-                cb.add_theme_color_override(st, RetroUI.NIGHT_INK)
-        var book: Font = RetroUI.source(400)
-        if book != null:
-                cb.add_theme_font_override("font", book)
-                cb.add_theme_font_size_override("font_size", 13)
-        cb.toggled.connect(on_toggle)
-        return cb
+        s.add_theme_stylebox_override("grabber_area", RetroUI.flat(3, Color.WHITE))
+        s.add_theme_stylebox_override("grabber_area_highlight", RetroUI.flat(3, Color(0.85, 0.86, 0.89)))
 
 
 func _toggle_menu() -> void:
@@ -1802,7 +1900,11 @@ func _ingest_message(msg: Dictionary) -> void:
         var seq := int(msg.get("seqId", 0)) if msg.get("seqId") != null else 0
         var text := Api.txt(msg.get("text", ""))
         chat.add_chat(uname, seq, text, "", uid == Session.user_id, uid)
-        # the classic bubble pops over the speaker's head
+        # the classic bubble pops over the speaker's head — v1.1: the CHAT
+        # BUBBLES setting can silence them (the chat log still carries all)
+        var settings_node: Node = get_node_or_null("/root/Settings")
+        if settings_node != null and not bool(settings_node.get("chat_bubbles")):
+                return
         if uid == Session.user_id:
                 if player != null and is_instance_valid(player):
                         player.show_bubble(text)
