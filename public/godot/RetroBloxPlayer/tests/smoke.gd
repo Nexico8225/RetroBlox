@@ -410,27 +410,28 @@ func _run_all() -> void:
         check(login_src.contains("401"),
                 "saved token survives network failures (only 401 clears it)")
 
-        # --- chat box: the TYPE BOX is always visible (the front door), the
-        # log opens when you click it / press Enter, closes on click-off ---
+        # --- chat box: v1 HIDDEN UNTIL OPENED — / or the chat button opens
+        # it (log + type box together), ESC closes everything ---
         var chat_script: Script = load("res://scripts/game/chat_box.gd")
         var chat: Control = chat_script.new()
         root.add_child(chat)
         var log_panel: Control = chat.get_node_or_null("LogPanel")
         var input_panel: Control = chat.get_node_or_null("InputPanel")
         check(log_panel != null and input_panel != null and not log_panel.visible
-                and input_panel.visible,
-                "chat boots with the type box VISIBLE, log tucked away")
+                and not input_panel.visible and not chat.visible,
+                "chat boots COMPLETELY HIDDEN — no type box floating on the game")
         chat.call("add_system", "welcome")
-        check(int(chat.get("_unread")) == 1, "hidden log stacks the unread badge")
+        check(int(chat.get("_unread")) == 1, "hidden chat stacks the unread badge")
         chat.call("open")
-        check(input_panel.visible and log_panel.visible and bool(chat.get("is_open")),
-                "clicking the type box shows the log (you are typing)")
+        check(input_panel.visible and log_panel.visible and bool(chat.get("is_open"))
+                and chat.visible,
+                "opening the chat shows the log AND the type box together")
         check(chat.offset_top >= 40.0 and chat.offset_left <= 16.0,
                 "chat sits top-left under the topbar")
         chat.call("add_chat", "Ann", 3, "hello")
         chat.call("close")
-        check(not log_panel.visible and input_panel.visible,
-                "click-off hides the LOG, the type box stays (the front door)")
+        check(not log_panel.visible and not input_panel.visible and not chat.visible,
+                "closing hides EVERYTHING — log, type box, the whole chat")
         chat.call("add_chat", "Bob", 4, "psst")
         check(int(chat.get("_unread")) == 1,
                 "messages arriving while hidden count for the badge")
@@ -508,8 +509,10 @@ func _run_all() -> void:
         check(game_src2.contains("_show_loading") and game_src2.contains("frame_post_draw"),
                 "loading is staged behind a veil (no load hitch)")
         var chat_src := FileAccess.get_file_as_string("res://scripts/game/chat_box.gd")
-        check(chat_src.contains("_panel.visible = false") and not chat_src.contains("_input_panel.visible = false\n        _panel.visible"),
-                "chat close hides the log; the type box never dangles away")
+        check(chat_src.contains("_panel.visible = false")
+                and chat_src.contains("_input_panel.visible = false")
+                and chat_src.contains("visible = false"),
+                "chat close hides EVERYTHING — log, type box, the whole widget")
         var player_src := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
         check(player_src.contains("v3.6 ROOT FIX"),
                 "stairs probe the walk wish FIRST (diagonals step up)")
@@ -536,7 +539,7 @@ func _run_all() -> void:
         check(game_src.contains("MenuPanel") and game_src.contains("_menu_footer"),
                 "the menu is the CLIENT PANEL now (tabs + pages + action footer)")
         check(game_src.contains("_tab_button") and game_src.contains("_style_tab"),
-                "TOP TABS: icon rows with the white underline, the open page lit")
+                "TOP TABS: plain text pills, the open page lit white")
         check(game_src.contains("_players_grid") and game_src.contains("_player_card"),
                 "People page is a CARD GRID (avatar + name — simple)")
         check(game_src.contains("_attach_viewer") and game_src.contains("AvatarViewerScript"),
@@ -637,10 +640,11 @@ func _run_all() -> void:
         check(game_src.contains("_log_out") and game_src.contains("clear_session"),
                 "LOG OUT wipes the session and lands on the login page")
         check(game_src.contains('MenuCenter') and game_src.contains("MenuPanel"),
-                "the ESC menu is the CENTERED client panel — the game stays visible behind")
-        check(game_src.contains('["players", "People", "people"]')
-                and game_src.contains('["settings", "Settings", "settings"]'),
-                "the two tabs wear the REAL internet icons (People + Settings)")
+                "the ESC menu is the CENTERED simple card — the game stays visible behind")
+        check(game_src.contains('v1 THE TAB ROW') and game_src.contains('_style_tab'),
+                "the tabs are PLAIN TEXT pills — no banner, no icons, no gloss")
+        check(game_src.contains('_flat_key_face') and not game_src.contains('_gloss_key_style'),
+                "the footer is three FLAT buttons (Leave / Respawn / Resume) — no gloss keys")
         check(not game_src.contains('"gallery", "Gallery"')
                 and not game_src.contains('"report", "Report"')
                 and not game_src.contains('"help", "Help"'),
@@ -710,8 +714,8 @@ func _run_all() -> void:
                 "the gradient plate + glass textures are OUT of the kit")
         check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
                 "the menu references zero texture helpers (flat dark cards)")
-        check(game_src.contains("_gloss_key_style"),
-                "the footer keys wear the SITE GLOSS (baked 9-patch, bold outline)")
+        check(game_src.contains("_flat_key_face"),
+                "the footer keys are FLAT color washes (no gloss, no bevel)")
         check(game_src.contains("_blue_btn") and theme_src.contains("SITE_GREEN :="),
                 "Resume is the GREEN PLAY GLOSS (the site's action green)")
         check(theme_src.contains("SITE_BLUE :=") and theme_src.contains("SITE_PAPER :="),

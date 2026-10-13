@@ -732,14 +732,13 @@ func _setup_audio() -> void:
                         wind.call("play")
 
 
-# ---- the menu — the v12.1 RETRO NIGHT CLIENT PANEL ------------------------
-## THE ESC MENU GOES DARK RETRO. The game stays LIVE behind a deep veil,
-## and ONE centered translucent SLATE panel (the 2012 client's read: dark,
-## calm, nothing blinding) carries the BLUE GLOSS header strip — logo +
-## RETROBLOX + the live clock — the folder tabs (People / Settings, real
-## internet icons), the PEOPLE GRID (every player's LIVE AVATAR — drag to
-## spin them around, wheel to zoom — with their NAME under it), and the
-## three GLOSS footer keys: red Leave, steel Respawn, green Resume.
+# ---- the menu — v1 THE SIMPLE CARD ----------------------------------------
+## A COMPACT, FLAT, QUIET card — nothing like the old banner panel. No
+## RETROBLOX header, no clock, no gloss tabs, no key chips. One small
+## centered dark card: two plain text tabs (People / Settings), the
+## PEOPLE GRID (every player's LIVE AVATAR — drag to spin, wheel to zoom
+## — with their NAME under it), and three flat buttons: Leave, Respawn,
+## Resume. Simple UI beats busy UI.
 
 
 func _build_menu() -> Control:
@@ -769,59 +768,11 @@ func _build_menu() -> Control:
         root.name = "MenuRoot"
         panel.add_child(root)
 
-        # ---- THE BLUE GLOSS HEADER — the site's header strip: the tilted
-        # red tile, the RETROBLOX wordmark in white, and the live clock chip
-        var header := PanelContainer.new()
-        header.name = "MenuHeader"
-        var hsb: StyleBoxTexture = RetroUI.gloss(RetroUI.SITE_BLUE, RetroUI.SITE_BLUE_DK,
-                RetroUI.SITE_BLUE_DK.darkened(0.4), 0)
-        hsb.content_margin_left = 16.0
-        hsb.content_margin_right = 14.0
-        hsb.content_margin_top = 9.0
-        hsb.content_margin_bottom = 9.0
-        header.add_theme_stylebox_override("panel", hsb)
-        root.add_child(header)
-        var hrow := HBoxContainer.new()
-        hrow.add_theme_constant_override("separation", 10)
-        header.add_child(hrow)
-        if ResourceLoader.exists("res://assets/icons/logo.png"):
-                var logo := TextureRect.new()
-                logo.texture = load("res://assets/icons/logo.png")
-                logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-                logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-                logo.custom_minimum_size = Vector2(30, 30)
-                hrow.add_child(logo)
-        var wordmark := Label.new()
-        wordmark.text = "RETROBLOX"
-        wordmark.add_theme_font_override("font", RetroUI.gotham(800))
-        wordmark.add_theme_font_size_override("font_size", 19)
-        wordmark.add_theme_color_override("font_color", Color.WHITE)
-        wordmark.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.4))
-        wordmark.add_theme_constant_override("shadow_offset_y", 1)
-        hrow.add_child(wordmark)
-        hrow.add_child(_spacer())
-        var clock_chip := PanelContainer.new()
-        var ccsb := StyleBoxFlat.new()
-        ccsb.bg_color = Color(0, 0, 0, 0.28)
-        ccsb.set_corner_radius_all(6)
-        ccsb.content_margin_left = 9.0
-        ccsb.content_margin_right = 9.0
-        ccsb.content_margin_top = 3.0
-        ccsb.content_margin_bottom = 3.0
-        clock_chip.add_theme_stylebox_override("panel", ccsb)
-        _time_label = Label.new()
-        _time_label.text = "00:00"
-        _time_label.add_theme_font_override("font", RetroUI.gotham(600))
-        _time_label.add_theme_font_size_override("font_size", 13)
-        _time_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
-        clock_chip.add_child(_time_label)
-        hrow.add_child(clock_chip)
-
-        # ---- THE TOP TABS — People · Settings (Gallery / Report / Help are
-        # GONE — you asked). The tabs wear the REAL internet icon PNGs.
+        # ---- v1 THE TAB ROW — two plain text tabs on one quiet line.
+        # No banner, no logo, no clock, no icons — just the words.
         var tabs := HBoxContainer.new()
         tabs.name = "Tabs"
-        tabs.add_theme_constant_override("separation", 0)
+        tabs.add_theme_constant_override("separation", 6)
         root.add_child(tabs)
         var tab_defs := [
                 ["players", "People", "people"],
@@ -843,10 +794,10 @@ func _build_menu() -> Control:
         var body := MarginContainer.new()
         body.name = "MenuBody"
         body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-        body.add_theme_constant_override("margin_left", 22)
-        body.add_theme_constant_override("margin_right", 22)
-        body.add_theme_constant_override("margin_top", 14)
-        body.add_theme_constant_override("margin_bottom", 10)
+        body.add_theme_constant_override("margin_left", 4)
+        body.add_theme_constant_override("margin_right", 4)
+        body.add_theme_constant_override("margin_top", 12)
+        body.add_theme_constant_override("margin_bottom", 12)
         root.add_child(body)
         var pages := Control.new()
         pages.name = "Pages"
@@ -883,7 +834,7 @@ func _build_menu() -> Control:
         players_page.add_child(scroll)
         _players_grid = GridContainer.new()
         _players_grid.name = "PeopleGrid"
-        _players_grid.columns = 4
+        _players_grid.columns = 3
         _players_grid.add_theme_constant_override("h_separation", 10)
         _players_grid.add_theme_constant_override("v_separation", 10)
         _players_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -916,105 +867,73 @@ func _build_menu() -> Control:
         return overlay
 
 
-## The panel's size — 62% wide (max 880), 78% tall (max 600): a panel on
-## the game, never a screen-filling veil.
+## The panel's size — v1 COMPACT: a small card in the middle of the
+## screen (max 520 x 500), never a screen-filling veil.
 func _menu_panel_size() -> Vector2:
         var vp := Vector2(1280.0, 720.0)
         var viewport := get_viewport()
         if viewport != null:
                 vp = viewport.get_visible_rect().size
-        return Vector2(minf(vp.x * 0.64, 880.0), minf(vp.y * 0.80, 600.0))
+        return Vector2(minf(vp.x * 0.42, 520.0), minf(vp.y * 0.74, 500.0))
 
 
-## The panel face — v12.1 RETRO NIGHT: the deep translucent SLATE card the
-## 2012 client wore — dark enough to never blind, light ink everywhere so
-## every option stays readable, the game breathing through the veil.
+## The panel face — v1 THE SIMPLE CARD: one deep, quiet, near-opaque
+## dark surface with a hairline border. No gloss, no bevel, no glow.
 func _menu_panel_style() -> StyleBox:
         var sb := StyleBoxFlat.new()
-        sb.bg_color = RetroUI.NIGHT_PANEL
-        sb.set_corner_radius_all(10)
+        sb.bg_color = Color(0.045, 0.058, 0.075, 0.97)
+        sb.set_corner_radius_all(12)
         sb.anti_aliasing = true
-        sb.set_border_width_all(2)
-        sb.border_color = RetroUI.NIGHT_EDGE
-        sb.shadow_color = Color(0, 0, 0, 0.55)
-        sb.shadow_size = 24
-        sb.content_margin_left = 0.0
-        sb.content_margin_right = 0.0
-        sb.content_margin_top = 0.0
-        sb.content_margin_bottom = 0.0
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.09)
+        sb.shadow_color = Color(0, 0, 0, 0.45)
+        sb.shadow_size = 28
+        sb.content_margin_left = 14.0
+        sb.content_margin_right = 14.0
+        sb.content_margin_top = 12.0
+        sb.content_margin_bottom = 12.0
         return sb
 
 
-## One TOP TAB — icon + label centered, transparent; the OPEN tab speaks
-## white and wears the BLUE GLOSS, the rest stay muted light ink.
+## One TOP TAB — v1: a PLAIN TEXT pill. No icon, no gloss — the open tab
+## is white ink on a faint white pill, the rest just muted gray text.
 func _tab_button(label: String, icon_kind: String) -> Button:
         var b := Button.new()
         b.text = label
-        b.set_meta("icon_kind", icon_kind)
-        b.icon = RetroUI.icon_png_tinted(icon_kind, RetroUI.NIGHT_INK_MUTED)
-        b.expand_icon = true
-        b.custom_minimum_size = Vector2(0, 46)
-        b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        b.custom_minimum_size = Vector2(0, 30)
         b.focus_mode = Control.FOCUS_NONE
         _style_tab(b, false)
         return b
 
 
-## One TOP TAB — the folder tab: the OPEN tab wears the BLUE GLOSS with
-## white ink (the classic active read), the rest sit on the slate in light
-## muted ink — every tab readable at a glance.
+## The tab pill faces — flat, quiet, readable at a glance.
 func _style_tab(b: Button, on: bool) -> void:
-        var sb: StyleBox
-        if on:
-                sb = RetroUI.gloss(RetroUI.SITE_BLUE, RetroUI.SITE_BLUE_DK,
-                        RetroUI.SITE_BLUE_DK.darkened(0.4), 7)
-                sb.content_margin_left = 12.0
-                sb.content_margin_right = 12.0
-                sb.content_margin_top = 7.0
-                sb.content_margin_bottom = 7.0
-        else:
-                var idle := StyleBoxFlat.new()
-                idle.bg_color = Color(0, 0, 0, 0)
-                idle.set_corner_radius_all(7)
-                idle.anti_aliasing = true
-                idle.content_margin_left = 12.0
-                idle.content_margin_right = 12.0
-                idle.content_margin_top = 7.0
-                idle.content_margin_bottom = 7.0
-                sb = idle
+        var sb := StyleBoxFlat.new()
+        sb.set_corner_radius_all(8)
+        sb.anti_aliasing = true
+        sb.bg_color = Color(1, 1, 1, 0.08) if on else Color(0, 0, 0, 0)
+        sb.content_margin_left = 14.0
+        sb.content_margin_right = 14.0
+        sb.content_margin_top = 4.0
+        sb.content_margin_bottom = 4.0
         b.add_theme_stylebox_override("normal", sb)
-        var hb: StyleBox
-        if on:
-                hb = RetroUI.gloss(RetroUI.SITE_BLUE.lightened(0.06), RetroUI.SITE_BLUE_DK,
-                        RetroUI.SITE_BLUE_DK.darkened(0.4), 7)
-        else:
-                var hov := StyleBoxFlat.new()
-                hov.bg_color = Color(1, 1, 1, 0.06)
-                hov.set_corner_radius_all(7)
-                hov.anti_aliasing = true
-                hov.content_margin_left = 12.0
-                hov.content_margin_right = 12.0
-                hov.content_margin_top = 7.0
-                hov.content_margin_bottom = 7.0
-                hb = hov
-        hb.content_margin_left = 12.0
-        hb.content_margin_right = 12.0
-        hb.content_margin_top = 7.0
-        hb.content_margin_bottom = 7.0
+        var hb := StyleBoxFlat.new()
+        hb.set_corner_radius_all(8)
+        hb.anti_aliasing = true
+        hb.bg_color = Color(1, 1, 1, 0.12) if on else Color(1, 1, 1, 0.05)
+        hb.content_margin_left = 14.0
+        hb.content_margin_right = 14.0
+        hb.content_margin_top = 4.0
+        hb.content_margin_bottom = 4.0
         b.add_theme_stylebox_override("hover", hb)
         b.add_theme_stylebox_override("pressed", sb)
         b.add_theme_stylebox_override("hover_pressed", sb)
         b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-        for st in ["font_color", "font_pressed_color"]:
+        for st in ["font_color", "font_pressed_color", "font_hover_color"]:
                 b.add_theme_color_override(st, Color.WHITE if on else RetroUI.NIGHT_INK_MUTED)
-        b.add_theme_color_override("font_hover_color", RetroUI.NIGHT_INK if not on else Color.WHITE)
         if RetroUI.gotham(600) != null:
                 b.add_theme_font_override("font", RetroUI.gotham(600))
-        b.add_theme_font_size_override("font_size", 14)
-        var kind := "people"
-        if b.has_meta("icon_kind"):
-                kind = String(b.get_meta("icon_kind"))
-        b.icon = RetroUI.icon_png(kind, Color.WHITE) if on else RetroUI.icon_png_tinted(kind, RetroUI.NIGHT_INK_MUTED)
+        b.add_theme_font_size_override("font_size", 13)
 
 
 ## The menu's text voices (v8.0): BOTH speak the Montserrat family —
@@ -1035,9 +954,8 @@ func _text(l: Label, size: int, color: Color) -> void:
         l.add_theme_color_override("font_color", color)
 
 
-## The client's action row — EXACTLY the reference: [L] Leave · [R] Respawn
-## · [ESC] Resume, three equal keys; the key chip rides inside each one and
-## Resume speaks the fountain blue with the sparkle.
+## The action row — v1: three equal FLAT buttons, Leave · Respawn ·
+## Resume. No key chips, no gloss — the words carry it.
 func _menu_footer() -> VBoxContainer:
         var col := VBoxContainer.new()
         col.add_theme_constant_override("separation", 6)
@@ -1056,96 +974,56 @@ func _menu_footer() -> VBoxContainer:
         return col
 
 
-## One footer key: the label + a bordered key chip hugging the left edge.
-## THE SITE GLOSS KEYS — Leave wears the red Log Out gloss, Respawn the
-## steel secondary, Resume the green Play gloss — the exact trio the
-## site's buttons speak, white ink + bold outlines.
-func _footer_key(key: String, label: String, primary: bool, handler: Callable) -> Button:
+## One footer button — v1 FLAT: one quiet face, one hover lift, no icons,
+## no gloss, no key chips. Leave speaks soft red, Resume speaks blue,
+## Respawn stays neutral. Simple.
+func _footer_key(key: String, _label: String, _primary: bool, handler: Callable) -> Button:
         var b := Button.new()
-        b.text = label
+        b.text = _label
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        b.custom_minimum_size = Vector2(0, 50)
+        b.custom_minimum_size = Vector2(0, 36)
         b.focus_mode = Control.FOCUS_NONE
-        # the keys carry the REAL internet icons — Respawn wears the restart
-        # arrow at KEY size (the 140px source would fill the button)
-        if key == "R":
-                b.icon = RetroUI.icon_png_tinted_sized("respawn", RetroUI.SITE_BLUE_INK, 24)
-                b.expand_icon = false
-        elif primary:
-                b.icon = RetroUI.icon_texture("star", Color.WHITE)
-                b.expand_icon = false
-        var face := _gloss_key_style(primary if key == "ESC" else false, key)
+        var face := _flat_key_face(key, false)
+        var face_hover := _flat_key_face(key, true)
         b.add_theme_stylebox_override("normal", face)
-        b.add_theme_stylebox_override("hover", _gloss_key_style(primary if key == "ESC" else false, key, true))
+        b.add_theme_stylebox_override("hover", face_hover)
         b.add_theme_stylebox_override("pressed", face)
-        var ink := Color.WHITE
-        var chip_ink := RetroUI.SITE_BLUE_INK
-        if key == "ESC":
-                ink = Color.WHITE
-                chip_ink = RetroUI.SITE_GREEN_DK
-        elif key == "L":
-                ink = Color.WHITE
-                chip_ink = RetroUI.SITE_RED_DK
-        elif key == "R":
-                ink = RetroUI.SITE_BLUE_INK   # the steel key wears dark ink
-                chip_ink = RetroUI.SITE_BLUE_INK
+        b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+        var ink := Color(0.92, 0.95, 0.98)
+        if key == "L":
+                ink = Color(1, 0.88, 0.86)
+        elif key == "ESC":
+                ink = Color(0.88, 0.94, 1)
         for st in ["font_color", "font_hover_color"]:
                 b.add_theme_color_override(st, ink)
-        b.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 0.85))
+        b.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 0.8))
         if RetroUI.gotham(600) != null:
                 b.add_theme_font_override("font", RetroUI.gotham(600))
-        b.add_theme_font_size_override("font_size", 14)
-        # the key chip — a small bordered square parked left of center
-        var chip := PanelContainer.new()
-        chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        var csb := StyleBoxFlat.new()
-        csb.bg_color = Color.WHITE
-        csb.set_corner_radius_all(4)
-        csb.set_border_width_all(1)
-        csb.border_color = Color(0, 0, 0, 0.25)
-        csb.content_margin_left = 5.0
-        csb.content_margin_right = 5.0
-        csb.content_margin_top = 2.0
-        csb.content_margin_bottom = 2.0
-        chip.add_theme_stylebox_override("panel", csb)
-        var kl := Label.new()
-        kl.text = key
-        kl.add_theme_font_override("font", RetroUI.gotham(600))
-        kl.add_theme_font_size_override("font_size", 11)
-        kl.add_theme_color_override("font_color", chip_ink)
-        chip.add_child(kl)
-        b.add_child(chip)
-        # park the chip at the button's left inset, vertically centered
-        chip.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-        chip.grow_horizontal = Control.GROW_DIRECTION_END
-        chip.grow_vertical = Control.GROW_DIRECTION_BOTH
-        chip.position = Vector2(14, 0)
-        chip.reset_size()
-        chip.offset_left = 14.0
-        chip.offset_top = -12.0
-        chip.offset_bottom = 12.0
+        b.add_theme_font_size_override("font_size", 13)
         b.pressed.connect(handler)
         return b
 
 
-## The three SITE GLOSS key faces — "L" = red Log Out gloss, "R" = steel
-## secondary gloss, "ESC" = green Play gloss; hover lifts the shine.
-func _gloss_key_style(_primary: bool, key: String, hover := false) -> StyleBox:
-        var sb: StyleBoxTexture
+## The v1 flat footer faces — muted color washes on the dark card:
+## Leave a dim red, Respawn a neutral gray, Resume a dim blue.
+func _flat_key_face(key: String, hover: bool) -> StyleBox:
+        var sb := StyleBoxFlat.new()
+        sb.set_corner_radius_all(8)
+        sb.anti_aliasing = true
+        var a := 0.16 if hover else 0.10
         match key:
                 "L":
-                        sb = RetroUI.gloss(RetroUI.SITE_RED_HI if hover else RetroUI.SITE_RED,
-                                RetroUI.SITE_RED_LO, RetroUI.SITE_RED_DK, 8)
-                "R":
-                        sb = RetroUI.gloss(RetroUI.SITE_BTN_STEEL_HI if hover else RetroUI.SITE_BTN_STEEL,
-                                RetroUI.SITE_BTN_STEEL_LO, RetroUI.SITE_BTN_STEEL_DK, 8)
+                        sb.bg_color = Color(0.78, 0.22, 0.18, a if hover else 0.14)
+                "ESC":
+                        sb.bg_color = Color(0.16, 0.42, 0.72, a if hover else 0.13)
                 _:
-                        sb = RetroUI.gloss(RetroUI.SITE_GREEN_HI if hover else RetroUI.SITE_GREEN,
-                                RetroUI.SITE_GREEN_LO, RetroUI.SITE_GREEN_DK, 8)
-        sb.content_margin_left = 14.0
-        sb.content_margin_right = 14.0
-        sb.content_margin_top = 9.0
-        sb.content_margin_bottom = 9.0
+                        sb.bg_color = Color(1, 1, 1, 0.05 if not hover else 0.09)
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.08)
+        sb.content_margin_left = 10.0
+        sb.content_margin_right = 10.0
+        sb.content_margin_top = 7.0
+        sb.content_margin_bottom = 7.0
         return sb
 
 

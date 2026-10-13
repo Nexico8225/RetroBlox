@@ -1,11 +1,13 @@
 extends Control
 ## ChatBox — the TOP-LEFT chat, dark translucent like the classic client:
-## the TYPE BOX is ALWAYS visible (the authentic "To chat click here or
-## press / key" line), the log opens when you click it / press Enter.
-## CLICK the type box -> you are typing. CLICK OFF (or ESC) -> the keyboard
-## goes back to the game. Every line carries the speaker's name.
-## Unread messages count on the topbar chat button's red badge while the
-## log is hidden. Plain text only — nothing can inject markup.
+## v1 HIDDEN UNTIL YOU OPEN IT — the chat shows NOTHING while it is
+## closed (no always-on type box floating on the game). Press / (or the
+## topbar chat button) and the chat OPENS — log + type box appear, you
+## type, Enter sends. ESC / click off and the WHOLE chat hides again.
+## The log alone can still be peeked with F (read mode, keyboard free).
+## Every line carries the speaker's name. Unread messages count on the
+## topbar chat button's red badge while the chat is hidden. Plain text
+## only — nothing can inject markup.
 ##
 ## v3.11: F READS — a read-only mode that shows the log WITHOUT grabbing
 ## the keyboard, so you can catch up on chat while you keep moving.
@@ -133,12 +135,11 @@ func _init() -> void:
         _input.gui_input.connect(_on_input_gui)
         _input_panel.add_child(_input)
 
-        # v12.1: the type box is the chat's FRONT DOOR — always visible.
-        # Click it and you are typing (the log un-hides); click off and the
-        # keyboard goes back to the game (game.gd closes the chat on any
-        # click that lands outside this widget). The LOG starts hidden —
-        # the topbar badge counts anything said until you open it.
+        # v1: the chat is COMPLETELY hidden while closed — no type box, no
+        # log, nothing floating on the game. / or the chat button opens it.
         _panel.visible = false
+        _input_panel.visible = false
+        visible = false
 
 
 func open() -> void:
@@ -165,6 +166,8 @@ func close() -> void:
         _input.text = ""
         _input.release_focus()
         _panel.visible = false
+        _input_panel.visible = false
+        visible = false
         closed.emit()
 
 
@@ -221,9 +224,8 @@ func _on_submit(text: String) -> void:
 
 func _on_input_gui(event: InputEvent) -> void:
         if event is InputEventMouseButton and event.is_pressed():
-                # clicking the always-visible type box opens the chat (the
-                # log un-hides so you can see what everyone is saying) and
-                # hands you the keyboard
+                # clicking the type box (while the chat is open) keeps you
+                # typing — the open path is / or the topbar chat button
                 if not is_open:
                         open()
                         get_viewport().set_input_as_handled()

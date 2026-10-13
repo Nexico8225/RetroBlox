@@ -75,7 +75,7 @@ The game remembers you — next launch signs you in automatically.
 | Orbit / zoom | Mouse + wheel (click the world to re-capture) |
 | Shift Lock | **Shift** toggles it live, or the Settings toggle. Locked on, the character squares up to the camera — look right / left / back and the body follows. Ladders still grab when you walk into them (v3.8 fixed the old phase-through). |
 | Jump off a ladder | Space while climbing — you leap off the rungs and can't re-grab for a beat |
-| Chat | Enter (or the chat pill button) — Enter sends |
+| Chat | **/** (or the chat pill button) opens it — the chat is hidden until then; Enter sends, ESC hides everything |
 | Chat commands | `/help`, `/e sit`, `/e stop` — local, never sent to the server |
 | Menu / Players / Settings | Esc opens the menu, **R** also opens it (v3.8; R again inside confirms the reset) — P opens the People tab; **F2 opens the UI EDITOR** |
 
@@ -88,31 +88,30 @@ over and over; 1-2 stud steps are GLIDED over like stairs — no teleport,
 the character eases up the step exactly like Roblox.
 
 ### The old front door — v12.2
-- The chrome goes DARK RETRO: translucent slate surfaces (retro_theme.gd `NIGHT_*`), light ink, the SAME blue gloss chrome + green/red gloss keys — nothing blinds, everything reads
-- The ESC menu: dark slate panel (translucent — the game breathes through), blue gloss header, folder tabs, dark People cards, gloss footer keys
+- The chrome goes DARK and QUIET: translucent slate surfaces (retro_theme.gd `NIGHT_*`), light ink, nothing blinds, everything reads
+- The ESC menu: v1 THE SIMPLE CARD — compact, flat, near-opaque dark card with a hairline border; NO banner, no logo, no clock, no icons, no gloss keys — just two plain text tabs and the words
 - The PEOPLE GRID: every player as their LIVE 3D avatar (drag to spin, wheel to zoom) + name
-- The chat is the dark glass float again; every line is name + text; the type box is ALWAYS visible (click to type, click off to release)
+- The chat is the dark glass float and it is HIDDEN until you open it — press / or the chat button, the log + type box appear together; ESC hides the whole thing again
 - The health bar is VERTICAL on the right edge — navy track, green fill climbing from the bottom, the number chip on top
 - The stats chip (FPS · ping · v1) is always on, bottom-left, dark
 - One voice: ARIAL (Liberation Sans). The window opens COMPACT at 960x600
 
-## The ESC menu — the RETRO NIGHT panel with LIVE avatars (v1)
+## The ESC menu — THE SIMPLE CARD with LIVE avatars (v1)
 
-The menu is ONE centered translucent slate card (about 64% of the screen —
-the game stays visible behind it under a deep veil) with the site's BLUE
-GLOSS header strip: the tilted red tile, the RETROBLOX wordmark and the
-live session clock. The folder tabs — People · Settings — wear the REAL
-internet icon PNGs; the open tab is the blue gloss with white ink. The
-People page is ONE grid of LIVE CARDS: every player is their real 3D
-avatar standing on its own stage — drag the card to spin them around and
-see every side, drag up/down tilts, the mouse wheel zooms in close — with
-their name under it. A gentle turntable plays until your first grab, then
-the stage holds still so you can look them over carefully. The stage
-renders ONLY while the menu is open (resume = zero cost), the rig dresses
-once per session (players can wait), and your spin/zoom survives the
-roster refreshes. My card wears the classic blue ring.
-The footer is the site's own button trio: red Leave · steel Respawn ·
-green Resume, each with the white key chip.
+The menu is ONE small centered dark card (max 520 x 500 — a card, not a
+veil): no RETROBLOX banner, no clock, no blue gloss, no icons. Two plain
+TEXT tabs — People · Settings — sit on one quiet line (the open tab is
+white on a faint pill); under them, the People page is ONE grid of LIVE
+CARDS: every player is their real 3D avatar standing on its own stage —
+drag the card to spin them around and see every side, drag up/down tilts,
+the mouse wheel zooms in close — with their name under it. A gentle
+turntable plays until your first grab, then the stage holds still so you
+can look them over carefully. The stage renders ONLY while the menu is
+open (resume = zero cost), the rig dresses once per session (players can
+wait), and your spin/zoom survives the roster refreshes. My card wears
+the classic blue ring.
+The footer is three FLAT buttons: dim-red Leave · neutral Respawn ·
+dim-blue Resume — no gloss, no key chips, the words carry it.
 
 ### MORE SETTINGS (v12.0) + ACCOUNT (v12.2)
 

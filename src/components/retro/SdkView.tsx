@@ -13,6 +13,8 @@ const VERSION = 'v1 "AVATARS, NOT PICTURES"'
 const ZIP_URL = '/godot/retroblox-godot-player.zip?v=1'
 
 const NEW_STUFF: [string, string][] = [
+  ['THE ESC MENU IS A BRAND-NEW SIMPLE CARD', 'The old banner panel is GONE — no RETROBLOX header, no clock, no blue gloss tabs, no icons, no key chips. One small compact dark card: two plain text tabs (People / Settings), the live 3D avatar grid, three flat buttons (Leave · Respawn · Resume). Simple UI beats busy UI.'],
+  ['THE CHAT IS HIDDEN UNTIL YOU OPEN IT', 'No type box floating on the game anymore. Press / (or the chat button) and the chat OPENS — log + type box appear together. Enter sends, ESC hides the whole thing. Unread messages still stack the red badge on the chat button.'],
   ['THE PFP SYSTEM IS GONE — FOR REAL THIS TIME', 'Every profile-picture fetch is DELETED: the PfpService file, its autoload, the topbar pill picture, the chat line pictures, the Settings MY PICTURE editor, all of it. If a picture cannot load, it does not ship. The avatar IS the picture.'],
   ['THE ESC MENU IS ALIVE — LITERAL 3D', 'Every People card now hosts the player\'s REAL RIG on its own live 3D stage: DRAG to spin them around and see every side, drag up/down to tilt, the wheel zooms in close. A gentle turntable plays until your first grab, then holds perfectly still so you can look them over carefully. My card keeps the classic blue ring.'],
   ['THE STAGES COST NOTHING CLOSED', 'Every card\'s 3D stage renders ONLY while the ESC menu is actually open — the moment you resume, all of them stop drawing. Rigs dress ONCE per session (the players can wait), your spin/zoom survives the 2.5s roster refresh, and anyone who leaves takes their stage with them.'],
