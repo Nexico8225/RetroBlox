@@ -1,18 +1,20 @@
 'use client'
 
 /* ================= RetroBlox SDK page (/sdk) =================
-   v1.1 MONOCHROME: the user's order — black & white, Roblox-like,
-   human words ("Bunny Hop ✅", not paragraphs), and the Unity
+   The CLASSIC BLUE is back (the user liked the old look — v1.1's
+   black & white went too far, so the site wears the 2016 blue again).
+   Human words ("Bunny Hop ✅", not paragraphs), and the Unity
    version teased as the upcoming system for Unity users. */
 
 import Link from 'next/link'
 
 const VERSION = 'v1 "AVATARS, NOT PICTURES"'
+const V_TAG = 'v1'
 const ZIP_URL = '/godot/retroblox-godot-player.zip?v=1.1'
 
-const INK = '#101114'
-const DIM = '#6d6d74'
-const EDGE = '#e4e4e7'
+const INK = '#1c3a52'
+const DIM = '#5a6b7b'
+const EDGE = '#b6c0cb'
 
 const NEW_STUFF: [string, string][] = [
   ['THE ESC MENU IS BIGGER — AND WEARS THE ROBLOX LAYOUT', 'A slim icon rail on the left (a person for People, a gear for Settings — hand-drawn, pure white on black), a bigger card (680 x 580), the same LIVE 3D avatar grid, and RESUME is now the primary: a WHITE button with black ink. No red, no blue — black & white only.'],
@@ -21,7 +23,7 @@ const NEW_STUFF: [string, string][] = [
   ['HUMAN NAMES, NOT INSTRUCTIONS', 'We renamed the settings like a human would:'],
   ['THE CHAT SHOWS NOTHING UNTIL YOU OPEN IT', 'No type box floating on the game. Press / (or the chat button) and the chat OPENS — log + type box together. Enter sends, ESC hides everything. Unread messages stack the red badge while it is hidden.'],
   ['THE AVATARS ARE REAL 3D', 'Every People card hosts the player\'s actual rig on its own live stage: DRAG to spin, drag to tilt, wheel to zoom. The turntable stops when you grab it. Stages render only while the menu is open — closing costs nothing. Your card wears the white ring now.'],
-  ['THE WEBSITE IS BLACK & WHITE', 'You said it straight, so: the whole site dropped the blue — black top bar, black buttons, white cards, gray page. One color survived: danger red on the destructive keys.'],
+  ['THE CLASSIC BLUE IS BACK', 'You liked the old look — so the site wears it again: the solid blue top bar, the blue buttons, white cards, the gray page. Blue, white, red for danger — that is the whole palette. No color circus.'],
   ['UNITY VERSION — IN THE WORKS', 'An upcoming system for Unity users: the same RetroBlox platform (accounts, avatars, chat, presence) inside Unity. It is being worked on — watch this space.'],
   ['EVERYTHING BEFORE STAYS', 'Log In only, the simple login, the instant shift-lock snap, 2-stud stairs, occlusion culling, the blue-gloss topbar (that one you liked), 12s bubbles, vertical health bar, Log Out.'],
 ]
@@ -84,14 +86,14 @@ const CONTROLS: [string, string][] = [
 ]
 
 const PRE: React.CSSProperties = {
-  background: '#101114',
-  color: '#e4e4e7',
+  background: '#122b41',
+  color: '#cfe6f7',
   padding: 12,
   fontSize: 11,
   fontFamily: 'Courier New, monospace',
   overflowX: 'auto',
   lineHeight: 1.5,
-  border: '1px solid #26282e',
+  border: '1px solid #0d3054',
   whiteSpace: 'pre',
 }
 
@@ -100,9 +102,12 @@ export function SdkView() {
     <div>
       {/* hero */}
       <div className="rb-box" style={{ marginBottom: 12 }}>
-        <div className="rb-panel-head"><span>RetroBlox SDK — the RetroBlox Player {VERSION}</span></div>
+        <div className="rb-panel-head"><span>The RetroBlox Player — official SDK ({V_TAG})</span></div>
         <div style={{ padding: 14 }}>
-          <div style={{ fontSize: 17, color: INK }}>Load your avatar. Play five places. Collect Tix. Chat with everyone online.</div>
+          <div style={{ fontSize: 17, color: INK }}>Dress your avatar. Play five places. Collect Tix. Chat with everyone online.</div>
+          <div style={{ marginTop: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#00639e', background: '#e1f2fb', border: '1px solid #b5d9ee', padding: '2px 8px', borderRadius: 3 }}>{VERSION}</span>
+          </div>
           <div style={{ fontSize: 11, color: DIM, marginTop: 4, maxWidth: 660 }}>
             The RetroBlox SDK is the official <b style={{ fontWeight: 600 }}>RetroBlox Player</b> —
             log in once and the game <b style={{ fontWeight: 600 }}>remembers you forever</b>: your account avatar loads from the platform —
@@ -113,7 +118,7 @@ export function SdkView() {
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <a className="rb-btn rb-btn-green" href={ZIP_URL} download style={{ textDecoration: 'none', fontSize: 14, padding: '10px 18px' }}>
-              ⬇ Download the RetroBlox Player {VERSION} (.zip)
+              ⬇ Download the RetroBlox Player ({V_TAG}) (.zip)
             </a>
             <a href="https://raw.githubusercontent.com/Nexico8225/RetroBlox/main/public/godot/retroblox-godot-player.zip" download style={{ fontSize: 11, color: DIM, textDecoration: 'underline', marginLeft: 12 }}>
               mirror: direct from GitHub (always the latest build)
@@ -126,19 +131,19 @@ export function SdkView() {
             The zip is the same folder this page ships from — always the latest build.
           </div>
           {/* the upcoming Unity system */}
-          <div style={{ marginTop: 14, border: '1px solid ' + EDGE, background: '#101114', color: '#fff', padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: 0.4 }}>UNITY VERSION — IN THE WORKS</div>
-            <div style={{ fontSize: 11, color: '#a1a1aa', flex: 1, minWidth: 260 }}>
+          <div style={{ marginTop: 14, border: '1px solid #005f9c', background: 'linear-gradient(180deg, #0f83c9 0%, #00639e 100%)', color: '#fff', padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: 0.4, textShadow: '0 1px 1px rgba(0,0,0,.3)' }}>UNITY VERSION — IN THE WORKS</div>
+            <div style={{ fontSize: 11, color: '#d7ecfa', flex: 1, minWidth: 260 }}>
               The same RetroBlox — accounts, avatars, chat, presence — as an upcoming system built for Unity users. It is being worked on right now. Watch this space.
             </div>
-            <span style={{ fontSize: 10, border: '1px solid #3f3f46', color: '#d4d4d8', padding: '3px 10px', whiteSpace: 'nowrap' }}>COMING SOON</span>
+            <span style={{ fontSize: 10, border: '1px solid #7cbde0', background: 'rgba(255,255,255,.14)', color: '#fff', padding: '3px 10px', whiteSpace: 'nowrap' }}>COMING SOON</span>
           </div>
         </div>
       </div>
 
       {/* what's new */}
       <div className="rb-box" style={{ marginBottom: 12 }}>
-        <div className="rb-panel-head"><span>What&apos;s new in {VERSION}</span></div>
+        <div className="rb-panel-head"><span>What&apos;s new in {V_TAG}</span></div>
         <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 8 }}>
           {NEW_STUFF.map(([t, d]) => (
             <div key={t} style={{ border: '1px solid ' + EDGE, padding: '8px 10px', background: '#ffffff' }}>

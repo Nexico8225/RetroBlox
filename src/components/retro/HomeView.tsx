@@ -68,7 +68,7 @@ export function GameCard({ game }: { game: GameSummary }) {
       }}
       aria-label={`Open ${game.name}`}
     >
-      <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#ececee', border: '1px solid #c9c9cf' }}>
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#dde5ec', border: '1px solid #c3cdd7' }}>
         <GameCover src={cover} name={game.name} />
         <span
           style={{
@@ -114,7 +114,7 @@ export function GameCard({ game }: { game: GameSummary }) {
       >
         {game.name}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#6d6d74' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#5a6b7b' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
           <ThumbIcon up /> {game.rating != null ? `${game.rating}%` : 'New'}
         </span>
@@ -156,8 +156,8 @@ export function ThumbIcon({ up }: { up?: boolean }) {
 export function PersonIcon() {
   return (
     <svg width="10" height="11" viewBox="0 0 12 13" aria-hidden="true">
-      <circle cx="6" cy="3.2" r="2.6" fill="#6d6d74" />
-      <path d="M1 12.5c0-3 2.2-4.8 5-4.8s5 1.8 5 4.8z" fill="#6d6d74" />
+      <circle cx="6" cy="3.2" r="2.6" fill="#5a6b7b" />
+      <path d="M1 12.5c0-3 2.2-4.8 5-4.8s5 1.8 5 4.8z" fill="#5a6b7b" />
     </svg>
   )
 }
@@ -466,7 +466,7 @@ export function HomeView() {
               style={{
                 width: 58,
                 height: 58,
-                border: '2px dashed #b3b3ba',
+                border: '2px dashed #8ba0b3',
                 fontSize: 26,
                 color: '#5a7b9a',
                 background: '#eef4fa',
@@ -527,7 +527,7 @@ export function HomeView() {
           ))}
 
           {!loading && friends.length === 0 && (
-            <div style={{ alignSelf: 'center', color: '#6d6d74', fontSize: 11, padding: '0 8px' }}>
+            <div style={{ alignSelf: 'center', color: '#5a6b7b', fontSize: 11, padding: '0 8px' }}>
               No friends yet — add blockheads you know, or meet similar players below!
             </div>
           )}
@@ -549,7 +549,7 @@ export function HomeView() {
         <div style={{ fontSize: 22 }} aria-hidden="true">🕹️</div>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ fontSize: 12, fontWeight: 'bold', color: '#14202c' }}>Play RetroBlox on your PC</div>
-          <div style={{ fontSize: 11, color: '#6d6d74' }}>
+          <div style={{ fontSize: 11, color: '#5a6b7b' }}>
             Free desktop player for Windows / Mac / Linux — walk, jump and build in every game on here.
           </div>
         </div>
@@ -582,7 +582,7 @@ export function HomeView() {
             : games.map((g) => <GameCard key={g.id} game={g} />)}
         </div>
         {!loading && games.length === 0 && (
-          <div style={{ padding: '26px 20px', textAlign: 'center', color: '#6d6d74' }}>
+          <div style={{ padding: '26px 20px', textAlign: 'center', color: '#5a6b7b' }}>
             <div style={{ fontSize: 15, marginBottom: 6 }}>No games yet</div>
             <div style={{ fontSize: 11, marginBottom: 12 }}>
               {user
@@ -672,7 +672,7 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
     <div>
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>{title}</span></div>
-        <div style={{ padding: '8px 12px', fontSize: 11, color: '#6d6d74' }}>
+        <div style={{ padding: '8px 12px', fontSize: 11, color: '#5a6b7b' }}>
           {q
             ? `${loading ? '...' : games.length} game(s) found — matched against titles, descriptions and creators.`
             : sort === 'recommended'
@@ -700,7 +700,7 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
                   background: genre === g ? '#e3edf7' : 'transparent',
                   border: 'none',
                   borderBottom: '1px solid #eef2f6',
-                  color: genre === g ? '#101114' : '#3f3f46',
+                  color: genre === g ? '#0a4f82' : '#1c4e7c',
                   fontSize: 11,
                 }}
               >
@@ -750,7 +750,7 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
           </div>
 
           {!loading && games.length === 0 && (
-            <div className="rb-box" style={{ padding: 30, textAlign: 'center', color: '#6d6d74' }}>
+            <div className="rb-box" style={{ padding: 30, textAlign: 'center', color: '#5a6b7b' }}>
               <div style={{ fontSize: 14, marginBottom: 4 }}>
                 {q ? `No games match "${q}".` : 'No games found here yet.'}
               </div>

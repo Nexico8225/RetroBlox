@@ -30,8 +30,8 @@ export function Avatar({
         width: size,
         height: size,
         borderRadius: rounded,
-        border: '1px solid #c3c3c9',
-        background: '#ececee',
+        border: '1px solid #8ba0b3',
+        background: '#dde5ec',
         objectFit: 'cover',
         flexShrink: 0,
       }}
@@ -43,7 +43,7 @@ export function Avatar({
 export function GameIcon({ src, name, size = 90 }: { src?: string | null; name: string; size?: number }) {
   const [err, setErr] = useState(false)
   const fallback = `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150"><rect width="150" height="150" fill="#6d6d74"/><text x="75" y="90" text-anchor="middle" font-family="Verdana" font-size="70" fill="#fff">${name.replace(/[^A-Za-z0-9]/g, '').charAt(0).toUpperCase() || 'G'}</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150"><rect width="150" height="150" fill="#7c8ea0"/><text x="75" y="90" text-anchor="middle" font-family="Verdana" font-size="70" fill="#fff">${name.replace(/[^A-Za-z0-9]/g, '').charAt(0).toUpperCase() || 'G'}</text></svg>`
   )}`
   return (
     <img
@@ -54,8 +54,8 @@ export function GameIcon({ src, name, size = 90 }: { src?: string | null; name: 
         width: size,
         height: size,
         objectFit: 'cover',
-        border: '1px solid #c3c3c9',
-        background: '#ececee',
+        border: '1px solid #8ba0b3',
+        background: '#dde5ec',
         flexShrink: 0,
       }}
     />
@@ -125,8 +125,8 @@ export function Header() {
             style={{
               display: 'inline-flex',
               padding: 3,
-              background: 'linear-gradient(180deg,#fff,#e9e9eb)',
-              border: '1px solid #16181d',
+              background: 'linear-gradient(180deg,#fff,#dbe4ec)',
+              border: '1px solid #005f9c',
               borderRadius: 4,
               boxShadow: 'inset 1px 1px 0 #fff',
             }}
@@ -194,14 +194,14 @@ export function Header() {
                 >
                   <path
                     d="M3 9V6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v3a2.5 2.5 0 0 0 0 6v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a2.5 2.5 0 0 0 0-6z"
-                    fill="#d4d4d8"
-                    stroke="#6d6d74"
+                    fill="#ffd34e"
+                    stroke="#8a6d1a"
                     strokeWidth="1.2"
                   />
-                  <path d="M15.5 6v2M15.5 10.5v2M15.5 15v2" stroke="#6d6d74" strokeWidth="1.4" strokeDasharray="2.4 2.2" fill="none" />
+                  <path d="M15.5 6v2M15.5 10.5v2M15.5 15v2" stroke="#8a6d1a" strokeWidth="1.4" strokeDasharray="2.4 2.2" fill="none" />
                 </svg>
                 <span style={{ fontFamily: 'monospace' }}>{tixCompact(user.rbxBalance ?? 0)}</span>
-                <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#d4d4d8' }}>+ Buy</span>
+                <span className="rb-wallet-buy" style={{ fontSize: 10, color: '#ffe07a' }}>+ Buy</span>
               </Link>
 
               <Link
@@ -284,12 +284,12 @@ export function Header() {
 function ChatIcon() {
   return (
     <svg width="22" height="18" viewBox="0 0 22 18" aria-hidden="true">
-      <rect x="1" y="1.5" width="16" height="11" rx="3" fill="#f2f2f3" stroke="#1a1b1e" strokeWidth="1.3" />
-      <path d="M5 12.5v4l4.5-4" fill="#f2f2f3" stroke="#1a1b1e" strokeWidth="1.3" strokeLinejoin="round" />
-      <circle cx="6" cy="7" r="1.2" fill="#55565c" />
-      <circle cx="9.5" cy="7" r="1.2" fill="#55565c" />
-      <circle cx="13" cy="7" r="1.2" fill="#55565c" />
-      <circle cx="18.5" cy="13" r="2.6" fill="#e4e4e6" stroke="#1a1b1e" strokeWidth="1.2" />
+      <rect x="1" y="1.5" width="16" height="11" rx="3" fill="#e8eef4" stroke="#0d3054" strokeWidth="1.3" />
+      <path d="M5 12.5v4l4.5-4" fill="#e8eef4" stroke="#0d3054" strokeWidth="1.3" strokeLinejoin="round" />
+      <circle cx="6" cy="7" r="1.2" fill="#2a6cad" />
+      <circle cx="9.5" cy="7" r="1.2" fill="#2a6cad" />
+      <circle cx="13" cy="7" r="1.2" fill="#2a6cad" />
+      <circle cx="18.5" cy="13" r="2.6" fill="#cfe0ef" stroke="#0d3054" strokeWidth="1.2" />
     </svg>
   )
 }
@@ -325,8 +325,8 @@ export function Sidebar() {
         href={href}
         className="rb-side-item"
         style={{
-          background: active ? '#1a1b1e' : 'transparent',
-          color: active ? '#ffffff' : '#3f3f46',
+          background: active ? '#e1f2fb' : 'transparent',
+          color: active ? '#00639e' : '#1c4e7c',
         }}
       >
         <span>{label}</span>
@@ -342,7 +342,7 @@ export function Sidebar() {
     <aside className="rb-sidebar" style={{ width: 200, flexShrink: 0 }}>
       {/* user card — this is the profile tab: profile, friends, chat and log out live here */}
       <div className="rb-box" style={{ marginBottom: 10, overflow: 'hidden' }}>
-        <div style={{ padding: 10, display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(180deg,#f4f4f5,#e6e6e8)' }}>
+        <div style={{ padding: 10, display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(180deg,#eef4fa,#dbe6f0)' }}>
           <Avatar user={user} size={44} />
           <div>
             <Link href={`/users/${user.id}`} className="rb-link" style={{ fontSize: 12, display: 'block' }}>
@@ -545,7 +545,7 @@ function MobileDrawer() {
             <div style={{ color: '#fff', fontSize: 12, textShadow: '1px 1px 0 rgba(0,0,0,.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
               {user.username}
             </div>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#9a9aa2' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#bcd8ef' }}>
               <OnlineDot online={user.online} /> {user.online ? 'Online' : 'Offline'}
               {user.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
             </span>
@@ -650,8 +650,8 @@ export function BootScreen() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(180deg,#16181d,#0b0c0f)',
-        color: '#d4d4d8',
+        background: 'linear-gradient(180deg,#0b1c2c,#123a5c)',
+        color: '#ffd34e',
         fontSize: 16,
         fontFamily: 'Verdana, sans-serif',
         flexDirection: 'column',
@@ -734,7 +734,7 @@ export function Page({ children }: { children: React.ReactNode }) {
           <Link href="/create" className="rb-link">Create</Link> ·{' '}
           {new Date().getFullYear()} RetroBlox Corporation
         </div>
-        <div style={{ fontSize: 10, color: '#8f8f96' }}>Best viewed at 1024x768 with a 56k modem</div>
+        <div style={{ fontSize: 10, color: '#7fa8c9' }}>Best viewed at 1024x768 with a 56k modem</div>
       </footer>
       {user && <MobileTabs />}
     </div>
