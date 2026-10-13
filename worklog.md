@@ -233,3 +233,24 @@ Work Log:
 
 Stage Summary:
 - v11.0 "BLACK GLASS" live on main: the bacon is gone forever (the UI wears the account's real site avatar), the old login is back on the real baseplate photo, the ESC menu is black glass with internet icons and only People/Settings, bubbles fit + linger 12s, arms ease, the hitbox is the R6 2x5x1 box; owner must re-download the kit zip (?v=11.0 busts the cache)
+
+---
+Task ID: godot-v121-retro-night
+Agent: Super Z (main)
+Task: v12.1 RETRO NIGHT — the client goes dark retro + the identity block + the site-profile PFP
+
+Work Log:
+- THE BLINDING IS DEAD: every paper surface flipped to the RETRO NIGHT slate (retro_theme.gd NIGHT_* palette) — menu panel, cards, wells, checks, sliders, chat, topbar pills, toasts, stats chip — light ink everywhere, the blue gloss header/tabs and the red/steel/green gloss keys stay
+- THE ESC MENU LOADS YOUR AVATAR: People page opens on the IDENTITY BLOCK — full-body AvatarPortrait render (320x448, 4x MSAA) of the payload the rig wears, the SITE PFP circle-badged on its bottom-right corner, name + @handle + live FPS/ping beside it
+- THE SITE-PROFILE PFP: PfpService now = custom URL -> account avatarUrl (mine via /me, everyone via GET /api/users/{id}/pfp) -> the DEFAULT letter avatar (initial + site LETTER_COLORS, drawn with a 5x7 pixel-glyph font — Font.draw_string on an Image silently no-ops); cache namespace v13; peek() for instant chat seats
+- CHAT: dark glass float, classic bright name palette, every line leads with the speaker PFP (RichTextLabel add_image + pfp_resolver), the type box is ALWAYS visible — click to type, click-off (game _unhandled_input) or ESC hands the keyboard back
+- THREE-LINE BUTTON removed (topbar = logo + chat); UiEditor no longer registers the chat; the EDIT THIS UI settings section is deleted (F2 still works for power users)
+- HEALTH BAR: VERTICAL on the right edge — navy track, green->red flat fill climbing from the bottom (the old gloss fill could never tint), number chip on top
+- TILES/LIST views fixed: _people_view state, toggle buttons with a real pressed state (active = blue gloss), the roster rebuilds in the current view (tiles = 3-wide grid, list = compact rows)
+- LOG OUT: Settings -> ACCOUNT -> Log Out (red gloss) wipes the token via Api.clear_session + Session.reset and lands on the old login page
+- LOGIN PAGE untouched (the white RETROBLOX card + Log In/Sign Up + classic green key) — VERSION bumped to 12.1
+- Tests: smoke.gd rewritten for v12.1 (hamburger gone, click-off, letter avatar, /api/users/{id}/pfp, identity block, log out, view toggles, v13 cache) — SMOKE_OK in-tree AND fresh-unzip (172-file zip); tests/v1210_shot.gd under Xvfb: SITE_PAYLOAD_OK + PFP_READY 144x144 + IDENTITY_READY 320x448 + STAIRS_2STUD OK + 7 shots (menu tiles/list, settings, hud, chat, world, login)
+- /sdk v12.1 news + ?v=12.1 zip bust, HomeView ?v=12.1, kit README v12.1; site typecheck clean for touched files (36 pre-existing errors elsewhere, untouched)
+
+Stage Summary:
+- v12.1 RETRO NIGHT built, verified in-tree and fresh-unzip, screenshots inspected (dark retro menu, identity block with letter badge, vertical health, PFP chat lines, tiles/list toggles); ready to commit + push

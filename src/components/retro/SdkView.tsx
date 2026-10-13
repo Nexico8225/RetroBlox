@@ -9,17 +9,19 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v12.0 "SITE GLOSS"'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=12.0'
+const VERSION = 'v12.1 "RETRO NIGHT"'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=12.1'
 
 const NEW_STUFF: [string, string][] = [
-  ['THE MENU WEARS THE SITE', 'The ESC menu is the retro-blox.vercel.app look, sampled off the real site: a white PAPER card with the steel-blue border, a BLUE GLOSS header strip (logo + RETROBLOX + live clock), folder tabs with the internet icons, white People cards, and the three GLOSS keys — red Leave, steel Respawn, green Resume. The exact buttons the site speaks. Some surfaces ride translucent so the game breathes through.'],
-  ['YOUR PFP, FINALLY READABLE', 'The headshot camera pulls BACK — head + hat + shoulders fit the square with margins (the old shot zoomed INTO the helmet and read as nothing). Every render lands on the light site-paper backdrop, so the chip, the cards and the preview read clean at any size, on any surface. Fresh cache namespace, so old bytes can never resurface.'],
-  ['INVITE FRIENDS — REMOVED', 'Nobody asked for it. The People tab is the server roster, nothing else: your card (blue ring) + everyone in this server, ping/fps live.'],
-  ['MORE SETTINGS', 'PERFORMANCE: Show FPS, Show ping, Maximum FPS (Unlimited/30/60/120/240 — applied live). CHARACTER: See player names (nameplates above every avatar), Bunny hop (hold Space to keep bouncing — off means one jump per press). Plus RESET ALL SETTINGS — the red key that puts every option back to default in one press.'],
-  ['THE STATS CHIP', 'FPS · ping · version now ride a small blue gloss chip parked bottom-left ALWAYS ON — the classic performance-stats read, and the Show FPS / Show ping toggles hide each part.'],
-  ['THE PAPER CHAT', 'The chat float + typing line wear the site paper too: white card, steel border, dark ink, re-tuned name colors that read on white. The world chat bubbles stay the classic white plates.'],
-  ['EVERYTHING FROM v11 STAYS', 'Your account avatar everywhere (no bacon, no Roblox thumbnail API), the old login on the real baseplate photo, People + Settings only, R6 2x5x1 hitbox, font-metric bubbles that linger 12s, eased arm animations.'],
+  ['RETRO NIGHT — DARK, NOT BLINDING', 'The whole client chrome goes the 2012 client\'s dark slate: a translucent night panel with light ink everywhere, so NOTHING blinds you and every option stays readable — the blue gloss header, tabs and the red/steel/green key trio stay exactly as retro as ever. Dark pills, dark toasts, dark cards, dark chat.'],
+  ['THE ESC MENU LOADS YOUR AVATAR', 'The People page opens on YOUR IDENTITY BLOCK: the full-body render of the exact avatar your rig wears (320x448, 4x MSAA), with your SITE PFP badged on its bottom-right corner, your name + @handle + live FPS/ping beside it.'],
+  ['THE REAL PLAYER-PROFILE PFP', 'The client finally speaks the site\'s own profile rules: everyone\'s face loads from GET /api/users/{id}/pfp — and accounts without an upload wear the DEFAULT PFP (the letter avatar: your initial on your stable color, the exact look the website gives new accounts). Your custom URL from Settings still wins.'],
+  ['CHAT LINES WEAR THE PFP', 'Every chat line leads with the speaker\'s site picture + their name in the classic bright palette, on the dark glass float. The type box is ALWAYS visible — click it to type, click off (or ESC) and the keyboard goes back to the game.'],
+  ['THREE-LINE BUTTON + EDIT CHAT — GONE', 'The topbar is the classic two keys (logo + chat); the logo key and ESC open the menu. The UI-editor hooks are off the chat and the EDIT THIS UI settings section is gone.'],
+  ['VERTICAL HEALTH BAR, RIGHT EDGE', 'The classic client dock: a deep navy track hugging the right side, the green fill climbing from the bottom, the number chip parked on top — green to red with your health.'],
+  ['TILES + LIST VIEWS FIXED', 'The People page\'s view toggles actually work now: Tiles = the 3-wide card grid, List = compact rows with live ping/fps — the active view glows blue so you always know where you are.'],
+  ['LOG OUT', 'Settings → ACCOUNT → Log Out: the session token is wiped and you land on the OLD login page — the white RETROBLOX card with the classic Log In key.'],
+  ['EVERYTHING FROM v12/v11 STAYS', 'Show FPS / Show ping / Maximum FPS / See player names / Bunny hop / Reset all settings, the account avatar everywhere (no bacon), People + Settings only, R6 2x5x1 hitbox, font-metric bubbles that linger 12s, eased arm animations.'],
 ]
 
 const FILES = [
@@ -28,8 +30,8 @@ const FILES = [
   ['scripts/core/settings.gd', 'Every option, persisted + applied live (FOV, volumes, shadows, fullscreen, shift lock, show FPS/ping, max FPS, player names, bunny hop, reset all)'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'The OLD LOGIN, back: the white card + tilted red tile + RETROBLOX wordmark on the REAL baseplate photograph, Log In / Sign Up tabs, white wells, the classic GREEN key, server URL locked'],
-  ['scripts/ui/retro_theme.gd', 'The engine: ARIAL, the classic palette (green primary, ROBLOX red, classic blue) + icon_png() — the REAL internet icon PNGs with a code-drawn fallback — bevels, wells, glass, cursors'],
-  ['scripts/ui/pfp_service.gd', 'The PFP engine: YOUR custom URL (from the editor) → your account avatarUrl → the SITE AVATAR rendered headshot-style (the exact look your character wears) → smiley fallback; data-URL decode, 6h disk cache, rounded corners. NO bundled bacon, NO Roblox thumbnails'],
+  ['scripts/ui/retro_theme.gd', 'The engine: ARIAL, the RETRO NIGHT slate palette + the site gloss keys, the site letter-avatar palette + pixel glyphs, the circle-badge cropper, icon_png() internet PNGs with a code-drawn fallback, bevels, wells, glass, cursors'],
+  ['scripts/ui/pfp_service.gd', 'The PFP engine, the SITE\'s own rules: custom URL → account avatarUrl (yours via /me, everyone else via GET /api/users/{id}/pfp) → the DEFAULT letter avatar; peek() for instant chat lines, data-URL decode, 6h disk cache, rounded corners. NO bundled bacon, NO Roblox thumbnails'],
   ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, global UI scale, your PFP URL — user://ui_config.json, boots with you'],
   ['scripts/ui/ui_editor.gd', 'THE UI EDITOR (F2): pick layer hit-testing, drag to move, X/Y/Scale steppers, text editing, add/remove labels, global zoom, PFP URL, Save/Reset'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
@@ -39,8 +41,8 @@ const FILES = [
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the BLACK GLASS ESC menu (People + Settings tabs with real icons, @handle cards, [L]/[R]/[ESC] footer, editor registration), respawn flow'],
-  ['scripts/game/chat_box.gd', 'The classic chat log + type box that open and close as ONE widget, injection-proof'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the RETRO NIGHT ESC menu (identity block with your avatar render + PFP badge, tiles/list views, People + Settings tabs, [L]/[R]/[ESC] footer, Log Out), respawn flow, the vertical right-edge health bar'],
+  ['scripts/game/chat_box.gd', 'The classic chat: always-visible type box (click to type, click off to release), dark glass log with PFP + name lines, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, and Shift Lock shoulder park'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],
 ]

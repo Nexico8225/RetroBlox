@@ -409,33 +409,37 @@ func _run_all() -> void:
         check(login_src.contains("401"),
                 "saved token survives network failures (only 401 clears it)")
 
-        # --- chat box: starts tucked away, opens as ONE widget (log + type
-        # box together), closes the same way — nothing left dangling ---
+        # --- chat box: the TYPE BOX is always visible (the front door), the
+        # log opens when you click it / press Enter, closes on click-off ---
         var chat_script: Script = load("res://scripts/game/chat_box.gd")
         var chat: Control = chat_script.new()
         root.add_child(chat)
         var log_panel: Control = chat.get_node_or_null("LogPanel")
         var input_panel: Control = chat.get_node_or_null("InputPanel")
         check(log_panel != null and input_panel != null and not log_panel.visible
-                and not input_panel.visible,
-                "chat starts fully tucked away (badge era)")
+                and input_panel.visible,
+                "chat boots with the type box VISIBLE, log tucked away")
         chat.call("add_system", "welcome")
-        check(int(chat.get("_unread")) == 1, "hidden chat stacks the unread badge")
+        check(int(chat.get("_unread")) == 1, "hidden log stacks the unread badge")
         chat.call("open")
         check(input_panel.visible and log_panel.visible and bool(chat.get("is_open")),
-                "opening shows the log AND the type box")
+                "clicking the type box shows the log (you are typing)")
         check(chat.offset_top >= 40.0 and chat.offset_left <= 16.0,
                 "chat sits top-left under the topbar")
         chat.call("add_chat", "Ann", 3, "hello")
         chat.call("close")
-        check(not log_panel.visible and not input_panel.visible,
-                "closing hides the log AND the type box (nothing dangles)")
+        check(not log_panel.visible and input_panel.visible,
+                "click-off hides the LOG, the type box stays (the front door)")
         chat.call("add_chat", "Bob", 4, "psst")
         check(int(chat.get("_unread")) == 1,
                 "messages arriving while hidden count for the badge")
         chat.call("open")
         check(int(chat.get("_unread")) == 0 and input_panel.visible,
                 "reopening clears the badge and shows the type box")
+        check(chat.get("pfp_resolver") != null and chat.get("pfp_resolver").is_valid() == false,
+                "chat exposes the pfp_resolver hook (game wires it)")
+        chat.call("add_chat", "Cid", 5, "with pfp", "", false, "uid-123")
+        check(true, "chat lines accept a uid (the PFP seat)")
 
         # --- camera: huge zoom range + first person toggle ---
         var cam_script: Script = load("res://scripts/game/camera_rig.gd")
@@ -503,8 +507,8 @@ func _run_all() -> void:
         check(game_src2.contains("_show_loading") and game_src2.contains("frame_post_draw"),
                 "loading is staged behind a veil (no load hitch)")
         var chat_src := FileAccess.get_file_as_string("res://scripts/game/chat_box.gd")
-        check(chat_src.contains("_input_panel.visible = false"),
-                "chat close hides the type box with the log")
+        check(chat_src.contains("_panel.visible = false") and not chat_src.contains("_input_panel.visible = false\n        _panel.visible"),
+                "chat close hides the log; the type box never dangles away")
         var player_src := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
         check(player_src.contains("v3.6 ROOT FIX"),
                 "stairs probe the walk wish FIRST (diagonals step up)")
@@ -584,8 +588,8 @@ func _run_all() -> void:
                 "the pixel-cabinet + Montserrat voices are gone (ARIAL is the client voice)")
         check(not FileAccess.file_exists("res://assets/ui/wood_planks.jpg"),
                 "wood texture file removed from the kit")
-        check(game_src.contains("MENU_INK") and game_src.contains("_row_btn"),
-                "nav + keys speak in white ink on the gray chrome (no dark-on-dark anywhere)")
+        check(game_src.contains("NIGHT_INK") and game_src.contains("_row_btn"),
+                "nav + keys speak in light ink on the night slate (no dark-on-dark anywhere)")
 
         # --- v11.0: THE R6 HITBOX + THE BUBBLE THAT FITS + THE SMOOTH ARMS ---
         var player_v11 := FileAccess.get_file_as_string("res://scripts/player/local_player.gd")
@@ -619,18 +623,30 @@ func _run_all() -> void:
                 "the Roblox thumbnail API is DEAD — the PFP comes from RetroBlox only")
         check(not pfp_src.contains("assets/pfp/%s.png"),
                 "no bundled headshot overrides — the account avatar is the only face")
-        check(pfp_src.contains("pfp_cache_v11") and pfp_src.contains("CACHE_TTL"),
-                "rendered headshots cache in the v11 namespace (the old bacon cache can't resurface)")
-        check(pfp_src.contains("AvatarPortrait.render(self, Api, payload, true)"),
-                "the PFP IS the site avatar — dressed and photographed headshot-style")
-        check(pfp_src.contains("Session.my_avatar_data()") and pfp_src.contains("Api.avatar_of(uid)"),
-                "MY avatar comes from the session, everyone else's from the public site API")
+        check(pfp_src.contains("pfp_cache_v") and pfp_src.contains("CACHE_TTL"),
+                "fetched site pictures cache on disk in a fresh namespace (old bytes can't resurface)")
+        check(pfp_src.contains("/api/users/%s/pfp") and pfp_src.contains("avatarUrl"),
+                "EVERY player's site PFP loads — GET /api/users/{id}/pfp, not just mine")
+        check(pfp_src.contains("func default_pfp") and pfp_src.contains("letter_avatar"),
+                "the DEFAULT PFP loads: the site's letter avatar (new accounts wear it)")
+        check(pfp_src.contains("func peek("),
+                "peek() answers instantly for chat lines (RAM or the default letter)")
+        check(not pfp_src.contains("AvatarPortrait.render"),
+                "PFP seats wear the SITE PROFILE — the 3D render moved to the identity block")
         check(pfp_src.contains("func rounded(") and pfp_src.contains("_round_image"),
                 "every PFP lands with the client's rounded corners")
         check(pfp_src.contains("fallback_pfp") and pfp_src.contains("head_icon"),
                 "no-data players fall back to the classic smiley (never a 3D render)")
         check(game_src.contains("Pfp.fetch") and game_src.contains("_apply_pfp"),
                 "the menu + cards + topbar all wear REAL PFPs (one pipeline)")
+        check(game_src.contains("_render_identity") and game_src.contains("AvatarPortrait.render"),
+                "the ESC menu LOADS YOUR AVATAR — the full-body render in the identity block")
+        check(game_src.contains("PfpBadge") and game_src.contains("circle_badge"),
+                "the PFP badge sits on the loaded avatar's bottom-right corner")
+        check(game_src.contains("_set_people_view") and game_src.contains('_people_view == "tiles"'),
+                "the TILES and LIST views both rebuild the roster (fixed)")
+        check(game_src.contains("_log_out") and game_src.contains("clear_session"),
+                "LOG OUT wipes the session and lands on the login page")
         check(game_src.contains('MenuCenter') and game_src.contains("MenuPanel"),
                 "the ESC menu is the CENTERED client panel — the game stays visible behind")
         check(game_src.contains('["players", "People", "people"]')
@@ -647,8 +663,8 @@ func _run_all() -> void:
                         "the internet icon ships: assets/icons/%s.png" % icon_name)
         check(FileAccess.file_exists("res://assets/ui/login_backdrop.jpg"),
                 "the REAL classic-baseplate photograph ships (the login backdrop)")
-        check(not game_src.contains("AvatarPortraitScript"),
-                "the 3D portrait renderer is OFF the UI path (PFP only)")
+        check(not game_src.contains('AvatarPortraitScript'),
+                "the UI path calls AvatarPortrait directly (no legacy script preloads)")
 
         # --- v9.0: YOUR CLIENT — the player edits everything, the PFP is
         # THEIRS (site avatarUrl + custom URL), the menu is THE ESC PANEL ---
@@ -668,7 +684,11 @@ func _run_all() -> void:
         check(editor_src.contains("add_label") and editor_src.contains("content_scale_factor"),
                 "the editor adds YOUR labels + zooms the WHOLE UI (content scale)")
         check(game_src.contains('UiEditor.register("topbar"') and game_src.contains('UiEditor.register("health"'),
-                "the HUD registers topbar/health/chat/user pill/toasts as editable")
+                "the HUD registers topbar/health/user pill/toasts as editable")
+        check(not game_src.contains('UiEditor.register("chat"'),
+                "EDIT CHAT IS GONE — the chat box is not editor fodder anymore")
+        check(not game_src.contains('Edit anything'),
+                "the EDIT THIS UI settings section is gone (you asked)")
         check(game_src.contains('_footer_key("L", "Leave", false')
                 and game_src.contains('_footer_key("ESC", "Resume", true'),
                 "the footer is [L] Leave / [R] Respawn / [ESC] Resume")
@@ -706,12 +726,12 @@ func _run_all() -> void:
                 "the gradient plate + glass textures are OUT of the kit")
         check(not game_src.contains("client_plate") and not game_src.contains("glass_button"),
                 "the menu references zero texture helpers (flat dark cards)")
-        check(game_src.contains("_gloss_btn_style") and game_src.contains("_gloss_key_style"),
-                "the HUD + footer keys wear the SITE GLOSS (baked 9-patch, bold outline)")
+        check(game_src.contains("_gloss_key_style"),
+                "the footer keys wear the SITE GLOSS (baked 9-patch, bold outline)")
         check(game_src.contains("_blue_btn") and theme_src.contains("SITE_GREEN :="),
                 "Resume is the GREEN PLAY GLOSS (the site's action green)")
         check(theme_src.contains("SITE_BLUE :=") and theme_src.contains("SITE_PAPER :="),
-                "the theme speaks the SITE palette (blue chrome, white paper, steel borders)")
+                "the theme speaks the SITE palette (blue chrome, paper, steel borders)")
         check(theme_src.contains("static func gloss("),
                 "the gloss builder exists (gradient + shine cut + outline baked in code)")
         check(theme_src.contains("MENU_RED :=") ,
@@ -722,7 +742,7 @@ func _run_all() -> void:
                 "the checker well is replaced by the deep quiet inset (avatar bg)")
         check(game_src.contains("modulate:a\", 1.0, 0.14"),
                 "the menu fades in smoothly")
-        check(game_src.contains("v12.0"), "the corner chip wears v12.0")
+        check(game_src.contains("v12.1"), "the corner chip wears v12.1")
         check(portrait_src.contains("Vector2i(320, 448)") and portrait_src.contains("MSAA_4X"),
                 "the portrait renders at 320x448 with 4x MSAA (NEVER pixelated again)")
         check(portrait_src.contains("HEADSHOT_SIZE") and portrait_src.contains("headshot := false"),
@@ -765,9 +785,9 @@ func _run_all() -> void:
         var proj_src := FileAccess.get_file_as_string("res://project.godot")
         check(proj_src.contains("msaa_3d=2") and proj_src.contains("anisotropic_filtering_level=4"),
                 "the renderer ships 4x MSAA + anisotropic filtering (nothing blurry)")
-        # --- the v6.0 HUD — the real client's chrome ---
-        check(game_src.contains("_health_track_w") and game_src.contains("PRESET_CENTER_BOTTOM"),
-                "the health bar lives BOTTOM-CENTER (the classic Roblox dock)")
+        # --- the v12.1 HUD — the real client's chrome, RETRO NIGHT ---
+        check(game_src.contains("_health_track_h") and game_src.contains("PRESET_CENTER_RIGHT"),
+                "the health bar is VERTICAL on the RIGHT edge (the classic client dock)")
         check(game_src.contains("UserPill") and game_src.contains("_open_menu(\"settings\")"),
                 "the top-right user pill parks your name + the settings gear")
         check(game_src.contains("KEY_SLASH"),
@@ -782,14 +802,19 @@ func _run_all() -> void:
                 "rejoining replays NOTHING — the first feed is history, marked seen silently")
         check(game_src.contains("get_tree().quit()"),
                 "LEAVE closes the game now (web reloads the place)")
-        check(game_src.contains('burger_btn.icon = RetroUI.icon_png("menu"'),
-                "the topbar's hamburger key wears the REAL internet icon and opens the menu")
+        check(game_src.contains("_build_center_cursor"), "first person parks a visible cursor mid-screen") # (kept)
+        check(not game_src.contains("burger_btn"),
+                "THE THREE-LINE BUTTON IS GONE from the topbar (you asked)")
+        check(game_src.contains("CLICK-OFF closes the chat"),
+                "CLICKING OFF the type box hands the keyboard back to the game")
         check(chat_src.contains("To chat click here or press / key"),
                 "the chat input wears the AUTHENTIC Roblox placeholder")
-        check(chat_src.contains("SITE_STEEL") and chat_src.contains("SITE_BLUE_INK"),
-                "the chat is the PAPER float (white card, steel border, dark ink)")
-        check(chat_src.contains("d19a1e"),
-                "chat name colors are tuned for the paper face (readable on white)")
+        check(chat_src.contains("NIGHT_INK") and chat_src.contains("0.88"),
+                "the chat is the DARK GLASS float again (never blinding)")
+        check(chat_src.contains("fd2943"),
+                "chat names wear the CLASSIC BRIGHT palette (readable on dark glass)")
+        check(chat_src.contains("add_image") and chat_src.contains("pfp_resolver"),
+                "every chat line leads with the speaker's PFP")
         check(game_src.contains('chat_btn.icon = RetroUI.icon_png("chat"'),
                 "the pill's chat key wears the REAL internet chat icon")
         check(bubble_src.contains("SHOW_SECONDS := 12.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
@@ -804,23 +829,27 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "12.0"') and login_src4.contains("BtnPrimary"),
-                "login wears the OLD page again (v12.0, the CLASSIC GREEN Log In key)")
+        check(login_src4.contains('VERSION := "12.1"') and login_src4.contains("BtnPrimary"),
+                "login wears the OLD page again (v12.1, the CLASSIC GREEN Log In key)")
         check(login_src4.contains("_logo_tile_texture") and login_src4.contains("_add_backdrop"),
                 "the login sits on the REAL baseplate photograph (the internet image)")
         check(login_src4.contains('"Log In"') and login_src4.contains('"Sign Up"')
                 and not login_src4.contains("Sign In"),
                 "the OLD tabs are back: Log In + Sign Up — no Sign In anywhere")
-        # --- v12.0: THE SITE GLOSS + THE INVITE PURGE + THE NEW SETTINGS ---
+        # --- v12.0/12.1: THE SETTINGS + THE INVITE PURGE + RETRO NIGHT ---
         check(not game_src.contains("Invite Friends"),
                 "INVITE FRIENDS IS GONE from the People tab (nobody asked for it)")
-        check(theme_src.contains("SITE_PAPER :=") and game_src.contains("_menu_panel_style"),
-                "the menu panel is the SITE PAPER card (white, steel border, translucent)")
+        check(theme_src.contains("NIGHT_PANEL :=") and game_src.contains("_menu_panel_style"),
+                "the menu panel is the RETRO NIGHT slate (dark, translucent, never blinding)")
+        check(theme_src.contains("SITE_PAPER :="),
+                "the site palette stays (gloss keys, steel borders, action colors)")
         check(game_src.contains("MenuHeader") and game_src.contains("RETROBLOX"),
                 "the menu wears the BLUE GLOSS header strip (logo + wordmark + clock)")
         var pfp2_src := FileAccess.get_file_as_string("res://scripts/ui/pfp_service.gd")
-        check(pfp2_src.contains("pfp_cache_v12"),
-                "the PFP cache rides the v12 namespace (stale bacon bytes can't resurface)")
+        check(pfp2_src.contains("pfp_cache_v13"),
+                "the PFP cache rides the v13 namespace (stale v12/v11 bytes can't resurface)")
+        check(theme_src.contains("LETTER_COLORS") and theme_src.contains("func circle_badge"),
+                "the theme ships the site's letter-avatar palette + the badge cropper")
         var settings_src := FileAccess.get_file_as_string("res://scripts/core/settings.gd")
         check(settings_src.contains("show_fps") and settings_src.contains("show_ping")
                 and settings_src.contains("max_fps") and settings_src.contains("player_names")
@@ -837,7 +866,8 @@ func _run_all() -> void:
         check(local_src.contains("hop_on"),
                 "BUNNY HOP gates the hold-to-jump (one jump per press when off)")
         check(portrait_src.contains("_paper_backdrop"),
-                "PFP headshots land on the SITE PAPER backdrop (readable at any size)")
+                "headshots can land on the SITE PAPER backdrop (readable at any size)")
+        check(game_src.contains("v12.1"), "the corner chip wears v12.1")
         check(login_src4.contains("gotham(800)"),
                 "the login speaks ExtraBold ARIAL (the RETROBLOX wordmark voice)")
 

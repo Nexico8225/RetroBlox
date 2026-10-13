@@ -257,6 +257,122 @@ const SITE_BTN_STEEL := Color("efefef")
 const SITE_BTN_STEEL_LO := Color("dcdcdc")
 const SITE_BTN_STEEL_DK := Color("a9bccb")
 
+# ---- v12.1 "RETRO NIGHT" — the client chrome goes DARK RETRO: the 2012
+# client's translucent slate panels, light ink everywhere, the SAME blue
+# gloss chrome and green/red action keys. Nothing blinding, every option
+# readable — the game still breathes through the translucent surfaces.
+const NIGHT_PANEL := Color(0.075, 0.09, 0.115, 0.96)     # the menu panel face
+const NIGHT_CARD := Color(0.135, 0.16, 0.20, 1.0)        # card / row face
+const NIGHT_CARD_HI := Color(0.19, 0.225, 0.275, 1.0)    # hover face
+const NIGHT_WELL := Color(0.05, 0.062, 0.08, 1.0)        # sunken wells
+const NIGHT_EDGE := Color(0.26, 0.315, 0.385, 1.0)       # steel border
+const NIGHT_EDGE_LO := Color(0.16, 0.195, 0.24, 1.0)     # quiet hairline
+const NIGHT_INK := Color(0.93, 0.95, 0.97, 1.0)          # primary text
+const NIGHT_INK_MUTED := Color(0.66, 0.72, 0.79, 1.0)    # secondary text
+const NIGHT_INK_FAINT := Color(0.46, 0.53, 0.61, 1.0)    # hints / stats
+const NIGHT_VEIL := Color(0.008, 0.025, 0.05, 0.62)      # the dim behind the menu
+
+
+## The SITE's DEFAULT profile picture — the letter avatar every new
+## retro-blox.vercel.app account wears until they upload their own: the
+## first letter of the name, white, centered on a stable color picked
+## from the username (the site's exact LETTER_COLORS palette, src/lib/store.ts).
+const LETTER_COLORS: Array = [
+        "0d69ac", "2e7dc4", "5b8db8", "16a085",
+        "34495e", "5d7a94", "3a6b8a", "6e8ca8",
+]
+
+
+## 5x7 pixel glyphs for the letter avatar's initial (rows as 5-bit ints).
+## Drawn chunky on purpose — the client's one intentional pixel voice.
+const _PIXEL_GLYPHS: Dictionary = {
+        "A": [14, 17, 17, 31, 17, 17, 17], "B": [30, 17, 17, 30, 17, 17, 30],
+        "C": [14, 17, 16, 16, 16, 17, 14], "D": [30, 17, 17, 17, 17, 17, 30],
+        "E": [31, 16, 16, 30, 16, 16, 31], "F": [31, 16, 16, 30, 16, 16, 16],
+        "G": [14, 17, 16, 23, 17, 17, 15], "H": [17, 17, 17, 31, 17, 17, 17],
+        "I": [14, 4, 4, 4, 4, 4, 14], "J": [7, 2, 2, 2, 2, 18, 12],
+        "K": [17, 18, 20, 24, 20, 18, 17], "L": [16, 16, 16, 16, 16, 16, 31],
+        "M": [17, 27, 21, 21, 17, 17, 17], "N": [17, 25, 21, 19, 17, 17, 17],
+        "O": [14, 17, 17, 17, 17, 17, 14], "P": [30, 17, 17, 30, 16, 16, 16],
+        "Q": [14, 17, 17, 17, 21, 18, 13], "R": [30, 17, 17, 30, 20, 18, 17],
+        "S": [15, 16, 16, 14, 1, 1, 30], "T": [31, 4, 4, 4, 4, 4, 4],
+        "U": [17, 17, 17, 17, 17, 17, 14], "V": [17, 17, 17, 17, 17, 10, 4],
+        "W": [17, 17, 17, 21, 21, 21, 10], "X": [17, 17, 10, 4, 10, 17, 17],
+        "Y": [17, 17, 10, 4, 4, 4, 4], "Z": [31, 1, 2, 4, 8, 16, 31],
+        "0": [14, 17, 19, 21, 25, 17, 14], "1": [4, 12, 4, 4, 4, 4, 14],
+        "2": [14, 17, 1, 6, 8, 16, 31], "3": [30, 1, 1, 14, 1, 1, 30],
+        "4": [2, 6, 10, 18, 31, 2, 2], "5": [31, 16, 30, 1, 1, 17, 14],
+        "6": [14, 16, 16, 30, 17, 17, 14], "7": [31, 1, 2, 4, 8, 8, 8],
+        "8": [14, 17, 17, 14, 17, 17, 14], "9": [14, 17, 17, 15, 1, 1, 14],
+        "?": [14, 17, 1, 6, 4, 0, 4],
+}
+
+
+static func letter_avatar(p_name: String) -> ImageTexture:
+        var key := "letter_" + p_name
+        if _icon_cache.has(key):
+                return _icon_cache[key]
+        var clean := p_name.strip_edges()
+        var letter := "?"
+        for i in range(clean.length()):
+                var ch := clean[i]
+                if (ch >= "a" and ch <= "z") or (ch >= "A" and ch <= "Z") \
+                                or (ch >= "0" and ch <= "9"):
+                        letter = ch.to_upper()
+                        break
+        var idx := int(absi(hash(clean.to_lower()))) % LETTER_COLORS.size()
+        var face := Color(String(LETTER_COLORS[idx]))
+        var side := 144
+        var img := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+        img.fill(face)
+        # a whisper of depth: darker bottom rim like the site's tiles
+        var shade := face.darkened(0.18)
+        for y in range(side - 8, side):
+                for x in range(side):
+                        img.set_pixel(x, y, shade)
+        # the initial, drawn chunky from the pixel glyphs (2px cells, 10x14)
+        var glyph: Array = _PIXEL_GLYPHS.get(letter, _PIXEL_GLYPHS["?"])
+        var cell := 12
+        var gx := (side - 5 * cell) / 2
+        var gy := (side - 7 * cell) / 2
+        for row in range(7):
+                var bits := int(glyph[row])
+                for col in range(5):
+                        if bits & (1 << (4 - col)):
+                                for py in range(cell):
+                                        for px in range(cell):
+                                                img.set_pixel(gx + col * cell + px,
+                                                        gy + row * cell + py, Color.WHITE)
+        var tex := ImageTexture.create_from_image(img)
+        _icon_cache[key] = tex
+        return tex
+
+
+## The PFP BADGE — a circle-cropped copy of any headshot with the white
+## ring, sized for the identity block's bottom-right corner.
+static func circle_badge(tex: Texture2D, side := 96) -> ImageTexture:
+        if tex == null:
+                return null
+        var src := tex.get_image()
+        if src == null or src.is_empty():
+                return null
+        if src.is_compressed():
+                src.decompress()
+        if src.get_format() != Image.FORMAT_RGBA8:
+                src.convert(Image.FORMAT_RGBA8)
+        src.resize(side, side, Image.INTERPOLATE_LANCZOS)
+        var out := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+        var half := side * 0.5
+        var ring := 3.0
+        for y in range(side):
+                for x in range(side):
+                        var d := Vector2(float(x) + 0.5 - half, float(y) + 0.5 - half).length()
+                        if d <= half - ring:
+                                out.set_pixel(x, y, src.get_pixel(x, y))
+                        elif d <= half - 0.5:
+                                out.set_pixel(x, y, Color(0.96, 0.97, 0.99, 1.0))
+        return ImageTexture.create_from_image(out)
+
 
 ## The 2011 SITE GLOSS — the exact button the old website wore and the
 ## rebuilt site wears today: a vertical gradient with a HARD shine cut

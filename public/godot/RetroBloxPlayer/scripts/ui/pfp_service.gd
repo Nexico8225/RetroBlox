@@ -1,27 +1,27 @@
 extends Node
-## PfpService — the REAL PROFILE PICTURE engine (v11.0).
-## Every face this client shows IS the player's account avatar, rendered
-## straight from retro-blox.vercel.app: the same payload the 3D rig wears,
-## photographed headshot-style by AvatarPortrait — so the PFP, the People
-## cards and the in-game character are ALWAYS the same avatar. NO bundled
-## headshots (the old baked-in Roblox thumbnail was literally a bacon hair —
-## deleted), NO Roblox thumbnail API, ever again.
+## PfpService — the REAL PROFILE PICTURE engine (v12.1).
+## Every face this client shows IS the player's retro-blox.vercel.app
+## PROFILE PICTURE — exactly what the website itself shows:
+##
+##   a player signs up  ->  they wear the DEFAULT PFP (the letter avatar:
+##   first letter of the name, white, on a stable color from their name)
+##   they upload one    ->  avatarUrl points at it and EVERY client loads it.
 ##
 ## Resolution order for (uid, username):
-##   0. CUSTOM PFP  the URL the player set in the client's own UI Editor
-##      (saved in ui_config — this wins over EVERYTHING, it is THEIRS)
-##   1. SITE PFP    the account's avatarUrl from retro-blox.vercel.app
-##      (data-URL or file URL — mine arrives via /api/platform/me at login,
-##      everyone else's via /api/users/<name>/pfp)
-##   2. SITE AVATAR RENDER  the /api/users/{id}/avatar payload dressed on
-##      a rig and photographed headshot-style — MY avatar, from MY account
-##   3. Disk cache        user://pfp_cache_v11/<username-lower>.png (6h TTL)
-##   4. Fallback          the classic smiley head on a per-player color.
+##   0. CUSTOM PFP     the URL the player set in this client's own Settings
+##                     (saved in ui_config — this wins over EVERYTHING)
+##   1. SITE PFP       the account's avatarUrl: mine arrives via
+##                     /api/platform/me at login, everyone else's via the
+##                     public GET /api/users/{id}/pfp
+##   2. DEFAULT PFP    the site's letter avatar, drawn in code (same
+##                     palette as the website) — no network, instant
 ##
-## Guests always wear the fallback smiley. All network happens off the main
-## flow (await), nothing blocks a frame, and every fetch is cached in RAM.
+## A small disk cache (user://pfp_cache_v13) keeps fetched site pictures
+## warm for 6h. All network happens off the main flow (await), nothing
+## blocks a frame, and every fetch is cached in RAM. peek() answers
+## INSTANTLY (RAM or default letter) for chat lines that cannot wait.
 
-const CACHE_TTL := 21600.0        # six hours per rendered headshot
+const CACHE_TTL := 21600.0        # six hours per fetched site picture
 const TIMEOUT := 10.0
 
 signal pfp_changed(uid: String)   # v9.0: a custom/site PFP landed — repaint seats
@@ -115,62 +115,71 @@ static func _image_from_data_url(url: String) -> Image:
         return null
 
 
-## Awaitable: the best profile picture we can get for this player.
-## Every result comes back with ROUNDED CORNERS (the client's read).
+## Awaitable: the player's SITE profile picture — custom URL, then the
+## account's avatarUrl, then the DEFAULT letter avatar (the exact thing
+## retro-blox.vercel.app shows for accounts without a picture).
 func fetch(uid: String, uname: String) -> Texture2D:
         var key := "%s|%s" % [uid, uname]
         if _ram.has(key):
                 return _ram[key]
         var lower := uname.to_lower().strip_edges()
 
-        # 0. MY OWN picture — custom first, then the site account's
-        if uid == Session.user_id:
-                if _custom_tex != null:
-                        _ram[key] = _custom_tex
-                        return _custom_tex
-                if site_pfp_url != "":
-                        var site := await decode_any(site_pfp_url)
-                        if site != null:
-                                _ram[key] = site
-                                return site
+        # 0. MY OWN picture — the custom URL wins over everything
+        if uid == Session.user_id and _custom_tex != null:
+                _ram[key] = _custom_tex
+                return _custom_tex
 
-        # 1. the disk cache — v12 namespace (the pre-v11 folder held the
-        # bacon thumbnails; a fresh name guarantees they can never resurface
-        # even from an old install)
+        # 1. the disk cache — v13 namespace (older folders held renders and
+        # pre-v11 bacon bytes; a fresh name guarantees they can never resurface)
         var cached := _load_cache(lower)
         if cached != null:
                 cached = rounded(cached)
                 _ram[key] = cached
                 return cached
 
-        # 2. THE SITE AVATAR RENDER — the account's real avatar payload from
-        # retro-blox.vercel.app, dressed and photographed headshot-style.
-        # Mine comes from the session; everyone else's from the public API.
-        var payload: Dictionary = {}
-        if not Session.is_guest:
-                if uid == Session.user_id:
-                        payload = Session.my_avatar_data()
-                elif not _inflight.get(key, false):
-                        _inflight[key] = true
-                        var res: Dictionary = await Api.avatar_of(uid)
-                        _inflight.erase(key)
-                        if res.get("ok", false) and res.get("avatar", null) is Dictionary:
-                                payload = res["avatar"]
-                                Session.cache_avatar(uid, res)
-        if not payload.is_empty() and not _inflight.get(key, false):
-                _inflight[key] = true
-                var shot: Texture2D = await AvatarPortrait.render(self, Api, payload, true)
-                _inflight.erase(key)
-                if shot != null:
-                        _save_cache(lower, shot)
-                        shot = rounded(shot)
-                        _ram[key] = shot
-                        return shot
+        # 2. THE SITE PFP — the account's avatarUrl. Mine rides the session
+        # (/api/platform/me); everyone else's comes from the public endpoint
+        # GET /api/users/{id}/pfp. A null avatarUrl means the DEFAULT pfp.
+        var url := site_pfp_url if uid == Session.user_id else ""
+        if url == "" and not Session.is_guest:
+                var res: Dictionary = await Api.get_json("/api/users/%s/pfp" % uid)
+                if res.get("ok", false):
+                        url = Api.txt(res.get("avatarUrl", ""))
+        if url != "":
+                var site := await decode_any(url)
+                if site != null:
+                        _save_cache(lower, site)
+                        site = rounded(site)
+                        _ram[key] = site
+                        return site
 
-        # 3. the classic fallback smiley
-        var fb := fallback_pfp(uname)
+        # 3. THE DEFAULT PFP — the site's letter avatar, drawn in code
+        var fb := default_pfp(uname)
         _ram[key] = fb
         return fb
+
+
+## INSTANT answer for seats that cannot wait on the network (chat lines,
+## badges): the RAM cache if it is warm, otherwise the DEFAULT letter
+## avatar — which IS the correct picture for anyone without a site PFP.
+func peek(uid: String, uname: String) -> Texture2D:
+        var key := "%s|%s" % [uid, uname]
+        if _ram.has(key):
+                return _ram[key]
+        if uid == Session.user_id and _custom_tex != null:
+                return _custom_tex
+        return default_pfp(uname)
+
+
+## The site's DEFAULT profile picture: the letter avatar (first letter on
+## a stable color) — the exact look retro-blox.vercel.app gives every new
+## account. Falls back to the classic smiley only if drawing fails.
+func default_pfp(uname: String) -> Texture2D:
+        var theme := load("res://scripts/ui/retro_theme.gd")
+        var letter: Texture2D = theme.call("letter_avatar", uname)
+        if letter != null:
+                return rounded(letter)
+        return fallback_pfp(uname)
 
 
 func forget(uid: String, uname: String) -> void:
@@ -180,7 +189,7 @@ func forget(uid: String, uname: String) -> void:
 # ---------------------------------------------------------------- internals
 
 func _load_cache(lower: String) -> Texture2D:
-        var path := "user://pfp_cache_v12/%s.png" % lower
+        var path := "user://pfp_cache_v13/%s.png" % lower
         if not FileAccess.file_exists(path):
                 return null
         var age := 0.0
@@ -196,11 +205,11 @@ func _load_cache(lower: String) -> Texture2D:
 
 
 func _save_cache(lower: String, tex: Texture2D) -> void:
-        DirAccess.make_dir_recursive_absolute("user://pfp_cache_v12")
+        DirAccess.make_dir_recursive_absolute("user://pfp_cache_v13")
         var img := tex.get_image()
         if img == null or img.is_empty():
                 return
-        img.save_png("user://pfp_cache_v12/%s.png" % lower)
+        img.save_png("user://pfp_cache_v13/%s.png" % lower)
 
 
 ## Rounded corners, the client's headshot read (r = 14% of the side).
@@ -261,8 +270,8 @@ func _http_bytes(url: String) -> PackedByteArray:
         return result[3]
 
 
-## The classic fallback: the YELLOW smiley head centered on a muted
-## per-player color square (hashed from the name, Roblox's own read).
+## The last-resort fallback: the YELLOW smiley head centered on a muted
+## per-player color square (only used if the letter avatar cannot draw).
 static func fallback_pfp(uname: String) -> Texture2D:
         var theme := load("res://scripts/ui/retro_theme.gd")
         var head: Texture2D = theme.call("head_icon")

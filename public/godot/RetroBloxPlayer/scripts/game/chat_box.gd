@@ -1,18 +1,17 @@
 extends Control
-## ChatBox — the TOP-LEFT chat, dark translucent rounded like the real
-## client: log under the topbar pill, input line always visible underneath.
-## Shows the last stretch of lines with colored names, Enter opens the
-## input, Enter again sends, Esc closes. The LOG can collapse to nothing —
-## unread messages then count on the topbar chat button's red badge. Plain
-## text only — nothing can inject markup.
+## ChatBox — the TOP-LEFT chat, dark translucent like the classic client:
+## the TYPE BOX is ALWAYS visible (the authentic "To chat click here or
+## press / key" line), the log opens when you click it / press Enter.
+## CLICK the type box -> you are typing. CLICK OFF (or ESC) -> the keyboard
+## goes back to the game. Every line carries the speaker's PFP + name.
+## Unread messages count on the topbar chat button's red badge while the
+## log is hidden. Plain text only — nothing can inject markup.
 ##
 ## v3.11: F READS — a read-only mode that shows the log WITHOUT grabbing
-## the keyboard, so you can catch up on chat while you keep moving. The
-## "#1" seq chips are gone from lines.
-## v7.0: the CLASSIC CHAT — dark translucent panels with ONE thin light
-## frame (the 2013 client read), Arial text, white names in the classic
-## bright name-color set, and the authentic "To chat click here or press /
-## key" placeholder on the typing line.
+## the keyboard, so you can catch up on chat while you keep moving.
+## v12.1: RETRO NIGHT — the dark glass float is back (the white paper chat
+## was blinding), names wear the CLASSIC bright palette, and every line
+## leads with the speaker's SITE PFP (custom -> avatarUrl -> letter avatar).
 
 signal submitted(text: String)
 signal opened
@@ -20,15 +19,15 @@ signal closed
 signal unread(count: int)
 
 ## v3.6: the chat button + ENTER fully TOGGLE the chat — closing hides the
-## LOG **and the typing line together** (they used to leave the input
-## dangling). While hidden, new messages still stack the red unread badge.
+## LOG (the type box stays — it is the chat's front door). While the log is
+## hidden, new messages stack the red unread badge.
 
 const MAX_LINES := 60
-## v12.0: the name palette re-tuned for the PAPER chat — the classic bright
-## set darkened a step so every name reads on the white card.
+## v12.1: the CLASSIC BRIGHT name palette — every name pops on the dark
+## glass the way the old client's chat read.
 const NAME_COLORS: Array = [
-        "d19a1e", "3f9e3f", "1c7fd6", "e2673a", "8e4fd0",
-        "17a3a8", "d94f8c", "6f9e2c", "c98a3d", "6d7f95",
+        "fd2943", "01a2ff", "02b857", "ffd30f", "c963ff",
+        "ff8552", "3ecfff", "a1f24c", "ff6fc7", "f5cd30",
 ]
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
@@ -41,6 +40,9 @@ var is_open := false
 var is_reading := false        # v3.11: log shown, keyboard free, you keep moving
 var log_collapsed := false
 var _unread := 0
+## v12.1: uid -> Texture2D, answered INSTANTLY (RAM or the default letter
+## avatar). game.gd owns it — it knows everyone's name and PFP pipeline.
+var pfp_resolver: Callable = Callable()
 
 
 func _init() -> void:
@@ -53,15 +55,15 @@ func _init() -> void:
 
         _panel = PanelContainer.new()
         _panel.name = "LogPanel"
-        # v12.0: the SITE PAPER chat float — the white card + steel border the
-        # website's panels wear, dark ink text on it
+        # v12.1: the RETRO NIGHT chat float — dark translucent glass, ONE
+        # thin light frame (the classic client read), light ink on it
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(1, 1, 1, 0.93)
+        sb.bg_color = Color(0.05, 0.062, 0.08, 0.88)
         sb.set_corner_radius_all(8)
         sb.anti_aliasing = true
-        sb.set_border_width_all(2)
-        sb.border_color = RetroUI.SITE_STEEL
-        sb.shadow_color = Color(0, 0, 0, 0.25)
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.16)
+        sb.shadow_color = Color(0, 0, 0, 0.35)
         sb.shadow_size = 8
         sb.content_margin_left = 12.0
         sb.content_margin_right = 12.0
@@ -80,7 +82,7 @@ func _init() -> void:
         _log.context_menu_enabled = false
         _log.add_theme_font_size_override("normal_font_size", 14)
         _log.add_theme_font_size_override("bold_font_size", 14)
-        _log.add_theme_color_override("default_color", RetroUI.SITE_BLUE_INK)
+        _log.add_theme_color_override("default_color", RetroUI.NIGHT_INK)
         var chat_font: Font = RetroUI.source(400)
         if chat_font != null:
                 _log.add_theme_font_override("normal_font", chat_font)
@@ -90,11 +92,11 @@ func _init() -> void:
         _input_panel = PanelContainer.new()
         _input_panel.name = "InputPanel"
         var isb := StyleBoxFlat.new()
-        isb.bg_color = Color(1, 1, 1, 0.93)
+        isb.bg_color = Color(0.05, 0.062, 0.08, 0.88)
         isb.set_corner_radius_all(8)
         isb.anti_aliasing = true
-        isb.set_border_width_all(2)
-        isb.border_color = RetroUI.SITE_STEEL
+        isb.set_border_width_all(1)
+        isb.border_color = Color(1, 1, 1, 0.16)
         isb.content_margin_left = 4.0
         isb.content_margin_right = 4.0
         isb.content_margin_top = 4.0
@@ -109,21 +111,21 @@ func _init() -> void:
         _input.placeholder_text = "To chat click here or press / key"
         _input.max_length = 240
         _input.context_menu_enabled = false
-        _input.add_theme_color_override("font_color", RetroUI.SITE_BLUE_INK)
-        _input.add_theme_color_override("font_placeholder_color", RetroUI.SITE_INK_FAINT)
+        _input.add_theme_color_override("font_color", RetroUI.NIGHT_INK)
+        _input.add_theme_color_override("font_placeholder_color", RetroUI.NIGHT_INK_FAINT)
         var well_sb := StyleBoxFlat.new()
-        well_sb.bg_color = RetroUI.SITE_PAGE
+        well_sb.bg_color = Color(0.02, 0.03, 0.045, 0.92)
         well_sb.set_corner_radius_all(6)
         well_sb.anti_aliasing = true
         well_sb.set_border_width_all(1)
-        well_sb.border_color = RetroUI.SITE_STEEL_LO
+        well_sb.border_color = RetroUI.NIGHT_EDGE
         well_sb.content_margin_left = 8.0
         well_sb.content_margin_right = 8.0
         well_sb.content_margin_top = 4.0
         well_sb.content_margin_bottom = 4.0
         _input.add_theme_stylebox_override("normal", well_sb)
         var well_focus := well_sb.duplicate() as StyleBoxFlat
-        well_focus.border_color = RetroUI.SITE_BLUE
+        well_focus.border_color = RetroUI.SITE_BLUE_HI
         _input.add_theme_stylebox_override("focus", well_focus)
         var book: Font = RetroUI.source(400)
         if book != null:
@@ -135,11 +137,12 @@ func _init() -> void:
         _input.gui_input.connect(_on_input_gui)
         _input_panel.add_child(_input)
 
-        # v3.6: the chat starts TUCKED AWAY — you spawn into a clean world
-        # and the topbar badge counts anything said while it is hidden.
-        # ENTER or the chat button opens it (log + type box as one widget).
+        # v12.1: the type box is the chat's FRONT DOOR — always visible.
+        # Click it and you are typing (the log un-hides); click off and the
+        # keyboard goes back to the game (game.gd closes the chat on any
+        # click that lands outside this widget). The LOG starts hidden —
+        # the topbar badge counts anything said until you open it.
         _panel.visible = false
-        _input_panel.visible = false
 
 
 func open() -> void:
@@ -156,7 +159,8 @@ func open() -> void:
         opened.emit()
 
 
-## The whole chat goes away — log AND the type box, nothing left dangling.
+## The whole chat log goes away — the type box STAYS (it is the front
+## door you click to come back).
 func close() -> void:
         if not is_open:
                 return
@@ -165,7 +169,6 @@ func close() -> void:
         _input.text = ""
         _input.release_focus()
         _panel.visible = false
-        _input_panel.visible = false
         closed.emit()
 
 
@@ -222,8 +225,9 @@ func _on_submit(text: String) -> void:
 
 func _on_input_gui(event: InputEvent) -> void:
         if event is InputEventMouseButton and event.is_pressed():
-                # clicking the always-visible input opens the chat (the log
-                # un-collapses so you can see what everyone is saying)
+                # clicking the always-visible type box opens the chat (the
+                # log un-hides so you can see what everyone is saying) and
+                # hands you the keyboard
                 if not is_open:
                         open()
                         get_viewport().set_input_as_handled()
@@ -234,12 +238,13 @@ func _on_input_gui(event: InputEvent) -> void:
                         get_viewport().set_input_as_handled()
 
 
-## One chat line. name_color is a hex string. v3.11: the "#1" seq chips are
-## GONE (you asked) — a clean "Name: text" line. _seq_id is kept in the
-## signature so existing callers don't break, but it is no longer shown.
-func add_chat(username: String, _seq_id: int, text: String, name_color: String = "", self_style := false) -> void:
+## One chat line — the speaker's PFP (an inline image), their name in the
+## classic bright palette, then the message. name_color is a hex string.
+## v3.11: the "#1" seq chips are GONE (you asked) — a clean line.
+func add_chat(username: String, _seq_id: int, text: String, name_color: String = "", self_style := false, uid := "") -> void:
         var color := _color_for(username, name_color)
-        var line := "[b][color=#%s]%s:[/color][/b] %s" % [color, _esc(username), _esc(text)]
+        _log.add_image(_pfp_for(uid, username), 18, 18, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+        var line := " [b][color=#%s]%s:[/color][/b] %s" % [color, _esc(username), _esc(text)]
         if self_style:
                 line = "[i]" + line + "[/i]"
         _log.append_text(line + "\n")
@@ -247,8 +252,20 @@ func add_chat(username: String, _seq_id: int, text: String, name_color: String =
         _prune()
 
 
+## The speaker's picture RIGHT NOW: the resolver (game.gd) answers from
+## its PFP pipeline — cache if warm, otherwise the DEFAULT letter avatar,
+## which is exactly what the site shows for players without a picture.
+func _pfp_for(uid: String, username: String) -> Texture2D:
+        if pfp_resolver.is_valid():
+                var tex: Texture2D = pfp_resolver.call(uid, username)
+                if tex != null:
+                        return tex
+        var theme := load("res://scripts/ui/retro_theme.gd")
+        return theme.call("head_icon")
+
+
 func add_system(text: String) -> void:
-        _log.append_text("[color=#5f7d99][i]%s[/i][/color]\n" % _esc(text))
+        _log.append_text("[color=#8ea6bd][i]%s[/i][/color]\n" % _esc(text))
         _count_unread()
         _prune()
 
@@ -265,7 +282,7 @@ func _prune() -> void:
         # RichTextLabel has no line counter — track by clearing when huge
         if _log.get_total_character_count() > 12000:
                 _log.clear()
-                _log.append_text("[color=#5f7d99][i](chat trimmed)[/i][/color]\n")
+                _log.append_text("[color=#8ea6bd][i](chat trimmed)[/i][/color]\n")
 
 
 func _esc(text: String) -> String:

@@ -13,7 +13,7 @@ extends Control
 ## downloaded from the web) instead of a code-drawn grid.
 
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
-const VERSION := "12.0"
+const VERSION := "12.1"
 
 ## the card's palette (the old page's light voice, against the dark chrome)
 const CARD_BG := Color("f6f7f8")
