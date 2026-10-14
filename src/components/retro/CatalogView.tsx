@@ -31,7 +31,7 @@ import {
   type Placement,
 } from '@/lib/avatarAssets'
 import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig } from '@/lib/three/convert'
-import { captureRiggedThumb } from '@/lib/three/animCapture'
+import { captureNoobThumb, captureRiggedThumb } from '@/lib/three/animCapture'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
 
@@ -1086,6 +1086,13 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [targetAssetId, setTargetAssetId] = useState('')
   const [marketRigs, setMarketRigs] = useState<CatalogItem[]>([])
   const [marketUgc, setMarketUgc] = useState<CatalogItem[]>([])
+  // ---- emote studio: the GREY NOOB preview guy + the icon timeline ----
+  const [previewBody, setPreviewBody] = useState<'target' | 'noob'>('target')
+  const [scrub, setScrub] = useState<number | null>(null) // null = the clip plays
+  const [clipDur, setClipDur] = useState(0)
+  const [iconPose, setIconPose] = useState<{ clip: string; t: number } | null>(null)
+  const [iconThumb, setIconThumb] = useState<Blob | null>(null)
+  const handleClipTime = useCallback((d: number) => setClipDur(d), [])
 
   /* live painted preview — the picked GLB as a local object URL so the
      picker box shows the model WITH its texture / flat color the moment
@@ -1109,6 +1116,19 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       tshirtUrls: [],
       models: [],
     }
+    if (previewBody === 'noob') {
+      // the GREY NOOB emote guy — the plain all-grey classic body, nothing worn
+      look.skin = '#9aa0a6'
+      look.shirtColor = '#8f959c'
+      look.shirtImage = null
+      look.pantsColor = '#868c93'
+      look.pantsImage = null
+      look.faceUrl = null
+      look.tshirtUrls = []
+      look.models = []
+      look.bundle = null
+      return look
+    }
     if (targetKind === 'bundle' && targetAssetId) {
       const b = marketRigs.find((r) => r.assetId === targetAssetId)
       if (b?.modelFileId) look.bundle = { url: `/api/files/${b.modelFileId}` }
@@ -1126,7 +1146,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       }
     }
     return look
-  }, [targetKind, targetAssetId, marketRigs, marketUgc])
+  }, [targetKind, targetAssetId, marketRigs, marketUgc, previewBody])
 
   /* the realtime cycle order for an anim pack: mapped slots first (the moves
      that take over the classic ones), any remaining clips after */
@@ -1135,6 +1155,29 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
     const rest = clipNames.filter((c) => !mapped.includes(c))
     return [...mapped, ...rest].slice(0, 6)
   }, [clipMap, clipNames])
+
+  /* the clip the timeline drives: the picked NLA track for an emote, the
+     Idle move (or first clip) for an animation pack */
+  const timelineClip = type === 'anim'
+    ? (clipMap.idle || animCycleClips[0] || '')
+    : (previewClip || clipNames[0] || '')
+
+  /* lock the CURRENT timeline moment as the emote icon: the grey noob is
+     photographed mid-clip and that shot rides to the marketplace AND the
+     in-game emote wheel */
+  async function setIconFromMarker() {
+    if (!previewModelUrl) return
+    const t = scrub ?? 0
+    try {
+      const blob = await captureNoobThumb(previewModelUrl, timelineClip || undefined, t)
+      setIconThumb(blob)
+      setIconPose({ clip: timelineClip, t })
+      setThumbUrl((old) => {
+        if (old) URL.revokeObjectURL(old)
+        return URL.createObjectURL(blob)
+      })
+    } catch { /* keep the previous thumbnail */ }
+  }
   useEffect(() => {
     return () => {
       if (previewModelUrl) URL.revokeObjectURL(previewModelUrl)
@@ -1152,6 +1195,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       const names = (gltf.animations || []).map((c: { name: string }) => c.name).filter(Boolean)
       setClipNames(names)
       setPreviewClip(names[0] || '')
+      // a fresh model resets the studio: no marker, no icon, timeline at play
+      setScrub(null)
+      setIconPose(null)
+      setIconThumb(null)
+      setClipDur(0)
       // keep any existing mapping whose clip still exists (re-picking a model)
       setClipMap((old) => {
         const next: Partial<Record<AnimSlot, string>> = {}
@@ -1438,7 +1486,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
     if (priceMode === 'paid' && finalPrice < 1) { setError('Paid items need a price of at least T$ 1 (or mark it Free).'); return }
     if (limited && finalPrice < 1) { setError('Limited items need a price of at least T$ 1.'); return }
     if (rigged) {
-      if (!modelBlob) { setError('Pick a rigged GLB first (exported from Blender with its rig + animations).'); return }
+      if (!modelBlob) { setError('Pick a rigged GLB or FBX first (exported from Blender with its rig + animations).'); return }
       if (type === 'anim' && clipNames.length === 0) { setError('Your GLB has no animation clips — an animation pack needs at least one.'); return }
       if (type === 'anim' && Object.keys(clipMap).length === 0) { setError('Map at least one move (Idle / Walk / Jump / Climb / Fall) to a clip from your GLB.'); return }
     } else if (is3D) {
@@ -1460,11 +1508,14 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       if (limited && stockInput.trim() !== '') fd.append('stock', stockInput.trim())
       if (groupId) fd.append('groupId', groupId)
       if (rigged && modelBlob) {
-        // the rigged GLB IS the item; the catalog shot is captured automatically
+        // the rigged GLB IS the item; the catalog shot is the marker pose
+        // when the creator locked one, else an automatic mid-clip moment
         await attachUpload(fd, 'model', modelBlob, 'model.glb', 'model/gltf-binary', setUploadNote)
         const capUrl = previewModelUrl || URL.createObjectURL(modelBlob)
         try {
-          const thumbBlob = await captureRiggedThumb(capUrl, type === 'anim' ? (clipMap.idle || clipNames[0]) : (previewClip || clipNames[0] || undefined))
+          const thumbBlob = iconThumb
+            ? iconThumb
+            : await captureRiggedThumb(capUrl, type === 'anim' ? (clipMap.idle || clipNames[0]) : (previewClip || clipNames[0] || undefined))
           await attachUpload(fd, 'image', thumbBlob, 'thumbnail.png', 'image/png', setUploadNote)
         } catch {
           throw new Error('Could not capture the preview image — re-pick the model and try again.')
@@ -1472,7 +1523,14 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         if (type === 'bundle') {
           if (detectedParts.length > 0) fd.append('bundleParts', JSON.stringify(detectedParts))
         } else {
-          fd.append('animClips', JSON.stringify({ clips: clipNames, ...(type === 'anim' ? { map: clipMap } : {}) }))
+          // useClip + iconTime: the NLA track the creator picked and the
+          // timeline moment they locked — games play THAT clip and the
+          // wheel shows THAT pose
+          fd.append('animClips', JSON.stringify({
+            clips: clipNames,
+            ...(type === 'anim' ? { map: clipMap } : {}),
+            ...(type === 'emote' && iconPose && iconPose.clip ? { useClip: iconPose.clip, iconTime: iconPose.t } : {}),
+          }))
           fd.append('animTarget', JSON.stringify({ kind: targetKind, ...(targetKind !== 'avatar' && targetAssetId ? { assetId: targetAssetId } : {}) }))
         }
       } else if (is3D && modelBlob && placement && thumbUrl) {
@@ -1541,8 +1599,8 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               ) : (
                 <>
                   <span style={{ fontSize: 26, color: '#5a7b9a' }}>+</span>
-                  <span style={{ fontSize: 10, color: '#5a7b9a' }}>Rigged GLB</span>
-                  <span style={{ fontSize: 8, color: '#8ba0b3', padding: '0 6px' }}>rig + animations · from Blender</span>
+                  <span style={{ fontSize: 10, color: '#5a7b9a' }}>Rigged model</span>
+                  <span style={{ fontSize: 8, color: '#8ba0b3', padding: '0 6px' }}>rig + animations · GLB or FBX</span>
                 </>
               )
             ) : is3D ? (
@@ -1600,8 +1658,13 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           {is3D || rigged ? (
             <>
               <div style={{ fontSize: 9, color: '#7b8896', marginTop: 4 }}>
-                {rigged ? 'Click or drop — a rigged GLB (rig + clips), max 24MB' : 'Click or drop — FBX / GLB / OBJ, max 24MB'}
+                {rigged ? 'Click or drop — rigged GLB or FBX (rig + clips), max 24MB' : 'Click or drop — FBX / GLB / OBJ, max 24MB'}
               </div>
+              {rigged && (
+                <div style={{ fontSize: 9, color: '#1c4e7c', marginTop: 3, lineHeight: 1.4 }}>
+                  <strong>Made in Blender?</strong> File &gt; Export &gt; glTF 2.0, format = <strong>glTF Binary (.glb)</strong> — a .blend itself cannot be read in the browser. FBX works too (Path Mode Copy + Embed Textures when you use textures).
+                </div>
+              )}
               {is3D && (
                 <div style={{ fontSize: 9, color: '#1c4e7c', marginTop: 3, lineHeight: 1.4 }}>
                   <strong>Using materials or textures? Upload .glb.</strong> Blender: File &gt; Export &gt; glTF 2.0
@@ -1716,17 +1779,76 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                         key={previewModelUrl}
                         look={previewLook}
                         height={300}
+                        scrub={scrub}
+                        onClipTime={handleClipTime}
                         anim={previewModelUrl ? { url: previewModelUrl, clips: type === 'anim' ? animCycleClips : [previewClip || clipNames[0]], single: type !== 'anim' } : null}
                       />
+                      {type !== 'bundle' && timelineClip && clipDur > 0 && (
+                        /* THE ICON TIMELINE — pause on your pose, lock it: the
+                           grey noob at this exact moment becomes the icon that
+                           shows on the marketplace card AND in the emote wheel */
+                        <div style={{ padding: '6px 8px', borderTop: '1px solid #dbe4ec', background: '#fff' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              type="button"
+                              className="rb-btn"
+                              style={{ fontSize: 10, padding: '1px 7px', flexShrink: 0 }}
+                              onClick={() => setScrub((s) => (s == null ? (iconPose?.t ?? Math.min(0.5, clipDur / 2)) : null))}
+                            >
+                              {scrub == null ? 'II Pause' : '> Play'}
+                            </button>
+                            <input
+                              type="range"
+                              min={0}
+                              max={Math.max(clipDur, 0.05)}
+                              step={0.02}
+                              value={scrub ?? 0}
+                              onChange={(e) => setScrub(Number(e.target.value))}
+                              style={{ flex: 1, minWidth: 0 }}
+                              aria-label="Emote timeline"
+                            />
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#5a6b7b' }}>
+                              {(scrub ?? 0).toFixed(2)}s / {clipDur.toFixed(2)}s
+                            </span>
+                            <button
+                              type="button"
+                              className="rb-btn rb-btn-green"
+                              style={{ fontSize: 10, padding: '1px 7px' }}
+                              disabled={scrub == null}
+                              title={scrub == null ? 'Pause on the pose you want first' : 'The grey noob at this pose becomes the emote icon'}
+                              onClick={setIconFromMarker}
+                            >
+                              Set icon at this pose
+                            </button>
+                            {iconPose && (
+                              <button
+                                type="button"
+                                className="rb-link"
+                                style={{ background: 'none', border: 'none', padding: 0, fontSize: 10 }}
+                                onClick={() => { setIconPose(null); setIconThumb(null) }}
+                              >
+                                clear
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 9, color: '#8ba0b3', marginTop: 3, lineHeight: 1.4 }}>
+                            {iconPose
+                              ? `Icon locked: ${iconPose.clip} @ ${iconPose.t.toFixed(2)}s — grey noob pose rides to the marketplace + your emote wheel.`
+                              : 'Move the timeline, pause on your pose, lock it as the icon.'}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div style={{ height: 300, border: '1px dashed #b7c6d4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#7b8896', textAlign: 'center', padding: 12 }}>
-                      Pick a rigged GLB above and your animation preview plays here.
+                      Pick a rigged GLB or FBX above and your animation preview plays here.
                     </div>
                   )}
                   {clipNames.length > 0 && (
                     <div style={{ fontSize: 10, color: '#3e8e41', marginTop: 6 }}>
-                      ✓ {clipNames.length} clip{clipNames.length === 1 ? '' : 's'} found in your GLB
+                      ✓ {clipNames.length} clip{clipNames.length === 1 ? '' : 's'} found in your model
                       {detectedParts.length > 0 && type === 'bundle' && ` · replaces: ${detectedParts.join(', ')}`}
                     </div>
                   )}
@@ -1734,7 +1856,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                 <div style={{ flex: 1, minWidth: 220, fontSize: 11 }}>
                   {type !== 'bundle' && clipNames.length > 0 && (
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ color: '#1c4e7c', marginBottom: 3 }}>{type === 'anim' ? 'Map each move to a clip from your GLB' : 'Clip to preview'}</div>
+                      <div style={{ color: '#1c4e7c', marginBottom: 3 }}>{type === 'anim' ? 'Map each move to a clip from your model' : 'NLA track (the action that plays)'}</div>
                       {type === 'anim' ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 5 }}>
                           {ANIM_SLOTS.map((slot) => (
@@ -1754,7 +1876,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                           ))}
                         </div>
                       ) : (
-                        <select className="rb-input" value={previewClip} onChange={(e) => setPreviewClip(e.target.value)} style={{ fontSize: 11, width: '100%' }} aria-label="Preview clip">
+                        <select className="rb-input" value={previewClip} onChange={(e) => { setPreviewClip(e.target.value); setScrub(null) }} style={{ fontSize: 11, width: '100%' }} aria-label="Preview clip">
                           {clipNames.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       )}
@@ -1764,17 +1886,26 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                     <div style={{ marginBottom: 8 }}>
                       <div style={{ color: '#1c4e7c', marginBottom: 3 }}>Preview it on…</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 5 }}>
-                        {([['avatar', 'Normal avatar'], ['bundle', 'A bundle'], ['ugc', 'Avatar + UGC']] as const).map(([k, label]) => (
+                        {([['avatar', 'Normal avatar'], ['noob', 'Grey noob'], ['bundle', 'A bundle'], ['ugc', 'Avatar + UGC']] as const).map(([k, label]) => (
                           <button
                             key={k}
                             type="button"
-                            onClick={() => { setTargetKind(k); setTargetAssetId('') }}
-                            aria-pressed={targetKind === k}
+                            onClick={() => {
+                              if (k === 'noob') {
+                                setPreviewBody((b) => (b === 'noob' ? 'target' : 'noob'))
+                                if (previewBody !== 'noob') { setTargetKind('avatar'); setTargetAssetId('') }
+                              } else {
+                                setPreviewBody('target')
+                                setTargetKind(k)
+                                setTargetAssetId('')
+                              }
+                            }}
+                            aria-pressed={k === 'noob' ? previewBody === 'noob' : targetKind === k && previewBody === 'target'}
                             style={{
                               fontSize: 10, padding: '2px 8px', cursor: 'pointer',
-                              border: targetKind === k ? '1px solid #0069a8' : '1px solid #b7c6d4',
-                              background: targetKind === k ? '#0085cf' : '#fff',
-                              color: targetKind === k ? '#fff' : '#1c4e7c',
+                              border: (k === 'noob' ? previewBody === 'noob' : targetKind === k && previewBody === 'target') ? '1px solid #0069a8' : '1px solid #b7c6d4',
+                              background: (k === 'noob' ? previewBody === 'noob' : targetKind === k && previewBody === 'target') ? '#0085cf' : '#fff',
+                              color: (k === 'noob' ? previewBody === 'noob' : targetKind === k && previewBody === 'target') ? '#fff' : '#1c4e7c',
                             }}
                           >
                             {label}
@@ -1794,9 +1925,10 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                         </select>
                       )}
                       <div style={{ fontSize: 9, color: '#8ba0b3', marginTop: 3 }}>
-                        {targetKind === 'avatar' && 'Plays on the classic blocky body.'}
-                        {targetKind === 'bundle' && 'Plays on the bundle you pick — animate a bundle!'}
-                        {targetKind === 'ugc' && 'Your item worn with a marketplace UGC piece — pets flying around you.'}
+                        {previewBody === 'noob' && 'The grey noob emote guy — exactly what your icon shows.'}
+                        {previewBody !== 'noob' && targetKind === 'avatar' && 'Plays on the classic blocky body.'}
+                        {previewBody !== 'noob' && targetKind === 'bundle' && 'Plays on the bundle you pick — animate a bundle!'}
+                        {previewBody !== 'noob' && targetKind === 'ugc' && 'Your item worn with a marketplace UGC piece — pets flying around you.'}
                       </div>
                     </div>
                   )}

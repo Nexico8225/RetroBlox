@@ -43,9 +43,15 @@ interface Player3DViewProps {
   className?: string
   /** rigged clips to play ON the body (emote / animation pack) */
   anim?: RigAnim | null
+  /** timeline scrubber: a non-null SECONDS freezes the clip at that exact
+   *  moment; null resumes normal playback (the emote studio timeline) */
+  scrub?: number | null
+  /** reports the ACTIVE clip's duration (seconds) whenever a clip starts —
+   *  0 when nothing plays — so a timeline can size its slider */
+  onClipTime?: (duration: number) => void
 }
 
-export default function Player3DView({ look, height = 320, interactive = true, zoom = 1, flat = false, className, anim = null }: Player3DViewProps) {
+export default function Player3DView({ look, height = 320, interactive = true, zoom = 1, flat = false, className, anim = null, scrub = null, onClipTime }: Player3DViewProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
   // bumped once the rig finished loading — the anim effect waits for it,
@@ -61,6 +67,13 @@ export default function Player3DView({ look, height = 320, interactive = true, z
   const animKey = anim ? `${anim.url}|${anim.clips.join(',')}|${anim.single ? 1 : 0}` : ''
   // the retargeted clip sequence, shared between the anim effect and the raf loop
   const mixerSeqRef = useRef<{ mixer: THREE.AnimationMixer; seq: THREE.AnimationAction[]; idx: number; timer: number; single: boolean } | null>(null)
+  // timeline scrub + duration callback land in refs so the raf loop reads
+  // fresh values without re-binding the whole scene
+  const scrubRef = useRef<number | null>(scrub)
+  const reportRef = useRef<typeof onClipTime>(onClipTime)
+  const scrubbingRef = useRef(false)
+  useEffect(() => { scrubRef.current = scrub }, [scrub])
+  useEffect(() => { reportRef.current = onClipTime }, [onClipTime])
 
   useEffect(() => {
     const host = hostRef.current
@@ -148,16 +161,31 @@ export default function Player3DView({ look, height = 320, interactive = true, z
       // advance the retargeted clip sequence (emote loop / anim-pack cycle)
       const seq = mixerSeqRef.current
       if (seq) {
-        seq.mixer.update(1 / 60)
-        seq.timer += 1 / 60
-        if (!seq.single && seq.seq.length > 1) {
-          const cur = seq.seq[seq.idx]
-          const dur = Math.min(cur.getClip().duration, 2.6)
-          if (seq.timer >= dur) {
-            seq.timer = 0
-            cur.fadeOut(0.24)
-            seq.idx = (seq.idx + 1) % seq.seq.length
-            seq.seq[seq.idx].reset().fadeIn(0.24).play()
+        // the studio timeline: freeze every action at the scrub moment
+        const at = scrubRef.current
+        if (at != null) {
+          for (const a of seq.seq) {
+            a.paused = true
+            a.time = Math.max(0, Math.min(at, a.getClip().duration))
+          }
+          seq.mixer.update(0)
+          scrubbingRef.current = true
+        } else {
+          if (scrubbingRef.current) {
+            for (const a of seq.seq) a.paused = false
+            scrubbingRef.current = false
+          }
+          seq.mixer.update(1 / 60)
+          seq.timer += 1 / 60
+          if (!seq.single && seq.seq.length > 1) {
+            const cur = seq.seq[seq.idx]
+            const dur = Math.min(cur.getClip().duration, 2.6)
+            if (seq.timer >= dur) {
+              seq.timer = 0
+              cur.fadeOut(0.24)
+              seq.idx = (seq.idx + 1) % seq.seq.length
+              seq.seq[seq.idx].reset().fadeIn(0.24).play()
+            }
           }
         }
       }
@@ -254,6 +282,7 @@ export default function Player3DView({ look, height = 320, interactive = true, z
       if (anim.single && actions[0]) {
         actions.slice(1).forEach((a) => a.stop())
       }
+      reportRef.current?.(actions[0].getClip().duration)
     }
 
     loadClipsRetargeted(anim.url, view)
@@ -292,6 +321,8 @@ export default function Player3DView({ look, height = 320, interactive = true, z
         cur.mixer.stopAllAction()
         mixerSeqRef.current = null
       }
+      scrubbingRef.current = false
+      reportRef.current?.(0)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animKey, readyTick])

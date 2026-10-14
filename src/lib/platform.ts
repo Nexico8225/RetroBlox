@@ -96,6 +96,8 @@ export interface EnrichedAvatar {
     itemId: string
     name: string
     modelUrl: string
+    /** the item's catalog icon (the pose the creator marked in the studio) */
+    thumbUrl: string
     clips: AnimClipsT | null
   }[]
 }
@@ -157,7 +159,7 @@ export async function enrichAvatarPayload(userId: string, cfg: AvatarConfigT): P
       const rows = await db.inventoryEntry
         .findMany({
           where: { userId, item: { type: 'emote', deletedAt: null } },
-          include: { item: { select: { id: true, assetId: true, name: true, modelFileId: true, animClipsJson: true } } },
+          include: { item: { select: { id: true, assetId: true, name: true, modelFileId: true, imageFileId: true, animClipsJson: true } } },
           orderBy: { acquiredAt: 'desc' },
           take: 50,
         })
@@ -169,6 +171,7 @@ export async function enrichAvatarPayload(userId: string, cfg: AvatarConfigT): P
           itemId: r.item.id,
           name: r.item.name,
           modelUrl: `/api/files/${r.item.modelFileId}`,
+          thumbUrl: r.item.imageFileId ? `/api/files/${r.item.imageFileId}` : '',
           clips: parseAnimClipsJson(r.item.animClipsJson),
         }))
     })()
