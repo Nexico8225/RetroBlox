@@ -54,11 +54,11 @@ export type PartKey = 'head' | 'torso' | 'armL' | 'armR' | 'legL' | 'legR'
 
 const PART_ALIASES: Record<PartKey, string[]> = {
   head: ['head'],
-  torso: ['torso'],
-  armL: ['left arm', 'leftarm', 'arm_l', 'l arm'],
-  armR: ['right arm', 'rightarm', 'arm_r', 'r arm'],
-  legL: ['left leg', 'leftleg', 'leg_l', 'l leg'],
-  legR: ['right leg', 'rightleg', 'leg_r', 'r leg'],
+  torso: ['torso', 'upper torso', 'uppertorso', 'lower torso', 'lowertorso', 'mid torso', 'middletorso', 'body'],
+  armL: ['left arm', 'leftarm', 'arm_l', 'l arm', 'left upper arm', 'left upperarm', 'leftupperarm', 'left lower arm', 'left lowerarm', 'leftlowerarm', 'left hand', 'lefthand', 'upperarm_l', 'lowerarm_l'],
+  armR: ['right arm', 'rightarm', 'arm_r', 'r arm', 'right upper arm', 'right upperarm', 'rightupperarm', 'right lower arm', 'right lowerarm', 'rightlowerarm', 'right hand', 'righthand', 'upperarm_r', 'lowerarm_r'],
+  legL: ['left leg', 'leftleg', 'leg_l', 'l leg', 'left upper leg', 'left upperleg', 'leftupperleg', 'left lower leg', 'left lowerleg', 'leftlowerleg', 'left foot', 'leftfoot', 'upperleg_l', 'lowerleg_l'],
+  legR: ['right leg', 'rightleg', 'leg_r', 'r leg', 'right upper leg', 'right upperleg', 'rightupperleg', 'right lower leg', 'right lowerleg', 'rightlowerleg', 'right foot', 'rightfoot', 'upperleg_r', 'lowerleg_r'],
 }
 
 export interface LoadedRig {
@@ -224,7 +224,7 @@ export interface AvatarLook3D {
   /** 3D UGC to attach. url may be '' for legacy image-only items (rendered as a decal instead).
    *  animClips: names of clips inside the model's own GLB to loop while worn
    *  ("a pet flying around you") — the item carries its own animation. */
-  models?: { url: string; imageUrl?: string; placement: Placement | null; textureUrl?: string; color?: string; roughness?: number | null; metallic?: number | null; animClips?: string[] }[]
+  models?: { url: string; imageUrl?: string; placement: Placement | null; textureUrl?: string; color?: string; animClips?: string[] }[]
   /** worn bundle — a rigged body model that REPLACES the matching body parts.
    *  Normalized to the rig's exact height + footprint, painted with the
    *  Body Colors where its part names match. */
@@ -257,8 +257,6 @@ export function buildLook3D(cfg: AvatarConfigT, resolve: (id: string) => AssetIn
         placement: a.placement || null,
         textureUrl: a.textureUrl,
         color: a.color,
-        roughness: a.roughness,
-        metallic: a.metallic,
         animClips: a.animClips?.clips,
       })),
     bundle: bundleInfo?.modelUrl ? { url: bundleInfo.modelUrl } : null,
@@ -445,10 +443,6 @@ export interface ModelSurface {
   textureUrl?: string
   /** optional tint painted on the model when it has no texture (#RRGGBB) */
   color?: string
-  /** creator surface finish overrides 0..1 — when set they WIN over the
-   *  model's own materials (that is the whole point: "make it shiny/matte") */
-  roughness?: number | null
-  metallic?: number | null
 }
 
 /** linear-space threshold for "this surface arrived with no real paint"
@@ -473,9 +467,7 @@ function isUnpainted(std: THREE.MeshStandardMaterial): boolean {
  * exactly how Roblox treats SurfaceAppearance vs MeshPart color.
  */
 export async function applyModelSurface(root: THREE.Object3D, surface: ModelSurface | null | undefined): Promise<void> {
-  if (!surface || (!surface.textureUrl && !surface.color && surface.roughness == null && surface.metallic == null)) return
-  const finishRough = typeof surface.roughness === 'number' ? Math.min(1, Math.max(0, surface.roughness)) : null
-  const finishMetal = typeof surface.metallic === 'number' ? Math.min(1, Math.max(0, surface.metallic)) : null
+  if (!surface || (!surface.textureUrl && !surface.color)) return
   root.traverse((o) => {
     const mesh = o as THREE.Mesh
     if (!mesh.isMesh) return
@@ -492,16 +484,6 @@ export async function applyModelSurface(root: THREE.Object3D, surface: ModelSurf
     mats.forEach((m) => {
       if (!m || !('color' in m)) return
       const std = m as THREE.MeshStandardMaterial
-      // finish overrides apply to EVERY surface of the item — an explicit
-      // creator choice always beats what the file happens to carry
-      if (finishRough != null) {
-        std.roughness = finishRough
-        std.needsUpdate = true
-      }
-      if (finishMetal != null) {
-        std.metalness = finishMetal
-        std.needsUpdate = true
-      }
       if (surface.textureUrl) {
         if (std.map) return // the model's own texture is data — it wins
         // tracked so callers can await the texture before their first render
@@ -558,6 +540,11 @@ export function attachPlacedModel(model: THREE.Object3D, placement: Placement | 
    bundle whose parts follow the same naming. */
 
 /** Rewrite a clip's track names to the node names that exist under `root`.
+ *  Matching is two-stage: the exact normalized name first, then the BODY-PART
+ *  alias table ("LeftArm" -> the rig's "Left Arm" node, R15 names like
+ *  "LeftUpperArm" -> the arm part too). Without the alias stage a rig whose
+ *  names differ by a space or a word bound ZERO tracks and the preview stood
+ *  frozen — the classic "my anim doesn't preview" bug.
  *  Returns null when nothing in the clip matches anything in the rig. */
 export function retargetClipToRoot(clip: THREE.AnimationClip, root: THREE.Object3D): THREE.AnimationClip | null {
   const nameMap = new Map<string, string>()
@@ -566,6 +553,8 @@ export function retargetClipToRoot(clip: THREE.AnimationClip, root: THREE.Object
     if (!o.name) return
     const n = normName(o.name)
     if (n && !nameMap.has(n)) nameMap.set(n, o.name)
+    const part = matchPart(o.name)
+    if (part && !nameMap.has(part)) nameMap.set(part, o.name)
   })
   if (nameMap.size === 0) return null
 
@@ -575,7 +564,7 @@ export function retargetClipToRoot(clip: THREE.AnimationClip, root: THREE.Object
     if (dot < 1) continue
     const nodeName = track.name.slice(0, dot)
     const prop = track.name.slice(dot) // ".quaternion" / ".position" / ".scale"
-    const mapped = nameMap.get(normName(nodeName))
+    const mapped = nameMap.get(normName(nodeName)) || nameMap.get(matchPart(nodeName) || '')
     if (!mapped) continue
     const nt = track.clone()
     nt.name = `${mapped}${prop}`
@@ -599,6 +588,36 @@ export async function loadClipsRetargeted(
     if (r) out.push(r)
   }
   return out
+}
+
+/** The SELF-PREVIEW fallback: load a rigged GLB as its own standing model
+ *  (feet on y=0, centered, RIG_HEIGHT tall) plus its own clips. Used when
+ *  nothing in a foreign rig retargets onto the R6 body — the uploaded model
+ *  plays its own animation instead of a frozen avatar. */
+export async function loadSelfAnimatedModel(
+  url: string,
+  height = RIG_HEIGHT
+): Promise<{ group: THREE.Group; clips: THREE.AnimationClip[] }> {
+  const { scene, clips } = await loadGltfWithClips(url)
+  // the GLB cache returns a SHARED scene — SkeletonUtils.clone a private copy
+  // so the self-preview never fights another view over the same nodes
+  const owned = skeletonClone(scene)
+  const wrap = new THREE.Group()
+  wrap.add(owned)
+  const box = new THREE.Box3().setFromObject(wrap)
+  const size = box.getSize(new THREE.Vector3())
+  const s = height / Math.max(size.y, 0.0001)
+  wrap.scale.setScalar(s)
+  wrap.updateMatrixWorld(true)
+  const nb = new THREE.Box3().setFromObject(wrap)
+  const nc = nb.getCenter(new THREE.Vector3())
+  wrap.position.x -= nc.x
+  wrap.position.z -= nc.z
+  wrap.position.y -= nb.min.y
+  const group = new THREE.Group()
+  group.add(wrap)
+  group.updateMatrixWorld(true)
+  return { group, clips }
 }
 
 /* ---------------- mixers worn on a look (self-animated UGC) ---------------- */
@@ -897,7 +916,7 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
       jobs.push(
         loadGltfWithClips(m.url).then(async ({ scene: model, clips }) => {
           const inst = skeletonClone(model) // clone so many views can wear one item
-          await applyModelSurface(inst, { textureUrl: m.textureUrl, color: m.color, roughness: m.roughness, metallic: m.metallic })
+          await applyModelSurface(inst, { textureUrl: m.textureUrl, color: m.color })
           const holder = attachPlacedModel(inst, m.placement)
           if (m.animClips && m.animClips.length > 0) playOwnClips(inst, clips, m.animClips)
           worn.add(holder)
