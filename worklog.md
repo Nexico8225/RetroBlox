@@ -272,3 +272,57 @@ Work Log:
 
 Stage Summary:
 - v12.2 "THE OLD FRONT DOOR" live on main: the game's login IS the website's login, Log In only, the profile is synced (avatar-render PFP everywhere), the blue chat icon is back, the owner can always reset their password from the Admin Panel, and a complete handoff prompt exists for any other AI. Owner must re-download the kit zip (?v=12.2 busts the cache) and log in with Nexico.2014 (or set a new password in Admin → Account Tools).
+
+---
+Task ID: emote-studio-v15
+Agent: Super Z (main)
+Task: "this is the official rig and make it support glb and fbx and make it so i can see the emote also make a emote guy who is just grey noob... move the timeline and where you put the marker that will be the emote icon for in game to and the marketplace... use NLA track to select the action and upload the emote same goes to animations" + R6IKFIX.blend uploaded
+
+Work Log:
+- Discovered the container had rolled back; re-synced local git to origin/main (v13 emote wheel + v14 owned-GLB-in-wheel + retarget fix already live from the other session). Confirmed , / . camera 45-degree keys (v13) and the 1-2 stud torso ledge gate (v13 WALL_LEDGE_MIN/MAX) are already shipped.
+- avatarAssets.ts: AnimClipsT gains useClip (the picked NLA track) + iconTime (the marker seconds); sanitizeAnimClips preserves both (validated, <=600s).
+- platform.ts: /api/me emotes payload now carries thumbUrl (imageFileId) so games can show icons.
+- animCapture.ts: captureRiggedThumb accepts an exact atTime; new captureNoobThumb(url, clip, t) = the GREY NOOB icon shot (prepareRigView clone + all-grey look + retargetClipToRoot + pose at exact t + white-frame PNG).
+- Player3DView: scrub prop (freeze every action at an exact second, resume on null) + onClipTime duration callback for the timeline.
+- CatalogView emote/anim studio: FBX accepted + wording everywhere (rigged GLB or FBX; .blend note: export glTF Binary), "NLA track (the action that plays)" select, Grey noob preview body button, icon timeline (play/pause + slider + "Set icon at this pose"), iconThumb rides to publish; emote animClips JSON now carries useClip+iconTime.
+- Kit (zip): game.gd reads useClip/thumbUrl, _play_custom_emote plays the picked NLA track, new _load_emote_icons() (Api.load_image -> ImageTexture); emote_wheel.gd custom_icons draw on slot buttons (expand_icon, icon_max_width 34, vertical icon above label).
+- Ritual: fresh copy -> headless import OK -> parse_check PARSE_OK (43 scripts) -> check_rig RIG_OK -> custom_emote_test ALL PASS -> smoke SMOKE_OK -> 45s full-game run ZERO output -> zip rebuilt, diff vs pristine = exactly game.gd + emote_wheel.gd.
+- tsc clean on touched files (remaining repo errors are stale local prisma client, pre-existing).
+- Pushed 6 files (d4e1cb6) with the new token; live md5 verified after deploy.
+
+Stage Summary:
+- v15: full emote upload pipeline — GLB OR FBX, NLA track picker, grey noob preview guy, timeline marker -> icon used on marketplace AND in-game wheel; in-game plays the exact NLA track picked.
+- R6IKFIX.blend cannot be parsed in-browser (by design) — the studio tells creators to export glTF Binary; the rig's part names already alias-map (LeftArm/Left Arm/R15).
+
+---
+Task ID: emote-retarget-rest-fix
+Agent: Super Z (main)
+Task: user uploaded a Blender wave action (NLA) — GLB import showed no "wave" track and nothing played; FBX import listed "Wave" but the grey noob preview exploded ("broken and out of place") + screenshots of the other session's finished v15 todo list confirmed done
+
+Work Log:
+- ROOT-CAUSED THE EXPLOSION: retargetClipToRoot copied foreign quaternion/position keyframes VERBATIM onto our R6 nodes — a Blender rig's bones rest at different orientations and FBX pipelines hand out positions in CENTIMETERS, so a correct wave dislocated the body (measured: 53.72 units of displacement on the real rig)
+- NEW retargetClipWithRest (rig.ts): rotation transfers RELATIVE TO REST (q_out = q_in * inv(q_rest_src) * q_rest_tgt), position keys unit-scale by |rest_tgt|/|rest_src| with sane-drop guards, scale tracks dropped, no-rest tracks keep the old verbatim floor; loadClipsRetargeted + captureNoobThumb (the emote icon shot) both use it now
+- PROVEN by scripts/retarget_test.ts (npx tsx) against the REAL R6IK.fbx: old retarget displaced 53.72 units, new retarget 1.06 units with the wave angle transferring at exactly 60.0deg, and the official-template case stays byte-identical (verbatim fast path when rests match)
+- Test-harness lessons baked into comments: play()+update(t) WRAPS at clip end (LoopRepeat), and mixer.stopAllAction() in three r180 RESTORES the node's original transforms (original-state mechanism) — the production poseAt pattern (play+paused+time+update(0), never stopped before render) is the only correct sampler
+- CatalogView: empty-clip animations filtered out of the NLA dropdown; a rigged upload with ZERO clips now shows the exact Blender checklist (select the armature, action pushed to NLA, export glTF 2.0 with Animation ON / Mode: Actions, or FBX) instead of failing silently — that silence was the "no action named wave" experience
+- NLA dropdowns + timeline caption show clipLabel() (the action tail after "Armature|"); the RAW name still rides to publish since the Godot kit looks the clip up by the same name in the same GLB
+- tsc clean on touched files; npm build OK; pushed 3 files (9b53246); Vercel deploy success; live 200s
+
+Stage Summary:
+- Foreign-rig emote/anim previews (and the grey noob icon capture) now transfer rotations relative to rest with unit correction — a Blender/FBX wave plays ON the noob instead of exploding; uploads with no animation inside get a clear how-to-fix error instead of a silent dead dropdown
+
+---
+Task ID: emote-fbx-glb-broken-pose-fix
+Agent: Super Z (main)
+Task: user reported the wave emote STILL broken after the rest-delta fix ("head is out of place and the arm not moving correctly") — do the todos, build + push
+
+Work Log:
+- Built a REAL reproduction: downloaded Blender 4.2.3 portable, imported the site's own R6IK.fbx, authored a wave action (LeftArm.002 60deg + Head 15deg @30fps), pushed to NLA, exported GLB (Actions mode) + FBX exactly per the creator instructions, then ran both through the production pipeline in node (scripts/emote_repro.ts): fileToGlb roundtrip -> retargetClipWithRest -> pose sampling with displacement/angle assertions
+- ROOT CAUSES (measured, not guessed): (1) nameMap first-wins bound "Head"/"Torso" tracks to the skinned MESH nodes (FBXLoader lists meshes before bones) and PropertyBinding does the same on playback; (2) constant position tracks (Blender bakes every bone's rest offset into every clip) carried FOREIGN AXES — the same bone rests at (0,2.56,0) in a Y-up Blender GLB but (0,0,2.56) on our FBX rig, so length-scaled verbatim copies wrenched the whole skeleton (armDisp 4.9, torsoDisp 3.0); (3) Armature-container tracks carried Blender's baked Y-up conversion; (4) Blender's FBX exporter emitted 458 object-level cross-product takes ("Head|Right Arm|Old_Idle"), flooding the converted GLB; (5) FBX takes merge mesh+bone same-name tracks — the surviving "Head.quaternion" was the mesh's rest rotation (77deg tilt)
+- FIXES: rig.ts retargetClipWithRest — bones-first name binding (two-pass traverse), constant position tracks dropped (target bone already rests correctly), delta-transfer for genuinely moving positions, skeleton-container tracks dropped, within-clip track dedupe preferring the animating track, mesh-object rest-holds detected via cm-scale sibling positions and dropped; rig.ts loadRig — colliding meshes renamed "Head.Mesh"/"Torso.Mesh" so PropertyBinding resolves head/torso BONES (part-alias matching still works); convert.ts worthyClips — FBX 458 takes filtered to bone-driven multi-node clips deduped by action tail (458 -> 9, "wave" kept); rig.ts clipHasBoneTracks — object-level junk clips filtered from loadClipsRetargeted + the NLA dropdown (CatalogView ingestRiggedGlb, fallback keeps everything for mesh-only rigs); animCapture captureNoobThumb skips junk clips
+- VERIFIED: Blender wave GLB: arm 60.0deg at the peak, head 15.0deg tilt, max disp 0.062 (was 4.9/180deg explosion); FBX path through the real conversion: arm 55.9deg, body together, 458->9 clips; scripts/retarget_test.ts still RETARGET_TEST_PASS (synthetic foreign rig + template byte-identical); tsc clean on touched files; npm build OK
+- Pushed 6 files (332a34c); Vercel deploy success; live 200s
+
+Stage Summary:
+- Foreign-rig emote previews now survive real Blender roundtrips: the wave plays ON the grey noob (arm wave transfers, head stays attached) for BOTH the GLB path and the FBX-converted path; the NLA dropdown shows the creator's actual actions instead of 458 junk takes; icon capture uses the same fixed retarget
+- Known FBX-only limitation (Blender's own exporter/loader collision, not fixable web-side): keys on bones whose name equals a mesh object's name (Head/Torso on this rig) are dropped by the FBX take merge — GLB exports keep them; the studio already nudges creators to glTF Binary
