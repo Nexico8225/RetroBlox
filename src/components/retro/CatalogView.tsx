@@ -65,6 +65,15 @@ function thumbPlaceholder(type: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
+/* Blender's glTF/FBX exports sometimes name animations "Armature|wave" —
+   the prefix is the ARMATURE object, not the action. The dropdowns and the
+   timeline show just the action tail; the RAW name still rides to publish
+   (the Godot kit looks the clip up by exactly that name in the same GLB). */
+function clipLabel(name: string): string {
+  const i = name.lastIndexOf('|')
+  return i >= 0 ? name.slice(i + 1).trim() : name
+}
+
 /* short placement hint per type — placement is the creator's call, we never move it */
 const TYPE_HINTS: Record<string, string> = {
   hat: 'Upload a 3D model (FBX / GLB / OBJ), then place it on the player model in 3D. It renders exactly where you leave it.',
@@ -1192,9 +1201,17 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
     try {
       const loader = new GLTFLoader()
       const gltf = await loader.loadAsync(url)
-      const names = (gltf.animations || []).map((c: { name: string }) => c.name).filter(Boolean)
+      // empty clips (Blender can emit an animation with zero channels) would
+      // sit in the NLA dropdown as a dead pick — drop them up front
+      const usable = (gltf.animations || []).filter((c: { tracks?: unknown[] }) => (c.tracks || []).length > 0)
+      const names = usable.map((c: { name: string }) => c.name).filter(Boolean)
       setClipNames(names)
       setPreviewClip(names[0] || '')
+      if (names.length === 0) {
+        setError(
+          'No animations were found inside this file, so there is nothing to preview or publish. In Blender: select the ARMATURE (not just the mesh), keep your action pushed into an NLA track, then File > Export > glTF 2.0 with Animation switched ON (Mode: Actions). An FBX exported the same way also works.'
+        )
+      }
       // a fresh model resets the studio: no marker, no icon, timeline at play
       setScrub(null)
       setIconPose(null)
@@ -1835,7 +1852,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                           </div>
                           <div style={{ fontSize: 9, color: '#8ba0b3', marginTop: 3, lineHeight: 1.4 }}>
                             {iconPose
-                              ? `Icon locked: ${iconPose.clip} @ ${iconPose.t.toFixed(2)}s — grey noob pose rides to the marketplace + your emote wheel.`
+                              ? `Icon locked: ${clipLabel(iconPose.clip)} @ ${iconPose.t.toFixed(2)}s — grey noob pose rides to the marketplace + your emote wheel.`
                               : 'Move the timeline, pause on your pose, lock it as the icon.'}
                           </div>
                         </div>
@@ -1870,14 +1887,14 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                                 aria-label={`${ANIM_SLOT_LABELS[slot]} clip`}
                               >
                                 <option value="">— classic —</option>
-                                {clipNames.map((c) => <option key={c} value={c}>{c}</option>)}
+                                {clipNames.map((c) => <option key={c} value={c}>{clipLabel(c)}</option>)}
                               </select>
                             </label>
                           ))}
                         </div>
                       ) : (
                         <select className="rb-input" value={previewClip} onChange={(e) => { setPreviewClip(e.target.value); setScrub(null) }} style={{ fontSize: 11, width: '100%' }} aria-label="Preview clip">
-                          {clipNames.map((c) => <option key={c} value={c}>{c}</option>)}
+                          {clipNames.map((c) => <option key={c} value={c}>{clipLabel(c)}</option>)}
                         </select>
                       )}
                     </div>
