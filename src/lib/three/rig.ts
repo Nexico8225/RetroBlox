@@ -144,6 +144,26 @@ export function loadRig(): Promise<LoadedRig> {
       o.visible = false // IK control meshes, helper planes, etc.
     })
 
+    // UNIQUE BONE NAMES: the FBX carries a skinned MESH and a BONE that share
+    // the exact names "Head" and "Torso". THREE.PropertyBinding resolves a
+    // track named "Head.quaternion" to the first node it meets in the subtree
+    // — the MESH — so any clip (an uploaded emote, the official anims) that
+    // keys those bones silently never moves them; the retarget maps the track
+    // correctly and the mixer still lands it on the wrong node. Renaming the
+    // colliding meshes gives every bone name a unique owner. The ".Mesh"
+    // suffix keeps the part-alias match (normName "head mesh" still starts
+    // with "head ") so clothing, decals and UGC attachment are untouched —
+    // and skinned meshes follow their bones regardless of their own name.
+    const boneNames = new Set<string>()
+    group.traverse((o) => {
+      if ((o as THREE.Bone).isBone && o.name) boneNames.add(normName(o.name))
+    })
+    group.traverse((o) => {
+      if ((o as THREE.Bone).isBone || !o.name) return
+      if (!boneNames.has(normName(o.name))) return
+      o.name = `${o.name}.Mesh`
+    })
+
     const boxes = new Map<PartKey, THREE.Box3>()
     const frontZ = new Map<PartKey, number>()
     const vtx = new THREE.Vector3()
@@ -599,11 +619,19 @@ export function retargetClipToRoot(clip: THREE.AnimationClip, root: THREE.Object
  *              — the rotation RELATIVE TO REST transfers between rigs.
  *              When both rests match (the official template) this is
  *              mathematically the old verbatim copy, byte for byte.
- *    position  every key scales by |rest_tgt| / |rest_src| — centimeter
- *              keys shrink to our rig's units automatically. Tracks with no
- *              sane rest reference are dropped, never guessed.
+ *    position  CONSTANT tracks (Blender bakes every bone's rest offset into
+ *              every clip) are DROPPED — the target bone already rests at
+ *              its own correct offset, and a foreign offset carries a
+ *              foreign direction (Y-up Blender GLB vs our FBX's rotated
+ *              Armature node differ by 90deg — a verbatim copy bends the
+ *              whole skeleton). Genuinely MOVING tracks transfer the DELTA
+ *              from rest, unit-scaled, on top of the target's own rest.
  *    scale     dropped — a foreign rig's scale convention must not touch
  *              our body nodes.
+ *    binding   BONES claim every name slot first (our FBX has a skinned
+ *              mesh AND a bone both named "Head"); tracks on skeleton
+ *              CONTAINER nodes ("Armature") are dropped — that is file
+ *              layout, not pose.
  *
  *  Returns null when nothing in the clip matches anything in the rig. */
 export function retargetClipWithRest(
@@ -612,48 +640,120 @@ export function retargetClipWithRest(
   root: THREE.Object3D
 ): THREE.AnimationClip | null {
   root.updateMatrixWorld(true)
-  const nameMap = new Map<string, string>()
+  const nameMap = new Map<string, { name: string; node: THREE.Object3D }>()
   const restTgt = new Map<string, RestPose>()
-  root.traverse((o) => {
-    if (!o.name) return
-    const pose = restPoseOf(o)
-    const n = normName(o.name)
-    if (n && !nameMap.has(n)) { nameMap.set(n, o.name); restTgt.set(n, pose) }
-    const part = matchPart(o.name)
-    if (part && !nameMap.has(part)) { nameMap.set(part, o.name); restTgt.set(part, pose) }
-  })
+  // BONES FIRST: a rig often carries a skinned MESH and a BONE with the same
+  // name ("Head" the mesh vs "Head" the bone — our own R6IK.fbx does exactly
+  // that, and FBXLoader lists meshes before bones). Animation must drive the
+  // BONE — the mesh follows through skinning — so bones claim every name and
+  // alias slot first, non-bone nodes only fill what is left.
+  for (const pass of [0, 1]) {
+    root.traverse((o) => {
+      if (!o.name) return
+      const isBone = (o as THREE.Bone).isBone === true
+      if (pass === 0 && !isBone) return
+      if (pass === 1 && isBone) return
+      const pose = restPoseOf(o)
+      const n = normName(o.name)
+      if (n && !nameMap.has(n)) { nameMap.set(n, { name: o.name, node: o }); restTgt.set(n, pose) }
+      const part = matchPart(o.name)
+      if (part && !nameMap.has(part)) { nameMap.set(part, { name: o.name, node: o }); restTgt.set(part, pose) }
+    })
+  }
   if (nameMap.size === 0) return null
 
-  // the SOURCE rig's rest pose: node transforms exactly as the file loads
+  // the SOURCE rig's rest pose: node transforms exactly as the file loads —
+  // bones first there too (a Blender GLB names its bone "Head" and its mesh
+  // "Head_1"; a roundtripped FBX can carry both plain "Head")
   sourceRoot.updateMatrixWorld(true)
-  const restSrc = new Map<string, RestPose>()
-  sourceRoot.traverse((o) => {
-    if (!o.name) return
-    const pose = restPoseOf(o)
-    const n = normName(o.name)
-    if (n && !restSrc.has(n)) restSrc.set(n, pose)
-    const part = matchPart(o.name)
-    if (part && !restSrc.has(part)) restSrc.set(part, pose)
-  })
+  const restSrc = new Map<string, { node: THREE.Object3D; pose: RestPose }>()
+  for (const pass of [0, 1]) {
+    sourceRoot.traverse((o) => {
+      if (!o.name) return
+      const isBone = (o as THREE.Bone).isBone === true
+      if (pass === 0 && !isBone) return
+      if (pass === 1 && isBone) return
+      const pose = restPoseOf(o)
+      const n = normName(o.name)
+      if (n && !restSrc.has(n)) restSrc.set(n, { node: o, pose })
+      const part = matchPart(o.name)
+      if (part && !restSrc.has(part)) restSrc.set(part, { node: o, pose })
+    })
+  }
+
+  /** a skeleton CONTAINER (the "Armature" node — not a bone itself, parents
+   *  the bones). Foreign exports bake their FILE-LAYOUT rotation into it
+   *  (Blender's Y-up conversion, FBX pre-rotations), so a track on it would
+   *  wrench our whole skeleton on top of its own orientation. Never played. */
+  const isSkeletonContainer = (o: THREE.Object3D): boolean => {
+    if ((o as THREE.Bone).isBone) return false
+    return o.children.some((c) => (c as THREE.Bone).isBone)
+  }
 
   const tracks: THREE.KeyframeTrack[] = []
+  // DEDUPE FIRST: an FBX take can bake a MESH object and a BONE that share a
+  // name into ONE clip ("Head" the mesh + "Head" the bone -> two "Head.qua-
+  // ternion" tracks). The mesh's keys just hold the mesh's own rest transform
+  // (a 90deg object rotation that would tilt our bone); the bone's keys carry
+  // the actual pose. Prefer the track that really ANIMATES; among constant
+  // duplicates keep the first (file order).
+  const trackIsConstant = (t: THREE.KeyframeTrack, itemSize: number): boolean => {
+    const v = t.values as Float32Array
+    if (v.length <= itemSize) return true
+    let mx = 0
+    for (let i = 0; i < itemSize; i++) mx = Math.max(mx, Math.abs(v[i]))
+    const eps = Math.max(1e-5, mx * 0.004)
+    for (let i = itemSize; i < v.length; i += itemSize) {
+      for (let k = 0; k < itemSize; k++) {
+        if (Math.abs(v[i + k] - v[k]) > eps) return false
+      }
+    }
+    return true
+  }
+  const dedup = new Map<string, THREE.KeyframeTrack>()
   for (const track of clip.tracks) {
+    const prev = dedup.get(track.name)
+    if (!prev) { dedup.set(track.name, track); continue }
+    const itemSize = track.name.endsWith('.quaternion') ? 4 : 3
+    if (trackIsConstant(prev, itemSize) && !trackIsConstant(track, itemSize)) dedup.set(track.name, track)
+  }
+  const dedupedTracks = [...dedup.values()]
+
+  for (const track of dedupedTracks) {
     const dot = track.name.lastIndexOf('.')
     if (dot < 1) continue
     const nodeName = track.name.slice(0, dot)
     const prop = track.name.slice(dot) // ".quaternion" / ".position" / ".scale"
     const key = normName(nodeName)
     const partKey = matchPart(nodeName)
-    const mapped = nameMap.get(key) || (partKey ? nameMap.get(partKey) : undefined)
-    if (!mapped) continue
+    const mappedEntry = nameMap.get(key) || (partKey ? nameMap.get(partKey) : undefined)
+    if (!mappedEntry) continue
+    const mapped = mappedEntry.name
     const src = restSrc.get(key) || (partKey ? restSrc.get(partKey) : undefined)
     const tgt = restTgt.get(key) || (partKey ? restTgt.get(partKey) : undefined)
 
     if (prop === '.scale') continue // foreign scale conventions — never
+    if (isSkeletonContainer(mappedEntry.node)) continue // Armature-node tracks — never
 
     if (prop === '.quaternion' && src && tgt) {
       const q = track as THREE.QuaternionKeyframeTrack
-      if (src.quat.dot(tgt.quat) > 0.9995) {
+      // MESH-OBJECT HOLD: when an FBX take merges a mesh object and a bone
+      // with the same name, the surviving constant "Head.quaternion" can be
+      // the MESH's own rest rotation (measured: 77deg off on our head bone).
+      // Tell them apart by the sibling position track — a mesh hold carries a
+      // cm-scale world offset tens of times the bone's rest offset; a real
+      // held pose keeps ~the rest offset. Mesh holds are file layout, not
+      // pose — the bone keeps its own rest instead.
+      if (trackIsConstant(q, 4)) {
+        const posTrack = dedupedTracks.find((t) => t.name === `${nodeName}.position`)
+        if (posTrack) {
+          const pv = posTrack.values as Float32Array
+          const mag = Math.hypot(pv[0], pv[1], pv[2])
+          const restMag = src.pose.pos.length()
+          if (mag > restMag * 3 && mag > restMag + 0.5) continue
+        }
+      }
+      if (src.pose.quat.dot(tgt.quat) > 0.9995) {
         // identical rest orientations (the official template) — verbatim is exact
         const nt = q.clone()
         nt.name = `${mapped}${prop}`
@@ -661,7 +761,7 @@ export function retargetClipWithRest(
         continue
       }
       // per key: q_out = q_in * inv(q_rest_src) * q_rest_tgt
-      const corr = new THREE.Quaternion().copy(src.quat).invert().multiply(tgt.quat)
+      const corr = new THREE.Quaternion().copy(src.pose.quat).invert().multiply(tgt.quat)
       const values = Float32Array.from(q.values)
       const tmp = new THREE.Quaternion()
       for (let i = 0; i + 3 < values.length; i += 4) {
@@ -676,16 +776,45 @@ export function retargetClipWithRest(
     }
 
     if (prop === '.position') {
-      if (!src || !tgt) continue // no rest to scale against — drop, never guess
-      const ls = src.pos.length()
+      // Positions must land on BONE nodes only — a bone offset from another
+      // file drives nothing on a skinned mesh (the bones own the vertices).
+      if (!(mappedEntry.node as THREE.Bone).isBone) continue
+      if (!src || !tgt) continue // no rest to correct against — drop, never guess
+      // CONSTANT tracks (Blender bakes every bone's offset into every clip)
+      // mean "the bone sits at its own rest" — the TARGET bone already does
+      // exactly that, so the right transfer is to drop the track. Scaling or
+      // copying the foreign offset would RIP THE BODY APART: the same bone
+      // rests at (0, 2.56, 0) in a Y-up Blender GLB but (0, 0, 2.56) on our
+      // FBX rig (the -90deg pre-rotation lives on the parent Armature node),
+      // so a length-scaled verbatim copy bent the whole skeleton 90deg.
+      const v = track as THREE.VectorKeyframeTrack
+      const values = Float32Array.from(v.values)
+      const scale = Math.max(Math.abs(values[0]), Math.abs(values[1]), Math.abs(values[2]), 1e-6)
+      const eps = Math.max(1e-5, scale * 0.004) // ~0.4% — bakes wobble, not motion
+      let constant = true
+      for (let i = 3; i < values.length; i += 3) {
+        if (
+          Math.abs(values[i] - values[0]) > eps ||
+          Math.abs(values[i + 1] - values[1]) > eps ||
+          Math.abs(values[i + 2] - values[2]) > eps
+        ) { constant = false; break }
+      }
+      if (constant) continue
+      // genuinely moving position (root motion, IK pops): transfer the DELTA
+      // from rest, unit-scaled, on top of the target's own rest offset —
+      // never the raw foreign offset with its foreign direction
+      const ls = src.pose.pos.length()
       const lt = tgt.pos.length()
       if (!Number.isFinite(ls) || !Number.isFinite(lt) || ls < 1e-6) continue
       const f = lt / ls
       if (f < 0.01 || f > 100) continue // rigs too unlike each other — drop
-      const v = track as THREE.VectorKeyframeTrack
-      const values = Float32Array.from(v.values)
-      for (let i = 0; i < values.length; i++) values[i] *= f
-      tracks.push(new THREE.VectorKeyframeTrack(`${mapped}${prop}`, v.times, values))
+      const out = new Float32Array(values.length)
+      for (let i = 0; i < values.length; i += 3) {
+        out[i] = tgt.pos.x + (values[i] - src.pose.pos.x) * f
+        out[i + 1] = tgt.pos.y + (values[i + 1] - src.pose.pos.y) * f
+        out[i + 2] = tgt.pos.z + (values[i + 2] - src.pose.pos.z) * f
+      }
+      tracks.push(new THREE.VectorKeyframeTrack(`${mapped}${prop}`, v.times, out))
       continue
     }
 
@@ -710,10 +839,32 @@ export async function loadClipsRetargeted(
   const { scene, clips } = await loadGltfWithClips(url)
   const out: THREE.AnimationClip[] = []
   for (const c of clips) {
+    if (!clipHasBoneTracks(c, scene)) continue // object-level junk — never poses the body
     const r = retargetClipWithRest(c, scene, root)
     if (r) out.push(r)
   }
   return out
+}
+
+/** Does this clip drive at least one BONE of `scene`? Object-level clips —
+ *  the "Head|Run" / "Left Arm|Run" leftovers an imported FBX carries inside
+ *  Blender — animate MESH nodes, and a mesh-object track retargeted onto our
+ *  skinned body only wrenches bones through alias accidents (measured: the
+ *  head bone dragged 3.9 units by a mesh clip). They can never pose a skinned
+ *  rig, so they must not reach the retarget or the NLA dropdown. A rig with
+ *  no bones at all (blocky mesh characters) keeps every clip. */
+export function clipHasBoneTracks(clip: THREE.AnimationClip, scene: THREE.Object3D): boolean {
+  const bones = new Set<string>()
+  scene.traverse((o) => {
+    if ((o as THREE.Bone).isBone && o.name) bones.add(normName(o.name))
+  })
+  if (bones.size === 0) return true // mesh-only rig — nothing to filter against
+  for (const t of clip.tracks) {
+    const dot = t.name.lastIndexOf('.')
+    if (dot < 1) continue
+    if (bones.has(normName(t.name.slice(0, dot)))) return true
+  }
+  return false
 }
 
 /** The SELF-PREVIEW fallback: load a rigged GLB as its own standing model
