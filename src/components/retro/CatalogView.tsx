@@ -34,6 +34,7 @@ import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig } from '@/lib/
 import { captureNoobThumb, captureRiggedThumb } from '@/lib/three/animCapture'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
+import { clipHasBoneTracks } from '@/lib/three/rig'
 
 /* 3D pieces load on demand (three.js is heavy and browser-only) */
 const PlacementEditor = dynamic(() => import('./PlacementEditor'), { ssr: false })
@@ -1202,8 +1203,15 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       const loader = new GLTFLoader()
       const gltf = await loader.loadAsync(url)
       // empty clips (Blender can emit an animation with zero channels) would
-      // sit in the NLA dropdown as a dead pick — drop them up front
-      const usable = (gltf.animations || []).filter((c: { tracks?: unknown[] }) => (c.tracks || []).length > 0)
+      // sit in the NLA dropdown as a dead pick — drop them up front. So do
+      // OBJECT-LEVEL clips (the "Head|Run" / "Left Arm|Run" leftovers an
+      // imported FBX keeps inside Blender): they animate mesh nodes, never
+      // bones, and only clutter the track picker with dead names. A rig with
+      // no bones at all (blocky mesh characters) keeps every clip — the
+      // self-model fallback plays those on the uploaded model itself.
+      const withTracks = (gltf.animations || []).filter((c: { tracks?: unknown[] }) => (c.tracks || []).length > 0)
+      const boneClips = withTracks.filter((c) => clipHasBoneTracks(c as never, gltf.scene))
+      const usable = boneClips.length > 0 ? boneClips : withTracks
       const names = usable.map((c: { name: string }) => c.name).filter(Boolean)
       setClipNames(names)
       setPreviewClip(names[0] || '')
