@@ -11,6 +11,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import {
   applyLook,
   loadClipsRetargeted,
+  loadSelfAnimatedModel,
   prepareRigView,
   stopWornMixers,
   updateWornMixers,
@@ -47,6 +48,12 @@ interface Player3DViewProps {
 export default function Player3DView({ look, height = 320, interactive = true, zoom = 1, flat = false, className, anim = null }: Player3DViewProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
+  // bumped once the rig finished loading — the anim effect waits for it,
+  // otherwise the FIRST preview render (rig still loading) silently skipped
+  // its animation and the box stood frozen until the clip picker was touched
+  const [readyTick, setReadyTick] = useState(0)
+  const sceneRef = useRef<THREE.Scene | null>(null)
+  const selfModelRef = useRef<THREE.Group | null>(null)
   const stateRef = useRef<{ view: THREE.Group; rig: LoadedRig } | null>(null)
   const lookRef = useRef<AvatarLook3D>(look)
   // the look object arrives fresh each render — key it by its data
@@ -166,7 +173,9 @@ export default function Player3DView({ look, height = 320, interactive = true, z
         if (disposed) return
         stateRef.current = { view, rig }
         scene.add(view)
+        sceneRef.current = scene
         setReady(true)
+        setReadyTick((t) => t + 1)
         return applyLook(view, rig, lookRef.current)
       })
       .catch(() => {
@@ -208,41 +217,84 @@ export default function Player3DView({ look, height = 320, interactive = true, z
   // rigged clips — load, retarget by node name, and hand to the animate loop.
   // single=true loops one clip (an emote); otherwise the mapped clips cycle
   // in order: the realtime idle -> walk -> jump -> climb -> fall takeover.
+  // FALLBACK: when the clip's rig matches NOTHING on the body (a foreign
+  // skeleton — typical for Roblox models exported from Blender), the uploaded
+  // MODEL ITSELF stands in and plays its own clips, so the preview always
+  // shows a moving character instead of a frozen body.
   useEffect(() => {
     if (!anim || anim.clips.length === 0) return
     let cancelled = false
     const stash = stateRef.current
-    if (!stash) return
+    const scene = sceneRef.current
+    if (!stash || !scene) return
     const view = stash.view
+
+    const cleanupSelf = () => {
+      if (selfModelRef.current) {
+        scene.remove(selfModelRef.current)
+        selfModelRef.current.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh) return
+          const mat = m.material as THREE.Material | THREE.Material[]
+          if (Array.isArray(mat)) mat.forEach((x) => x.dispose())
+          else mat?.dispose()
+        })
+        selfModelRef.current = null
+      }
+      view.visible = true
+    }
+    cleanupSelf()
+
+    const startSeq = (root: THREE.Object3D, ordered: THREE.AnimationClip[]) => {
+      if (ordered.length === 0) return
+      const mixer = new THREE.AnimationMixer(root)
+      const actions = ordered.map((c) => mixer.clipAction(c))
+      actions.forEach((a) => a.play())
+      mixerSeqRef.current = { mixer, seq: actions, idx: 0, timer: 0, single: !!anim.single }
+      if (anim.single && actions[0]) {
+        actions.slice(1).forEach((a) => a.stop())
+      }
+    }
+
     loadClipsRetargeted(anim.url, view)
-      .then((bound) => {
-        if (cancelled || bound.length === 0) return
-        const ordered: THREE.AnimationClip[] = []
-        for (const name of anim.clips) {
-          const hit = bound.find((c) => c.name === name)
-          if (hit) ordered.push(hit)
+      .then(async (bound) => {
+        if (cancelled) return
+        if (bound.length > 0) {
+          const ordered: THREE.AnimationClip[] = []
+          for (const name of anim.clips) {
+            const hit = bound.find((c) => c.name === name)
+            if (hit) ordered.push(hit)
+          }
+          if (ordered.length === 0) ordered.push(...bound)
+          startSeq(view, ordered)
+          return
         }
-        if (ordered.length === 0) ordered.push(...bound)
-        const mixer = new THREE.AnimationMixer(view)
-        const actions = ordered.map((c) => mixer.clipAction(c))
-        actions.forEach((a, i) => a.play())
-        // restart the sequence when the component re-animates — a fresh
-        // seq ref keeps the animate loop below from advancing a dead mixer
-        mixerSeqRef.current = { mixer, seq: actions, idx: 0, timer: 0, single: !!anim.single }
-        if (anim.single && actions[0]) {
-          actions.slice(1).forEach((a) => a.stop())
-        }
+        // nothing bound — self-preview: hide the body, stand the model in
+        const self = await loadSelfAnimatedModel(anim.url)
+        if (cancelled || !sceneRef.current) return
+        cleanupSelf()
+        self.group.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (m.isMesh) m.castShadow = true
+        })
+        selfModelRef.current = self.group
+        scene.add(self.group)
+        view.visible = false
+        const wanted = self.clips.filter((c) => anim.clips.includes(c.name))
+        startSeq(self.group, wanted.length > 0 ? wanted : self.clips)
       })
       .catch(() => {})
     return () => {
       cancelled = true
+      cleanupSelf()
       const cur = mixerSeqRef.current
       if (cur) {
         cur.mixer.stopAllAction()
         mixerSeqRef.current = null
       }
     }
-  }, [animKey])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animKey, readyTick])
 
   return (
     <div
