@@ -13,7 +13,7 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { applyLook, prepareRigView, retargetClipWithRest, type AvatarLook3D } from '@/lib/three/rig'
+import { applyLook, clipHasBoneTracks, prepareRigView, retargetClipWithRest, type AvatarLook3D } from '@/lib/three/rig'
 
 /** Seek ONE action to an exact time and sample the pose (mixer.update(0)
  *  evaluates at action.time — setTime would fight the mixer's own clock). */
@@ -135,7 +135,7 @@ export async function captureNoobThumb(
         .loadAsync(url)
         .then((g) => ({ scene: g.scene, clips: g.animations || [] }))
       const clip = clips.find((c) => c.name === clipName) || clips[0]
-      if (clip) {
+      if (clip && clipHasBoneTracks(clip, scene)) {
         const bound = retargetClipWithRest(clip, scene, view)
         if (bound) {
           const mixer = new THREE.AnimationMixer(view)
