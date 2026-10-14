@@ -539,6 +539,14 @@ export function attachPlacedModel(model: THREE.Object3D, placement: Placement | 
    R6 template plays straight onto the player model — and onto any worn
    bundle whose parts follow the same naming. */
 
+/** A rig node's rest-pose LOCAL transform (what the file stores before any
+ *  action plays) — the reference frame every retarget correction needs. */
+interface RestPose { quat: THREE.Quaternion; pos: THREE.Vector3 }
+
+function restPoseOf(o: THREE.Object3D): RestPose {
+  return { quat: o.quaternion.clone(), pos: o.position.clone() }
+}
+
 /** Rewrite a clip's track names to the node names that exist under `root`.
  *  Matching is two-stage: the exact normalized name first, then the BODY-PART
  *  alias table ("LeftArm" -> the rig's "Left Arm" node, R15 names like
@@ -575,16 +583,134 @@ export function retargetClipToRoot(clip: THREE.AnimationClip, root: THREE.Object
   return out
 }
 
-/** Load a rigged GLB and retarget its clips onto `root` (name-matched).
+/** THE REAL RETARGET — a clip from the rig it was animated on (`sourceRoot`,
+ *  the uploaded model exactly as loaded) replayed onto `root` (our R6 body),
+ *  CORRECTED FOR DIFFERENT REST POSES.
+ *
+ *  THE BUG THIS KILLS: the plain retarget above copied foreign quaternions
+ *  and positions VERBATIM onto our nodes. A Blender rig's bones rest at
+ *  totally different orientations than our nodes, and FBX pipelines hand out
+ *  positions in CENTIMETERS — so a wave that looked perfect in Blender
+ *  exploded on the grey noob: head sunk into the chest, an arm floating off
+ *  rotated ("the emote is broken and out of place").
+ *
+ *  The standard engine retarget, per track:
+ *    rotation  q_out(t) = q_in(t) * inv(q_rest_src) * q_rest_tgt
+ *              — the rotation RELATIVE TO REST transfers between rigs.
+ *              When both rests match (the official template) this is
+ *              mathematically the old verbatim copy, byte for byte.
+ *    position  every key scales by |rest_tgt| / |rest_src| — centimeter
+ *              keys shrink to our rig's units automatically. Tracks with no
+ *              sane rest reference are dropped, never guessed.
+ *    scale     dropped — a foreign rig's scale convention must not touch
+ *              our body nodes.
+ *
+ *  Returns null when nothing in the clip matches anything in the rig. */
+export function retargetClipWithRest(
+  clip: THREE.AnimationClip,
+  sourceRoot: THREE.Object3D,
+  root: THREE.Object3D
+): THREE.AnimationClip | null {
+  root.updateMatrixWorld(true)
+  const nameMap = new Map<string, string>()
+  const restTgt = new Map<string, RestPose>()
+  root.traverse((o) => {
+    if (!o.name) return
+    const pose = restPoseOf(o)
+    const n = normName(o.name)
+    if (n && !nameMap.has(n)) { nameMap.set(n, o.name); restTgt.set(n, pose) }
+    const part = matchPart(o.name)
+    if (part && !nameMap.has(part)) { nameMap.set(part, o.name); restTgt.set(part, pose) }
+  })
+  if (nameMap.size === 0) return null
+
+  // the SOURCE rig's rest pose: node transforms exactly as the file loads
+  sourceRoot.updateMatrixWorld(true)
+  const restSrc = new Map<string, RestPose>()
+  sourceRoot.traverse((o) => {
+    if (!o.name) return
+    const pose = restPoseOf(o)
+    const n = normName(o.name)
+    if (n && !restSrc.has(n)) restSrc.set(n, pose)
+    const part = matchPart(o.name)
+    if (part && !restSrc.has(part)) restSrc.set(part, pose)
+  })
+
+  const tracks: THREE.KeyframeTrack[] = []
+  for (const track of clip.tracks) {
+    const dot = track.name.lastIndexOf('.')
+    if (dot < 1) continue
+    const nodeName = track.name.slice(0, dot)
+    const prop = track.name.slice(dot) // ".quaternion" / ".position" / ".scale"
+    const key = normName(nodeName)
+    const partKey = matchPart(nodeName)
+    const mapped = nameMap.get(key) || (partKey ? nameMap.get(partKey) : undefined)
+    if (!mapped) continue
+    const src = restSrc.get(key) || (partKey ? restSrc.get(partKey) : undefined)
+    const tgt = restTgt.get(key) || (partKey ? restTgt.get(partKey) : undefined)
+
+    if (prop === '.scale') continue // foreign scale conventions — never
+
+    if (prop === '.quaternion' && src && tgt) {
+      const q = track as THREE.QuaternionKeyframeTrack
+      if (src.quat.dot(tgt.quat) > 0.9995) {
+        // identical rest orientations (the official template) — verbatim is exact
+        const nt = q.clone()
+        nt.name = `${mapped}${prop}`
+        tracks.push(nt)
+        continue
+      }
+      // per key: q_out = q_in * inv(q_rest_src) * q_rest_tgt
+      const corr = new THREE.Quaternion().copy(src.quat).invert().multiply(tgt.quat)
+      const values = Float32Array.from(q.values)
+      const tmp = new THREE.Quaternion()
+      for (let i = 0; i + 3 < values.length; i += 4) {
+        tmp.set(values[i], values[i + 1], values[i + 2], values[i + 3]).multiply(corr)
+        values[i] = tmp.x
+        values[i + 1] = tmp.y
+        values[i + 2] = tmp.z
+        values[i + 3] = tmp.w
+      }
+      tracks.push(new THREE.QuaternionKeyframeTrack(`${mapped}${prop}`, q.times, values))
+      continue
+    }
+
+    if (prop === '.position') {
+      if (!src || !tgt) continue // no rest to scale against — drop, never guess
+      const ls = src.pos.length()
+      const lt = tgt.pos.length()
+      if (!Number.isFinite(ls) || !Number.isFinite(lt) || ls < 1e-6) continue
+      const f = lt / ls
+      if (f < 0.01 || f > 100) continue // rigs too unlike each other — drop
+      const v = track as THREE.VectorKeyframeTrack
+      const values = Float32Array.from(v.values)
+      for (let i = 0; i < values.length; i++) values[i] *= f
+      tracks.push(new THREE.VectorKeyframeTrack(`${mapped}${prop}`, v.times, values))
+      continue
+    }
+
+    // rotations with no source rest, morph targets and anything else keep
+    // the plain name mapping (the old behavior — always a safe floor)
+    const nt = track.clone()
+    nt.name = `${mapped}${prop}`
+    tracks.push(nt)
+  }
+  if (tracks.length === 0) return null
+  const out = new THREE.AnimationClip(clip.name, clip.duration, tracks, clip.blendMode)
+  return out
+}
+
+/** Load a rigged GLB and retarget its clips onto `root` — WITH rest-pose
+ *  correction against the rig the clip was animated on (retargetClipWithRest).
  *  Returns only the clips that actually bound to something. */
 export async function loadClipsRetargeted(
   url: string,
   root: THREE.Object3D
 ): Promise<THREE.AnimationClip[]> {
-  const { clips } = await loadGltfWithClips(url)
+  const { scene, clips } = await loadGltfWithClips(url)
   const out: THREE.AnimationClip[] = []
   for (const c of clips) {
-    const r = retargetClipToRoot(c, root)
+    const r = retargetClipWithRest(c, scene, root)
     if (r) out.push(r)
   }
   return out
