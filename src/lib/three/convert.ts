@@ -276,14 +276,57 @@ export async function fileToGlbWithCheck(file: File, opts?: { keepAnimations?: b
   return { glb: await objectToGlb(object, animations), colorWarning }
 }
 
+/** FBX files can carry HUNDREDS of object-level takes (Blender bakes every
+ *  mesh object's animation as its own take — measured: a wave FBX produced
+ *  458 clips named "Head|Right Arm|Old_Idle", 392 of them single-node
+ *  cross-product slices of the imported actions). Writing all of them into
+ *  the GLB balloons the file past the 24MB upload cap and floods the NLA
+ *  track picker with dead names. What can pose a skinned body: clips that
+ *  drive BONES, across at least two nodes (every baked armature take is
+ *  multi-bone; single-node takes are mesh objects). The same action often
+ *  appears several times ("wave" and "Armature|wave") — dedupe by the
+ *  ACTION TAIL and keep the richest take. A rig with no bones at all
+ *  (blocky mesh characters) keeps everything. */
+export function worthyClips(object: THREE.Object3D, animations: THREE.AnimationClip[]): THREE.AnimationClip[] {
+  const bones = new Set<string>()
+  object.traverse((o) => {
+    if ((o as THREE.Bone).isBone && o.name) {
+      bones.add(o.name.toLowerCase().replace(/\$[a-z0-9_]+/g, '').replace(/[\s._]+/g, ' ').trim())
+    }
+  })
+  const hasBones = bones.size > 0
+  const byTail = new Map<string, THREE.AnimationClip>()
+  for (const clip of animations) {
+    if (clip.tracks.length === 0) continue
+    const nodes = new Set<string>()
+    let boneHit = false
+    for (const t of clip.tracks) {
+      const dot = t.name.lastIndexOf('.')
+      if (dot < 1) continue
+      const nodeName = t.name.slice(0, dot).toLowerCase().replace(/\$[a-z0-9_]+/g, '').replace(/[\s._]+/g, ' ').trim()
+      nodes.add(nodeName)
+      if (bones.has(nodeName)) boneHit = true
+    }
+    if (hasBones && (!boneHit || nodes.size < 2)) continue
+    const raw = clip.name || ''
+    const tail = raw.includes('|') ? raw.slice(raw.lastIndexOf('|') + 1) : raw
+    const key = tail || `clip${byTail.size}`
+    const prev = byTail.get(key)
+    if (!prev || clip.tracks.length > prev.tracks.length) byTail.set(key, clip)
+    if (byTail.size >= 64) break // paranoia cap — no emote needs 64 actions
+  }
+  return [...byTail.values()]
+}
+
 async function objectToGlb(object: THREE.Object3D, animations?: THREE.AnimationClip[]): Promise<Blob> {
   stripNonMeshes(object)
   dropUnloadedTextures(object)
+  const clips = animations && animations.length > 0 ? worthyClips(object, animations) : undefined
   const exporter = new GLTFExporter()
   const buf = (await exporter.parseAsync(object, {
     binary: true,
     onlyVisible: true,
-    ...(animations && animations.length > 0 ? { animations } : {}),
+    ...(clips && clips.length > 0 ? { animations: clips } : {}),
   })) as ArrayBuffer
   return new Blob([buf], { type: 'model/gltf-binary' })
 }
