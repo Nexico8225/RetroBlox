@@ -399,15 +399,6 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       const ph = thumbPlaceholder(item.type)
                       if (!e.currentTarget.src.startsWith('data:')) e.currentTarget.src = ph
                     }}
-                    onLoad={(e) => {
-                      // a "thumbnail" that is only a few real pixels (old junk
-                      // placeholder uploads) stretches into a flat color wash —
-                      // treat it exactly like a broken image
-                      const im = e.currentTarget
-                      if (!im.src.startsWith('data:') && im.naturalWidth > 0 && im.naturalWidth <= 4 && im.naturalHeight <= 4) {
-                        im.src = thumbPlaceholder(item.type)
-                      }
-                    }}
                     style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
                   />
                   {item.modelFileId && (
@@ -1355,7 +1346,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           setEditorOpen(false)
           await ingestRiggedGlb(glb)
         })
-        .catch((e) => setError(e instanceof Error ? e.message : 'Could not read that model.'))
+        .catch((e) => setError(
+          `${e instanceof Error ? e.message : 'Could not read that model.'} `
+          + `Tip: Blender users — File > Export > glTF 2.0 and pick FORMAT glTF Binary (.glb). `
+          + `"glTF Separate" (.gltf + .bin) cannot be read here.`
+        ))
         .finally(() => setConverting(false))
       return
     }
