@@ -653,7 +653,7 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
           <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
         </div>
         <div style={{ padding: 12 }}>
-          <Player3DView look={look} height={380} anim={anim} />
+          <Player3DView look={look} height={380} anim={anim} selfAnim={item.type === 'emote'} />
           {clips.length > 1 && !isAnimPack && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
               <span style={{ fontSize: 11, color: '#1c4e7c' }}>Clip:</span>
@@ -681,9 +681,11 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
           <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 8 }}>
             {item.type === 'bundle'
               ? 'This bundle replaces the body parts its creator modeled — the classic blocky body steps aside.'
-              : item.type === 'emote' || item.type === 'anim'
-                ? 'Clips retarget onto the body by part name — animate against the R6 template and it plays right on your character.'
-                : 'This is the exact spot its creator left it in — RetroBlox never moves UGC on its own.'}
+              : item.type === 'emote'
+                ? 'This plays the creator\u2019s uploaded model doing the animation — exactly what players see when they do the emote in-game.'
+                : item.type === 'anim'
+                  ? 'Clips retarget onto the body by part name — animate against the R6 template and it plays right on your character.'
+                  : 'This is the exact spot its creator left it in — RetroBlox never moves UGC on its own.'}
           </div>
         </div>
       </div>
@@ -1096,8 +1098,12 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [targetAssetId, setTargetAssetId] = useState('')
   const [marketRigs, setMarketRigs] = useState<CatalogItem[]>([])
   const [marketUgc, setMarketUgc] = useState<CatalogItem[]>([])
-  // ---- emote studio: the GREY NOOB preview guy + the icon timeline ----
-  const [previewBody, setPreviewBody] = useState<'target' | 'noob'>('target')
+  // ---- emote studio: preview body + the icon timeline ----
+  // 'self' = the UPLOADED MODEL plays its own clip (WYSIWYG — byte-for-byte
+  // what the Godot game does with a custom emote: spawn the GLB, play its
+  // own AnimationPlayer, hide the body). 'target' / 'noob' = retarget
+  // previews for clips animated against the official R6 template.
+  const [previewBody, setPreviewBody] = useState<'self' | 'target' | 'noob'>('self')
   const [scrub, setScrub] = useState<number | null>(null) // null = the clip plays
   const [clipDur, setClipDur] = useState(0)
   const [iconPose, setIconPose] = useState<{ clip: string; t: number } | null>(null)
@@ -1126,8 +1132,9 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       tshirtUrls: [],
       models: [],
     }
-    if (previewBody === 'noob') {
+    if (previewBody !== 'target') {
       // the GREY NOOB emote guy — the plain all-grey classic body, nothing worn
+      // (the WYSIWYG 'self' mode hides the body anyway and plays the model)
       look.skin = '#9aa0a6'
       look.shirtColor = '#8f959c'
       look.shirtImage = null
@@ -1179,7 +1186,12 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
     if (!previewModelUrl) return
     const t = scrub ?? 0
     try {
-      const blob = await captureNoobThumb(previewModelUrl, timelineClip || undefined, t)
+      // the icon is captured on the body being previewed: 'self' photographs
+      // the creator's OWN model at the marker (what the game shows), the
+      // retarget previews photograph the classic grey noob
+      const blob = previewBody === 'self'
+        ? await captureRiggedThumb(previewModelUrl, timelineClip || undefined, 512, t)
+        : await captureNoobThumb(previewModelUrl, timelineClip || undefined, t)
       setIconThumb(blob)
       setIconPose({ clip: timelineClip, t })
       setThumbUrl((old) => {
@@ -1405,6 +1417,9 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
     const was = publishMode(type)
     const will = publishMode(t)
     setType(t)
+    // emotes default to the WYSIWYG self preview; animation packs replace
+    // the classic moves on the real body, so they default to the retarget
+    setPreviewBody(t === 'anim' ? 'target' : 'self')
     setError('')
     if (was !== will) {
       setImage(null)
@@ -1837,6 +1852,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                         height={300}
                         scrub={scrub}
                         onClipTime={handleClipTime}
+                        selfAnim={previewBody === 'self'}
                         anim={previewModelUrl ? { url: previewModelUrl, clips: type === 'anim' ? animCycleClips : [previewClip || clipNames[0]], single: type !== 'anim' } : null}
                       />
                       {type !== 'bundle' && timelineClip && clipDur > 0 && (
@@ -1873,7 +1889,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                               className="rb-btn rb-btn-green"
                               style={{ fontSize: 10, padding: '1px 7px' }}
                               disabled={scrub == null}
-                              title={scrub == null ? 'Pause on the pose you want first' : 'The grey noob at this pose becomes the emote icon'}
+                              title={scrub == null ? 'Pause on the pose you want first' : 'This pose becomes the emote icon'}
                               onClick={setIconFromMarker}
                             >
                               Set icon at this pose
@@ -1891,7 +1907,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                           </div>
                           <div style={{ fontSize: 9, color: '#8ba0b3', marginTop: 3, lineHeight: 1.4 }}>
                             {iconPose
-                              ? `Icon locked: ${clipLabel(iconPose.clip)} @ ${iconPose.t.toFixed(2)}s — grey noob pose rides to the marketplace + your emote wheel.`
+                              ? `Icon locked: ${clipLabel(iconPose.clip)} @ ${iconPose.t.toFixed(2)}s — ${previewBody === 'self' ? 'YOUR model' : 'the grey noob'} at this pose rides to the marketplace + your emote wheel.`
                               : 'Move the timeline, pause on your pose, lock it as the icon.'}
                           </div>
                         </div>
@@ -1942,31 +1958,42 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                     <div style={{ marginBottom: 8 }}>
                       <div style={{ color: '#1c4e7c', marginBottom: 3 }}>Preview it on…</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 5 }}>
-                        {([['avatar', 'Normal avatar'], ['noob', 'Grey noob'], ['bundle', 'A bundle'], ['ugc', 'Avatar + UGC']] as const).map(([k, label]) => (
-                          <button
-                            key={k}
-                            type="button"
-                            onClick={() => {
-                              if (k === 'noob') {
-                                setPreviewBody((b) => (b === 'noob' ? 'target' : 'noob'))
-                                if (previewBody !== 'noob') { setTargetKind('avatar'); setTargetAssetId('') }
-                              } else {
-                                setPreviewBody('target')
-                                setTargetKind(k)
-                                setTargetAssetId('')
-                              }
-                            }}
-                            aria-pressed={k === 'noob' ? previewBody === 'noob' : targetKind === k && previewBody === 'target'}
-                            style={{
-                              fontSize: 10, padding: '2px 8px', cursor: 'pointer',
-                              border: (k === 'noob' ? previewBody === 'noob' : targetKind === k && previewBody === 'target') ? '1px solid #0069a8' : '1px solid #b7c6d4',
-                              background: (k === 'noob' ? previewBody === 'noob' : targetKind === k && previewBody === 'target') ? '#0085cf' : '#fff',
-                              color: (k === 'noob' ? previewBody === 'noob' : targetKind === k && previewBody === 'target') ? '#fff' : '#1c4e7c',
-                            }}
-                          >
-                            {label}
-                          </button>
-                        ))}
+                        {([['self', 'My model'], ['avatar', 'Normal avatar'], ['noob', 'Grey noob'], ['bundle', 'A bundle'], ['ugc', 'Avatar + UGC']] as const).map(([k, label]) => {
+                          const active = k === 'self'
+                            ? previewBody === 'self'
+                            : k === 'noob'
+                              ? previewBody === 'noob'
+                              : targetKind === k && previewBody === 'target'
+                          return (
+                            <button
+                              key={k}
+                              type="button"
+                              onClick={() => {
+                                if (k === 'self') {
+                                  setPreviewBody('self')
+                                  setTargetKind('avatar')
+                                  setTargetAssetId('')
+                                } else if (k === 'noob') {
+                                  setPreviewBody((b) => (b === 'noob' ? 'target' : 'noob'))
+                                  if (previewBody !== 'noob') { setTargetKind('avatar'); setTargetAssetId('') }
+                                } else {
+                                  setPreviewBody('target')
+                                  setTargetKind(k)
+                                  setTargetAssetId('')
+                                }
+                              }}
+                              aria-pressed={active}
+                              style={{
+                                fontSize: 10, padding: '2px 8px', cursor: 'pointer',
+                                border: active ? '1px solid #0069a8' : '1px solid #b7c6d4',
+                                background: active ? '#0085cf' : '#fff',
+                                color: active ? '#fff' : '#1c4e7c',
+                              }}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
                       </div>
                       {targetKind === 'bundle' && (
                         <select className="rb-input" value={targetAssetId} onChange={(e) => setTargetAssetId(e.target.value)} style={{ fontSize: 11, width: '100%' }} aria-label="Bundle to preview on">
@@ -1981,10 +2008,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                         </select>
                       )}
                       <div style={{ fontSize: 9, color: '#8ba0b3', marginTop: 3 }}>
+                        {previewBody === 'self' && 'YOUR model plays its own animation — exactly what the game shows when you do this emote. Only switch to Normal avatar if you animated on the official R6 template.'}
                         {previewBody === 'noob' && 'The grey noob emote guy — exactly what your icon shows.'}
-                        {previewBody !== 'noob' && targetKind === 'avatar' && 'Plays on the classic blocky body.'}
-                        {previewBody !== 'noob' && targetKind === 'bundle' && 'Plays on the bundle you pick — animate a bundle!'}
-                        {previewBody !== 'noob' && targetKind === 'ugc' && 'Your item worn with a marketplace UGC piece — pets flying around you.'}
+                        {previewBody === 'target' && targetKind === 'avatar' && 'Plays on the classic blocky body.'}
+                        {previewBody === 'target' && targetKind === 'bundle' && 'Plays on the bundle you pick — animate a bundle!'}
+                        {previewBody === 'target' && targetKind === 'ugc' && 'Your item worn with a marketplace UGC piece — pets flying around you.'}
                       </div>
                     </div>
                   )}
