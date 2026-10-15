@@ -102,6 +102,7 @@ model ColorMap {
 
 model Game {
   id             String       @id @default(cuid())
+  seqId          Int?         // short human GAME ID (#1, #2 ...) assigned in publish order
   name           String
   description    String       @default("")
   genre          String       @default("Adventure")

@@ -336,6 +336,14 @@ export function ProfileView({ id }: { id: string }) {
               {p.online ? '● Online Now' : `Last Seen ${timeAgo(p.lastSeen)}`}
             </div>
             <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 6, lineHeight: 1.7 }}>
+              {typeof p.seqId === 'number' && (
+                <>
+                  <span title={`Player ID #${p.seqId} — join order on RetroBlox`} style={{ fontFamily: 'monospace', color: '#0d69ac' }}>
+                    Player ID: #{p.seqId}
+                  </span>
+                  {' · '}
+                </>
+              )}
               Member Since: {fmtDate(p.createdAt)}
               {age !== null && <> · Age: {age}</>}
               {p.gender && <> · Gender: <span style={p.gender === 'female' ? { color: '#e0448c' } : { color: '#2f6fe0' }}>{p.gender === 'female' ? 'Female' : 'Male'}</span></>}

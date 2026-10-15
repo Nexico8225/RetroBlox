@@ -159,6 +159,7 @@ export async function resolveUserIdParam(raw: string, viewerId?: string | null):
 export function publicUser(u: {
   id: string
   username: string
+  seqId?: number | null
   avatarUrl: string | null
   role?: string
   gender?: string | null
@@ -170,6 +171,7 @@ export function publicUser(u: {
   return {
     id: u.id,
     username: u.username,
+    seqId: typeof u.seqId === 'number' ? u.seqId : null,
     avatarUrl: u.avatarUrl,
     role: u.role ?? 'user',
     gender: u.gender ?? null,

@@ -16,11 +16,12 @@ var avatar_cache: Dictionary = {}  # userId -> avatar payload (remote players)
 var current_place: Dictionary = {} # legacy hub pick — empty now: login drops you straight into baseplate
 
 
-func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role: String) -> void:
+func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role: String, p_seq: int = 0) -> void:
         is_guest = false
         user_id = p_user_id
         username = p_username
         role = p_role
+        seq_id = p_seq
         # v10.0: sanitize JSON nulls up front — the platform sends
         # "avatarUrl": null for accounts without a site PFP, and Dictionary.get
         # returns that stored null (not the default), which String() can't take

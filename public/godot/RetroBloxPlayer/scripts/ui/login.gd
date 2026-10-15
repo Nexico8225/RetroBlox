@@ -334,7 +334,8 @@ func _finish_login(me: Dictionary) -> void:
         # Api.txt everywhere: role can arrive as JSON null, and String(null)
         # hard-crashes with "Invalid call 'String' constructor"
         Session.sign_in(me, Api.txt(me.get("userId", "")), Api.txt(me.get("username", ""), "Player"),
-                Api.txt(me.get("role", ""), "user"))
+                Api.txt(me.get("role", ""), "user"),
+                int(me.get("seqId", 0)))  # the short human PLAYER ID (#1, #2 ...)
         # sign in and you are instantly playing the classic baseplate
         get_tree().change_scene_to_file("res://scenes/game.tscn")
 

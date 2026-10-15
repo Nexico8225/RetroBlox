@@ -7,12 +7,12 @@ async function gameDetail(id: string, viewerId: string | null) {
   const g = await db.game.findUnique({
     where: { id },
     include: {
-      creator: { select: { id: true, username: true, avatarUrl: true, role: true, createdAt: true, lastSeen: true } },
+      creator: { select: { id: true, username: true, seqId: true, avatarUrl: true, role: true, createdAt: true, lastSeen: true } },
       group: { select: { id: true, name: true } },
       likes: true,
       favorites: true,
       comments: {
-        include: { user: { select: { id: true, username: true, avatarUrl: true, role: true, lastSeen: true } } },
+        include: { user: { select: { id: true, username: true, seqId: true, avatarUrl: true, role: true, lastSeen: true } } },
         orderBy: { createdAt: 'desc' },
       },
     },
@@ -53,6 +53,7 @@ async function gameDetail(id: string, viewerId: string | null) {
 
   return {
     id: g.id,
+    seqId: g.seqId,
     name: g.name,
     description: g.description,
     genre: g.genre,
@@ -124,6 +125,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (typeof genre === 'string' && genre) data.genre = genre
   const subgenre = form.get('subgenre')
   if (typeof subgenre === 'string') data.subgenre = subgenre.trim()
+
+  // the creator can switch engines (e.g. ColorWorld: Web prototype -> the
+  // full Godot/SDK build) — validated so nothing weird lands in the DB
+  const engine = form.get('engine')
+  if (typeof engine === 'string' && ['Godot', 'Unity', 'Unreal', 'Other', 'Web'].includes(engine)) {
+    data.engine = engine
+  }
 
   const gameFile = form.get('gameFile')
   if (gameFile instanceof File && gameFile.size > 0) {

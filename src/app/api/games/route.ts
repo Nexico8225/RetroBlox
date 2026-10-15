@@ -3,11 +3,13 @@ import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
 import { saveUpload } from '@/lib/uploads'
 import { Prisma } from '@prisma/client'
+import { genreShelf } from '@/lib/genres'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim() || ''
   const genre = searchParams.get('genre') || ''
+  const engine = searchParams.get('engine') || '' // 'Web' -> the Webs tab, 'Godot' -> SDK games, ...
   const sort = searchParams.get('sort') || 'popular' // popular | recommended | trending | recent | updated | downloads | topRated | gems
   const creatorId = searchParams.get('creatorId') || ''
   const list = searchParams.get('list') || '' // played | downloaded — "your games" rails
@@ -57,7 +59,10 @@ export async function GET(req: NextRequest) {
       { creator: { is: { username: { contains: v } } } },
     ])
   }
-  if (genre && genre !== 'All Genres') where.genre = genre
+  // genre shelves are FOLDED: picking Adventure also surfaces legacy
+  // genres that now live there (Horror, Sci-Fi, Western) — see lib/genres
+  if (genre && genre !== 'All Genres') where.genre = { in: genreShelf(genre) }
+  if (engine) where.engine = engine
   if (creatorId) where.creatorId = creatorId
   if (sort === 'gems') where.gem = true
 
@@ -121,6 +126,7 @@ export async function GET(req: NextRequest) {
 
 function mapGameLite(g: {
   id: string
+  seqId: number | null
   name: string
   genre: string
   subgenre: string
@@ -132,7 +138,7 @@ function mapGameLite(g: {
   gem: boolean
   createdAt: Date
   updatedAt: Date
-  creator: { id: string; username: string; avatarUrl: string | null }
+  creator: { id: string; username: string; avatarUrl: string | null; seqId?: number | null }
   likes: { value: number }[]
   _count: { comments: number; favorites: number }
 }) {
@@ -140,6 +146,7 @@ function mapGameLite(g: {
   const dislikes = g.likes.filter((l) => l.value === -1).length
   return {
     id: g.id,
+    seqId: g.seqId,
     name: g.name,
     genre: g.genre,
     subgenre: g.subgenre,
@@ -279,7 +286,13 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ game: { id: game.id, name: game.name } })
+    // Game ID — a short human number like the player #seqId: assigned in
+    // publish order. Best-effort: a rare race just leaves it NULL and the
+    // next publish (or the deploy backfill) fills the gap.
+    const maxSeq = await db.game.aggregate({ _max: { seqId: true } })
+    await db.game.update({ where: { id: game.id }, data: { seqId: (maxSeq._max.seqId ?? 0) + 1 } }).catch(() => {})
+
+    return NextResponse.json({ game: { id: game.id, name: game.name, seqId: (maxSeq._max.seqId ?? 0) + 1 } })
   } catch (e) {
     console.error('publish error', e)
     return NextResponse.json({ error: 'Failed to publish game. Try again.' }, { status: 500 })

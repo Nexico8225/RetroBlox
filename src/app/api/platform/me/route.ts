@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
       ...avatarPayload(user.id, user.username, cfg),
       ...rigged,
       role: user.role,
+      // short human PLAYER ID (#1, #2 ...) — join order, same number the
+      // website profile shows
+      seqId: typeof user.seqId === 'number' ? user.seqId : null,
       // v9.0: the account's PROFILE PICTURE (the site PFP the user set on
       // retro-blox.vercel.app — data-URL or file URL) rides along so the
       // game client can wear the SAME face the website shows.

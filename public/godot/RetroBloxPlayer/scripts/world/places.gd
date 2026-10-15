@@ -7,7 +7,9 @@ extends RefCounted
 
 
 static func all() -> Array:
-        return [cloud_kingdom(), baseplate(), obby(), skylands(), tower()]
+        # "My Place (template)" is the EDITABLE starter map — live docs.
+        # Edit scripts/world/my_place.gd, press F5, see your changes.
+        return [cloud_kingdom(), baseplate(), MyPlace.build(), obby(), skylands(), tower()]
 
 
 static func by_id(id: String) -> Dictionary:

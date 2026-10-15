@@ -464,6 +464,11 @@ export function GameDetailView({ id }: { id: string }) {
             💎 Hidden Gem
           </span>
         )}
+        {typeof game.seqId === 'number' && (
+          <span title={`Game ID #${game.seqId} — the game's short human ID (publish order)`} style={{ marginLeft: 8, fontSize: 10, fontFamily: 'monospace', color: '#0d69ac', background: '#eef5fb', border: '1px solid #9ec3dd', borderRadius: 8, padding: '1px 8px' }}>
+            Game ID: #{game.seqId}
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -548,6 +553,7 @@ export function GameDetailView({ id }: { id: string }) {
               <Tag>{`Maturity: ${game.maturity}`}</Tag>
               <Tag>{`Engine: ${game.engine}`}</Tag>
               {game.subgenre && <Tag>{game.subgenre}</Tag>}
+              {typeof game.seqId === 'number' && <Tag>{`Game ID: #${game.seqId}`}</Tag>}
             </div>
           </div>
 

@@ -75,6 +75,7 @@ const NAV = [
   { label: 'Home', href: '/' },
   { label: 'Games', href: '/games' },
   { label: 'ColorWorld', href: '/colorworld' },
+  { label: 'Webs', href: '/webs' },
   { label: 'Catalog', href: '/catalog' },
   { label: 'Avatar', href: '/avatar' },
   { label: 'Create', href: '/create' },
@@ -726,9 +727,10 @@ export function Page({ children }: { children: React.ReactNode }) {
         </div>
         <div>
           <Link href="/" className="rb-link">Home</Link> · <Link href="/games" className="rb-link">Games</Link> ·{' '}
-          <Link href="/videos" className="rb-link">Videos</Link> · <Link href="/music" className="rb-link">Music</Link> ·{' '}
-          <Link href="/groups" className="rb-link">Groups</Link> ·{' '}
+          <Link href="/webs" className="rb-link">Webs</Link> · <Link href="/videos" className="rb-link">Videos</Link> ·{' '}
           <Link href="/labs" className="rb-link">RetroLabs</Link> · <Link href="/community" className="rb-link">Communities</Link> ·{' '}
+          <Link href="/groups" className="rb-link">Groups</Link> ·{' '}
+          <Link href="/music" className="rb-link">Music</Link> ·{' '}
           <Link href="/catalog" className="rb-link">Catalog</Link> ·{' '}
           <Link href="/store" className="rb-link">Tix Store</Link> ·{' '}
           <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> ·{' '}

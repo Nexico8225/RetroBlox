@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
       ok: true,
       token,
       userId: user.id,
+      // short human PLAYER ID (#1, #2 ...) — join order, shown in-game
+      seqId: typeof user.seqId === 'number' ? user.seqId : null,
       username: user.username,
       role: user.role,
     },

@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useRetro, api, fmtCount, flash, type RetroUser } from '@/lib/store'
+import { useRetro, api, fmtCount, flash, GENRES, type RetroUser } from '@/lib/store'
 import { Avatar, OnlineDot } from './Shell'
 import { FxText } from '@/lib/textfx'
 import { VideoCard, type VideoSummary } from './VideosView'
 
 export interface GameSummary {
   id: string
+  seqId?: number | null
   name: string
   genre: string
   subgenre: string
@@ -613,11 +614,8 @@ export function HomeView() {
 
 /* ---------------- Games browse (/games) ---------------- */
 
-const GENRE_LIST = [
-  'All Genres', 'Adventure', 'Building', 'Fighting', 'FPS', 'Horror',
-  'Obby', 'Puzzle', 'RPG', 'Racing', 'Sci-Fi', 'Simulation', 'Sports',
-  'Town & City', 'Tycoon', 'Western',
-]
+// short v2 genre list (legacy genres fold into these shelves server-side)
+const GENRE_LIST = GENRES
 
 export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: string }) {
   const router = useRouter()

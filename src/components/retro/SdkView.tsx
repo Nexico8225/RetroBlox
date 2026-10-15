@@ -10,7 +10,7 @@ import Link from 'next/link'
 
 const VERSION = 'v1 "AVATARS, NOT PICTURES"'
 const V_TAG = 'v1'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=1.1'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=1.2'
 
 const INK = '#1c3a52'
 const DIM = '#5a6b7b'
@@ -53,7 +53,8 @@ const FILES = [
   ['scripts/player/local_player.gd', 'Classic controller: the REAL R6 hitbox, WalkSpeed 16, INSTANT shift-lock snap, 2-stud STAIRS, ladders, trampolines, fall damage'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
-  ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, Classic Obby, Skylands, Wobbly Tower'],
+  ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, My Place (template), Classic Obby, Skylands, Wobbly Tower'],
+  ['scripts/world/my_place.gd', '★ YOUR EDITABLE STARTER MAP — a complete place documented line by line. Edit it, press F5, play. Start here!'],
   ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the BLACK & WHITE ESC MENU (icon rail, live 3D avatars, 18 icon-row settings, white Resume), respawn flow, vertical health bar'],
   ['scripts/game/chat_box.gd', 'The chat that HIDES until you open it: / or the chat button opens log + type box together, ESC hides everything, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, Shift Lock shoulder park — and Invert Y'],
@@ -62,8 +63,10 @@ const FILES = [
 
 const ENDPOINTS = [
   ['POST /api/platform/signup', 'create an account from inside the game (with a #seqId)'],
-  ['POST /api/platform/login', 'username + password → session token'],
-  ['GET /api/platform/me', 'current player + avatar (Bearer token)'],
+  ['POST /api/platform/login', 'username + password → session token + your PLAYER ID (seqId)'],
+  ['GET /api/platform/me', 'current player + avatar + PLAYER ID (seqId) (Bearer token)'],
+  ['GET /api/games', 'browse games — ?engine=Web lists the Webs tab, game rows carry their Game ID (seqId)'],
+  ['POST /api/games/{id}/play', '“I am playing this game” play counter (Bearer token)'],
   ['GET /api/users/{userId}/avatar', "any player's avatar config (public)"],
   ['GET /api/assets/{assetId}', 'asset service: color / image / 3D model + finish for an id'],
   ['GET /api/files/{fileId}', 'the actual bytes (images, GLB, audio)'],

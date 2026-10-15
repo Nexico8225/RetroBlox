@@ -95,7 +95,7 @@ export function CreateView() {
       if (icon) fd.append('icon', icon)
       if (thumb) fd.append('thumbnail', thumb)
       if (engine === 'Web') fd.append('webCode', webCode)
-      else fd.append('gameFile', gameFile)
+      else if (gameFile) fd.append('gameFile', gameFile)
       if (sourceFile) fd.append('sourceFile', sourceFile)
       for (const m of mediaFiles) fd.append('media', m)
 

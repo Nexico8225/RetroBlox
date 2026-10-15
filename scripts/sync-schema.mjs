@@ -154,6 +154,30 @@ try {
 
   await client.executeMultiple(ddl)
 
+  /* BACKFILL — short human IDs (#1, #2 ...) for rows created before the
+     columns existed. Idempotent: only rows with a NULL id are numbered,
+     in creation order, after the current maximum (so the sequence never
+     goes backwards). Game.seqId = the GAME ID shown on the game page;
+     User.seqId = the PLAYER ID shown on profiles. */
+  try {
+    for (const [table, col] of [['Game', 'seqId'], ['User', 'seqId']]) {
+      const maxRow = await client.execute(`SELECT MAX("${col}") AS m FROM "${table}"`)
+      let next = Number(maxRow.rows[0]?.m ?? 0)
+      const rows = await client.execute(
+        `SELECT id FROM "${table}" WHERE "${col}" IS NULL ORDER BY createdAt ASC`
+      )
+      for (const r of rows.rows) {
+        next += 1
+        await client.execute({ sql: `UPDATE "${table}" SET "${col}" = ? WHERE id = ?`, args: [next, r.id] })
+      }
+      if (rows.rows.length > 0) {
+        console.log(`[sync-schema] backfilled ${rows.rows.length} ${table}.${col} value(s) (${next - rows.rows.length + 1}..${next})`)
+      }
+    }
+  } catch (e) {
+    console.warn('[sync-schema] id backfill skipped:', e?.message || e)
+  }
+
   const after = await client.execute(
     "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'"
   )

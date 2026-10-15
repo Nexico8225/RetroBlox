@@ -2,10 +2,12 @@
 
 import { create } from 'zustand'
 import { saveSessionToken, clearSessionToken, getStoredToken } from '@/lib/session'
+import { GENRES as SHORT_GENRES, GENRE_FOLD } from '@/lib/genres'
 
 export interface RetroUser {
   id: string
   username: string
+  seqId?: number | null
   avatarUrl: string | null
   role: string
   gender: string | null
@@ -167,24 +169,10 @@ export function fmtCount(n: number): string {
   return String(n)
 }
 
-export const GENRES = [
-  'All Genres',
-  'Adventure',
-  'Building',
-  'Fighting',
-  'FPS',
-  'Horror',
-  'Obby',
-  'Puzzle',
-  'RPG',
-  'Racing',
-  'Sci-Fi',
-  'Simulation',
-  'Sports',
-  'Town & City',
-  'Tycoon',
-  'Western',
-]
+// v2 short genre list — see src/lib/genres.ts (legacy genres fold into their
+// closest shelf via GENRE_FOLD so old games still surface while browsing)
+export const GENRES = SHORT_GENRES
+export { GENRE_FOLD }
 
 export const SUBGENRE_IDEAS = [
   'Arena Fighter', 'Shooter', 'Building', 'Parkour', 'Sandbox', 'Sword Duel',
