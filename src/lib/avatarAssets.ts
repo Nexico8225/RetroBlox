@@ -308,8 +308,11 @@ function pantsName(id: string) {
 
 export const UGC_TYPES: AvatarKind[] = [
   'hat', 'hair', 'face', 'accessory', 'neck', 'shoulder', 'front', 'waist',
-  'gear', 'tshirt', 'shirt', 'pants', 'emote', 'bundle', 'anim',
+  'gear', 'tshirt', 'shirt', 'pants', 'bundle', 'anim',
 ]
+// 'emote' was REMOVED from the live type list (the custom-model emote
+// experiment is retired) — the label below stays so legacy rows and item
+// pages still render a human name, and the catalog API hides old emote rows.
 export const UGC_TYPE_LABELS: Record<string, string> = {
   hat: 'Hats',
   hair: 'Hair',

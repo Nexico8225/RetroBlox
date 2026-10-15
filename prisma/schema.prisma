@@ -35,6 +35,7 @@ model User {
   playSessions  PlaySession[]
   badges        PlayerBadge[]
   downloadsMade GameDownload[]
+  colorMaps     ColorMap[]
   labPosts      LabPost[]
   labReplies    LabReply[]
   communityPosts   CommunityPost[]
@@ -84,6 +85,19 @@ model UploadedFile {
   // (the deployed domain has the DB but not the server's disk)
   data      Bytes?
   createdAt DateTime @default(now())
+}
+
+// COLORWORLD — community paint maps. A map is a GLB model; the game turns
+// every part white with a black outline and the player paints it with a brush.
+model ColorMap {
+  id         String       @id @default(cuid())
+  name       String
+  fileId     String // the GLB map bytes (UploadedFile)
+  imageId    String? // optional custom placeholder image (UploadedFile)
+  uploaderId String
+  uploader   User         @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  plays      Int          @default(0)
+  createdAt  DateTime     @default(now())
 }
 
 model Game {
