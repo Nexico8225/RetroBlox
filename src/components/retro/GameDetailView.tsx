@@ -951,7 +951,20 @@ export function GameDetailView({ id }: { id: string }) {
 
             {/* PLAY / DOWNLOAD button */}
             <div style={{ marginTop: 14 }}>
-              {downloaded ? (
+              {game.engine === 'Web' ? (
+                <>
+                  <Link
+                    href={`/play/${game.id}`}
+                    className="rb-btn rb-btn-green"
+                    style={{ display: 'block', width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
+                  >
+                    &#9654; Play now — in your browser!
+                  </Link>
+                  <div style={{ textAlign: 'center', fontSize: 10, color: '#7b8896', marginTop: 6 }}>
+                    Web game — no download, it runs right here on RetroBlox.
+                  </div>
+                </>
+              ) : downloaded ? (
                 <>
                   <button
                     className="rb-btn rb-btn-green"

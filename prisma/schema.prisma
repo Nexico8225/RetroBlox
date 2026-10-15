@@ -100,6 +100,7 @@ model Game {
   fileName       String? // original filename of the build
   sourceFileId   String? // optional source code file id (like GitHub repo zip)
   sourceFileName String?
+  webCode        String? // engine="Web": the game's JavaScript, coded right on the site — players run it in a sandboxed browser frame, no download
   downloads      Int          @default(0)
   views          Int          @default(0) // game page views
   statsJson      String       @default("{}") // daily {"YYYY-MM-DD": {v: views, d: downloads}}

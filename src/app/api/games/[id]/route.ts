@@ -66,6 +66,9 @@ async function gameDetail(id: string, viewerId: string | null) {
     sourceFileId: g.sourceFileId,
     sourceFileName: g.sourceFileName,
     hasFile: !!g.fileId,
+    // Web games: the playable code rides along (the play page + the creator's
+    // "edit code" flow read it from here). Never sent for non-web games.
+    webCode: g.engine === 'Web' ? g.webCode || null : null,
     downloads: g.downloads,
     views: g.views,
     gem: g.gem,
@@ -136,6 +139,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const saved = await saveUpload(sourceFile, user.id)
     data.sourceFileId = saved.id
     data.sourceFileName = sourceFile.name
+  }
+
+  // Web games: the creator can update their code (and switch a game to Web)
+  const webCode = form.get('webCode')
+  if (typeof webCode === 'string' && webCode.trim()) {
+    if (webCode.length > 200_000) return NextResponse.json({ error: 'Web game code too large (max 200KB).' }, { status: 400 })
+    data.webCode = webCode
+    if (form.get('engine') === 'Web') data.engine = 'Web'
   }
 
   // append new media to the Steam-style gallery

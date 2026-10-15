@@ -54,11 +54,11 @@ export type PartKey = 'head' | 'torso' | 'armL' | 'armR' | 'legL' | 'legR'
 
 const PART_ALIASES: Record<PartKey, string[]> = {
   head: ['head'],
-  torso: ['torso', 'upper torso', 'uppertorso', 'lower torso', 'lowertorso', 'mid torso', 'middletorso', 'body'],
-  armL: ['left arm', 'leftarm', 'arm_l', 'l arm', 'left upper arm', 'left upperarm', 'leftupperarm', 'left lower arm', 'left lowerarm', 'leftlowerarm', 'left hand', 'lefthand', 'upperarm_l', 'lowerarm_l'],
-  armR: ['right arm', 'rightarm', 'arm_r', 'r arm', 'right upper arm', 'right upperarm', 'rightupperarm', 'right lower arm', 'right lowerarm', 'rightlowerarm', 'right hand', 'righthand', 'upperarm_r', 'lowerarm_r'],
-  legL: ['left leg', 'leftleg', 'leg_l', 'l leg', 'left upper leg', 'left upperleg', 'leftupperleg', 'left lower leg', 'left lowerleg', 'leftlowerleg', 'left foot', 'leftfoot', 'upperleg_l', 'lowerleg_l'],
-  legR: ['right leg', 'rightleg', 'leg_r', 'r leg', 'right upper leg', 'right upperleg', 'rightupperleg', 'right lower leg', 'right lowerleg', 'rightlowerleg', 'right foot', 'rightfoot', 'upperleg_r', 'lowerleg_r'],
+  torso: ['torso', 'upper torso', 'uppertorso', 'lower torso', 'lowertorso', 'mid torso', 'middletorso', 'body', 'spine', 'chest', 'hips'],
+  armL: ['left arm', 'leftarm', 'arm_l', 'l arm', 'arm_left', 'larm', 'left upper arm', 'left upperarm', 'leftupperarm', 'left lower arm', 'left lowerarm', 'leftlowerarm', 'left hand', 'lefthand', 'upperarm_l', 'lowerarm_l', 'upper arm l', 'lower arm l'],
+  armR: ['right arm', 'rightarm', 'arm_r', 'r arm', 'arm_right', 'rarm', 'right upper arm', 'right upperarm', 'rightupperarm', 'right lower arm', 'right lowerarm', 'rightlowerarm', 'right hand', 'righthand', 'upperarm_r', 'lowerarm_r', 'upper arm r', 'lower arm r'],
+  legL: ['left leg', 'leftleg', 'leg_l', 'l leg', 'leg_left', 'lleg', 'left upper leg', 'left upperleg', 'leftupperleg', 'left lower leg', 'left lowerleg', 'leftlowerleg', 'left foot', 'leftfoot', 'upperleg_l', 'lowerleg_l', 'upper leg l', 'lower leg l'],
+  legR: ['right leg', 'rightleg', 'leg_r', 'r leg', 'leg_right', 'rleg', 'right upper leg', 'right upperleg', 'rightupperleg', 'right lower leg', 'right lowerleg', 'rightlowerleg', 'right foot', 'rightfoot', 'upperleg_r', 'lowerleg_r', 'upper leg r', 'lower leg r'],
 }
 
 export interface LoadedRig {
@@ -79,13 +79,27 @@ function normName(name: string): string {
   return name.toLowerCase().replace(/\$[a-z0-9_]+/g, '').replace(/[\s\._]+/g, ' ').trim()
 }
 
+/** The alias table pre-normalized through normName, so an alias like
+ *  "arm_l" matches a bone named "Arm.L" (normName turns '.'/'_' into
+ *  spaces on BOTH sides). Before this, Blender's most common bone
+ *  naming ("Arm.L" / "Upper_Arm.R") matched NOTHING and arms stood
+ *  frozen while the head animated — the classic half-animated emote. */
+const PART_ALIAS_NORM: Array<[PartKey, string]> = (() => {
+  const out: Array<[PartKey, string]> = []
+  for (const key of Object.keys(PART_ALIASES) as PartKey[]) {
+    for (const alias of PART_ALIASES[key]) {
+      const n = normName(alias)
+      if (n) out.push([key, n])
+    }
+  }
+  return out
+})()
+
 function matchPart(name: string): PartKey | null {
   const n = normName(name)
   if (!n) return null
-  for (const key of Object.keys(PART_ALIASES) as PartKey[]) {
-    for (const alias of PART_ALIASES[key]) {
-      if (n === alias || n.startsWith(alias + ' ') || n.startsWith(alias + '.') || n.startsWith(alias + '_')) return key
-    }
+  for (const [key, alias] of PART_ALIAS_NORM) {
+    if (n === alias || n.startsWith(alias + ' ')) return key
   }
   return null
 }
@@ -592,6 +606,13 @@ export function retargetClipToRoot(clip: THREE.AnimationClip, root: THREE.Object
     if (dot < 1) continue
     const nodeName = track.name.slice(0, dot)
     const prop = track.name.slice(dot) // ".quaternion" / ".position" / ".scale"
+    // POSITION TRACKS NEVER RETARGET. A bone's local position belongs to the
+    // skeleton it was keyed on — a foreign rig's "Head.position" keyframes
+    // hold THAT rig's bone offsets (different proportions, sometimes 100x
+    // units). Pasting them onto the R6 body is exactly the "my head is out
+    // of place" bug. Rotation + scale carry the actual wave/step motion and
+    // are safe to move across rigs, so only those survive.
+    if (prop === '.position') continue
     const mapped = nameMap.get(normName(nodeName)) || nameMap.get(matchPart(nodeName) || '')
     if (!mapped) continue
     const nt = track.clone()

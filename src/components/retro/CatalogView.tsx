@@ -30,7 +30,7 @@ import {
   placementJson,
   type Placement,
 } from '@/lib/avatarAssets'
-import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig } from '@/lib/three/convert'
+import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig, inspectGlbAnimations } from '@/lib/three/convert'
 import { captureNoobThumb, captureRiggedThumb } from '@/lib/three/animCapture'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
@@ -1197,7 +1197,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   /* ---- rigged GLB intake: enumerate the Blender clips + detect body parts,
      then auto-capture the catalog thumbnail from a mid-clip pose. This is
      the door for "upload a rig with anims and preview the anim". */
-  async function ingestRiggedGlb(glb: Blob) {
+  async function ingestRiggedGlb(glb: Blob, original: File | Blob) {
     const url = URL.createObjectURL(glb)
     try {
       const loader = new GLTFLoader()
@@ -1212,13 +1212,31 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       const withTracks = (gltf.animations || []).filter((c: { tracks?: unknown[] }) => (c.tracks || []).length > 0)
       const boneClips = withTracks.filter((c) => clipHasBoneTracks(c as never, gltf.scene))
       const usable = boneClips.length > 0 ? boneClips : withTracks
-      const names = usable.map((c: { name: string }) => c.name).filter(Boolean)
+      // NEVER drop an unnamed clip on top of that — Blender's "Scene" mode
+      // (and some FBX takes) export clips with an EMPTY name, and a plain
+      // .filter(Boolean) throws them away so the NLA dropdown shows nothing
+      // even though the file DID carry the animation. Unnamed clips become
+      // "Clip 1", "Clip 2", ... and play exactly the same.
+      const names = usable.map((c: { name?: string }, i: number) => (c.name && c.name.trim() ? c.name.trim() : `Clip ${i + 1}`))
       setClipNames(names)
       setPreviewClip(names[0] || '')
       if (names.length === 0) {
-        setError(
-          'No animations were found inside this file, so there is nothing to preview or publish. In Blender: select the ARMATURE (not just the mesh), keep your action pushed into an NLA track, then File > Export > glTF 2.0 with Animation switched ON (Mode: Actions). An FBX exported the same way also works.'
-        )
+        // the file plays nothing — tell the creator WHICH export step went
+        // wrong instead of leaving an empty dropdown. The raw-JSON peek
+        // distinguishes "no animation exported at all" from "animation is
+        // in the file but the loader could not bind it".
+        const info = await inspectGlbAnimations(original)
+        if (info.rawCount === 0) {
+          setModelNotice(
+            'No animations were found inside this file, so there is nothing to preview. Blender recipe: 1) click your ARMATURE (not just the mesh), 2) in the Dope Sheet press Push Down on your action (or leave it active), 3) File > Export > glTF 2.0, 4) tick ANIMATION with mode "Actions" (FBX instead: tick Bake Animation), 5) upload the fresh file here.'
+          )
+        } else {
+          setModelNotice(
+            `Your file DOES hold ${info.rawCount} animation clip${info.rawCount === 1 ? '' : 's'} (${info.rawNames.join(', ')}) but the browser could not bind any of them to bones — usually the keys sit on objects that did not export. Re-export with the ARMATURE selected, Animation mode "Actions", and try again.`
+          )
+        }
+      } else {
+        setModelNotice('')
       }
       // a fresh model resets the studio: no marker, no icon, timeline at play
       setScrub(null)
@@ -1417,7 +1435,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         .then(async (glb) => {
           setModelBlob(glb)
           setEditorOpen(false)
-          await ingestRiggedGlb(glb)
+          await ingestRiggedGlb(glb, f)
         })
         .catch((e) => setError(
           `${e instanceof Error ? e.message : 'Could not read that model.'} `
@@ -1494,7 +1512,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       const blob = await res.blob()
       const file = new File([blob], `${src.assetId}.glb`, { type: 'model/gltf-binary' })
       setModelBlob(file)
-      await ingestRiggedGlb(file)
+      await ingestRiggedGlb(file, file)
       flash(setToast, `Rig from "${src.name}" loaded — map your clips and publish.`)
     } catch {
       setError('Could not load that rig — try uploading your own GLB.')
@@ -1723,6 +1741,19 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                     Blender recipe: Shading workspace → New Material → Base Color → pick grey / brown / anything →
                     File Export → glTF 2.0 (.glb). That export always keeps your colors.
                   </span>
+                </div>
+              )}
+              {rigged && modelNotice && (
+                <div
+                  style={{
+                    border: '1px solid #e0c98a', background: '#fff8e8', padding: '6px 8px',
+                    marginTop: 6, fontSize: 9.5, color: '#7a5c0e', lineHeight: 1.5,
+                  }}
+                  role="alert"
+                >
+                  <strong style={{ fontSize: 10 }}>⚠ Animation check for this upload.</strong>
+                  <br />
+                  {modelNotice}
                 </div>
               )}
               {thumbUrl && (

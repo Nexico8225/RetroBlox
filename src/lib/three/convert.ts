@@ -384,3 +384,46 @@ export function modelTooBig(file: File | Blob): string | null {
   if (mb > MAX_MODEL_MB) return `Model too large (${mb.toFixed(1)}MB) — the limit is ${MAX_MODEL_MB}MB.`
   return null
 }
+
+/* ------------------------------------------------------------------
+   GLB ANIMATION INSPECTOR — reads the raw glTF JSON chunk straight
+   out of the binary (no three.js involved). When a rigged upload
+   lands with ZERO playable clips, this tells us WHICH failure it is:
+
+   - rawCount === 0  -> the file truly carries no animation data: the
+     creator's export never included the action (Animation box off,
+     action never pushed down into the NLA / not the active action).
+     The publish form shows the exact Blender recipe.
+   - rawCount  >  0  -> the clips EXIST but GLTFLoader could not turn
+     them into playable AnimationClips (keyed objects that did not
+     export, or a broken exporter flag). Different fix, same dialog.
+
+   GLB layout: 12-byte header, then chunks: [len u32][type u32][data].
+   Chunk 0 is always JSON ('JSON' = 0x4E4F534A little-endian).
+------------------------------------------------------------------ */
+export interface GlbAnimInfo {
+  rawCount: number
+  rawNames: string[]
+}
+
+export async function inspectGlbAnimations(file: File | Blob): Promise<GlbAnimInfo> {
+  const empty: GlbAnimInfo = { rawCount: 0, rawNames: [] }
+  try {
+    const head = new Uint8Array(await file.slice(0, 20).arrayBuffer())
+    // magic 'glTF' = 0x67 0x6C 0x54 0x46
+    if (head.length < 20 || head[0] !== 0x67 || head[1] !== 0x6c || head[2] !== 0x54 || head[3] !== 0x46) return empty
+    const hv = new DataView(head.buffer)
+    const jsonLen = hv.getUint32(12, true)
+    const jsonType = hv.getUint32(16, true)
+    if (jsonType !== 0x4e4f534a || jsonLen < 2) return empty
+    const jsonBytes = new Uint8Array(await file.slice(20, 20 + jsonLen).arrayBuffer())
+    const json = JSON.parse(new TextDecoder().decode(jsonBytes)) as { animations?: { name?: string }[] }
+    const anims = Array.isArray(json.animations) ? json.animations : []
+    return {
+      rawCount: anims.length,
+      rawNames: anims.map((a, i) => (a && typeof a.name === 'string' && a.name.trim() ? a.name.trim() : `Clip ${i + 1}`)),
+    }
+  } catch {
+    return empty
+  }
+}

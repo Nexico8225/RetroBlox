@@ -179,12 +179,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Game name must be 3-60 characters.' }, { status: 400 })
     }
 
+    /* WEB GAMES — engine "Web" carries CODE instead of a build file.
+       The code runs client-side in a sandboxed iframe, so the server
+       just stores it (bounded, text-only). */
+    let webCode: string | null = null
+    if (engine === 'Web') {
+      const raw = form.get('webCode')
+      if (typeof raw !== 'string' || raw.trim().length < 10) {
+        return NextResponse.json({ error: 'Web games need code! Write (or load a template) in the studio box.' }, { status: 400 })
+      }
+      if (raw.length > 200_000) {
+        return NextResponse.json({ error: 'Web game code too large (max 200KB).' }, { status: 400 })
+      }
+      webCode = raw
+    }
+
     const gameFile = form.get('gameFile')
-    if (!(gameFile instanceof File) || gameFile.size === 0) {
+    if (engine !== 'Web' && (!(gameFile instanceof File) || gameFile.size === 0)) {
       return NextResponse.json({ error: 'Please attach your game build file (.zip, .exe, .apk, etc.)' }, { status: 400 })
     }
-    if (gameFile.size > 60 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Game file is too large (max 60MB).' }, { status: 400 })
+    let saved: { id: string } | null = null
+    if (gameFile instanceof File && gameFile.size > 0) {
+      if (gameFile.size > 60 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Game file is too large (max 60MB).' }, { status: 400 })
+      }
+      saved = await saveUpload(gameFile, user.id)
     }
 
     const icon = form.get('icon')
@@ -199,8 +218,6 @@ export async function POST(req: NextRequest) {
       if (thumbnail.size > 3 * 1024 * 1024) return NextResponse.json({ error: 'Thumbnail too large (max 3MB).' }, { status: 400 })
       thumbnailUrl = await fileToDataUrl(thumbnail)
     }
-
-    const saved = await saveUpload(gameFile, user.id)
 
     // optional: publish straight into one of my groups
     const groupIdRaw = String(form.get('groupId') || '')
@@ -252,8 +269,8 @@ export async function POST(req: NextRequest) {
         maturity,
         iconUrl,
         thumbnailUrl,
-        fileId: saved.id,
-        fileName: gameFile.name,
+        ...(saved ? { fileId: saved.id, fileName: gameFile instanceof File ? gameFile.name : null } : {}),
+        ...(webCode ? { webCode } : {}),
         sourceFileId,
         sourceFileName,
         mediaJson: JSON.stringify(media),
