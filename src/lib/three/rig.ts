@@ -25,6 +25,7 @@ import * as THREE from 'three'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { dedupeBoneNameCollisions, sanitizeBoneTracks } from './sanitizeTracks'
 import {
   SHIRT_TEMPLATE,
   PANTS_TEMPLATE,
@@ -900,6 +901,11 @@ export async function loadSelfAnimatedModel(
   // the GLB cache returns a SHARED scene — SkeletonUtils.clone a private copy
   // so the self-preview never fights another view over the same nodes
   const owned = skeletonClone(scene)
+  // foreign-space position/scale keys (the "100X broken" explosion) are
+  // dropped BEFORE playback — sanitizeBoneTracks never mutates the cached
+  // clips, it returns new ones when something had to go
+  dedupeBoneNameCollisions(owned)
+  const safe = sanitizeBoneTracks(clips, owned)
   const wrap = new THREE.Group()
   wrap.add(owned)
   const box = new THREE.Box3().setFromObject(wrap)
@@ -915,7 +921,7 @@ export async function loadSelfAnimatedModel(
   const group = new THREE.Group()
   group.add(wrap)
   group.updateMatrixWorld(true)
-  return { group, clips }
+  return { group, clips: safe }
 }
 
 /* ---------------- mixers worn on a look (self-animated UGC) ---------------- */

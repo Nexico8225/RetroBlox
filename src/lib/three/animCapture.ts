@@ -13,7 +13,8 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { applyLook, clipHasBoneTracks, prepareRigView, retargetClipWithRest, type AvatarLook3D } from '@/lib/three/rig'
+import { applyLook, prepareRigView, retargetClipToRoot, type AvatarLook3D } from '@/lib/three/rig'
+import { dedupeBoneNameCollisions, sanitizeBoneTracks } from '@/lib/three/sanitizeTracks'
 
 /** Seek ONE action to an exact time and sample the pose (mixer.update(0)
  *  evaluates at action.time — setTime would fight the mixer's own clock). */
@@ -84,10 +85,15 @@ export async function captureRiggedThumb(
 ): Promise<Blob> {
   const gltf = await new GLTFLoader().loadAsync(url)
   const root = gltf.scene
+  // the icon poses the model ITSELF — the same "100X broken" foreign-space
+  // position keys that explode the preview would explode the captured pose,
+  // so the clips pass through the same sanitizer before any posing
+  dedupeBoneNameCollisions(root)
+  const safeClips = sanitizeBoneTracks(gltf.animations || [], root)
 
   // pose the model: play the clip silently and hold it at the chosen moment
-  if (clipName && gltf.animations?.length) {
-    const clip = gltf.animations.find((c) => c.name === clipName) || gltf.animations[0]
+  if (clipName && safeClips.length) {
+    const clip = safeClips.find((c) => c.name === clipName) || safeClips[0]
     const mixer = new THREE.AnimationMixer(root)
     const action = mixer.clipAction(clip)
     const t = typeof atTime === 'number' && Number.isFinite(atTime)
@@ -125,18 +131,13 @@ export async function captureNoobThumb(
   await applyLook(view, rig, noob).catch(() => {})
 
   // the clip retargets onto the body by part name (LeftArm -> "Left Arm"...)
-  // WITH rest-pose correction — a Blender/FBX rig rests its bones at different
-  // orientations (and different UNITS) than our body, and the icon must show
-  // the wave, not an exploded ragdoll
   let posed = false
   if (clipName) {
     try {
-      const { scene, clips } = await new GLTFLoader()
-        .loadAsync(url)
-        .then((g) => ({ scene: g.scene, clips: g.animations || [] }))
+      const { clips } = await new GLTFLoader().loadAsync(url).then((g) => ({ clips: g.animations || [] }))
       const clip = clips.find((c) => c.name === clipName) || clips[0]
-      if (clip && clipHasBoneTracks(clip, scene)) {
-        const bound = retargetClipWithRest(clip, scene, view)
+      if (clip) {
+        const bound = retargetClipToRoot(clip, view)
         if (bound) {
           const mixer = new THREE.AnimationMixer(view)
           poseAt(mixer, [mixer.clipAction(bound)], Math.max(0, atTime))

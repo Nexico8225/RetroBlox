@@ -15,6 +15,7 @@ import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { dedupeBoneNameCollisions, sanitizeBoneTracks } from './sanitizeTracks'
 
 export const MODEL_ACCEPT = '.fbx,.glb,.gltf,.obj'
 export const MAX_MODEL_MB = 24
@@ -321,7 +322,20 @@ export function worthyClips(object: THREE.Object3D, animations: THREE.AnimationC
 async function objectToGlb(object: THREE.Object3D, animations?: THREE.AnimationClip[]): Promise<Blob> {
   stripNonMeshes(object)
   dropUnloadedTextures(object)
-  const clips = animations && animations.length > 0 ? worthyClips(object, animations) : undefined
+  // THE "100X BROKEN" GATE: Blender FBX bakes bone position keys in a space
+  // the rest of the file does not use (measured on the official R6IK.fbx:
+  // Left_Arm key 0.347 vs rest 0.003, Torso key ~0 vs rest 0.38). Those keys
+  // would be written VERBATIM into the stored GLB and then replayed by the
+  // studio preview, the item page AND the Godot game — the character blows
+  // apart everywhere. Dropping them here means the stored GLB itself is
+  // clean, so the fix rides with the upload instead of living in every
+  // renderer. Rotation tracks (the real motion) pass untouched.
+  // name collisions FIRST (mesh vs bone sharing one name): export resolves
+  // track names to the FIRST node — the mesh — so bones must own their names
+  // before anything binds; then drop foreign-space position/scale junk
+  dedupeBoneNameCollisions(object)
+  const safeAnimations = animations && animations.length > 0 ? sanitizeBoneTracks(animations, object) : animations
+  const clips = safeAnimations && safeAnimations.length > 0 ? worthyClips(object, safeAnimations) : undefined
   const exporter = new GLTFExporter()
   const buf = (await exporter.parseAsync(object, {
     binary: true,
