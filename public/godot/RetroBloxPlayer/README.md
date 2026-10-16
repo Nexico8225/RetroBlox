@@ -14,12 +14,34 @@ files to make the game YOURS. Everything talks plain HTTP + JSON to
 2. Open Godot → **Import** → pick this folder's `project.godot`.
 3. Press **F5** (Run Project). The login screen appears — sign in with
    your RetroBlox account, sign up, or play as a guest.
-4. You spawn on Cloud Kingdom wearing YOUR avatar. Press **ESC** for
-   the menu (People / Settings), **Enter** to chat.
+4. You spawn in **COLOR WORLD** — the world is born WHITE and you PAINT it:
+   pick a color from the palette at the bottom of the screen, then click any
+   brick. Paint every part to hear WORLD COMPLETE! Press **ESC** for the
+   menu (People / Settings), **Enter** to chat.
 
 You are now running a real multiplayer RetroBlox place.
 
-## 2. Make it yours — the 3 files that matter
+## 2. Paint the world (the Color World mechanic)
+
+The game world is a COLOR WORLD: every part accepts the brush. **LEFT
+CLICK** paints the brick under your cursor with the picked palette color
+(the palette of 12 classic swatches lives bottom-center — white is the
+eraser). The counter shows how many parts you painted in places flagged
+`"paint": true`, and painting every part fires WORLD COMPLETE.
+
+Want to tweak it? Everything lives in `scripts/game/game.gd`:
+
+| What | Where |
+|------|-------|
+| the palette colors | `PAINT_COLORS` (12 hex strings, no `#`) |
+| turn the counter on for YOUR map | add `"paint": true` to the place Dictionary |
+| the painting itself | `_paint_brick()` — raycast + recolor, easy to reskin |
+
+Paint is your own view of the world (client-side), so it works offline
+too. Make a place born-white by giving every part the same `"c": "f2f3f3"`
+— exactly what `color_world()` in `scripts/world/places.gd` does.
+
+## 3. Make it yours — the 3 files that matter
 
 | File | What it is | Edit it to... |
 |------|-----------|----------------|
@@ -66,7 +88,7 @@ it on retro-blox.vercel.app → **Create** (engine "Godot"). Players
 download and play. Ship the same zip as **Source Code** so anyone can
 remix it (it already IS the source).
 
-## 3. File map (the guided tour)
+## 4. File map (the guided tour)
 
 ```
 project.godot            the project (open this in Godot)
@@ -103,7 +125,7 @@ scripts/
 assets/                  sounds, faces, studs texture, fonts, icons
 ```
 
-## 4. Change the rules — game.gd hooks
+## 5. Change the rules — game.gd hooks
 
 `game.gd` is where gameplay lives. The useful bits:
 
@@ -125,7 +147,7 @@ if player.global_position.distance_to(coin_pos) < 2.0:
         chat.add_system("Coins: %d" % coins)
 ```
 
-## 5. The platform API (core/api.gd)
+## 6. The platform API (core/api.gd)
 
 Everything is plain HTTP + JSON — the same endpoints power the website
 and the Unity SDK. From any script: `Api.get_json(...)`, `Api.post_json(...)`.
@@ -146,7 +168,7 @@ it is the same number shown on the website profile. Every published game
 has a **Game ID** the same way (shown on its game page). Show them off
 in your game's HUD: `"%s #%d" % [Session.username, Session.player_seq]`.
 
-## 6. Editing with ChatGPT (yes, really)
+## 7. Editing with ChatGPT (yes, really)
 
 These files are written to be READ — by humans and by AIs. The recipe:
 
@@ -159,7 +181,7 @@ These files are written to be READ — by humans and by AIs. The recipe:
 Tips: keep one place per Dictionary, keep ids unique, and if Godot
 prints a script error it names the file + line — fix and re-run.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
@@ -169,7 +191,7 @@ prints a script error it names the file + line — fix and re-run.
 | My map didn't change | edit `my_place.gd`, save, F5, and pick "My Place (template)" again in the menu |
 | Login works on the site but not in-game | the game talks to `https://retro-blox.vercel.app` — check Settings → Network server URL |
 
-## 8. Publish your game
+## 9. Publish your game
 
 1. Zip this folder's CONTENTS (project.godot at the zip root).
 2. retro-blox.vercel.app → **Create** → engine **Godot** → upload the zip.

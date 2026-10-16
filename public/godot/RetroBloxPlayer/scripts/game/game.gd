@@ -63,13 +63,29 @@ var _loading: Control             # the v3.6 loading veil (no more load hitch)
 var _session_start_ms := 0        # the match timer
 var _last_ping_ms := 0            # last platform round-trip, shown as ping
 
+# ---- v13.0 THE PAINT BRUSH: the game world is a color world ----
+# The 12 classic swatches (hex, no #): white is the eraser, black is ink,
+# the rest are the bright plastic colors the old bricks shipped in.
+const PAINT_COLORS := [
+        "f2f3f3", "1b2a34", "c4281c", "e8752a", "f5cd30", "4b974b",
+        "009999", "0d69ac", "6b327c", "e8bac8", "7c5c46", "635f62",
+]
+var _brush := Color("c4281c")    # the picked swatch (bright red ships picked)
+var _paint_bar: PanelContainer  # the bottom-center palette
+var _paint_swatch := {}         # hex -> Button (for the picked highlight)
+var _paint_count: Label         # "12 / 33 painted" (paint-flagged places)
+var _paint_total := 0           # paintable parts in this place
+var _painted := {}              # instance_id -> true (parts I painted)
+var _paint_done := false        # the WORLD COMPLETE banner fires once
+
 
 func _ready() -> void:
         place = Session.current_place
         if place.is_empty():
-                # the hub is retired: signing in drops you straight into the classic
-                # baseplate — sign in and just play
-                place = PlacesScript.by_id("baseplate")
+                # v13.0: signing in drops you straight into COLOR WORLD — the world
+                # born white that YOU paint brick by brick (the classic baseplate
+                # and every other place still live in scripts/world/places.gd)
+                place = PlacesScript.by_id("colorworld")
         _session_start_ms = Time.get_ticks_msec()
 
         # ---- the loading veil goes up FIRST: the world + avatar + HUD are
@@ -80,6 +96,7 @@ func _ready() -> void:
         var built: Dictionary = WorldBuilderScript.build(place)
         add_child(built["root"])
         _spawns = built["spawns"]
+        _tag_paintables(built["root"])   # v13.0: every part accepts the brush
         if _spawns.is_empty():
                 _spawns.append(Vector3(0.0, 6.0, 0.0) * WorldBuilderScript.STUD)
         # a frame between the world and the player splits the spike
@@ -295,6 +312,15 @@ func _unhandled_input(event: InputEvent) -> void:
                 chat.close()
                 get_viewport().set_input_as_handled()
                 return
+        # ---- v13.0 THE PAINT BRUSH: LEFT CLICK paints the brick under the
+        # cursor with the picked palette color (palette lives bottom-center;
+        # buttons eat their own clicks so painting never fires on UI) ----
+        if event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
+                        and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT \
+                        and not _menu_open and chat != null and is_instance_valid(chat) \
+                        and not chat.is_open and not chat.is_reading:
+                _paint_brick()
+                return
         # ---- ESC menu keyboard shortcuts (classic and fast) ----
         if _menu_open and event is InputEventKey and event.is_pressed() and not event.is_echo() \
                         and not chat.is_open:
@@ -408,6 +434,9 @@ func _build_hud() -> void:
         _toast_box.alignment = BoxContainer.ALIGNMENT_BEGIN
         hud.add_child(_toast_box)
         UiEditor.register("toasts", _toast_box, false)
+
+        # ---- v13.0: the paint palette — the game world is a color world ----
+        _build_paint_bar()
 
         # ---- center: esc menu with the icon rail (People / Settings) ----
         _menu = _build_menu()
@@ -733,6 +762,139 @@ func _toast_style() -> StyleBox:
         sb.content_margin_top = 6.0
         sb.content_margin_bottom = 6.0
         return sb
+
+
+# ---------------------------------------------------------------- paint brush
+# v13.0 THE GAME WORLD IS A COLOR WORLD. Every part of every place accepts
+# the brush: LEFT CLICK paints the brick under the cursor with the picked
+# palette color. Paint is your own view of the world (client-side) — the
+# classic feeling of coloring a baseplate, now built into the client.
+
+## Tag every paintable part after the world builds. A part = a StaticBody3D
+## with a MeshInstance3D child (exactly what WorldBuilder._build_part makes).
+func _tag_paintables(world_root: Node) -> void:
+        var stack: Array[Node] = [world_root]
+        while not stack.is_empty():
+                var n: Node = stack.pop_back()
+                for c in n.get_children():
+                        stack.append(c)
+                if n is StaticBody3D:
+                        for c in n.get_children():
+                                if c is MeshInstance3D:
+                                        n.add_to_group("paintable")
+                                        _paint_total += 1
+                                        break
+
+
+## The bottom-center palette: PAINT + the 12 swatches (+ the painted counter
+## in places flagged "paint": true). Swatch buttons eat their own clicks.
+func _build_paint_bar() -> void:
+        _paint_bar = PanelContainer.new()
+        _paint_bar.name = "PaintBar"
+        _paint_bar.add_theme_stylebox_override("panel", _toast_style())
+        _paint_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+        _paint_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+        _paint_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+        _paint_bar.offset_bottom = -12.0
+        var row := HBoxContainer.new()
+        row.add_theme_constant_override("separation", 5)
+        _paint_bar.add_child(row)
+
+        var title := Label.new()
+        title.text = "PAINT"
+        _text(title, 12, Color(1, 1, 1, 0.85))
+        row.add_child(title)
+
+        for hex in PAINT_COLORS:
+                var hx := String(hex)
+                var swatch := Button.new()
+                swatch.custom_minimum_size = Vector2(24, 24)
+                swatch.focus_mode = Control.FOCUS_NONE
+                swatch.tooltip_text = "#" + hx
+                swatch.add_theme_stylebox_override("normal", _paint_swatch_face(hx, false))
+                swatch.add_theme_stylebox_override("hover", _paint_swatch_face(hx, false))
+                swatch.add_theme_stylebox_override("pressed", _paint_swatch_face(hx, false))
+                swatch.pressed.connect(_pick_paint.bind(hx))
+                row.add_child(swatch)
+                _paint_swatch[hx] = swatch
+        _pick_paint("c4281c")   # bright red ships picked
+
+        if bool(place.get("paint", false)):
+                _paint_count = Label.new()
+                _text(_paint_count, 12, Color("ffd400"))
+                _paint_count.text = "0 / %d painted" % _paint_total
+                row.add_child(_paint_count)
+                _notify("This world is born WHITE — click a brick to paint it!", true)
+
+        hud.add_child(_paint_bar)
+        UiEditor.register("paint_bar", _paint_bar, false)
+
+
+## A swatch face: the color itself, yellow-rimmed when it is the picked brush.
+func _paint_swatch_face(hex: String, picked: bool) -> StyleBoxFlat:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = Color(hex)
+        sb.set_corner_radius_all(5)
+        sb.set_border_width_all(3 if picked else 2)
+        sb.border_color = Color("ffd400") if picked else Color(1, 1, 1, 0.22)
+        return sb
+
+
+func _pick_paint(hex: String) -> void:
+        _brush = Color(hex)
+        for key in _paint_swatch:
+                var hx := String(key)
+                var on := hx == hex
+                var b: Button = _paint_swatch[key]
+                b.add_theme_stylebox_override("normal", _paint_swatch_face(hx, on))
+                b.add_theme_stylebox_override("hover", _paint_swatch_face(hx, on))
+                b.add_theme_stylebox_override("pressed", _paint_swatch_face(hx, on))
+
+
+## LEFT CLICK: ray from the camera through the cursor (the parked center dot
+## in first person), recolor the brick it hits, count it, check for COMPLETE.
+func _paint_brick() -> void:
+        var cam: Camera3D = get_viewport().get_camera_3d()
+        if cam == null:
+                return
+        var mp := get_viewport().get_mouse_position()
+        if camera_rig != null and is_instance_valid(camera_rig) and camera_rig.is_first_person():
+                mp = get_viewport().get_visible_rect().size * 0.5
+        var from := cam.project_ray_origin(mp)
+        var query := PhysicsRayQueryParameters3D.create(
+                from, from + cam.project_ray_normal(mp) * 300.0, 1)
+        var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+        if hit.is_empty():
+                return
+        var body: Object = hit.get("collider")
+        if body == null or not (body is StaticBody3D) or not (body as Node).is_in_group("paintable"):
+                return
+        var mesh_node: MeshInstance3D = null
+        for c in (body as Node).get_children():
+                if c is MeshInstance3D:
+                        mesh_node = c
+                        break
+        if mesh_node == null or mesh_node.material_override == null:
+                return
+        var mat := mesh_node.material_override as StandardMaterial3D
+        if mat == null:
+                return
+        mat.albedo_color = _brush
+        if mat.emission_enabled:
+                mat.emission = _brush   # neon parts keep glowing in the NEW color
+        if not _painted.has((body as Node).get_instance_id()):
+                _painted[(body as Node).get_instance_id()] = true
+                _update_paint_count()
+
+
+func _update_paint_count() -> void:
+        if _paint_count == null or not is_instance_valid(_paint_count):
+                return
+        _paint_count.text = "%d / %d painted" % [_painted.size(), _paint_total]
+        if not _paint_done and _paint_total > 0 and _painted.size() >= _paint_total:
+                _paint_done = true
+                _notify("WORLD COMPLETE — you painted every brick!", true)
+                _paint_count.text = "ALL PAINTED!"
 
 
 # ---------------------------------------------------------------- audio bed

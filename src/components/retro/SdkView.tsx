@@ -8,9 +8,9 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v1 "AVATARS, NOT PICTURES"'
-const V_TAG = 'v1'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=1.2'
+const VERSION = 'v2 "PAINT THE WORLD"'
+const V_TAG = 'v2'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=2.0'
 
 const INK = '#1c3a52'
 const DIM = '#5a6b7b'
@@ -53,7 +53,7 @@ const FILES = [
   ['scripts/player/local_player.gd', 'Classic controller: the REAL R6 hitbox, WalkSpeed 16, INSTANT shift-lock snap, 2-stud STAIRS, ladders, trampolines, fall damage'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
-  ['scripts/world/places.gd', 'The built-in sample places: Cloud Kingdom, Happy Baseplate, My Place (template), Classic Obby, Skylands, Wobbly Tower'],
+  ['scripts/world/places.gd', 'The built-in places: COLOR WORLD (born white — paint it!), Cloud Kingdom, Happy Baseplate, My Place (template), Classic Obby, Skylands, Wobbly Tower'],
   ['scripts/world/my_place.gd', '★ YOUR EDITABLE STARTER MAP — a complete place documented line by line. Edit it, press F5, play. Start here!'],
   ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the BLACK & WHITE ESC MENU (icon rail, live 3D avatars, 18 icon-row settings, white Resume), respawn flow, vertical health bar'],
   ['scripts/game/chat_box.gd', 'The chat that HIDES until you open it: / or the chat button opens log + type box together, ESC hides everything, injection-proof'],
@@ -107,14 +107,15 @@ export function SdkView() {
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>The RetroBlox Player — official SDK ({V_TAG})</span></div>
         <div style={{ padding: 14 }}>
-          <div style={{ fontSize: 17, color: INK }}>Dress your avatar. Play five places. Collect Tix. Chat with everyone online.</div>
+          <div style={{ fontSize: 17, color: INK }}>Dress your avatar. PAINT THE WORLD (click bricks!). Collect Tix. Chat with everyone online.</div>
           <div style={{ marginTop: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00639e', background: '#e1f2fb', border: '1px solid #b5d9ee', padding: '2px 8px', borderRadius: 3 }}>{VERSION}</span>
           </div>
           <div style={{ fontSize: 11, color: DIM, marginTop: 4, maxWidth: 660 }}>
             The RetroBlox SDK is the official <b style={{ fontWeight: 600 }}>RetroBlox Player</b> —
             log in once and the game <b style={{ fontWeight: 600 }}>remembers you forever</b>: your account avatar loads from the platform —
-            body colors, shirts, pants, face and every 3D UGC accessory placed exactly where its creator left it. Play five
+            body colors, shirts, pants, face and every 3D UGC accessory placed exactly where its creator left it. You spawn in
+            COLOR WORLD — every brick is born WHITE and your LEFT CLICK paints it with the palette; then explore more
             built-in places at the classic size (1 stud = 1 unit, 5-stud avatar) with classic climbing,
             Shift Lock, Tix collectibles, the authentic classic sounds — and chat with
             anyone in the same place <b style={{ fontWeight: 600 }}>across the internet</b>. No LAN needed, ever.
