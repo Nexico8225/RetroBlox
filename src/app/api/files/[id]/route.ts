@@ -3,6 +3,7 @@ import { createReadStream, existsSync, statSync } from 'fs'
 import { Readable } from 'stream'
 import path from 'path'
 import { db } from '@/lib/db'
+import { loadKeptFile } from '@/lib/uploads'
 
 /**
  * FILE SERVICE — GET /api/files/{id}  (images, GLB models, audio, video, zips)
@@ -18,7 +19,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params
   const file = await db.uploadedFile.findUnique({ where: { id } })
   if (!file) {
-    return NextResponse.json({ error: 'File not found' }, { status: 404 })
+    // big game builds live as KEPT CHUNK ROWS (never one giant blob) —
+    // stream the concatenation with plain download headers (no range needs)
+    const kept = await loadKeptFile(id)
+    if (!kept) {
+      return NextResponse.json({ error: 'File not found' }, { status: 404 })
+    }
+    const download = new URL(req.url).searchParams.get('dl') === '1'
+    const headers: Record<string, string> = {
+      'Content-Type': kept.mimeType || 'application/zip',
+      'Content-Length': String(kept.data.length),
+      'Accept-Ranges': 'none',
+    }
+    if (download) {
+      headers['Content-Disposition'] = `attachment; filename="${path.basename(kept.filename)}"`
+    }
+    return new NextResponse(new Uint8Array(kept.data), { headers })
   }
 
   const download = new URL(req.url).searchParams.get('dl') === '1'

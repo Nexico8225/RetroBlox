@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { saveUpload, resolveUpload } from '@/lib/uploads'
+import { saveUpload, resolveUpload, keepChunks } from '@/lib/uploads'
 
 async function gameDetail(id: string, viewerId: string | null) {
   const g = await db.game.findUnique({
@@ -134,14 +134,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // gameFile can arrive directly (multipart, small) OR as a chunked upload id
-  // ("gameUploadId") — big game builds (a real exported game can be 60MB+) ride
-  // the same chunk system the 24MB models use.
-  const gameFile = await resolveUpload(form.get('gameFile'), form.get('gameUploadId'))
-  if (gameFile) {
-    if (gameFile.size > 150 * 1024 * 1024) return NextResponse.json({ error: 'Game file too large (max 150MB).' }, { status: 400 })
-    const saved = await saveUpload(gameFile, user.id)
-    data.fileId = saved.id
-    data.fileName = gameFile.name
+  // ("gameUploadId" + "gameFileName") — big game builds (a real exported game
+  // is 60MB+) KEEP their chunk rows as the storage: re-writing a blob that
+  // big into a single Turso row blows the statement size limit.
+  const gameUploadId = typeof form.get('gameUploadId') === 'string' ? String(form.get('gameUploadId')).trim() : ''
+  if (gameUploadId && /^[a-zA-Z0-9]{8,64}$/.test(gameUploadId)) {
+    const kept = await keepChunks(gameUploadId)
+    if (!kept) return NextResponse.json({ error: 'Chunked upload not found — upload the game again.' }, { status: 400 })
+    data.fileId = gameUploadId
+    const gn = form.get('gameFileName')
+    data.fileName = typeof gn === 'string' && gn.trim() ? gn.trim().slice(-80) : 'game.zip'
+  } else {
+    const gameFile = await resolveUpload(form.get('gameFile'), null)
+    if (gameFile) {
+      if (gameFile.size > 60 * 1024 * 1024) return NextResponse.json({ error: 'Game file too large (max 60MB direct; use the chunk uploader).' }, { status: 400 })
+      const saved = await saveUpload(gameFile, user.id)
+      data.fileId = saved.id
+      data.fileName = gameFile.name
+    }
   }
 
   const sourceFile = await resolveUpload(form.get('sourceFile'), form.get('sourceUploadId'))

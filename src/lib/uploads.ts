@@ -63,6 +63,59 @@ export async function saveUpload(file: File, userId: string) {
 
 const CHUNK_PREFIX = 'chunk:'
 
+/* ------------------------------------------------------------------
+   KEPT CHUNKS — big game builds never re-assemble into one row (a
+   60MB+ blob write would blow the DB statement limit). The games API
+   "keeps" the freshly uploaded chunks by renaming their path prefix
+   chunk: -> keep:, and /api/files/{id} streams the concatenation for
+   that id. purgeStaleChunks only sweeps the chunk: prefix, so kept
+   rows live as long as the game does.
+------------------------------------------------------------------ */
+
+/** rename a chunk set to its kept form; returns the chunk count (0 = no set) */
+export async function keepChunks(uploadId: string): Promise<number> {
+  const prefix = CHUNK_PREFIX + uploadId + ':'
+  const chunks = await db.uploadedFile.findMany({
+    where: { path: { startsWith: prefix } },
+    orderBy: { path: 'asc' },
+  })
+  if (chunks.length === 0) return 0
+  for (let i = 0; i < chunks.length; i++) {
+    const idx = chunks[i].path.slice(prefix.length)
+    if (Number(idx) !== i) return 0 // a hole in the sequence = broken file
+    await db.uploadedFile.update({
+      where: { id: chunks[i].id },
+      data: { path: `keep:${uploadId}:${idx}` },
+    })
+  }
+  return chunks.length
+}
+
+/** stream-source for kept chunk sets (null when the id is not one) */
+export async function loadKeptFile(id: string): Promise<{ filename: string; mimeType: string; data: Buffer } | null> {
+  const prefix = 'keep:' + id + ':'
+  const chunks = await db.uploadedFile.findMany({
+    where: { path: { startsWith: prefix } },
+    orderBy: { path: 'asc' },
+  })
+  if (chunks.length === 0) return null
+  for (let i = 0; i < chunks.length; i++) {
+    if (Number(chunks[i].path.slice(prefix.length)) !== i) return null
+  }
+  const parts: Buffer[] = []
+  let total = 0
+  for (const c of chunks) {
+    const buf = Buffer.from(c.data ?? new Uint8Array())
+    parts.push(buf)
+    total += buf.length
+  }
+  return {
+    filename: chunks[0].filename || 'game.zip',
+    mimeType: chunks[0].mimeType || 'application/zip',
+    data: Buffer.concat(parts, total),
+  }
+}
+
 /** hygiene — remove chunk rows from failed/abandoned publishes (older than a day) */
 export async function purgeStaleChunks(): Promise<void> {
   try {
