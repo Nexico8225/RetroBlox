@@ -171,6 +171,16 @@ func _build() -> void:
         footer.add_theme_color_override("font_color", INK_HEAD)
         body.add_child(footer)
 
+        # ---- v14.0: THE STUDIO DOOR — the organized edit scenes live here ----
+        var studio := Button.new()
+        studio.text = "STUDIO  ·  edit your UI, map and player"
+        studio.theme_type_variation = "BtnGhost"
+        studio.custom_minimum_size = Vector2(0, 34)
+        studio.focus_mode = Control.FOCUS_NONE
+        studio.pressed.connect(func() -> void:
+                get_tree().change_scene_to_file("res://scenes/studio.tscn"))
+        body.add_child(studio)
+
         # ---- under everything: the copyright line ----
         var legal := Label.new()
         legal.text = "RetroBlox Player v%s  ·  ©2006-2013 RetroBlox — not affiliated with Roblox" % VERSION

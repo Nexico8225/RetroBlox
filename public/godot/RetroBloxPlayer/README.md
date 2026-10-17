@@ -17,7 +17,9 @@ files to make the game YOURS. Everything talks plain HTTP + JSON to
 4. You spawn in **COLOR WORLD** — the world is born WHITE and you PAINT it:
    pick a color from the palette at the bottom of the screen, then click any
    brick. Paint every part to hear WORLD COMPLETE! Press **ESC** for the
-   menu (People / Settings), **Enter** to chat.
+   menu (People / Studio / Settings), **Enter** to chat.
+5. Back on the login screen there is a **STUDIO** button — the organized
+   door to the editor scenes (UI / Map / Player).
 
 You are now running a real multiplayer RetroBlox place.
 
@@ -53,7 +55,52 @@ Paint is your own view of the world (client-side), so it works offline
 too. Make a place born-white by giving every part the same `"c": "f2f3f3"`
 — exactly what `color_world()` in `scripts/world/places.gd` does.
 
-## 3. Make it yours — the 3 files that matter
+## 3. STUDIO — four scenes, every thing editable (v14.0)
+
+The game is ORGANIZED: each thing you can touch lives in its own scene,
+and the STUDIO hub ties them together. Open it from the **login screen**
+(STUDIO button) or in-game (**ESC → Studio tab**):
+
+| Scene | File | What you do there |
+|-------|------|-------------------|
+| PLAY GAME | `scenes/game.tscn` | the world, live and multiplayer |
+| UI EDITOR | `scenes/ui_editor.tscn` | drag & drop your own HUD |
+| MAP EDITOR | `scenes/map_editor.tscn` | build maps brick by brick |
+| PLAYER EDITOR | `scenes/player_editor.tscn` | paint your avatar |
+
+### The UI Editor — DRAG. DROP. DONE.
+A shelf of widgets sits on the left: **Button, Label, Panel, Text Box,
+Health Bar, Money**. Grab one, DRAG it onto the stage, release — it is
+born where you dropped it. Click to select, drag to move, and use the
+right panel for X / Y / W / H, text, font size and the 12 retro colors.
+**SAVE** writes `user://ui_config.json` and the real game HUD spawns the
+EXACT same widgets (same factory: `scripts/editor/ui_widgets.gd`) —
+your buttons pop toasts, your health bar fills with YOUR real health,
+your text box takes typing. **TEST PLAY** jumps in to see it live.
+
+### The Map Editor — brick by brick
+A real 3D scene: **RIGHT DRAG** orbits, **WHEEL** zooms, **WASD/QE** pans.
+Tools on the left: **ADD** (left click the world to place a brick),
+**PAINT** (recolor any brick), **DELETE**. The bottom bar holds the 12
+colors, 5 brick sizes (BRICK / CUBE / PLATE / TILE / PILLAR), materials
+(plastic/neon/metal/wood/grass/dirt) and the classic groups (spawn, kill,
+ladder, goal, checkpoint, bounce). **SAVE** makes the map YOUR PLACE in
+the game (`user://my_map.json`). **TEST PLAY** drops you straight in.
+**SAVE FILE** exports a `.retroplace` game file you can share.
+
+### The Player Editor — your look
+Your live rig on a photo stage. Drag to spin. Three rows of colors:
+**SKIN** (head), **SHIRT** (torso + arms), **PANTS** (legs). SAVE writes
+`user://avatar_colors.json` — the colors repaint YOUR rig right after
+spawn in every game, over the noob paint or on top of your site avatar.
+
+### Game files — .retroplace
+A game file is one small JSON: `{"format":"retroblox-place-1", parts:[...]}`.
+The Map Editor saves them (SAVE FILE); the STUDIO hub's **OPEN GAME FILE**
+loads one and drops you in. Games on the site can ship their build as a
+`.retroplace` — download, open, play. That is the whole loop.
+
+## 4. Make it yours — the 3 files that matter
 
 | File | What it is | Edit it to... |
 |------|-----------|----------------|
@@ -100,7 +147,7 @@ it on retro-blox.vercel.app → **Create** (engine "Godot"). Players
 download and play. Ship the same zip as **Source Code** so anyone can
 remix it (it already IS the source).
 
-## 4. File map (the guided tour)
+## 5. File map (the guided tour)
 
 ```
 project.godot            the project (open this in Godot)
@@ -137,7 +184,7 @@ scripts/
 assets/                  sounds, faces, studs texture, fonts, icons
 ```
 
-## 5. Change the rules — game.gd hooks
+## 6. Change the rules — game.gd hooks
 
 `game.gd` is where gameplay lives. The useful bits:
 
@@ -159,7 +206,7 @@ if player.global_position.distance_to(coin_pos) < 2.0:
         chat.add_system("Coins: %d" % coins)
 ```
 
-## 6. The platform API (core/api.gd)
+## 7. The platform API (core/api.gd)
 
 Everything is plain HTTP + JSON — the same endpoints power the website
 and the Unity SDK. From any script: `Api.get_json(...)`, `Api.post_json(...)`.
@@ -180,7 +227,7 @@ it is the same number shown on the website profile. Every published game
 has a **Game ID** the same way (shown on its game page). Show them off
 in your game's HUD: `"%s #%d" % [Session.username, Session.player_seq]`.
 
-## 7. Editing with ChatGPT (yes, really)
+## 8. Editing with ChatGPT (yes, really)
 
 These files are written to be READ — by humans and by AIs. The recipe:
 
@@ -193,7 +240,7 @@ These files are written to be READ — by humans and by AIs. The recipe:
 Tips: keep one place per Dictionary, keep ids unique, and if Godot
 prints a script error it names the file + line — fix and re-run.
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
@@ -203,7 +250,7 @@ prints a script error it names the file + line — fix and re-run.
 | My map didn't change | edit `my_place.gd`, save, F5, and pick "My Place (template)" again in the menu |
 | Login works on the site but not in-game | the game talks to `https://retro-blox.vercel.app` — check Settings → Network server URL |
 
-## 9. Publish your game
+## 10. Publish your game
 
 1. Zip this folder's CONTENTS (project.godot at the zip root).
 2. retro-blox.vercel.app → **Create** → engine **Godot** → upload the zip.

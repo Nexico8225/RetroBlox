@@ -51,7 +51,29 @@ extends RefCounted
 ##      and 1-2 stud ledges step up automatically like stairs.
 ## ==================================================================
 
+## v14.0: YOUR map, if you saved one in the Map Editor (user://my_map.json).
+## No save yet? You get the living template below, untouched.
 static func build() -> Dictionary:
+        const SAVE_PATH := "user://my_map.json"
+        if FileAccess.file_exists(SAVE_PATH):
+                var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+                if f != null:
+                        var parsed: Variant = JSON.parse_string(f.get_as_text())
+                        if typeof(parsed) == TYPE_DICTIONARY:
+                                var saved: Dictionary = parsed
+                                var raw: Variant = saved.get("parts", [])
+                                if typeof(raw) == TYPE_ARRAY and (raw as Array).size() > 0:
+                                        var def := template()
+                                        def["parts"] = raw
+                                        def["props"] = []   # the template's props do not fit YOUR map
+                                        def["name"] = "My Place"
+                                        def["desc"] = "The map YOU built in the Map Editor."
+                                        return def
+        return template()
+
+
+## The living template — a working map you can read, edit and rebuild.
+static func template() -> Dictionary:
         return {
                 "id": "my_place",
                 "name": "My Place (template)",

@@ -56,8 +56,8 @@ static func build(def: Dictionary) -> Dictionary:
         var env := Environment.new()
         var sky := Sky.new()
         var sky_mat := ProceduralSkyMaterial.new()
-        sky_mat.sky_top_color = Color(def.get("sky_top", "3d8fd1"))
-        sky_mat.sky_horizon_color = Color(def.get("sky_horizon", "bfe0f5"))
+        sky_mat.sky_top_color = _vivid(Color(def.get("sky_top", "3d8fd1")), 1.14)
+        sky_mat.sky_horizon_color = _vivid(Color(def.get("sky_horizon", "bfe0f5")), 1.10)
         sky_mat.ground_bottom_color = Color(def.get("sky_ground", "2a5d38"))
         sky_mat.ground_horizon_color = Color(def.get("sky_horizon", "bfe0f5"))
         sky_mat.sun_angle_max = 30.0
@@ -66,11 +66,12 @@ static func build(def: Dictionary) -> Dictionary:
         env.background_mode = Environment.BG_SKY
         env.sky = sky
         env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-        # v5.0: CALM LIGHT — the v4.0 wash (0.62 ambient + 0.7 sky) bleached
-        # the whole world pale. Deeper ambient with less sky contribution
-        # lets the part colors read true and the sun actually model shapes.
-        env.ambient_light_energy = 0.48
-        env.ambient_light_sky_contribution = 0.5
+        # v14.0 VIBRANT — "the lighting looks so dull, make it like Roblox".
+        # 2006 Roblox outdoor light was a big bright UNIFORM fill: shadows were
+        # soft blue-ish and never muddy, and every brick read LOUD. So: strong
+        # ambient + heavy sky bounce (blue shadow tint), sun does the modeling.
+        env.ambient_light_energy = 0.74
+        env.ambient_light_sky_contribution = 0.68
         # v5.0: LINEAR tonemap — FILMIC lifted every midtone into a blinding
         # pastel wash (the "everything so bright" report). Linear renders the
         # authored part colors TRUE: mid-gray baseplate reads mid-gray, red
@@ -82,17 +83,19 @@ static func build(def: Dictionary) -> Dictionary:
         if bool(def.get("sky", true)) or bool(def.get("cloud_deck", false)):
                 env.fog_enabled = true
                 env.fog_light_color = Color("dce9f5")
-                env.fog_density = 0.0020 if not bool(def.get("cloud_deck", false)) else 0.0030
-                env.fog_sky_affect = 0.16 if not bool(def.get("cloud_deck", false)) else 0.2
+                # v14.0: fog was milk-washing the saturation out of everything —
+                # halved it so islands melt into the horizon but bricks stay LOUD
+                env.fog_density = 0.0009 if not bool(def.get("cloud_deck", false)) else 0.0018
+                env.fog_sky_affect = 0.06 if not bool(def.get("cloud_deck", false)) else 0.10
         var world_env := WorldEnvironment.new()
         world_env.environment = env
         root.add_child(world_env)
 
         var sun := DirectionalLight3D.new()
         sun.name = "Sun"
-        sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-        sun.light_energy = 0.92            # v5.0: gentle — the sun models, not blinds
-        sun.light_color = Color("ffe9c4")  # the warm late-afternoon cast
+        sun.rotation_degrees = Vector3(-55.0, -30.0, 0.0)
+        sun.light_energy = 1.14            # v14.0: the sun POPS again (was 0.92, dull)
+        sun.light_color = Color("fff3d6")  # warm but near-white — keeps colors honest
         sun.shadow_enabled = true
         sun.directional_shadow_max_distance = 90.0
         sun.shadow_blur = 1.2
@@ -121,6 +124,17 @@ static func build(def: Dictionary) -> Dictionary:
         return { "root": root, "spawns": spawns }
 
 
+## v14.0 VIBRANT — the Roblox saturation push. 2006 bricks were LOUD: the
+## palette was pure hue, no pastel dust. A gentle HSV lift at build time
+## makes every authored color read vivid (white stays white — s=0 is kept,
+## and near-white misses the push too so the Color World spawn stays clean).
+static func _vivid(c: Color, strength := 1.24) -> Color:
+        if c.s > 0.03:
+                c.s = clampf(c.s * strength + 0.03, 0.0, 1.0)
+        c.v = clampf(c.v * 1.03, 0.0, 1.0)
+        return c
+
+
 static func _build_part(root: Node3D, part: Dictionary, tex: ImageTexture, spawns: Array[Vector3]) -> void:
         var p: Array = part.get("p", [0, 0, 0])
         var s: Array = part.get("s", [4, 1, 4])
@@ -129,7 +143,7 @@ static func _build_part(root: Node3D, part: Dictionary, tex: ImageTexture, spawn
         # THE stud conversion: everything below lives in Godot units
         var pos := Vector3(float(p[0]), float(p[1]), float(p[2])) * STUD
         var size := Vector3(float(s[0]), float(s[1]), float(s[2])) * STUD
-        var color := Color(part.get("c", "a3a2a5"))
+        var color := _vivid(Color(part.get("c", "a3a2a5")))  # v14.0: LOUD bricks
         var shape: String = part.get("shape", "box")
 
         if group == "ladder":
@@ -249,7 +263,7 @@ static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> vo
                 "tree":
                         _tree(root, pos, float(prop.get("h", 7.0)))
                 "flower":
-                        _flower(root, pos, Color(prop.get("c", "e8333f")))
+                        _flower(root, pos, _vivid(Color(prop.get("c", "e8333f"))))
                 "fence":
                         var fs: Array = prop.get("s", [6, 1.4, 0.35])
                         _fence(root, pos, Vector3(float(fs[0]), float(fs[1]), float(fs[2])), prop.get("yaw", 0.0))

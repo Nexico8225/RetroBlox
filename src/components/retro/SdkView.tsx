@@ -8,24 +8,22 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v2 "PAINT THE WORLD"'
-const V_TAG = 'v2'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=2.0'
+const VERSION = 'v3 "STUDIO"'
+const V_TAG = 'v3'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.0'
 
 const INK = '#1c3a52'
 const DIM = '#5a6b7b'
 const EDGE = '#b6c0cb'
 
 const NEW_STUFF: [string, string][] = [
-  ['THE ESC MENU IS BIGGER — AND WEARS THE ROBLOX LAYOUT', 'A slim icon rail on the left (a person for People, a gear for Settings — hand-drawn, pure white on black), a bigger card (680 x 580), the same LIVE 3D avatar grid, and RESUME is now the primary: a WHITE button with black ink. No red, no blue — black & white only.'],
-  ['SETTINGS GOT THE COMPLETE REDESIGN', 'Sections with an icon on EVERY row, pill switches (white ON / dark OFF), white sliders, human labels. No more paragraphs on toggles.'],
-  ['WAY MORE SETTINGS — ALL LIVE, ALL SAVED', 'UI Opacity (fades the menu + the chat, live), Invert Camera Y, VSync, Render Scale (the honest FPS dial — half resolution if you want the frames), Chat Bubbles on/off, Music volume, plus the classics: sensitivity, FOV, volumes, shadows, Max FPS, fullscreen, names, Bunny Hop, Show FPS/Ping, Reset All. 18 controls.'],
-  ['HUMAN NAMES, NOT INSTRUCTIONS', 'We renamed the settings like a human would:'],
-  ['THE CHAT SHOWS NOTHING UNTIL YOU OPEN IT', 'No type box floating on the game. Press / (or the chat button) and the chat OPENS — log + type box together. Enter sends, ESC hides everything. Unread messages stack the red badge while it is hidden.'],
-  ['THE AVATARS ARE REAL 3D', 'Every People card hosts the player\'s actual rig on its own live stage: DRAG to spin, drag to tilt, wheel to zoom. The turntable stops when you grab it. Stages render only while the menu is open — closing costs nothing. Your card wears the white ring now.'],
-  ['THE CLASSIC BLUE IS BACK', 'You liked the old look — so the site wears it again: the solid blue top bar, the blue buttons, white cards, the gray page. Blue, white, red for danger — that is the whole palette. No color circus.'],
-  ['UNITY VERSION — IN THE WORKS', 'An upcoming system for Unity users: the same RetroBlox platform (accounts, avatars, chat, presence) inside Unity. It is being worked on — watch this space.'],
-  ['EVERYTHING BEFORE STAYS', 'Log In only, the simple login, the instant shift-lock snap, 2-stud stairs, occlusion culling, the blue-gloss topbar (that one you liked), 12s bubbles, vertical health bar, Log Out.'],
+  ['THE GAME IS ORGANIZED — FOUR SCENES, ONE STUDIO', 'Every thing you can touch now lives in its own scene: PLAY GAME, UI EDITOR, MAP EDITOR, PLAYER EDITOR — all behind one STUDIO door on the login screen (and a new Studio tab in the ESC menu). Each editor saves to your device and rides with you into every game.'],
+  ['THE UI EDITOR — DRAG. DROP. DONE.', 'A whole scene for rebuilding the client UI: grab a widget from the shelf (Button, Label, Panel, Text Box, Health Bar, Money), DRAG it onto the stage, drop it, then drag it anywhere. Edit position, size, text, font and one of 12 retro colors per widget. SAVE — and the real game spawns the exact same widgets: your buttons pop toasts, your health bar fills with YOUR health.'],
+  ['THE MAP EDITOR — BRICK BY BRICK', 'Build worlds in a real 3D scene: LEFT CLICK places/paints/deletes bricks, RIGHT DRAG orbits, WHEEL zooms, WASD/QE pans. 12 retro colors, 5 brick sizes, 6 materials, and the classic groups (spawn, kill, ladder, goal, checkpoint, bounce). SAVE — your map becomes MY PLACE in the game. TEST PLAY jumps straight in. Bricks are built by the real world builder — the editor looks exactly like the game.'],
+  ['THE PLAYER EDITOR — YOUR LOOK', 'Your avatar on a photo stage: drag to spin, three rows of the 12 retro colors for SKIN / SHIRT / PANTS, instant repaint. SAVE — you wear the look in every game (over the noob paint or on top of your site avatar).'],
+  ['VIBRANT LIGHTING — GOODBYE DULL', 'The lighting got the Roblox treatment: a big bright uniform fill, blue-tinted sky bounce, a stronger near-white sun, halved fog, and a gentle saturation push on every brick. The world reads LOUD again — vivid bricks, soft blue shadows, zero milk-wash.'],
+  ['GAME FILES — DOWNLOAD A GAME, OPEN IT IN STUDIO', 'Games can now ship as .retroplace files: one small JSON with the whole world inside. Download any game on the site, then STUDIO > OPEN GAME FILE and you are playing it. The Map Editor can SAVE FILE (.retroplace) too — build, share, play.'],
+  ['EVERYTHING BEFORE STAYS', 'The paint brush, build mode (B), the F2 quick editor, chat, presence, settings, Color World spawn, 2-stud stairs, shift lock — all still here, still yours.'],
 ]
 
 /* the user's own format: "BunnyHopping(Hold Space to keep jumping)❌ → Bunny Hop✅" */
@@ -45,16 +43,21 @@ const FILES = [
   ['scripts/ui/retro_theme.gd', 'The engine: ARIAL, the RETRO NIGHT slate palette, the site gloss keys, letter avatars, pixel glyphs, cursors'],
   ['scripts/ui/menu_icons.gd', 'THE ICON SET: every menu glyph drawn in pure code (draw_polyline/draw_arc) — monochrome white ink, zero textures'],
   ['scripts/ui/avatar_viewer.gd', 'THE LIVE AVATAR STAGE: every ESC-menu card hosts the player\'s real rig in its own SubViewport — drag to spin, drag to tilt, wheel to zoom; renders only while the menu is open'],
-  ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, global UI scale — user://ui_config.json, boots with you'],
-  ['scripts/ui/ui_editor.gd', 'THE UI EDITOR (F2): pick, drag, X/Y/Scale steppers, text editing, add/remove labels, global zoom, Save/Reset'],
+  ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, UI EDITOR widgets, global UI scale — user://ui_config.json, boots with you'],
+  ['scripts/ui/ui_editor.gd', 'THE QUICK EDITOR (F2, in-game): pick, drag, X/Y/Scale steppers, text editing, add/remove labels, global zoom, Save/Reset'],
+  ['scripts/editor/ui_widgets.gd', '★ THE WIDGET FACTORY: one build() makes Button / Label / Panel / TextBox / HealthBar / Money look identical in the editor AND in the game — plus spawn_all() for the live HUD'],
+  ['scripts/editor/ui_editor_scene.gd', '★ THE UI EDITOR SCENE: widget shelf → drag & drop onto the stage → select, move, resize, recolor → Save rides into every game'],
+  ['scripts/editor/map_editor.gd', '★ THE MAP EDITOR SCENE: 3D orbit camera, add/paint/delete tools, colors, sizes, materials, groups — saves user://my_map.json, exports .retroplace, TEST PLAY'],
+  ['scripts/editor/player_editor.gd', '★ THE PLAYER EDITOR SCENE: your live rig on a photo stage, drag to spin, skin/shirt/pants color rows — saves user://avatar_colors.json'],
+  ['scripts/ui/studio.gd', '★ THE STUDIO HUB: four doors (PLAY / UI / MAP / PLAYER) + OPEN GAME FILE (.retroplace) — the organized way in'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — font-metric wrapping, 12s linger, stacked the Roblox way'],
   ['scripts/player/local_player.gd', 'Classic controller: the REAL R6 hitbox, WalkSpeed 16, INSTANT shift-lock snap, 2-stud STAIRS, ladders, trampolines, fall damage'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
-  ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
-  ['scripts/world/places.gd', 'The built-in places: COLOR WORLD (born white — paint it!), Cloud Kingdom, Happy Baseplate, My Place (template), Classic Obby, Skylands, Wobbly Tower'],
-  ['scripts/world/my_place.gd', '★ YOUR EDITABLE STARTER MAP — a complete place documented line by line. Edit it, press F5, play. Start here!'],
+  ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, VIBRANT saturated lighting (v14), goal sparkles'],
+  ['scripts/world/places.gd', 'The built-in places: COLOR WORLD (born white — paint it!), Cloud Kingdom, Happy Baseplate, My Place, Classic Obby, Skylands, Wobbly Tower'],
+  ['scripts/world/my_place.gd', '★ YOUR MAP — what you build in the MAP EDITOR lands here (user://my_map.json). No save yet? You get the documented living template. Start here!'],
   ['scripts/game/game.gd', 'The play session: HUD, chat + commands, the PAINT BRUSH + BUILD MODE (B key — click places bricks!), presence loop, the ESC MENU (icon rail, live 3D avatars, settings + the UI editor button), respawn flow, vertical health bar'],
   ['scripts/game/chat_box.gd', 'The chat that HIDES until you open it: / or the chat button opens log + type box together, ESC hides everything, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, Shift Lock shoulder park — and Invert Y'],
@@ -107,7 +110,7 @@ export function SdkView() {
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>The RetroBlox Player — official SDK ({V_TAG})</span></div>
         <div style={{ padding: 14 }}>
-          <div style={{ fontSize: 17, color: INK }}>Dress your avatar. PAINT THE WORLD (click bricks!). BUILD your own (press B). Edit the UI (press F2). Chat with everyone online.</div>
+          <div style={{ fontSize: 17, color: INK }}>FOUR SCENES: PLAY the world, DRAG & DROP your UI, BUILD maps brick by brick, PAINT your player. Studio door on the login screen. Lighting: vibrant.</div>
           <div style={{ marginTop: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00639e', background: '#e1f2fb', border: '1px solid #b5d9ee', padding: '2px 8px', borderRadius: 3 }}>{VERSION}</span>
           </div>
@@ -180,17 +183,17 @@ export function SdkView() {
               </div>
               <pre style={PRE}>{`1. Unzip retroblox-godot-player.zip
 2. Open the RetroBloxPlayer folder in Godot 4.5+
-3. Press Play (F5)
+3. Press Play (F5) — you spawn into the world
 4. On the login card:
      Log In  — your RetroBlox account
-     Sign Up — create an account RIGHT HERE (you get #seqId too)
+     STUDIO  — the editors (UI / Map / Player)
      (or play as a guest, classic noob style)
 
 The game remembers you — next launch signs you in automatically.
-Then pick a place in the hub: Cloud Kingdom, Happy Baseplate,
-Classic Obby, Skylands or Wobbly Tower. Chat with ENTER — everyone
-in that place sees it, anywhere on the internet. Collect the Tix,
-flip on Shift Lock with SHIFT, and jump off ladders with SPACE.`}</pre>
+STUDIO is the organized way in: four scenes, one hub. Build a map in
+the MAP EDITOR and it becomes MY PLACE. Drag widgets in the UI EDITOR
+and they ride into every game. Paint your look in the PLAYER EDITOR.
+Chat with ENTER — everyone sees it, anywhere on the internet.`}</pre>
               <div style={{ fontSize: 11, color: DIM, marginTop: 8 }}>
                 You spawn wearing your account avatar — change it on the website and every place wears the
                 new look. Kill bricks, checkpoints, trampolines, the original oof and a music box included.

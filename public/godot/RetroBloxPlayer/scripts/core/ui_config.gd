@@ -15,6 +15,7 @@ const SAVE_PATH := "user://ui_config.json"
 var ui_scale := 1.0               # global HUD/menu scale (0.6 .. 1.6)
 var elements: Dictionary = {}     # id -> {"dx": float, "dy": float, "scale": float, "text": String}
 var labels: Array = []            # [{id, text, x, y, size, color}] — the details THEY add
+var widgets: Array = []           # [{id, kind, x, y, w, h, text, size, color}] — UI EDITOR builds (v14.0)
 
 
 func _ready() -> void:
@@ -40,6 +41,9 @@ func load_config() -> void:
         var lb: Variant = d.get("labels", [])
         if typeof(lb) == TYPE_ARRAY:
                 labels = lb
+        var wg: Variant = d.get("widgets", [])
+        if typeof(wg) == TYPE_ARRAY:
+                widgets = wg
 
 
 func save_config() -> void:
@@ -47,6 +51,7 @@ func save_config() -> void:
                 "ui_scale": ui_scale,
                 "elements": elements,
                 "labels": labels,
+                "widgets": widgets,
                 "saved_at": int(Time.get_unix_time_from_system()),
         }
         var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -81,6 +86,7 @@ func clear_edit(id: String) -> void:
 func clear_all() -> void:
         elements.clear()
         labels.clear()
+        widgets.clear()
         ui_scale = 1.0
         save_config()
 
@@ -110,5 +116,48 @@ func remove_label(id: String) -> void:
         for i in range(labels.size()):
                 if String(labels[i].get("id", "")) == id:
                         labels.remove_at(i)
+                        save_config()
+                        return
+
+
+# ---------------------------------------------------------------- UI EDITOR widgets (v14.0)
+
+## One widget the player dragged onto the stage. Returns its id.
+func add_widget(kind: String, pos: Vector2) -> String:
+        var id := "w_%d" % (int(Time.get_unix_time_from_system() * 1000) % 1000000000)
+        var dims: Array = [180.0, 44.0]
+        # UiWidgets.DEFAULT_SIZE is shared with the factory — keep in step
+        if ResourceLoader.exists("res://scripts/editor/ui_widgets.gd"):
+                var d: Dictionary = preload("res://scripts/editor/ui_widgets.gd").DEFAULT_SIZE
+                if d.has(kind):
+                        dims = d[kind]
+        widgets.append({
+                "id": id, "kind": kind,
+                "x": pos.x, "y": pos.y,
+                "w": dims[0], "h": dims[1],
+                "text": "", "size": 16, "color": "0d69ac",
+        })
+        save_config()
+        return id
+
+
+func widget_by_id(id: String) -> Dictionary:
+        for w in widgets:
+                if String(w.get("id", "")) == id:
+                        return w
+        return {}
+
+
+func update_widget(id: String, key: String, value: Variant) -> void:
+        var w := widget_by_id(id)
+        if not w.is_empty():
+                w[key] = value
+                save_config()
+
+
+func remove_widget(id: String) -> void:
+        for i in range(widgets.size()):
+                if String(widgets[i].get("id", "")) == id:
+                        widgets.remove_at(i)
                         save_config()
                         return

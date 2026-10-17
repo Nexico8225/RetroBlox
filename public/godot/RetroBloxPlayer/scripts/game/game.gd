@@ -9,6 +9,7 @@ const RemotePlayerScript := preload("res://scripts/player/remote_player.gd")
 const CameraRigScript := preload("res://scripts/game/camera_rig.gd")
 const ChatBoxScript := preload("res://scripts/game/chat_box.gd")
 const PlacesScript := preload("res://scripts/world/places.gd")
+const UiWidgetsScript := preload("res://scripts/editor/ui_widgets.gd")
 const WorldBuilderScript := preload("res://scripts/world/world_builder.gd")
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
 const AvatarViewerScript := preload("res://scripts/ui/avatar_viewer.gd")
@@ -54,6 +55,10 @@ var _finished := false
 var _poll_left := 0.6
 var _beat_left := 1.2
 var _menu_open := false
+# v14.0 STUDIO: the widgets YOU built in the UI Editor — health bars live
+# here so every health tick repaints them too
+var _custom_healthbars: Array = []
+var _custom_health01 := 1.0
 var _chat_badge: Label
 var _chat_badge_panel: PanelContainer
 var _toast_box: VBoxContainer
@@ -254,6 +259,7 @@ func _apply_ui_opacity() -> void:
 
 func _dress_me() -> void:
         if Session.is_guest:
+                _apply_saved_avatar_colors()  # v14.0: guests wear their saved look too
                 return  # avatar already painted classic noob by the rig
         var payload := Session.my_avatar_data()
         if payload.is_empty():
@@ -263,6 +269,33 @@ func _dress_me() -> void:
                         payload = Session.my_avatar_data()
         _dressed_signature = JSON.stringify(payload)
         await player.call("dress", Api, payload)
+        _apply_saved_avatar_colors()  # v14.0: your editor colors go ON TOP
+
+
+## v14.0 PLAYER EDITOR hookup — whatever the Player Editor scene saved
+## (user://avatar_colors.json) repaints MY rig: skin on the head, shirt
+## over torso + arms, pants over the legs. Wears over the noob paint or
+## on top of the site avatar, whatever you are.
+func _apply_saved_avatar_colors() -> void:
+        const PATH := "user://avatar_colors.json"
+        if not FileAccess.file_exists(PATH) or player == null or not is_instance_valid(player):
+                return
+        var f := FileAccess.open(PATH, FileAccess.READ)
+        if f == null:
+                return
+        var parsed: Variant = JSON.parse_string(f.get_as_text())
+        if typeof(parsed) != TYPE_DICTIONARY:
+                return
+        var d: Dictionary = parsed
+        var rig: Node = player.get("avatar")
+        if rig == null or not is_instance_valid(rig):
+                return
+        for row in [["skin", [0]], ["shirt", [1, 2, 3]], ["pants", [4, 5]]]:
+                var hex := String(d.get(String(row[0]), "")).trim_prefix("#")
+                if hex.length() != 6:
+                        continue
+                for idx in row[1]:
+                        rig.set_part_color(int(idx), Color(hex))
 
 
 # ---------------------------------------------------------------- main loop
@@ -451,6 +484,12 @@ func _build_hud() -> void:
 
         # ---- v13.0: the paint palette — the game world is a color world ----
         _build_paint_bar()
+
+        # ---- v14.0: YOUR widgets — whatever the UI Editor scene holds ----
+        for n in UiWidgetsScript.spawn_all(hud, self):
+                if n.has_meta("custom_health"):
+                        _custom_healthbars.append(n)
+                        (n as ProgressBar).value = _custom_health01 * 100.0
 
         # ---- center: esc menu with the icon rail (People / Settings) ----
         _menu = _build_menu()
@@ -778,6 +817,13 @@ func _toast_style() -> StyleBox:
         return sb
 
 
+## v14.0 UI EDITOR hookup — your custom widgets talk back here: pressing
+## one of your buttons (or submitting your text box) pops a toast. The
+## HUD is yours; make it say things.
+func _custom_widget_action(txt: String) -> void:
+        _notify(txt, false)
+
+
 # ---------------------------------------------------------------- paint brush
 # v13.0 THE GAME WORLD IS A COLOR WORLD. Every part of every place accepts
 # the brush: LEFT CLICK paints the brick under the cursor with the picked
@@ -1048,6 +1094,7 @@ func _build_menu() -> Control:
         root.add_child(rail)
         var tab_defs := [
                 ["players", "People", "person"],
+                ["studio", "Studio", "layers"],
                 ["settings", "Settings", "gear"],
         ]
         for td in tab_defs:
@@ -1126,6 +1173,50 @@ func _build_menu() -> Control:
         _settings_tab.visible = false
         pages.add_child(_settings_tab)
         _pages["settings"] = _settings_tab
+
+        # ---- v14.0 STUDIO — the organized edit page: a door per scene ----
+        var studio_page := VBoxContainer.new()
+        studio_page.name = "StudioPage"
+        studio_page.set_anchors_preset(Control.PRESET_FULL_RECT)
+        studio_page.add_theme_constant_override("separation", 8)
+        studio_page.visible = false
+        pages.add_child(studio_page)
+        _pages["studio"] = studio_page
+        var s_head := Label.new()
+        s_head.text = "Studio"
+        _title(s_head, 18, RetroUI.NIGHT_INK)
+        studio_page.add_child(s_head)
+        var s_hint := Label.new()
+        s_hint.text = "Every thing is editable — and every thing has its own scene. Edits save to this device and ride with you."
+        _text(s_hint, 12, RetroUI.NIGHT_INK_MUTED)
+        s_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        studio_page.add_child(s_hint)
+        for door in [
+                ["UI EDITOR", "Drag & drop widgets to rebuild the client UI", "res://scenes/ui_editor.tscn"],
+                ["MAP EDITOR", "Build maps brick by brick — your map becomes My Place", "res://scenes/map_editor.tscn"],
+                ["PLAYER EDITOR", "Paint your avatar's skin, shirt and pants", "res://scenes/player_editor.tscn"],
+        ]:
+                var btn := Button.new()
+                btn.text = "%s   ·   %s" % [door[0], door[1]]
+                btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                btn.custom_minimum_size = Vector2(0, 40)
+                btn.focus_mode = Control.FOCUS_NONE
+                btn.add_theme_stylebox_override("normal", _row_btn(false))
+                btn.add_theme_stylebox_override("hover", _row_btn(true))
+                btn.add_theme_stylebox_override("pressed", _row_btn(false))
+                if RetroUI.gotham(600) != null:
+                        btn.add_theme_font_override("font", RetroUI.gotham(600))
+                btn.add_theme_font_size_override("font_size", 13)
+                btn.add_theme_color_override("font_color", Color(0.92, 0.93, 0.95))
+                btn.add_theme_color_override("font_hover_color", Color.WHITE)
+                var scene_path := String(door[2])
+                btn.pressed.connect(func() -> void:
+                        get_tree().change_scene_to_file(scene_path))
+                studio_page.add_child(btn)
+        var s_note := Label.new()
+        s_note.text = "The full STUDIO hub — with Open Game File — lives on the login screen."
+        _text(s_note, 11, RetroUI.NIGHT_INK_FAINT)
+        studio_page.add_child(s_note)
 
         var set_tab := func(tab: String) -> void:
                 for key in _pages.keys():
@@ -2051,6 +2142,7 @@ func _toggle_menu() -> void:
 
 func _on_health_changed(hp: float, max_hp: float) -> void:
         var ratio := clampf(hp / maxf(max_hp, 1.0), 0.0, 1.0)
+        _custom_health01 = ratio
         _health_value.text = str(int(roundf(hp)))
         # v12.1: the VERTICAL bar — the fill CLIMBS from the bottom edge and
         # its face lerp green -> red with the health
@@ -2058,6 +2150,10 @@ func _on_health_changed(hp: float, max_hp: float) -> void:
         _health_fill.add_theme_stylebox_override("panel", sb)
         var inner := _health_track_h - 6.0
         _health_fill.offset_top = 3.0 + inner * (1.0 - ratio)
+        # v14.0: the UI Editor's health bar widgets breathe with you too
+        for hb in _custom_healthbars:
+                if is_instance_valid(hb):
+                        (hb as ProgressBar).value = ratio * 100.0
 
 
 func _on_health_depleted() -> void:
