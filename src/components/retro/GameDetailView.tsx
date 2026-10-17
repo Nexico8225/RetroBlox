@@ -469,6 +469,9 @@ export function GameDetailView({ id }: { id: string }) {
      updates the summary instantly (server stats are the fallback seed) */
   const rated = game.comments.filter((c) => c.rec === 1 || c.rec === 0)
   const starred = game.comments.filter((c) => typeof c.rating === 'number')
+  /* the SDK treatment only when the source zip actually IS the RetroBlox
+     Player SDK (Test #1 ships it) — a game's own source stays "Source" */
+  const isSdkSource = game.engine === 'Godot' && /sdk/i.test(game.sourceFileName || '')
   const rs = {
     avgRating: starred.length > 0 ? Math.round((starred.reduce((s, c) => s + (c.rating || 0), 0) / starred.length) * 10) / 10 : null,
     positivePct: rated.length > 0 ? Math.round((rated.filter((c) => c.rec === 1).length / rated.length) * 100) : null,
@@ -592,27 +595,27 @@ export function GameDetailView({ id }: { id: string }) {
             </div>
           </div>
 
-          {/* source code — for Godot games this IS the SDK, say so loud */}
+          {/* source code — when the source IS the RetroBlox SDK, say so loud */}
           {game.sourceFileId && (
             <div className="rb-box" style={{ marginTop: 12 }}>
-              <div className="rb-panel-head"><span>{game.engine === 'Godot' ? 'Source Code — the RetroBlox SDK' : 'Source Code'}</span></div>
+              <div className="rb-panel-head"><span>{isSdkSource ? 'Source Code — the RetroBlox SDK' : 'Source Code'}</span></div>
               <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 20 }}>&lt;/&gt;</span>
                 <div style={{ flex: 1, minWidth: 140 }}>
                   <div style={{ font: 'bold 12px Verdana', color: '#24425f' }}>{game.sourceFileName || 'source.zip'}</div>
                   <div style={{ fontSize: 10, color: '#7b8896' }}>
-                    {game.engine === 'Godot'
+                    {isSdkSource
                       ? 'THE SDK, not the game file — unzip it, open the RetroBloxPlayer folder in Godot 4.5+, press Play. The STUDIO scenes inside (UI / map / player editors) unlock for game devs.'
                       : 'Open-sourced by the creator — fork it, remix it!'}
                   </div>
                 </div>
                 <a
-                  className="rb-btn rb-btn-green"
+                  className={isSdkSource ? 'rb-btn rb-btn-green' : 'rb-btn'}
                   href={`/api/files/${game.sourceFileId}?dl=1`}
                   download={game.sourceFileName || 'source.zip'}
-                  style={{ fontSize: 13, padding: '9px 16px', textDecoration: 'none' }}
+                  style={isSdkSource ? { fontSize: 13, padding: '9px 16px', textDecoration: 'none' } : undefined}
                 >
-                  ⬇ {game.engine === 'Godot' ? 'Download the SDK (.zip)' : 'Download Source'}
+                  {isSdkSource ? '⬇ Download the SDK (.zip)' : 'Download Source'}
                 </a>
               </div>
             </div>
