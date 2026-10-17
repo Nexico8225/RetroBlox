@@ -11,6 +11,13 @@ var user_id := ""
 var username := "Guest"
 var seq_id := 0
 var role := ""
+# ---- v15.0 ROLES: players play, GAME DEVS edit ---------------------------
+# A GAME DEV = a signed-in user who owns at least one game on the platform
+# (any engine counts — a Web game works too). Publishing your first game
+# flips this on; the Studio doors and the F2 UI editor open for devs only.
+signal dev_ready(is_dev: bool)
+var is_dev := false            # resolved by check_dev() — one GET per session
+var _dev_checked := false
 var avatar: Dictionary = {}        # own /api/platform/me payload ({} for guests)
 var avatar_cache: Dictionary = {}  # userId -> avatar payload (remote players)
 var current_place: Dictionary = {} # legacy hub pick — empty now: login drops you straight into baseplate
@@ -27,6 +34,8 @@ func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role:
         # returns that stored null (not the default), which String() can't take
         avatar = _nullless(payload)
         avatar_cache = { p_user_id: _nullless(payload) }
+        _dev_checked = false          # a new account — re-ask what it can edit
+        is_dev = false
 
 
 ## Deep-copy a JSON payload with every null replaced by "" — recursive, so
@@ -61,6 +70,8 @@ func set_guest() -> void:
         role = ""
         avatar = {}
         current_place = {}
+        _dev_checked = true           # guests are players, never game devs
+        is_dev = false
 
 
 func reset() -> void:
@@ -88,6 +99,24 @@ func set_avatar(payload: Dictionary) -> void:
 func cached_avatar(p_user_id: String) -> Dictionary:
         var hit: Variant = avatar_cache.get(p_user_id, {})
         return hit if hit is Dictionary else {}
+
+
+## Ask the platform whether this account is a GAME DEV (owns >= 1 game).
+## One GET per session — every later caller gets the cached answer instantly.
+## Connect dev_ready BEFORE calling: it always answers, cached or fetched.
+func check_dev(force := false) -> void:
+        if _dev_checked and not force:
+                dev_ready.emit(is_dev)
+                return
+        _dev_checked = true
+        is_dev = false
+        if is_guest or user_id.is_empty() or Api.token.is_empty():
+                dev_ready.emit(false)
+                return
+        var res: Dictionary = await Api.get_json("/api/games?creatorId=%s&limit=1" % user_id)
+        var games: Variant = res.get("games", []) if res.get("ok", false) else []
+        is_dev = typeof(games) == TYPE_ARRAY and not (games as Array).is_empty()
+        dev_ready.emit(is_dev)
 
 
 ## The name chip shown in the player list: "Nexico8225 #1".

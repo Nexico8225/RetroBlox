@@ -55,7 +55,7 @@ Paint is your own view of the world (client-side), so it works offline
 too. Make a place born-white by giving every part the same `"c": "f2f3f3"`
 — exactly what `color_world()` in `scripts/world/places.gd` does.
 
-## 3. STUDIO — four scenes, every thing editable (v14.0)
+## 3. STUDIO — four scenes, every thing editable (v15.0)
 
 The game is ORGANIZED: each thing you can touch lives in its own scene,
 and the STUDIO hub ties them together. Open it from the **login screen**
@@ -67,6 +67,26 @@ and the STUDIO hub ties them together. Open it from the **login screen**
 | UI EDITOR | `scenes/ui_editor.tscn` | drag & drop your own HUD |
 | MAP EDITOR | `scenes/map_editor.tscn` | build maps brick by brick |
 | PLAYER EDITOR | `scenes/player_editor.tscn` | paint your avatar |
+
+### Who edits what — players vs game devs (v15.0)
+RetroBlox has three kinds of people:
+
+- **PLAYERS** play the game. They run PLAY GAME, download and open
+  `.retroplace` game files, paint bricks, chat, collect Tix. The three
+  editor scenes stay **LOCKED** for them.
+- **USERS** use the website — browse games, dress their avatar, comment.
+- **GAME DEVS** make and edit games. A game dev = a signed-in account
+  that owns **at least one game on retro-blox.vercel.app** (any engine
+  counts — a Web game works too).
+
+The STUDIO checks your role the moment it opens (one GET to the platform,
+then cached): the hub wears a **ROLE chip** — `ROLE: GAME DEV — every
+scene unlocked` or `ROLE: PLAYER — editors locked`. A player who opens an
+editor door gets one orange sentence telling them exactly how in:
+publish any game on the site and every editor unlocks on this device
+(the hub even has a **BECOME A GAME DEV** button that opens the site).
+The same gate rides the **F2** UI editor inside the game and the ESC
+menu's Studio tab — players play, game devs edit.
 
 ### The UI Editor — DRAG. DROP. DONE.
 A shelf of widgets sits on the left: **Button, Label, Panel, Text Box,

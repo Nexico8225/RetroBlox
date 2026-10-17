@@ -38,6 +38,7 @@ var _hint: Label
 var _sel_outline: Panel
 
 var _dragging := false
+var _locked_note: Label          # "GAME DEVS ONLY" banner (v15.0 role gate)
 var _drag_off := Vector2.ZERO
 var _drag_dx := 0.0
 var _drag_dy := 0.0
@@ -191,9 +192,43 @@ func toggle() -> void:
         set_enabled(not enabled)
 
 
+## v15.0: the banner a PLAYER sees when they press F2 — one sentence that
+## says who edits and exactly how to unlock it.
+func _show_locked() -> void:
+        if _locked_note == null or not is_instance_valid(_locked_note):
+                _locked_note = Label.new()
+                _locked_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+                _locked_note.add_theme_font_override("font", RETRO.gotham(700))
+                _locked_note.add_theme_font_size_override("font_size", 16)
+                _locked_note.add_theme_color_override("font_color", Color.WHITE)
+                _locked_note.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+                _locked_note.add_theme_constant_override("shadow_offset_x", 2)
+                _locked_note.add_theme_constant_override("shadow_offset_y", 2)
+        _locked_note.text = "GAME DEVS ONLY — the UI editor is an editor scene. Players play; game devs edit.\nPublish any game on retro-blox.vercel.app (a Web game counts) and it unlocks here."
+        if _locked_note.get_parent() == null:
+                _root.add_child(_locked_note)
+        _locked_note.set_anchors_preset(Control.PRESET_CENTER_TOP)
+        _locked_note.grow_horizontal = Control.GROW_DIRECTION_BOTH
+        _locked_note.offset_top = 90.0
+        _locked_note.visible = true
+        var t := get_tree().create_timer(5.0)
+        t.timeout.connect(func() -> void:
+                if _locked_note != null and is_instance_valid(_locked_note):
+                        _locked_note.visible = false)
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
         if event is InputEventKey and event.is_pressed() and not event.is_echo():
                 if (event as InputEventKey).keycode == KEY_F2:
+                        # v15.0 ROLES: the UI editor is an editor scene — game
+                        # devs edit the UI, players play. Session.check_dev()
+                        # answers once per session (one GET, then cached).
+                        if not Session.is_dev:
+                                Session.check_dev()
+                                if not Session.is_dev:
+                                        _show_locked()
+                                        get_viewport().set_input_as_handled()
+                                        return
                         toggle()
                         get_viewport().set_input_as_handled()
 

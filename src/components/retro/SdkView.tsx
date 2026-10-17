@@ -8,15 +8,17 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v3 "STUDIO"'
-const V_TAG = 'v3'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=3.0'
+const VERSION = 'v4 "ROLES"'
+const V_TAG = 'v4'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=4.0'
 
 const INK = '#1c3a52'
 const DIM = '#5a6b7b'
 const EDGE = '#b6c0cb'
 
 const NEW_STUFF: [string, string][] = [
+  ['ROLES — PLAYERS PLAY, GAME DEVS EDIT', 'Three kinds of people: PLAYERS play the game, USERS use the website, GAME DEVS make and edit games. The Studio checks your account when it opens and wears a ROLE chip: GAME DEV unlocks every editor scene; PLAYERS get the editors locked — with a one-sentence tell of how in (publish any game on the site, a Web game counts, and a BECOME A GAME DEV button opens the page for you). The same gate rides the F2 UI editor in-game and the ESC Studio tab.'],
+  ['DOWNLOADS FINALLY SAY WHAT THEY ARE', 'A game\'s Download button is the GAME FILE (.retroplace — open it via STUDIO > OPEN GAME FILE), and the green Source Code button on a Godot game page is THE SDK (.zip — the complete Godot project). No more “I downloaded the SDK and got a game file” mixups — every button is labeled and the game page explains both.'],
   ['THE GAME IS ORGANIZED — FOUR SCENES, ONE STUDIO', 'Every thing you can touch now lives in its own scene: PLAY GAME, UI EDITOR, MAP EDITOR, PLAYER EDITOR — all behind one STUDIO door on the login screen (and a new Studio tab in the ESC menu). Each editor saves to your device and rides with you into every game.'],
   ['THE UI EDITOR — DRAG. DROP. DONE.', 'A whole scene for rebuilding the client UI: grab a widget from the shelf (Button, Label, Panel, Text Box, Health Bar, Money), DRAG it onto the stage, drop it, then drag it anywhere. Edit position, size, text, font and one of 12 retro colors per widget. SAVE — and the real game spawns the exact same widgets: your buttons pop toasts, your health bar fills with YOUR health.'],
   ['THE MAP EDITOR — BRICK BY BRICK', 'Build worlds in a real 3D scene: LEFT CLICK places/paints/deletes bricks, RIGHT DRAG orbits, WHEEL zooms, WASD/QE pans. 12 retro colors, 5 brick sizes, 6 materials, and the classic groups (spawn, kill, ladder, goal, checkpoint, bounce). SAVE — your map becomes MY PLACE in the game. TEST PLAY jumps straight in. Bricks are built by the real world builder — the editor looks exactly like the game.'],
@@ -36,7 +38,7 @@ const RENAMED: [string, string][] = [
 
 const FILES = [
   ['scripts/core/api.gd', 'The one HTTP door to the platform — auth, avatars, assets, place chat + presence'],
-  ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache — and the saved login that signs you in automatically next launch'],
+  ['scripts/core/session.gd', 'Who is playing: account, guest state, avatar cache, saved auto-login — and the ROLE check (is this account a GAME DEV: owns >= 1 game on the platform)'],
   ['scripts/core/settings.gd', 'All 18 options, persisted + applied LIVE: sensitivity, FOV, 3 volumes, shadows, fullscreen, shift lock, show FPS/ping, Max FPS, render scale, vsync, UI opacity, invert Y, player names, chat bubbles, bunny hop — and Reset All'],
   ['scripts/core/sfx.gd', 'All sounds from one place: oof, jump, land, footsteps, climb, wind, goal fanfare + the authentic client sounds'],
   ['scripts/ui/login.gd', 'THE SIMPLE LOGIN: one flat sky, one bold RETROBLOX wordmark, one clean card — the RED Log In key. LOG IN ONLY. Specific server errors, saved session auto-login'],
@@ -44,12 +46,12 @@ const FILES = [
   ['scripts/ui/menu_icons.gd', 'THE ICON SET: every menu glyph drawn in pure code (draw_polyline/draw_arc) — monochrome white ink, zero textures'],
   ['scripts/ui/avatar_viewer.gd', 'THE LIVE AVATAR STAGE: every ESC-menu card hosts the player\'s real rig in its own SubViewport — drag to spin, drag to tilt, wheel to zoom; renders only while the menu is open'],
   ['scripts/core/ui_config.gd', 'YOUR UI, saved: element moves/scales/text, your own labels, UI EDITOR widgets, global UI scale — user://ui_config.json, boots with you'],
-  ['scripts/ui/ui_editor.gd', 'THE QUICK EDITOR (F2, in-game): pick, drag, X/Y/Scale steppers, text editing, add/remove labels, global zoom, Save/Reset'],
+  ['scripts/ui/ui_editor.gd', 'THE QUICK EDITOR (F2, in-game, game devs): pick, drag, X/Y/Scale steppers, text editing, add/remove labels, global zoom, Save/Reset — players pressing F2 get the role banner'],
   ['scripts/editor/ui_widgets.gd', '★ THE WIDGET FACTORY: one build() makes Button / Label / Panel / TextBox / HealthBar / Money look identical in the editor AND in the game — plus spawn_all() for the live HUD'],
   ['scripts/editor/ui_editor_scene.gd', '★ THE UI EDITOR SCENE: widget shelf → drag & drop onto the stage → select, move, resize, recolor → Save rides into every game'],
   ['scripts/editor/map_editor.gd', '★ THE MAP EDITOR SCENE: 3D orbit camera, add/paint/delete tools, colors, sizes, materials, groups — saves user://my_map.json, exports .retroplace, TEST PLAY'],
   ['scripts/editor/player_editor.gd', '★ THE PLAYER EDITOR SCENE: your live rig on a photo stage, drag to spin, skin/shirt/pants color rows — saves user://avatar_colors.json'],
-  ['scripts/ui/studio.gd', '★ THE STUDIO HUB: four doors (PLAY / UI / MAP / PLAYER) + OPEN GAME FILE (.retroplace) — the organized way in'],
+  ['scripts/ui/studio.gd', '★ THE STUDIO HUB: four doors (PLAY / UI / MAP / PLAYER) + OPEN GAME FILE (.retroplace) — with the ROLE chip: game devs unlock the editors, players get told how to become one'],
   ['scripts/player/avatar_rig.gd', 'The six-part block avatar (retroblox_anims.fbx rig + box fallback)'],
   ['scripts/player/avatar_dresser.gd', 'Avatar dressing: colors, clothing zones, face decal, placed 3D UGC + finish'],
   ['scripts/player/chat_bubble.gd', 'The classic white speech bubbles — font-metric wrapping, 12s linger, stacked the Roblox way'],
@@ -110,7 +112,7 @@ export function SdkView() {
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>The RetroBlox Player — official SDK ({V_TAG})</span></div>
         <div style={{ padding: 14 }}>
-          <div style={{ fontSize: 17, color: INK }}>FOUR SCENES: PLAY the world, DRAG & DROP your UI, BUILD maps brick by brick, PAINT your player. Studio door on the login screen. Lighting: vibrant.</div>
+          <div style={{ fontSize: 17, color: INK }}>FOUR SCENES: PLAY the world, DRAG & DROP your UI, BUILD maps brick by brick, PAINT your player. Players play — GAME DEVS edit. Lighting: vibrant.</div>
           <div style={{ marginTop: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00639e', background: '#e1f2fb', border: '1px solid #b5d9ee', padding: '2px 8px', borderRadius: 3 }}>{VERSION}</span>
           </div>
@@ -135,7 +137,7 @@ export function SdkView() {
           </div>
           <div style={{ fontSize: 10, color: DIM, marginTop: 8 }}>
             Requires <b style={{ fontWeight: 600 }}>Godot 4.5+</b> (free). Unzip, open the RetroBloxPlayer folder in Godot, press Play.
-            The zip is the same folder this page ships from — always the latest build.
+            The zip is the same folder this page ships from — always the latest build. <b style={{ fontWeight: 600 }}>Heads up:</b> downloading a <b style={{ fontWeight: 600 }}>game</b> on the site gives you that game's file — THIS button is the one that gives the SDK.
           </div>
           {/* the upcoming Unity system */}
           <div style={{ marginTop: 14, border: '1px solid #005f9c', background: 'linear-gradient(180deg, #0f83c9 0%, #00639e 100%)', color: '#fff', padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -187,6 +189,8 @@ export function SdkView() {
 4. On the login card:
      Log In  — your RetroBlox account
      STUDIO  — the editors (UI / Map / Player)
+               (game devs: publish any game on the
+                site and every editor unlocks)
      (or play as a guest, classic noob style)
 
 The game remembers you — next launch signs you in automatically.

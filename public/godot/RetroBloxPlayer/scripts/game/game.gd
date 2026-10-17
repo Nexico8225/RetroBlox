@@ -87,6 +87,9 @@ var _built_root: Node3D         # every brick YOU place lives here
 
 
 func _ready() -> void:
+        # v15.0 ROLES: resolve what this account may edit (one cached GET —
+        # players play; game devs get the editor scenes). Answers async.
+        Session.check_dev()
         place = Session.current_place
         if place.is_empty():
                 # v13.0: signing in drops you straight into COLOR WORLD — the world
@@ -1187,7 +1190,7 @@ func _build_menu() -> Control:
         _title(s_head, 18, RetroUI.NIGHT_INK)
         studio_page.add_child(s_head)
         var s_hint := Label.new()
-        s_hint.text = "Every thing is editable — and every thing has its own scene. Edits save to this device and ride with you."
+        s_hint.text = "Four editor scenes — for GAME DEVS. Players play; publish any game on the site and the editors unlock. Edits save to this device and ride with you."
         _text(s_hint, 12, RetroUI.NIGHT_INK_MUTED)
         s_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         studio_page.add_child(s_hint)
@@ -1211,6 +1214,10 @@ func _build_menu() -> Control:
                 btn.add_theme_color_override("font_hover_color", Color.WHITE)
                 var scene_path := String(door[2])
                 btn.pressed.connect(func() -> void:
+                        # v15.0: editor doors are for GAME DEVS — players play
+                        if not Session.is_dev:
+                                _notify("GAME DEVS ONLY — %s is an editor scene. Publish any game on retro-blox.vercel.app and it unlocks." % String(door[0]))
+                                return
                         get_tree().change_scene_to_file(scene_path))
                 studio_page.add_child(btn)
         var s_note := Label.new()
@@ -1809,6 +1816,10 @@ func _build_settings_tab() -> VBoxContainer:
                 ui_btn.add_theme_font_override("font", RetroUI.gotham(600))
         ui_btn.add_theme_font_size_override("font_size", 12)
         ui_btn.pressed.connect(func() -> void:
+                # v15.0: UI editing is a game-dev power — players play
+                if not Session.is_dev:
+                        _notify("GAME DEVS ONLY — the UI editor is an editor scene. Publish any game on retro-blox.vercel.app and it unlocks.")
+                        return
                 _toggle_menu()
                 UiEditor.toggle())
         uirow.add_child(ui_btn)

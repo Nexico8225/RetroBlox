@@ -173,7 +173,7 @@ func _build() -> void:
 
         # ---- v14.0: THE STUDIO DOOR — the organized edit scenes live here ----
         var studio := Button.new()
-        studio.text = "STUDIO  ·  edit your UI, map and player"
+        studio.text = "STUDIO  ·  game devs edit the UI, map and player"
         studio.theme_type_variation = "BtnGhost"
         studio.custom_minimum_size = Vector2(0, 34)
         studio.focus_mode = Control.FOCUS_NONE
