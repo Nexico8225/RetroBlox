@@ -139,11 +139,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // big into a single Turso row blows the statement size limit.
   const gameUploadId = typeof form.get('gameUploadId') === 'string' ? String(form.get('gameUploadId')).trim() : ''
   if (gameUploadId && /^[a-zA-Z0-9]{8,64}$/.test(gameUploadId)) {
-    const kept = await keepChunks(gameUploadId)
-    if (!kept) return NextResponse.json({ error: 'Chunked upload not found — upload the game again.' }, { status: 400 })
-    data.fileId = gameUploadId
-    const gn = form.get('gameFileName')
-    data.fileName = typeof gn === 'string' && gn.trim() ? gn.trim().slice(-80) : 'game.zip'
+    try {
+      const kept = await keepChunks(gameUploadId)
+      if (!kept) return NextResponse.json({ error: 'Chunked upload not found — upload the game again.' }, { status: 400 })
+      data.fileId = gameUploadId
+      const gn = form.get('gameFileName')
+      data.fileName = typeof gn === 'string' && gn.trim() ? gn.trim().slice(-80) : 'game.zip'
+    } catch (e) {
+      return NextResponse.json({ error: 'Game build attach failed: ' + (e instanceof Error ? e.message : String(e)) }, { status: 500 })
+    }
   } else {
     const gameFile = await resolveUpload(form.get('gameFile'), null)
     if (gameFile) {

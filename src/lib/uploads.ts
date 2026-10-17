@@ -72,12 +72,15 @@ const CHUNK_PREFIX = 'chunk:'
    rows live as long as the game does.
 ------------------------------------------------------------------ */
 
-/** rename a chunk set to its kept form; returns the chunk count (0 = no set) */
+/** rename a chunk set to its kept form; returns the chunk count (0 = no set).
+ *  Selects ONLY id+path — pulling the blobs here would drag the whole
+ *  multi-MB file into memory for a rename. */
 export async function keepChunks(uploadId: string): Promise<number> {
   const prefix = CHUNK_PREFIX + uploadId + ':'
   const chunks = await db.uploadedFile.findMany({
     where: { path: { startsWith: prefix } },
     orderBy: { path: 'asc' },
+    select: { id: true, path: true },
   })
   if (chunks.length === 0) return 0
   for (let i = 0; i < chunks.length; i++) {
