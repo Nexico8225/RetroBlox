@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq, publicUser, isOnline, resolveUserIdParam } from '@/lib/auth'
+import { ensureUserSeq } from '@/lib/seq'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -36,6 +37,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       })
     : null
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  // every profile view hands an old account its short numeric ID
+  // (oldest account on the site = Player ID #1)
+  await ensureUserSeq(user)
 
   // friendship state between viewer and this user
   let friendState: 'none' | 'friends' | 'request_sent' | 'request_received' = 'none'

@@ -336,14 +336,6 @@ export function ProfileView({ id }: { id: string }) {
               {p.online ? '● Online Now' : `Last Seen ${timeAgo(p.lastSeen)}`}
             </div>
             <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 6, lineHeight: 1.7 }}>
-              {typeof p.seqId === 'number' && (
-                <>
-                  <span title={`Player ID #${p.seqId} — join order on RetroBlox`} style={{ fontFamily: 'monospace', color: '#0d69ac' }}>
-                    Player ID: #{p.seqId}
-                  </span>
-                  {' · '}
-                </>
-              )}
               Member Since: {fmtDate(p.createdAt)}
               {age !== null && <> · Age: {age}</>}
               {p.gender && <> · Gender: <span style={p.gender === 'female' ? { color: '#e0448c' } : { color: '#2f6fe0' }}>{p.gender === 'female' ? 'Female' : 'Male'}</span></>}
@@ -360,10 +352,11 @@ export function ProfileView({ id }: { id: string }) {
               Games Published: {profile.games.length} · Total Downloads:{' '}
               {fmtCount(profile.games.reduce((s, g) => s + g.downloads, 0))}
             </div>
-            {/* every member has an ID — copyable, like the classic profile pages */}
+            {/* every member has a short numeric ID — copyable, like the classic
+                profile pages. #1 = the first person who ever joined. */}
             <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span>
-                ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>{p.id}</span>
+              <span title="Join order — the first person to join RetroBlox is #1">
+                ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>{typeof p.seqId === 'number' ? `#${p.seqId}` : p.id}</span>
               </span>
               <button
                 type="button"
@@ -371,11 +364,12 @@ export function ProfileView({ id }: { id: string }) {
                 style={{ fontSize: 9, padding: '2px 8px' }}
                 title="Copy this member's ID"
                 onClick={() => {
+                  const idText = typeof p.seqId === 'number' ? String(p.seqId) : p.id
                   try {
-                    navigator.clipboard.writeText(p.id)
-                    flash(setToast, 'ID copied!', 1600)
+                    navigator.clipboard.writeText(idText)
+                    flash(setToast, `ID #${idText} copied!`, 1600)
                   } catch {
-                    flash(setToast, p.id, 3000)
+                    flash(setToast, idText, 3000)
                   }
                 }}
               >

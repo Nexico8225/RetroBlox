@@ -2,8 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
 import { saveUpload, resolveUpload, keepChunks } from '@/lib/uploads'
+import { ensureGameSeq } from '@/lib/seq'
 
-async function gameDetail(id: string, viewerId: string | null) {
+// "1" -> Game ID #1 (the first game ever published); cuid links keep working too
+async function resolveGameParam(raw: string): Promise<string | null> {
+  const p = (raw || '').trim()
+  if (!p) return null
+  if (/^\d+$/.test(p)) {
+    const bySeq = await db.game.findUnique({ where: { seqId: Number(p) }, select: { id: true } })
+    if (bySeq) return bySeq.id
+  }
+  return p
+}
+
+async function gameDetail(id: string | null, viewerId: string | null) {
+  if (!id) return null
   const g = await db.game.findUnique({
     where: { id },
     include: {
@@ -18,6 +31,8 @@ async function gameDetail(id: string, viewerId: string | null) {
     },
   })
   if (!g) return null
+  // old games get their short numeric ID on first view (Game ID #1 = first published)
+  await ensureGameSeq(g)
   const likes = g.likes.filter((l) => l.value === 1).length
   const dislikes = g.likes.filter((l) => l.value === -1).length
   const isOwner = viewerId === g.creatorId
@@ -100,7 +115,7 @@ async function gameDetail(id: string, viewerId: string | null) {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const user = await getUserFromReq(req)
-  const detail = await gameDetail(id, user?.id || null)
+  const detail = await gameDetail(await resolveGameParam(id), user?.id || null)
   if (!detail) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
   return NextResponse.json({ game: detail })
 }
@@ -111,7 +126,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const user = await getUserFromReq(req)
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
 
-  const game = await db.game.findUnique({ where: { id } })
+  const gid = await resolveGameParam(id)
+  if (!gid) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
+
+  const game = await db.game.findUnique({ where: { id: gid } })
   if (!game) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
   if (game.creatorId !== user.id) return NextResponse.json({ error: 'Not your game!' }, { status: 403 })
 
@@ -216,7 +234,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.mediaJson = JSON.stringify(current)
   }
 
-  await db.game.update({ where: { id }, data: data as never })
+  await db.game.update({ where: { id: gid }, data: data as never })
   return NextResponse.json({ ok: true })
 }
 
@@ -224,13 +242,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   const user = await getUserFromReq(req)
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
-  const game = await db.game.findUnique({ where: { id } })
+  const gid = await resolveGameParam(id)
+  if (!gid) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
+  const game = await db.game.findUnique({ where: { id: gid } })
   if (!game) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
   // the creator can delete their own game; an admin can delete ANY game
   if (game.creatorId !== user.id && user.role !== 'admin') {
     return NextResponse.json({ error: 'Not your game!' }, { status: 403 })
   }
-  await db.game.delete({ where: { id } })
+  await db.game.delete({ where: { id: gid } })
   return NextResponse.json({ ok: true, deletedBy: user.role === 'admin' && game.creatorId !== user.id ? 'admin' : 'owner' })
 }
 

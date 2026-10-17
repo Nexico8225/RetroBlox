@@ -4,6 +4,7 @@ import { getUserFromReq } from '@/lib/auth'
 import { saveUpload } from '@/lib/uploads'
 import { Prisma } from '@prisma/client'
 import { genreShelf } from '@/lib/genres'
+import { healGameSeqs } from '@/lib/seq'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -17,12 +18,16 @@ export async function GET(req: NextRequest) {
 
   const viewer = await getUserFromReq(req)
 
+  // one visit to the Games page numbers every game that predates the
+  // numbering — oldest first, so Game ID #1 = the first game published
+  if ((await db.game.count({ where: { seqId: null } }).catch(() => 0)) > 0) await healGameSeqs()
+
   /* "Games You've Played" / "Your Downloaded Games" rails on the home page */
   if (list === 'played' || list === 'downloaded') {
     if (!viewer) return NextResponse.json({ games: [] })
     const gameInclude = {
       include: {
-        creator: { select: { id: true, username: true, avatarUrl: true } },
+        creator: { select: { id: true, username: true, seqId: true, avatarUrl: true } },
         likes: true,
         _count: { select: { comments: true, favorites: true } },
       },
@@ -83,7 +88,7 @@ export async function GET(req: NextRequest) {
     orderBy,
     take: fetchLimit,
     include: {
-      creator: { select: { id: true, username: true, avatarUrl: true } },
+      creator: { select: { id: true, username: true, seqId: true, avatarUrl: true } },
       likes: true,
       _count: { select: { comments: true, favorites: true } },
     },

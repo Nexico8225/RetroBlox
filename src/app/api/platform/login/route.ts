@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword, makeToken } from '@/lib/auth'
+import { ensureUserSeq } from '@/lib/seq'
 import { PLATFORM_CORS } from '@/lib/platform'
 
 /**
@@ -44,6 +45,10 @@ export async function POST(req: NextRequest) {
       { status: 401, headers: PLATFORM_CORS }
     )
   }
+
+  // signing in hands old accounts their short numeric PLAYER ID
+  // (#1 = the first person who ever joined RetroBlox)
+  await ensureUserSeq(user)
 
   // Best-effort session row: on serverless hosts the filesystem is
   // read-only, so this write may fail — the token below is signed and
