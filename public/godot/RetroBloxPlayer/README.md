@@ -270,7 +270,28 @@ prints a script error it names the file + line — fix and re-run.
 | My map didn't change | edit `my_place.gd`, save, F5, and pick "My Place (template)" again in the menu |
 | Login works on the site but not in-game | the game talks to `https://retro-blox.vercel.app` — check Settings → Network server URL |
 
-## 10. Publish your game
+## 10. Game templates + the top-down camera (v5.0)
+
+**Templates.** The site serves ready-made game files at **retro-blox.vercel.app/templates** —
+Brick Arena (top-down), Paint World, Classic Obby, Baseplate and the My Place starter.
+Each is a `.retroplace` file: download it, then **STUDIO > OPEN GAME FILE** and it plays.
+Game devs can open the same file in the **Map Editor**, change everything and save their
+own version (SAVE FILE exports a `.retroplace` you can share or publish).
+
+**Top-down.** A place can ask for the board-game camera with `"cam": "topdown"` in its
+place dictionary (or in a `.retroplace` file). The camera then parks high above the
+player and looks down at a fixed angle — **WASD moves up/left/down/right on the screen**,
+the wheel zooms (16–64 studs), and orbiting / shift lock / first person are switched off.
+The built-in **Brick Arena** place plays exactly this way: grey maze, red lava, neon
+bounce shortcuts, a gold vault to reach. Copy `scripts/world/places.gd → topdown_arena()`
+to make your own, or hand-edit a downloaded `.retroplace` in any text editor — it is
+plain JSON (`"cam": "topdown"` at the top).
+
+The templates are generated from the same data the game ships with —
+`scripts/dev/dump_templates.gd` runs headless and writes every built-in place
+into `.retroplace` files.
+
+## 11. Publish your game
 
 1. Zip this folder's CONTENTS (project.godot at the zip root).
 2. retro-blox.vercel.app → **Create** → engine **Godot** → upload the zip.

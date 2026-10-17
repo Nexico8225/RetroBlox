@@ -144,6 +144,10 @@ func _ready() -> void:
                 # v12.0: live-apply every setting the HUD/world speaks — the
                 # corner chip, the nameplates — and name MY rig at spawn
                 settings.changed.connect(_on_setting_changed)
+        # v5.0 TOP-DOWN: the place can ask for the board-game camera —
+        # applied after settings so it wins over shift lock.
+        if String(place.get("cam", "")) == "topdown":
+                camera_rig.set_mode("topdown")
         _apply_nameplates()
 
         _build_hud()

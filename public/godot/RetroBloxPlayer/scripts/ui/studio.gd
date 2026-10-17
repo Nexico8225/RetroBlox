@@ -276,5 +276,15 @@ func _open_game_file(path: String) -> void:
                 "void_y": -40.0,
                 "parts": parts,
         }
+        # v5.0: optional place flags ride along — "cam": "topdown" gives the
+        # board-game camera, "paint": true turns on the paint-the-world counter,
+        # and props (signs, snow, fences) survive the trip when the file has them
+        if String(d.get("cam", "")) != "":
+                def["cam"] = String(d.get("cam"))
+        if bool(d.get("paint", false)):
+                def["paint"] = true
+        var pr: Variant = d.get("props", [])
+        if typeof(pr) == TYPE_ARRAY and not (pr as Array).is_empty():
+                def["props"] = pr
         Session.current_place = def
         get_tree().change_scene_to_file("res://scenes/game.tscn")

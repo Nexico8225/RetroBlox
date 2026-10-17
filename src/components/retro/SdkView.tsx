@@ -8,15 +8,17 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v4 "ROLES"'
-const V_TAG = 'v4'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=4.0'
+const VERSION = 'v5 "TOP-DOWN"'
+const V_TAG = 'v5'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=5.0'
 
 const INK = '#1c3a52'
 const DIM = '#5a6b7b'
 const EDGE = '#b6c0cb'
 
 const NEW_STUFF: [string, string][] = [
+  ['TOP-DOWN MODE + BRICK ARENA', 'A whole new way to play: places can ask for the TOP-DOWN camera ("cam": "topdown" in the place data) — the view parks high above you and WASD moves up/left/down/right ON THE SCREEN like a board game. The new built-in BRICK ARENA place plays top-down: cross the grey maze, dodge the red lava, bounce over the corner shortcuts, reach the gold vault. Perfect for dungeon / tower-defense / shooter ideas.'],
+  ['GAME TEMPLATES — DOWNLOAD & PLAY', 'A new /templates page with ready-made game files anyone can download: Brick Arena (top-down), Paint World, Classic Obby, Baseplate and the My Place starter. Each is a .retroplace file — download, then STUDIO > OPEN GAME FILE and it plays. Game devs can open the same file in the Map Editor, change everything and save their own version.'],
   ['ROLES — PLAYERS PLAY, GAME DEVS EDIT', 'Three kinds of people: PLAYERS play the game, USERS use the website, GAME DEVS make and edit games. The Studio checks your account when it opens and wears a ROLE chip: GAME DEV unlocks every editor scene; PLAYERS get the editors locked — with a one-sentence tell of how in (publish any game on the site, a Web game counts, and a BECOME A GAME DEV button opens the page for you). The same gate rides the F2 UI editor in-game and the ESC Studio tab.'],
   ['DOWNLOADS FINALLY SAY WHAT THEY ARE', 'A game\'s Download button is the GAME FILE (.retroplace — open it via STUDIO > OPEN GAME FILE), and the green Source Code button on a Godot game page is THE SDK (.zip — the complete Godot project). No more “I downloaded the SDK and got a game file” mixups — every button is labeled and the game page explains both.'],
   ['THE GAME IS ORGANIZED — FOUR SCENES, ONE STUDIO', 'Every thing you can touch now lives in its own scene: PLAY GAME, UI EDITOR, MAP EDITOR, PLAYER EDITOR — all behind one STUDIO door on the login screen (and a new Studio tab in the ESC menu). Each editor saves to your device and rides with you into every game.'],
@@ -58,11 +60,12 @@ const FILES = [
   ['scripts/player/local_player.gd', 'Classic controller: the REAL R6 hitbox, WalkSpeed 16, INSTANT shift-lock snap, 2-stud STAIRS, ladders, trampolines, fall damage'],
   ['scripts/player/remote_player.gd', 'Everyone else online — presence ghosts that glide between heartbeats'],
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, VIBRANT saturated lighting (v14), goal sparkles'],
-  ['scripts/world/places.gd', 'The built-in places: COLOR WORLD (born white — paint it!), Cloud Kingdom, Happy Baseplate, My Place, Classic Obby, Skylands, Wobbly Tower'],
+  ['scripts/world/places.gd', 'The built-in places: COLOR WORLD (born white — paint it!), Cloud Kingdom, Happy Baseplate, My Place, Classic Obby, Skylands, Wobbly Tower + BRICK ARENA (the top-down maze — "cam": "topdown")'],
+  ['scripts/dev/dump_templates.gd', 'The headless exporter that turns the built-in places into the .retroplace templates the /templates page serves'],
   ['scripts/world/my_place.gd', '★ YOUR MAP — what you build in the MAP EDITOR lands here (user://my_map.json). No save yet? You get the documented living template. Start here!'],
   ['scripts/game/game.gd', 'The play session: HUD, chat + commands, the PAINT BRUSH + BUILD MODE (B key — click places bricks!), presence loop, the ESC MENU (icon rail, live 3D avatars, settings + the UI editor button), respawn flow, vertical health bar'],
   ['scripts/game/chat_box.gd', 'The chat that HIDES until you open it: / or the chat button opens log + type box together, ESC hides everything, injection-proof'],
-  ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, Shift Lock shoulder park — and Invert Y'],
+  ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, Shift Lock shoulder park, Invert Y — plus the TOP-DOWN mode (fixed high board-game view for places flagged "cam": "topdown")'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],
 ]
 
@@ -112,7 +115,7 @@ export function SdkView() {
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>The RetroBlox Player — official SDK ({V_TAG})</span></div>
         <div style={{ padding: 14 }}>
-          <div style={{ fontSize: 17, color: INK }}>FOUR SCENES: PLAY the world, DRAG & DROP your UI, BUILD maps brick by brick, PAINT your player. Players play — GAME DEVS edit. Lighting: vibrant.</div>
+          <div style={{ fontSize: 17, color: INK }}>FIVE WAYS IN: PLAY the world (even TOP-DOWN), DRAG & DROP your UI, BUILD maps brick by brick, PAINT your player. Players play — GAME DEVS edit. Lighting: vibrant.</div>
           <div style={{ marginTop: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00639e', background: '#e1f2fb', border: '1px solid #b5d9ee', padding: '2px 8px', borderRadius: 3 }}>{VERSION}</span>
           </div>
@@ -132,6 +135,7 @@ export function SdkView() {
             <a href="https://raw.githubusercontent.com/Nexico8225/RetroBlox/main/public/godot/retroblox-godot-player.zip" download style={{ fontSize: 11, color: DIM, textDecoration: 'underline', marginLeft: 12 }}>
               mirror: direct from GitHub (always the latest build)
             </a>
+            <Link className="rb-btn" href="/templates" style={{ textDecoration: 'none' }}>⬇ Game templates</Link>
             <Link className="rb-btn" href="/avatar" style={{ textDecoration: 'none' }}>Dress your avatar first</Link>
             <Link className="rb-btn" href="/create" style={{ textDecoration: 'none' }}>Publish a game</Link>
           </div>

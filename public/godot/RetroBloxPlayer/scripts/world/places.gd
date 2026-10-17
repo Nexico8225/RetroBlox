@@ -9,7 +9,75 @@ extends RefCounted
 static func all() -> Array:
         # "My Place (template)" is the EDITABLE starter map — live docs.
         # Edit scripts/world/my_place.gd, press F5, see your changes.
-        return [color_world(), cloud_kingdom(), baseplate(), MyPlace.build(), obby(), skylands(), tower()]
+        return [color_world(), cloud_kingdom(), baseplate(), MyPlace.build(), obby(), skylands(), tower(), topdown_arena()]
+
+
+## ---------------------------------------------------------------- Brick Arena
+## v5.0 THE TOP-DOWN PLACE — the camera parks high above you and WASD moves
+## up/left/down/right ON THE SCREEN (the place asks for it with "cam":
+## "topdown"). Read the maze like a board game: cross the grey walls, dodge
+## the red lava, bounce over the corner shortcuts, reach the GOLD vault.
+
+static func topdown_arena() -> Dictionary:
+        return {
+                "id": "arena",
+                "name": "Brick Arena",
+                "desc": "TOP-DOWN: WASD moves on the screen. Dodge the lava, cross the maze, reach the gold vault.",
+                "tile": "5c9e4e",
+                "cam": "topdown",
+                "sky_top": "3d8fd1",
+                "sky_horizon": "bfe0f5",
+                "sky_ground": "2a5d38",
+                "void_y": -40.0,
+                "parts": [
+                        # ---- the board ----
+                        { "p": [0, -1, 0], "s": [120, 2, 120], "c": "5c9e4e" },
+                        # outer walls
+                        { "p": [0, 2, -60], "s": [122, 6, 2], "c": "8a8d91" },
+                        { "p": [0, 2, 60], "s": [122, 6, 2], "c": "8a8d91" },
+                        { "p": [-60, 2, 0], "s": [2, 6, 122], "c": "8a8d91" },
+                        { "p": [60, 2, 0], "s": [2, 6, 122], "c": "8a8d91" },
+                        # spawn pad (south)
+                        { "p": [0, 0.5, 50], "s": [9, 1, 9], "c": "a8adb3", "g": "spawn" },
+                        { "p": [0, 1.15, 50], "s": [5.6, 0.4, 5.6], "c": "23262b", "no_studs": true },
+                        # ---- the maze (grey walls, h4 — read them from above) ----
+                        { "p": [-30, 1, -15], "s": [60, 4, 2], "c": "a3a2a5" },
+                        { "p": [30, 1, 15], "s": [60, 4, 2], "c": "a3a2a5" },
+                        { "p": [-15, 1, 30], "s": [2, 4, 60], "c": "a3a2a5" },
+                        { "p": [15, 1, -30], "s": [2, 4, 60], "c": "a3a2a5" },
+                        { "p": [-45, 1, 20], "s": [30, 4, 2], "c": "a3a2a5" },
+                        { "p": [45, 1, -20], "s": [30, 4, 2], "c": "a3a2a5" },
+                        { "p": [20, 1, 45], "s": [2, 4, 30], "c": "a3a2a5" },
+                        { "p": [-20, 1, -45], "s": [2, 4, 30], "c": "a3a2a5" },
+                        # ---- the GOLD VAULT (center): four walls, one gap north ----
+                        { "p": [0, 0.5, 0], "s": [12, 1, 12], "c": "f5cd30", "g": "goal" },
+                        { "p": [-4.5, 1.5, -8], "s": [7, 3, 1], "c": "f5cd30" },
+                        { "p": [4.5, 1.5, -8], "s": [7, 3, 1], "c": "f5cd30" },
+                        { "p": [0, 1.5, 8], "s": [16, 3, 1], "c": "f5cd30" },
+                        { "p": [-8, 1.5, 0], "s": [1, 3, 15], "c": "f5cd30" },
+                        { "p": [8, 1.5, 0], "s": [1, 3, 15], "c": "f5cd30" },
+                        # ---- lava (red = die) ----
+                        { "p": [-45, 0.4, 45], "s": [14, 0.8, 14], "c": "e2231a", "g": "kill" },
+                        { "p": [45, 0.4, -45], "s": [14, 0.8, 14], "c": "e2231a", "g": "kill" },
+                        { "p": [0, 0.4, 32], "s": [20, 0.8, 6], "c": "e2231a", "g": "kill" },
+                        { "p": [-32, 0.4, 0], "s": [6, 0.8, 20], "c": "e2231a", "g": "kill" },
+                        { "p": [32, 0.4, 0], "s": [6, 0.8, 14], "c": "e2231a", "g": "kill" },
+                        # ---- bounce shortcuts over the low maze walls ----
+                        { "p": [45, 0.5, 45], "s": [6, 1, 6], "c": "00a2ff", "m": "neon", "g": "bounce" },
+                        { "p": [-45, 0.5, -45], "s": [6, 1, 6], "c": "00a2ff", "m": "neon", "g": "bounce" },
+                        # ---- sand paths to read the routes from above ----
+                        { "p": [0, 0.05, 40], "s": [6, 0.4, 22], "c": "d7c59a" },
+                        { "p": [-38, 0.05, 8], "s": [22, 0.4, 6], "c": "d7c59a" },
+                        { "p": [0, 0.05, -24], "s": [6, 0.4, 20], "c": "d7c59a" },
+                        { "p": [38, 0.05, -8], "s": [22, 0.4, 6], "c": "d7c59a" },
+                ],
+                "props": [
+                        { "type": "sign", "p": [8, 1.2, 44], "yaw": 0, "title": "BRICK ARENA",
+                                "title_c": "e2b23a", "c": "ffffff", "w": 12, "h": 4,
+                                "text": "TOP-DOWN PLACE.\nW A S D  moves on the screen.\nRed is LAVA. Reach the gold vault!" },
+                        { "type": "fence", "p": [-10, 0, 44], "s": [10, 1.4, 0.35], "yaw": 0 },
+                ],
+        }
 
 
 static func by_id(id: String) -> Dictionary:

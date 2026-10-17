@@ -21,6 +21,17 @@ const SHOULDER_OFFSET := 2.1     # shift-lock right-shoulder park
 const ZOOM_GLIDE := 11.0
 ## v4.0 game feel: a hard landing dips the pivot a beat — the drop "lands".
 const LAND_DIP_MAX := 0.55
+## v5.0 TOP-DOWN mode: the camera parks high above the player and looks
+## almost straight down — WASD moves up/left/down/right ON THE SCREEN and
+## the world reads like a board game. Places ask for it with "cam": "topdown"
+## (see places.gd / .retroplace game files). No orbit, no first person —
+## just the wheel zooming in and out.
+const TD_MIN_ZOOM := 16.0
+const TD_MAX_ZOOM := 64.0
+const TD_DEFAULT_ZOOM := 34.0
+const TD_PITCH := -1.15         # ~66 degrees down — walls still read as 3D
+
+var mode_topdown := false
 
 var player: Node3D
 var yaw := 0.0
@@ -83,7 +94,26 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 ## Shift Lock toggle — squares the character to the camera and captures the
 ## cursor in the middle of the screen.
 func set_shift_locked(on: bool) -> void:
+        if mode_topdown:
+                shift_locked = false   # shift lock means nothing looking straight down
+                return
         shift_locked = on
+        _apply_mouse_mode()
+
+
+## v5.0: TOP-DOWN — the place asked for "cam": "topdown". Locks the pitch,
+## zeroes the yaw (so W = up on the screen), swaps the zoom range and never
+## enters first person. Call once after setup().
+func set_mode(mode: String) -> void:
+        if mode != "topdown":
+                return
+        mode_topdown = true
+        yaw = 0.0
+        pitch = TD_PITCH
+        distance = TD_DEFAULT_ZOOM
+        _zoom_target = TD_DEFAULT_ZOOM
+        first_person = false
+        shift_locked = false
         _apply_mouse_mode()
 
 
@@ -129,6 +159,8 @@ func _unhandled_input(event: InputEvent) -> void:
                 # OR while right-dragging in third person — never while using UI
                 if _ui_blocked or not (_orbiting or is_mouse_captured()):
                         return
+                if mode_topdown:
+                        return   # the view is FIXED from above — the mouse never spins it
                 var mm := event as InputEventMouseMotion
                 var sens := 1.0
                 var invert := false
@@ -147,7 +179,7 @@ func _unhandled_input(event: InputEvent) -> void:
                         _zoom(-_zoom_step())
                 elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
                         _zoom(_zoom_step())
-                elif mb.button_index == MOUSE_BUTTON_RIGHT and not _ui_blocked:
+                elif mb.button_index == MOUSE_BUTTON_RIGHT and not _ui_blocked and not mode_topdown:
                         _orbiting = true
         elif event is InputEventMouseButton and not event.is_pressed():
                 var mb := event as InputEventMouseButton
@@ -162,7 +194,9 @@ func _zoom_step() -> float:
 
 func _zoom(step: float) -> void:
         var was := first_person
-        _zoom_target = clampf(_zoom_target + step, MIN_ZOOM, MAX_ZOOM)
+        var lo := TD_MIN_ZOOM if mode_topdown else MIN_ZOOM
+        var hi := TD_MAX_ZOOM if mode_topdown else MAX_ZOOM
+        _zoom_target = clampf(_zoom_target + step, lo, hi)
         if _zoom_target < FIRST_PERSON_AT:
                 distance = _zoom_target   # first-person handoff stays instant
         first_person = _zoom_target < FIRST_PERSON_AT
@@ -185,8 +219,15 @@ func _process(delta: float) -> void:
                 _land_dip = lerpf(_land_dip, 0.0, 1.0 - exp(-7.0 * delta))
         else:
                 _land_dip = 0.0
-        var dip := _land_dip if not first_person else 0.0
-        if first_person:
+        var dip := _land_dip if not (first_person or mode_topdown) else 0.0
+        if mode_topdown:
+                # the board-game view: same spring arm pointed straight down,
+                # no shoulder park, no landing dip (the camera never feels feet)
+                global_position = player.global_position + Vector3(0.0, PIVOT_HEIGHT, 0.0)
+                _pivot.rotation = Vector3(TD_PITCH, 0.0, 0.0)
+                _arm.position = Vector3.ZERO
+                _arm.spring_length = distance
+        elif first_person:
                 # the camera IS the head — no boom, no shoulder park
                 global_position = player.global_position + Vector3(0.0, EYE_HEIGHT, 0.0)
                 _pivot.rotation = Vector3(pitch, yaw, 0.0)

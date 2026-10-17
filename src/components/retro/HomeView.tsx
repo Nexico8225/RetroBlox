@@ -557,6 +557,7 @@ export function HomeView() {
         <a className="rb-btn rb-btn-green" href="/godot/retroblox-godot-player.zip?v=1.1" download style={{ textDecoration: 'none', padding: '8px 16px', fontSize: 12 }}>
           ⬇ Download the game
         </a>
+        <Link className="rb-link" href="/templates" style={{ fontSize: 11 }}>Game templates</Link>
         <Link className="rb-link" href="/sdk" style={{ fontSize: 11 }}>How to run it</Link>
       </section>
 
