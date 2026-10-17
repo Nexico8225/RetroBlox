@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { saveUpload } from '@/lib/uploads'
+import { saveUpload, resolveUpload } from '@/lib/uploads'
 
 async function gameDetail(id: string, viewerId: string | null) {
   const g = await db.game.findUnique({
@@ -133,20 +133,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.engine = engine
   }
 
-  const gameFile = form.get('gameFile')
-  if (gameFile instanceof File && gameFile.size > 0) {
-    if (gameFile.size > 60 * 1024 * 1024) return NextResponse.json({ error: 'Game file too large (max 60MB).' }, { status: 400 })
+  // gameFile can arrive directly (multipart, small) OR as a chunked upload id
+  // ("gameUploadId") — big game builds (a real exported game can be 60MB+) ride
+  // the same chunk system the 24MB models use.
+  const gameFile = await resolveUpload(form.get('gameFile'), form.get('gameUploadId'))
+  if (gameFile) {
+    if (gameFile.size > 150 * 1024 * 1024) return NextResponse.json({ error: 'Game file too large (max 150MB).' }, { status: 400 })
     const saved = await saveUpload(gameFile, user.id)
     data.fileId = saved.id
     data.fileName = gameFile.name
   }
 
-  const sourceFile = form.get('sourceFile')
-  if (sourceFile instanceof File && sourceFile.size > 0) {
+  const sourceFile = await resolveUpload(form.get('sourceFile'), form.get('sourceUploadId'))
+  if (sourceFile) {
     if (sourceFile.size > 40 * 1024 * 1024) return NextResponse.json({ error: 'Source archive too large (max 40MB).' }, { status: 400 })
     const saved = await saveUpload(sourceFile, user.id)
     data.sourceFileId = saved.id
     data.sourceFileName = sourceFile.name
+  }
+
+  // the owner can re-skin their game page: new icon / thumbnail (same limits
+  // as publish) — patching art refreshes the card + the page header instantly
+  const icon = form.get('icon')
+  if (icon instanceof File && icon.size > 0) {
+    if (icon.size > 2 * 1024 * 1024) return NextResponse.json({ error: 'Icon too large (max 2MB).' }, { status: 400 })
+    data.iconUrl = await fileToDataUrl(icon)
+  }
+  const thumbnail = form.get('thumbnail')
+  if (thumbnail instanceof File && thumbnail.size > 0) {
+    if (thumbnail.size > 3 * 1024 * 1024) return NextResponse.json({ error: 'Thumbnail too large (max 3MB).' }, { status: 400 })
+    data.thumbnailUrl = await fileToDataUrl(thumbnail)
   }
 
   // Web games: the creator can update their code (and switch a game to Web)
@@ -202,4 +218,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
   await db.game.delete({ where: { id } })
   return NextResponse.json({ ok: true, deletedBy: user.role === 'admin' && game.creatorId !== user.id ? 'admin' : 'owner' })
+}
+
+// same data-url helper the publish route uses (icons/thumbnails ride the card
+// directly — no extra file row, no extra request)
+async function fileToDataUrl(file: File): Promise<string> {
+  const buf = Buffer.from(await file.arrayBuffer())
+  const mime = file.type && file.type.startsWith('image/') ? file.type : 'image/png'
+  return `data:${mime};base64,${buf.toString('base64')}`
 }

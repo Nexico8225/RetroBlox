@@ -29,6 +29,16 @@ CLICK** paints the brick under your cursor with the picked palette color
 eraser). The counter shows how many parts you painted in places flagged
 `"paint": true`, and painting every part fires WORLD COMPLETE.
 
+**BUILD MODE — edit the map while you play:** press **B** and LEFT CLICK
+places a 4x1x4 brick (in your brush color!) on any surface you aim at;
+**CTRL+click** removes a brick you placed; **B** again is back to painting.
+Your map edits happen live, in game, no code needed.
+
+**EDIT THE UI — every pixel is yours:** press **F2** (or ESC menu →
+Settings → *Open UI Editor*): click any HUD element, drag it, scale it,
+edit its text, add your own floating labels, zoom the whole client.
+Save keeps your layout forever (`user://ui_config.json`).
+
 Want to tweak it? Everything lives in `scripts/game/game.gd`:
 
 | What | Where |
@@ -36,6 +46,8 @@ Want to tweak it? Everything lives in `scripts/game/game.gd`:
 | the palette colors | `PAINT_COLORS` (12 hex strings, no `#`) |
 | turn the counter on for YOUR map | add `"paint": true` to the place Dictionary |
 | the painting itself | `_paint_brick()` — raycast + recolor, easy to reskin |
+| build-mode bricks | `_build_click()` — size, snap, colors, all one function |
+| the UI editor | `scripts/ui/ui_editor.gd` — F2, drag, save |
 
 Paint is your own view of the world (client-side), so it works offline
 too. Make a place born-white by giving every part the same `"c": "f2f3f3"`

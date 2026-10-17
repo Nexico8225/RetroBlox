@@ -77,6 +77,8 @@ var _paint_count: Label         # "12 / 33 painted" (paint-flagged places)
 var _paint_total := 0           # paintable parts in this place
 var _painted := {}              # instance_id -> true (parts I painted)
 var _paint_done := false        # the WORLD COMPLETE banner fires once
+var _build_mode := false        # v13.1 BUILD MODE: click to place bricks
+var _built_root: Node3D         # every brick YOU place lives here
 
 
 func _ready() -> void:
@@ -97,6 +99,9 @@ func _ready() -> void:
         add_child(built["root"])
         _spawns = built["spawns"]
         _tag_paintables(built["root"])   # v13.0: every part accepts the brush
+        _built_root = Node3D.new()       # v13.1: bricks the player builds land here
+        _built_root.name = "BuiltBricks"
+        built["root"].add_child(_built_root)
         if _spawns.is_empty():
                 _spawns.append(Vector3(0.0, 6.0, 0.0) * WorldBuilderScript.STUD)
         # a frame between the world and the player splits the spike
@@ -312,6 +317,15 @@ func _unhandled_input(event: InputEvent) -> void:
                 chat.close()
                 get_viewport().set_input_as_handled()
                 return
+        # ---- v13.1 BUILD MODE: the B key turns the world into your map
+        # editor — click places a brick (in your brush color), CTRL+click
+        # removes one you placed, B again is back to painting ----
+        if event is InputEventKey and event.is_pressed() and not event.is_echo() \
+                        and (event as InputEventKey).keycode == KEY_B and not _menu_open \
+                        and chat != null and is_instance_valid(chat) and not chat.is_open:
+                _toggle_build_mode()
+                get_viewport().set_input_as_handled()
+                return
         # ---- v13.0 THE PAINT BRUSH: LEFT CLICK paints the brick under the
         # cursor with the picked palette color (palette lives bottom-center;
         # buttons eat their own clicks so painting never fires on UI) ----
@@ -319,7 +333,7 @@ func _unhandled_input(event: InputEvent) -> void:
                         and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT \
                         and not _menu_open and chat != null and is_instance_valid(chat) \
                         and not chat.is_open and not chat.is_reading:
-                _paint_brick()
+                _brush_click(event)
                 return
         # ---- ESC menu keyboard shortcuts (classic and fast) ----
         if _menu_open and event is InputEventKey and event.is_pressed() and not event.is_echo() \
@@ -851,8 +865,81 @@ func _pick_paint(hex: String) -> void:
                 b.add_theme_stylebox_override("pressed", _paint_swatch_face(hx, on))
 
 
-## LEFT CLICK: ray from the camera through the cursor (the parked center dot
-## in first person), recolor the brick it hits, count it, check for COMPLETE.
+## LEFT CLICK: in build mode you place / remove bricks, otherwise you paint.
+func _brush_click(event: InputEvent) -> void:
+        if _build_mode:
+                _build_click(event as InputEventMouseButton)
+        else:
+                _paint_brick()
+
+
+func _toggle_build_mode() -> void:
+        _build_mode = not _build_mode
+        if _build_mode:
+                _notify("BUILD MODE — click places a brick in your brush color · CTRL+click removes one you built · B = back to painting", false)
+        else:
+                _notify("Back to the brush — click paints again.", false)
+
+
+## BUILD MODE placement: ray out of the camera, sit a 4x1x4 stud brick flush
+## on the face you aim at (grid-snapped), wearing the current brush color.
+## CTRL+click removes a brick YOU placed (the map itself stays untouchable).
+func _build_click(mb: InputEventMouseButton) -> void:
+        var cam: Camera3D = get_viewport().get_camera_3d()
+        if cam == null:
+                return
+        var mp := get_viewport().get_mouse_position()
+        if camera_rig != null and is_instance_valid(camera_rig) and camera_rig.is_first_person():
+                mp = get_viewport().get_visible_rect().size * 0.5
+        var from := cam.project_ray_origin(mp)
+        var query := PhysicsRayQueryParameters3D.create(
+                from, from + cam.project_ray_normal(mp) * 300.0, 1)
+        var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+        if hit.is_empty():
+                return
+        var body: Object = hit.get("collider")
+        if body == null or not (body is StaticBody3D):
+                return
+        if mb.ctrl_pressed or mb.meta_pressed:
+                # demolish — only bricks the player built, never the authored map
+                if (body as Node).has_meta("built"):
+                        (body as Node).queue_free()
+                        _notify("Brick removed.", false)
+                return
+        # place: offset the brick half its size along the face normal so it
+        # sits EXACTLY on the surface, then grid-snap the footprint
+        var n: Vector3 = hit.get("normal", Vector3.UP)
+        var half := Vector3(absf(n.x) * 2.0, absf(n.y) * 0.5, absf(n.z) * 2.0)
+        var center: Vector3 = (hit.get("position", Vector3.ZERO) as Vector3) + Vector3(n.x * half.x, n.y * half.y, n.z * half.z)
+        center.x = roundf(center.x)
+        center.z = roundf(center.z)
+        var brick := StaticBody3D.new()
+        brick.collision_layer = 1
+        brick.collision_mask = 0
+        var cs := CollisionShape3D.new()
+        var sh := BoxShape3D.new()
+        sh.size = Vector3(4, 1, 4)
+        cs.shape = sh
+        brick.add_child(cs)
+        var mi := MeshInstance3D.new()
+        var bm := BoxMesh.new()
+        bm.size = Vector3(4, 1, 4)
+        mi.mesh = bm
+        var m := StandardMaterial3D.new()
+        m.albedo_color = _brush
+        m.roughness = 0.78
+        m.albedo_texture = WorldBuilderScript.stud_texture()
+        m.uv1_triplanar = true
+        m.uv1_world_triplanar = true
+        m.uv1_scale = Vector3.ONE / WorldBuilderScript.STUD
+        mi.material_override = m
+        brick.add_child(mi)
+        brick.position = center
+        brick.add_to_group("paintable")   # the brush works on it too
+        brick.set_meta("built", true)     # ...but it never counts as world progress
+        _built_root.add_child(brick)
+
+
 func _paint_brick() -> void:
         var cam: Camera3D = get_viewport().get_camera_3d()
         if cam == null:
@@ -882,7 +969,8 @@ func _paint_brick() -> void:
         mat.albedo_color = _brush
         if mat.emission_enabled:
                 mat.emission = _brush   # neon parts keep glowing in the NEW color
-        if not _painted.has((body as Node).get_instance_id()):
+        if not _painted.has((body as Node).get_instance_id()) \
+                        and not (body as Node).has_meta("built"):
                 _painted[(body as Node).get_instance_id()] = true
                 _update_paint_count()
 
@@ -1614,6 +1702,25 @@ func _build_settings_tab() -> VBoxContainer:
         out_btn.add_theme_font_size_override("font_size", 12)
         out_btn.pressed.connect(_log_out)
         acct.add_child(out_btn)
+        # v13.1: THE UI EDITOR, discoverable — the same editor the F2 key
+        # opens: drag any element, edit text, add labels, scale the client
+        var uirow := _row(page, "reset", "Edit any part of the UI")
+        var ui_btn := Button.new()
+        ui_btn.text = "Open UI Editor (F2)"
+        ui_btn.custom_minimum_size = Vector2(170, 30)
+        ui_btn.focus_mode = Control.FOCUS_NONE
+        ui_btn.add_theme_stylebox_override("normal", _hairline_btn_face(false))
+        ui_btn.add_theme_stylebox_override("hover", _hairline_btn_face(true))
+        ui_btn.add_theme_stylebox_override("pressed", _hairline_btn_face(false))
+        for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+                ui_btn.add_theme_color_override(st, Color(0.92, 0.93, 0.95))
+        if RetroUI.gotham(600) != null:
+                ui_btn.add_theme_font_override("font", RetroUI.gotham(600))
+        ui_btn.add_theme_font_size_override("font_size", 12)
+        ui_btn.pressed.connect(func() -> void:
+                _toggle_menu()
+                UiEditor.toggle())
+        uirow.add_child(ui_btn)
         var danger := _row(page, "reset", "Start everything over")
         var reset_btn := Button.new()
         reset_btn.text = "Reset All Settings"

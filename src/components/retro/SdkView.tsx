@@ -55,7 +55,7 @@ const FILES = [
   ['scripts/world/world_builder.gd', 'Builds places from parts + props, the AUTHENTIC Roblox stud tile, LINEAR true-color lighting, goal sparkles'],
   ['scripts/world/places.gd', 'The built-in places: COLOR WORLD (born white — paint it!), Cloud Kingdom, Happy Baseplate, My Place (template), Classic Obby, Skylands, Wobbly Tower'],
   ['scripts/world/my_place.gd', '★ YOUR EDITABLE STARTER MAP — a complete place documented line by line. Edit it, press F5, play. Start here!'],
-  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, presence loop, the BLACK & WHITE ESC MENU (icon rail, live 3D avatars, 18 icon-row settings, white Resume), respawn flow, vertical health bar'],
+  ['scripts/game/game.gd', 'The play session: HUD, chat + commands, the PAINT BRUSH + BUILD MODE (B key — click places bricks!), presence loop, the ESC MENU (icon rail, live 3D avatars, settings + the UI editor button), respawn flow, vertical health bar'],
   ['scripts/game/chat_box.gd', 'The chat that HIDES until you open it: / or the chat button opens log + type box together, ESC hides everything, injection-proof'],
   ['scripts/game/camera_rig.gd', 'Orbit camera with collision spring arm, zoom, Shift Lock shoulder park — and Invert Y'],
   ['assets/*.wav|mp3', 'Wind ambience, goal fanfare + the authentic client sounds (oof, jump, land, footsteps)'],
@@ -107,7 +107,7 @@ export function SdkView() {
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>The RetroBlox Player — official SDK ({V_TAG})</span></div>
         <div style={{ padding: 14 }}>
-          <div style={{ fontSize: 17, color: INK }}>Dress your avatar. PAINT THE WORLD (click bricks!). Collect Tix. Chat with everyone online.</div>
+          <div style={{ fontSize: 17, color: INK }}>Dress your avatar. PAINT THE WORLD (click bricks!). BUILD your own (press B). Edit the UI (press F2). Chat with everyone online.</div>
           <div style={{ marginTop: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00639e', background: '#e1f2fb', border: '1px solid #b5d9ee', padding: '2px 8px', borderRadius: 3 }}>{VERSION}</span>
           </div>

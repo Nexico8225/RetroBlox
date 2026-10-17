@@ -112,6 +112,8 @@ export function GameDetailView({ id }: { id: string }) {
   const [updating, setUpdating] = useState(false)
   const updateFileRef = useRef<HTMLInputElement>(null)
   const updateSrcRef = useRef<HTMLInputElement>(null)
+  const iconInputRef = useRef<HTMLInputElement>(null)
+  const thumbInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     try {
@@ -320,6 +322,39 @@ export function GameDetailView({ id }: { id: string }) {
   }
 
   /* ---- owner updates ---- */
+
+  // re-skin the game page: swap the icon / thumbnail (owner only — the API
+  // enforces it, the UI simply never shows the controls to anyone else)
+  async function updateArt(kind: 'icon' | 'thumbnail') {
+    if (!game) return
+    const ref = kind === 'icon' ? iconInputRef : thumbInputRef
+    const f = ref.current?.files?.[0]
+    if (!f) {
+      setToast(kind === 'icon' ? 'Pick a new icon image first!' : 'Pick a new thumbnail image first!')
+      setTimeout(() => setToast(null), 2200)
+      return
+    }
+    if (!f.type.startsWith('image/')) {
+      setToast('That file is not an image!')
+      setTimeout(() => setToast(null), 2200)
+      return
+    }
+    setUpdating(true)
+    try {
+      const fd = new FormData()
+      fd.append(kind, f)
+      await api(`/api/games/${game.id}`, { method: 'PATCH', body: fd })
+      setToast(kind === 'icon' ? 'Icon updated!' : 'Thumbnail updated!')
+      setTimeout(() => setToast(null), 2200)
+      if (ref.current) ref.current.value = ''
+      await load()
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Upload failed')
+      setTimeout(() => setToast(null), 2600)
+    } finally {
+      setUpdating(false)
+    }
+  }
 
   async function updateGame(includeBuild: boolean, includeSource: boolean) {
     if (!game) return
@@ -1123,6 +1158,20 @@ export function GameDetailView({ id }: { id: string }) {
               <div style={{ padding: 10, display: 'grid', gap: 8 }}>
                 {game.isOwner && (
                   <>
+                    <div>
+                      <div style={{ font: '10px Verdana', color: '#24425f', marginBottom: 4 }}>Change the game icon (square, max 2MB):</div>
+                      <input ref={iconInputRef} type="file" accept="image/*" style={{ fontSize: 10, maxWidth: '100%' }} aria-label="New game icon" />
+                      <button className="rb-btn" style={{ marginTop: 5 }} disabled={updating} onClick={() => updateArt('icon')}>
+                        Update Icon
+                      </button>
+                    </div>
+                    <div>
+                      <div style={{ font: '10px Verdana', color: '#24425f', marginBottom: 4 }}>Change the thumbnail / banner (max 3MB):</div>
+                      <input ref={thumbInputRef} type="file" accept="image/*" style={{ fontSize: 10, maxWidth: '100%' }} aria-label="New game thumbnail" />
+                      <button className="rb-btn" style={{ marginTop: 5 }} disabled={updating} onClick={() => updateArt('thumbnail')}>
+                        Update Thumbnail
+                      </button>
+                    </div>
                     <div>
                       <div style={{ font: '10px Verdana', color: '#24425f', marginBottom: 4 }}>Replace game build:</div>
                       <input ref={updateFileRef} type="file" style={{ fontSize: 10, maxWidth: '100%' }} aria-label="New build file" />
