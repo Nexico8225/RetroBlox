@@ -100,7 +100,7 @@ export function GameCard({ game }: { game: GameSummary }) {
               border: '1px solid #d9c26a',
             }}
           >
-            💎 GEM
+             GEM
           </span>
         )}
       </div>
@@ -430,7 +430,7 @@ export function HomeView() {
             + Publish a Game
           </Link>
           <Link className="rb-btn rb-btn-green" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
-            ▶ Post a Video
+            Post a Video
           </Link>
           <Link className="rb-btn" href="/community" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
             Community
@@ -540,14 +540,14 @@ export function HomeView() {
       {!loading && suggested.length > 0 && <SuggestedStrip users={suggested} title="People You May Know" />}
 
       {/* Your library — plays and downloads are tracked separately */}
-      <YourGamesRails list="played" title="🎮 Games You've Played" blurb="Every game you hit Play now on — your personal play history."
+      <YourGamesRails list="played" title="Games You've Played" blurb="Every game you hit Play now on — your personal play history."
       />
-      <YourGamesRails list="downloaded" title="⬇ Your Downloaded Games" blurb="Games sitting on your device — re-download them any time."
+      <YourGamesRails list="downloaded" title="Your Downloaded Games" blurb="Games sitting on your device — re-download them any time."
       />
 
       {/* Get the game — the free desktop player */}
       <section className="rb-box" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 22 }} aria-hidden="true">🕹️</div>
+        <div style={{ fontSize: 22 }} aria-hidden="true"></div>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ fontSize: 12, fontWeight: 'bold', color: '#14202c' }}>Play RetroBlox on your PC</div>
           <div style={{ fontSize: 11, color: '#5a6b7b' }}>
@@ -555,7 +555,7 @@ export function HomeView() {
           </div>
         </div>
         <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent('/godot/retroblox-godot-player.zip?v=6.0')}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: 12 }}>
-          ⬇ Download the game
+          Download the game
         </a>
         <Link className="rb-link" href="/templates" style={{ fontSize: 11 }}>Game templates</Link>
         <Link className="rb-link" href="/sdk" style={{ fontSize: 11 }}>How to run it</Link>
@@ -656,7 +656,7 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
   const title = q
     ? `Search Results for "${q}"`
     : sort === 'gems'
-      ? '💎 Hidden Gems'
+      ? ' Hidden Gems'
       : sort === 'recommended'
         ? 'Recommended For You'
         : sort === 'trending'
@@ -727,7 +727,7 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
               <option value="downloads">Downloads (highest number)</option>
               <option value="recent">Recently Uploaded</option>
               <option value="updated">Recently Updated</option>
-              <option value="gems">💎 Hidden Gems</option>
+              <option value="gems"> Hidden Gems</option>
             </select>
             <span style={{ marginLeft: 'auto', fontSize: 10, color: '#7b8896' }}>
               {loading ? '...' : `${games.length} game${games.length === 1 ? '' : 's'}`}

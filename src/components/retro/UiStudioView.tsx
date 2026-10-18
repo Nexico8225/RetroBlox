@@ -6,11 +6,14 @@
    and HOVER effects (punch, bounce, scale-then-rotate, glow, fade),
    tune power + speed, or compose your own fx mix.
 
-   WHO SEES WHAT:
-   - The game OWNER publishes here -> every player of that game sees
-     the UI (the desktop player fetches it when the game starts).
-   - Anybody else's personal UI tweaks live in the desktop player's
-     own F2 editor and stay on their device — private, like before. */
+   WHO EDITS WHAT:
+   - GAME DEVS (any user who owns a game) publish their game's UI here
+     -> every player of that game sees it (the desktop player fetches
+     it when the game starts).
+   - The SITE OWNER (role admin) can edit ANY game's UI — the picker
+     lists every game on the site.
+   - PLAYERS can't publish here. Personal UI tweaks live in the desktop
+     player's own F2 editor and stay on their device — private. */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -64,7 +67,8 @@ function fxHover(fx: Fx | undefined): string {
 
 export function UiStudioView() {
   const { user, setToast } = useRetro()
-  const [games, setGames] = useState<{ id: string; seqId: number | null; name: string; hasFile: boolean }[]>([])
+  const isSiteOwner = !!user && user.role === 'admin'
+  const [games, setGames] = useState<{ id: string; seqId: number | null; name: string; hasFile: boolean; creator?: { username: string } }[]>([])
   const [gameId, setGameId] = useState('')
   const [gameName, setGameName] = useState('')
   const [widgets, setWidgets] = useState<Widget[]>([])
@@ -78,11 +82,12 @@ export function UiStudioView() {
 
   useEffect(() => {
     if (!user) return
-    fetch(`/api/games?creatorId=${user.id}&limit=100`)
+    // game devs see their own games; the site owner sees EVERY game
+    fetch(isSiteOwner ? '/api/games?limit=100&sort=recent' : `/api/games?creatorId=${user.id}&limit=100`)
       .then((r) => r.json())
       .then((d) => setGames(d.games || []))
       .catch(() => {})
-  }, [user])
+  }, [user, isSiteOwner])
 
   const loadConfig = useCallback(async (gid: string) => {
     setLoading(true)
@@ -236,10 +241,12 @@ export function UiStudioView() {
     return (
       <div>
         <div className="rb-box" style={{ marginBottom: 12 }}>
-          <div className="rb-panel-head"><span>UI Studio — pick YOUR game</span></div>
+          <div className="rb-panel-head"><span>UI Studio — pick a game {isSiteOwner ? '(site owner: ANY game)' : ''}</span></div>
           <div style={{ padding: 12 }}>
             <div style={{ fontSize: 11, color: DIM, marginBottom: 10 }}>
-              What you publish here, EVERY player of that game sees. Your own private tweaks still live in the desktop player&apos;s F2 editor.
+              {isSiteOwner
+                ? 'SITE OWNER — you can edit the UI of ANY game on the site. What you publish here, every player of that game sees.'
+                : 'Game devs edit their own games here. What you publish, EVERY player of that game sees. Players can\'t publish — their F2 tweaks stay private on their device.'}
             </div>
             {games.length === 0 ? (
               <div style={{ fontSize: 11, color: DIM }}>
@@ -250,7 +257,7 @@ export function UiStudioView() {
                 {games.map((g) => (
                   <button key={g.id} className="rb-btn" onClick={() => pickGame(g)} style={{ textAlign: 'left', padding: '10px 12px' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: INK }}>{g.name}</div>
-                    <div style={{ fontSize: 10, color: DIM }}>Game #{g.seqId ?? '—'}</div>
+                    <div style={{ fontSize: 10, color: DIM }}>Game #{g.seqId ?? '—'}{isSiteOwner && g.creator?.username ? ' — by ' + g.creator.username : ''}</div>
                   </button>
                 ))}
               </div>
@@ -280,7 +287,7 @@ export function UiStudioView() {
         </div>
         <button className="rb-btn" onClick={clearUi} style={{ fontSize: 11 }}>Clear published UI</button>
         <button className="rb-btn rb-btn-green" onClick={save} disabled={loading} style={{ fontSize: 12, textDecoration: 'none' }}>
-          {loading ? '...' : '⬆ Publish to EVERYONE'}
+          {loading ? '...' : 'Publish to EVERYONE'}
         </button>
       </div>
 

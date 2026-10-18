@@ -130,7 +130,7 @@ export function CreateView() {
                 {iconPreview ? (
                   <img src={iconPreview} alt="Icon preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <span style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#8ba0b3' }}>▶</span>
+                  <span style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#8ba0b3' }}></span>
                 )}
               </span>
             </div>
@@ -375,7 +375,7 @@ export function CreateView() {
             <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
               {mediaFiles.map((m, i) => (
                 <div key={`${m.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#24425f', background: '#fff', border: '1px solid #e4eaf0', borderRadius: 3, padding: '4px 8px' }}>
-                  <span>{m.type.startsWith('video/') ? '▶ VIDEO' : '🖼 IMAGE'}</span>
+                  <span>{m.type.startsWith('video/') ? 'VIDEO' : 'IMAGE'}</span>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
                   <span style={{ color: '#7b8896' }}>{Math.ceil(m.size / (1024 * 1024))}MB</span>
                   <button type="button" className="rb-link" style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: '#a03a34' }} onClick={() => setMediaFiles((arr) => arr.filter((_, j) => j !== i))}>
@@ -391,7 +391,7 @@ export function CreateView() {
         </div>
 
         <button className="rb-btn rb-btn-red" type="submit" disabled={busy} style={{ fontSize: 14, padding: '10px 0' }}>
-          {busy ? 'Publishing...' : '⬆ Publish Game'}
+          {busy ? 'Publishing...' : 'Publish Game'}
         </button>
         <div style={{ fontSize: 10, color: '#7b8896', textAlign: 'center' }}>
           New games start with 0 downloads — share the link with friends!

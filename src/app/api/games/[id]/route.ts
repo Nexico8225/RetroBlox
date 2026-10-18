@@ -131,7 +131,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const game = await db.game.findUnique({ where: { id: gid } })
   if (!game) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
-  if (game.creatorId !== user.id) return NextResponse.json({ error: 'Not your game!' }, { status: 403 })
+  // game devs own their games; the SITE OWNER (role admin) may edit any UI /
+  // any game — everyone else gets the door
+  if (game.creatorId !== user.id && user.role !== 'admin') return NextResponse.json({ error: 'Not your game!' }, { status: 403 })
 
   const form = await req.formData()
   const data: Record<string, unknown> = { updatedAt: new Date() }

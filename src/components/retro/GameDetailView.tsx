@@ -422,7 +422,7 @@ export function GameDetailView({ id }: { id: string }) {
     try {
       const res = await api<{ gem: boolean }>(`/api/games/${game.id}/gem`, { method: 'POST' })
       setGame({ ...game, gem: res.gem })
-      setToast(res.gem ? 'Marked as a Hidden Gem! 💎' : 'Removed from Hidden Gems.')
+      setToast(res.gem ? 'Marked as a Hidden Gem! ' : 'Removed from Hidden Gems.')
       setTimeout(() => setToast(null), 2400)
     } catch (e) {
       setToast(e instanceof Error ? e.message : 'Failed')
@@ -504,7 +504,7 @@ export function GameDetailView({ id }: { id: string }) {
         <span style={{ color: '#24425f' }}><FxText text={game.name} /></span>
         {game.gem && (
           <span title="An admin marked this game as a Hidden Gem" style={{ marginLeft: 8, fontSize: 10, color: '#8a6d1a', background: '#fdf3d7', border: '1px solid #d9c26a', borderRadius: 8, padding: '1px 8px' }}>
-            💎 Hidden Gem
+             Hidden Gem
           </span>
         )}
         {typeof game.seqId === 'number' && (
@@ -621,7 +621,7 @@ export function GameDetailView({ id }: { id: string }) {
                   rel="noreferrer"
                   style={isSdkSource ? { fontSize: 13, padding: '9px 16px', textDecoration: 'none' } : undefined}
                 >
-                  {isSdkSource ? '⬇ Download the SDK (.zip)' : 'Download Source'}
+                  {isSdkSource ? 'Download the SDK (.zip)' : 'Download Source'}
                 </a>
               </div>
             </div>
@@ -660,8 +660,8 @@ export function GameDetailView({ id }: { id: string }) {
                   <div style={{ width: `${rs.positivePct ?? 0}%` }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#7b8896', marginTop: 3 }}>
-                  <span style={{ color: '#2c6e31' }}>👍 {rs.recCount} recommend</span>
-                  <span style={{ color: '#a03a34' }}>👎 {rs.notRecCount} do not</span>
+                  <span style={{ color: '#2c6e31' }}>{rs.recCount} recommend</span>
+                  <span style={{ color: '#a03a34' }}>{rs.notRecCount} do not</span>
                 </div>
               </div>
             </div>
@@ -835,7 +835,7 @@ export function GameDetailView({ id }: { id: string }) {
                               color: c.rec === 1 ? '#2c6e31' : '#a03a34',
                             }}
                           >
-                            {c.rec === 1 ? '👍 Recommended' : '👎 Not Recommended'}
+                            {c.rec === 1 ? 'Recommended' : 'Not Recommended'}
                           </span>
                         ) : null}
                         {typeof c.rating === 'number' && (
@@ -1026,7 +1026,7 @@ export function GameDetailView({ id }: { id: string }) {
                     onClick={playNow}
                     style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
                   >
-                    ▶ Play now
+                    Play now
                   </button>
                   <button
                     className="rb-link"
@@ -1052,7 +1052,7 @@ export function GameDetailView({ id }: { id: string }) {
                   disabled={busy}
                   style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
                 >
-                  {busy ? 'Preparing...' : '⬇ Download Game File'}
+                  {busy ? 'Preparing...' : 'Download Game File'}
                 </button>
               )}
               {game.fileName && (
@@ -1215,7 +1215,7 @@ export function GameDetailView({ id }: { id: string }) {
                 )}
                 {isAdmin && (
                   <button className="rb-btn" onClick={toggleGem} type="button" style={{ justifySelf: 'start', borderColor: '#d9c26a' }}>
-                    {game.gem ? '💎 Unmark Hidden Gem' : '💎 Mark as Hidden Gem'}
+                    {game.gem ? ' Unmark Hidden Gem' : ' Mark as Hidden Gem'}
                   </button>
                 )}
                 <button className="rb-btn rb-btn-red" onClick={deleteGame} style={{ justifySelf: 'start' }}>

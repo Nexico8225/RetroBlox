@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import path from 'path'
 
-// v6: serve the downloadable game templates with a real attachment header —
+// v7: serve the downloadable game templates with a real attachment header —
 // the /download starter page points its iframe here, so the browser starts
 // the download and never "navigates" to a raw file page.
-const ALLOWED = /^[a-z0-9-]+\.retroplace$/i
+// .retroplace = the game file for the RetroBlox studio player;
+// .zip = a whole Godot 4.5 project (open in Godot, edit, run).
+const ALLOWED = /^[a-z0-9-]+\.(retroplace|zip)$/i
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ file: string }> }) {
   const { file } = await params

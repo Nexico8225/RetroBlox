@@ -11,7 +11,7 @@ export default function PurchaseCancelPage() {
     <Page>
       <Title t="Checkout Cancelled" />
       <div className="rb-box" style={{ maxWidth: 560, margin: '0 auto', padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 34, marginBottom: 6 }}>🚫</div>
+        <div style={{ fontSize: 34, marginBottom: 6 }}></div>
         <div className="rb-panel-head" style={{ marginBottom: 0 }}><span>Checkout cancelled</span></div>
         <div style={{ padding: 16, fontSize: 12, color: '#41586c', lineHeight: 1.8 }}>
           You cancelled at Stripe, so you were <b>not</b> charged and no Tix were added.

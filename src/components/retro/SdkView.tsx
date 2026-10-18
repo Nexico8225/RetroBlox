@@ -3,7 +3,7 @@
 /* ================= RetroBlox SDK page (/sdk) =================
    The CLASSIC BLUE is back (the user liked the old look — v1.1's
    black & white went too far, so the site wears the 2016 blue again).
-   Human words ("Bunny Hop ✅", not paragraphs), and the Unity
+   Human words ("Bunny Hop [YES]", not paragraphs), and the Unity
    version teased as the upcoming system for Unity users. */
 
 import Link from 'next/link'
@@ -32,7 +32,7 @@ const NEW_STUFF: [string, string][] = [
   ['EVERYTHING BEFORE STAYS', 'The paint brush, build mode (B), the F2 quick editor, chat, presence, settings, Color World spawn, 2-stud stairs, shift lock — all still here, still yours.'],
 ]
 
-/* the user's own format: "BunnyHopping(Hold Space to keep jumping)❌ → Bunny Hop✅" */
+/* the user's own format: "BunnyHopping(Hold Space to keep jumping)[NO] → Bunny Hop[YES]" */
 const RENAMED: [string, string][] = [
   ['BunnyHopping(Hold Space to keep jumping)', 'Bunny Hop'],
   ['Shift lock (also SHIFT key)', 'Shift Lock'],
@@ -132,13 +132,13 @@ export function SdkView() {
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent(ZIP_URL)}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', fontSize: 14, padding: '10px 18px' }}>
-              ⬇ Download the RetroBlox Player ({V_TAG}) (.zip)
+              Download the RetroBlox Player ({V_TAG}) (.zip)
             </a>
             <a href="https://raw.githubusercontent.com/Nexico8225/RetroBlox/main/public/godot/retroblox-godot-player.zip" download style={{ fontSize: 11, color: DIM, textDecoration: 'underline', marginLeft: 12 }}>
               mirror: direct from GitHub (always the latest build)
             </a>
             <Link className="rb-btn" href="/ui-studio" style={{ textDecoration: 'none' }}>UI Studio — edit a game's UI</Link>
-            <Link className="rb-btn" href="/templates" style={{ textDecoration: 'none' }}>⬇ Game templates</Link>
+            <Link className="rb-btn" href="/templates" style={{ textDecoration: 'none' }}>Game templates</Link>
             <Link className="rb-btn" href="/avatar" style={{ textDecoration: 'none' }}>Dress your avatar first</Link>
             <Link className="rb-btn" href="/create" style={{ textDecoration: 'none' }}>Publish a game</Link>
           </div>
@@ -170,8 +170,8 @@ export function SdkView() {
                   {RENAMED.map(([bad, good]) => (
                     <div key={bad} style={{ fontSize: 11, fontFamily: 'monospace' }}>
                       <span style={{ color: DIM, textDecoration: 'line-through' }}>{bad}</span>
-                      <span style={{ color: DIM }}> ❌</span>
-                      <span style={{ color: INK, fontWeight: 600 }}>   {good} ✅</span>
+                      <span style={{ color: DIM }}> [NO]</span>
+                      <span style={{ color: INK, fontWeight: 600 }}>   {good} [YES]</span>
                     </div>
                   ))}
                 </div>

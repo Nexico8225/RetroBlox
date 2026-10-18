@@ -408,12 +408,12 @@ export function ProfileView({ id }: { id: string }) {
         {/* Steam-style profile stat chips */}
         <div style={{ padding: '10px 12px', borderTop: '1px solid #e4eaf0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
-            ['🎮 Games Played', profile.gamesPlayed ?? 0, 'games they have hit Play now on'],
+            ['Games Played', profile.gamesPlayed ?? 0, 'games they have hit Play now on'],
             ['⏱ Playtime', stats ? fmtHours(stats.totalSeconds) : '—', 'time played in RetroBlox games'],
-            ['📅 Last 2 Weeks', stats ? fmtHours(stats.weekSeconds) : '—', 'playtime in the last 2 weeks'],
-            ['🛠 Games Created', profile.games.length, 'games published'],
-            ['⭐ Favorites', profile.favoriteGames.length, 'games favorited'],
-            ['👥 Followers', profile.followersCount, 'players following them'],
+            ['Last 2 Weeks', stats ? fmtHours(stats.weekSeconds) : '—', 'playtime in the last 2 weeks'],
+            ['Games Created', profile.games.length, 'games published'],
+            ['Favorites', profile.favoriteGames.length, 'games favorited'],
+            ['Followers', profile.followersCount, 'players following them'],
           ].map(([label, value, title]) => (
             <div
               key={String(label)}

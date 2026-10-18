@@ -20,17 +20,17 @@ interface NotificationRow {
 }
 
 const ICONS: Record<string, string> = {
-  trade_offer: '🔁',
-  trade_message: '💬',
-  trade_accepted: '✅',
-  trade_declined: '🚫',
-  trade_cancelled: '↩️',
-  friend_request: '👋',
-  friend_accepted: '🤝',
-  listing_offer: '💰',
-  listing_sold: '🎉',
-  offer_accepted: '📦',
-  offer_declined: '🚫',
+  trade_offer: '',
+  trade_message: '',
+  trade_accepted: '',
+  trade_declined: '',
+  trade_cancelled: '',
+  friend_request: '',
+  friend_accepted: '',
+  listing_offer: '',
+  listing_sold: '',
+  offer_accepted: '',
+  offer_declined: '',
 }
 
 export default function NotificationsPage() {
@@ -101,7 +101,7 @@ export default function NotificationsPage() {
                   background: n.readAt ? '#fff' : '#eaf4fc', border: '1px solid #e8eef4',
                 }}
               >
-                <span style={{ fontSize: 16 }}>{ICONS[n.type] || '🔔'}</span>
+                <span style={{ fontSize: 16 }}>{ICONS[n.type] || ''}</span>
                 <span style={{ flex: 1 }}>
                   <span style={{ display: 'block', fontSize: 12, fontWeight: n.readAt ? 'normal' : 'bold', color: '#1c2733' }}>{n.title}</span>
                   {n.body && <span style={{ display: 'block', fontSize: 11, color: '#5a6b7b', marginTop: 1 }}>{n.body}</span>}

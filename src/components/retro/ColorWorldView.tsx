@@ -577,7 +577,7 @@ export function ColorWorldView() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               <button className="rb-btn" style={{ fontWeight: tab === 'maps' ? 700 : 400, textDecoration: 'none' }} onClick={() => setTab('maps')}>Maps</button>
               <button className="rb-btn" style={{ fontWeight: tab === 'community' ? 700 : 400, textDecoration: 'none' }} onClick={() => setTab('community')}>Community Map Play</button>
-              <button className="rb-btn rb-btn-blue" style={{ textDecoration: 'none' }} onClick={() => setShowUpload((v) => !v)}>⬆ Upload your map</button>
+              <button className="rb-btn rb-btn-blue" style={{ textDecoration: 'none' }} onClick={() => setShowUpload((v) => !v)}>Upload your map</button>
             </div>
 
             {loadError && (
@@ -598,7 +598,7 @@ export function ColorWorldView() {
                     <div style={{ padding: '8px 10px' }}>
                       <div style={{ fontFamily: 'Verdana', fontWeight: 700, fontSize: 13, color: INK }}>{def.name}</div>
                       <div style={{ fontSize: 11, color: DIM, marginBottom: 8 }}>{def.blurb} · built-in map</div>
-                      <button className="rb-btn rb-btn-green" style={{ width: '100%', textDecoration: 'none', fontSize: 13 }} onClick={() => enterBuiltin(def)}>▶ Play</button>
+                      <button className="rb-btn rb-btn-green" style={{ width: '100%', textDecoration: 'none', fontSize: 13 }} onClick={() => enterBuiltin(def)}>Play</button>
                     </div>
                   </div>
                 ))}
@@ -634,7 +634,7 @@ export function ColorWorldView() {
                           <div style={{ fontSize: 11, color: DIM, marginBottom: 8 }}>
                             by {m.uploader?.username || 'someone'} · {m.plays} play{m.plays === 1 ? '' : 's'}
                           </div>
-                          <button className="rb-btn rb-btn-green" style={{ width: '100%', textDecoration: 'none', fontSize: 13 }} onClick={() => enterCommunity(m)}>▶ Enter map</button>
+                          <button className="rb-btn rb-btn-green" style={{ width: '100%', textDecoration: 'none', fontSize: 13 }} onClick={() => enterCommunity(m)}>Enter map</button>
                         </div>
                       </div>
                     ))}
@@ -698,7 +698,7 @@ export function ColorWorldView() {
                 onClick={useHint}
                 disabled={hintsLeft <= 0}
               >
-                💡 Hint ({hintsLeft} left)
+                Hint ({hintsLeft} left)
               </button>
               <button className="rb-btn" style={{ textDecoration: 'none', fontSize: 11, padding: '5px 10px' }} onClick={resetMap}>Reset</button>
               <button className="rb-btn" style={{ textDecoration: 'none', fontSize: 11, padding: '5px 10px' }} onClick={backToMenu}>Menu</button>

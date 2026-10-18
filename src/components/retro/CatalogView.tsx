@@ -1748,7 +1748,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   }}
                   role="alert"
                 >
-                  <strong style={{ fontSize: 10 }}>⚠ No material colors found in this model.</strong>
+                  <strong style={{ fontSize: 10 }}>Note: No material colors found in this model.</strong>
                   <br />
                   {modelNotice}
                   <br />
@@ -1766,7 +1766,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   }}
                   role="alert"
                 >
-                  <strong style={{ fontSize: 10 }}>⚠ Animation check for this upload.</strong>
+                  <strong style={{ fontSize: 10 }}>Note: Animation check for this upload.</strong>
                   <br />
                   {modelNotice}
                 </div>
@@ -1787,7 +1787,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                 href={`/ugc-templates/${type}-template.png`}
                 download
               >
-                ⬇ Official {TYPE_SINGULAR[type] || type} template
+                Official {TYPE_SINGULAR[type] || type} template
               </a>
             </>
           )}
@@ -2029,7 +2029,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                       {marketRigs.map((i) => <option key={i.assetId} value={i.assetId}>{i.name} · {UGC_TYPE_LABELS[i.type] || i.type}</option>)}
                     </select>
                     <a className="rb-link" style={{ fontSize: 10, display: 'inline-block', marginTop: 5 }} href="/models/retroblox-rig-template.glb" download>
-                      ⬇ Official R6 rig template (.glb) — animate these parts in Blender
+                      Official R6 rig template (.glb) — animate these parts in Blender
                     </a>
                   </div>
                 </div>
