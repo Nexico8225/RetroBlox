@@ -14,22 +14,30 @@ files to make the game YOURS. Everything talks plain HTTP + JSON to
 2. Open Godot → **Import** → pick this folder's `project.godot`.
 3. Press **F5** (Run Project). The login screen appears — sign in with
    your RetroBlox account, sign up, or play as a guest.
-4. You spawn in **COLOR WORLD** — the world is born WHITE and you PAINT it:
-   pick a color from the palette at the bottom of the screen, then click any
-   brick. Paint every part to hear WORLD COMPLETE! Press **ESC** for the
-   menu (People / Studio / Settings), **Enter** to chat.
+4. You spawn on the **HAPPY BASEPLATE** — the classic sandbox: run with
+   **WASD**, jump with **SPACE**, walk up the stairs fort and **CLIMB the
+   grey truss ladder** to the sky platform. Press **ESC** for the menu
+   (People / Studio / Settings), **Enter** to chat. Want Color World
+   (paint every brick)? Pick it from the place list in the menu.
 5. Back on the login screen there is a **STUDIO** button — the organized
    door to the editor scenes (UI / Map / Player).
 
 You are now running a real multiplayer RetroBlox place.
 
-## 2. Paint the world (the Color World mechanic)
+## 2. The sandbox you drop into (walk, jump, CLIMB)
 
-The game world is a COLOR WORLD: every part accepts the brush. **LEFT
-CLICK** paints the brick under your cursor with the picked palette color
-(the palette of 12 classic swatches lives bottom-center — white is the
-eraser). The counter shows how many parts you painted in places flagged
-`"paint": true`, and painting every part fires WORLD COMPLETE.
+You spawn on the classic **Happy Baseplate**: run with **WASD**, jump with
+**SPACE**, walk up the stairs fort and **CLIMB the grey truss ladder** to the
+sky platform — then hop off onto the trampoline. That is the SDK's default
+place: a plain sandbox made to be walked and climbed, no gimmick.
+
+**Painting (Color World) is still in the kit:** open the menu (ESC) →
+People → Places → **Color World**, or pick any other place — the world is
+born white, **LEFT CLICK** paints the brick under your cursor with the
+picked palette color (the palette of 12 classic swatches lives
+bottom-center — white is the eraser). The counter shows how many parts you
+painted in places flagged `"paint": true`, and painting every part fires
+WORLD COMPLETE.
 
 **BUILD MODE — edit the map while you play:** press **B** and LEFT CLICK
 places a 4x1x4 brick (in your brush color!) on any surface you aim at;

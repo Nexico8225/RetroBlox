@@ -400,7 +400,9 @@ export function HomeView() {
   return (
     <div>
       {/* 2016-style welcome — a white card, big Source Sans Pro Light
-          "Hello, <name>!" exactly like the old home page, actions on the right */}
+          "Hello, <name>!" exactly like the old home page, actions on the right.
+          The site owner can hide / rewrite all of it at /site-ui. */}
+      {hero.show && (
       <section
         className="rb-box"
         style={{
@@ -423,23 +425,31 @@ export function HomeView() {
           style={{ flexShrink: 0, border: '1px solid var(--rb-border)', borderRadius: 4, background: '#fff' }}
         />
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div className="rb-page-title">{user ? `Hello, ${user.username}!` : 'Welcome to RetroBlox'}</div>
-          <div style={{ fontSize: 12, color: 'var(--rb-text-dim)', marginTop: 4 }}>
-            Publish a game, upload a video, dress your blockhead, or hang out in the lounge.
+          <div className="rb-page-title">
+            {user
+              ? hero.memberTitle.replace(/\{name\}/g, user.username)
+              : hero.guestTitle.replace(/\{name\}/g, '') || `Welcome to ${siteName}`}
           </div>
+          <div style={{ fontSize: 12, color: 'var(--rb-text-dim)', marginTop: 4 }}>{hero.subtitle}</div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <Link className="rb-btn rb-btn-red" href="/create" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
-            + Publish a Game
-          </Link>
-          <Link className="rb-btn rb-btn-green" href="/community/new?video=1" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
-            Post a Video
-          </Link>
-          <Link className="rb-btn" href="/community" style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}>
-            Community
-          </Link>
+          {hero.ctas.map(
+            (c, i) =>
+              c.show &&
+              c.label && (
+                <Link
+                  key={`${c.href}-${i}`}
+                  className={`rb-btn ${i === 0 ? 'rb-btn-red' : i === 1 ? 'rb-btn-green' : ''}`}
+                  href={c.href || '/games'}
+                  style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}
+                >
+                  {c.label}
+                </Link>
+              )
+          )}
         </div>
       </section>
+      )}
 
       {/* Friends strip (members only — guests have no friends list yet) */}
       {user && (
@@ -557,7 +567,7 @@ export function HomeView() {
             Free desktop player for Windows / Mac / Linux — walk, jump and build in every game on here.
           </div>
         </div>
-        <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent('/godot/retroblox-godot-player.zip?v=6.0')}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: 12 }}>
+        <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent('/godot/retroblox-godot-player.zip?v=7.0')}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: 12 }}>
           Download the game
         </a>
         <Link className="rb-link" href="/templates" style={{ fontSize: 11 }}>Game templates</Link>

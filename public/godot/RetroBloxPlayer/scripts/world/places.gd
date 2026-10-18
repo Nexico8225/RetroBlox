@@ -84,7 +84,8 @@ static func by_id(id: String) -> Dictionary:
         for def in all():
                 if def["id"] == id:
                         return def
-        return color_world()
+        # unknown id -> the classic walk-and-climb sandbox (never Color World)
+        return baseplate()
 
 
 ## ---------------------------------------------------------------- Color World

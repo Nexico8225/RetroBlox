@@ -10,7 +10,7 @@ import Link from 'next/link'
 
 const VERSION = 'v6 "UI STUDIO"'
 const V_TAG = 'v6'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=6.0'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=7.0'
 
 const INK = '#1c3a52'
 const DIM = '#5a6b7b'

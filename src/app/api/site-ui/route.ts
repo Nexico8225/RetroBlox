@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { DEFAULT_SITE_UI, normalizeSiteUi } from '@/lib/siteui'
+import { DEFAULT_SITE_UI, normalizeSiteUi } from '@/lib/siteui-config'
 
 /* ------------------------------------------------------------------
    /api/site-ui — the WEB UI the owner edits at /site-ui.

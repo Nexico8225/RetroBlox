@@ -92,10 +92,11 @@ func _ready() -> void:
         Session.check_dev()
         place = Session.current_place
         if place.is_empty():
-                # v13.0: signing in drops you straight into COLOR WORLD — the world
-                # born white that YOU paint brick by brick (the classic baseplate
-                # and every other place still live in scripts/world/places.gd)
-                place = PlacesScript.by_id("colorworld")
+                # THE SDK IS THE WALK-AND-CLIMB SANDBOX: no place selected ->
+                # the classic Happy Baseplate (stairs fort, truss ladder to
+                # climb, trampoline). Color World stays one click away in the
+                # place list — it is no longer the default.
+                place = PlacesScript.by_id("baseplate")
         _session_start_ms = Time.get_ticks_msec()
 
         # ---- the loading veil goes up FIRST: the world + avatar + HUD are
