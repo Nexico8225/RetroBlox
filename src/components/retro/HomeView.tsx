@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRetro, api, fmtCount, flash, GENRES, type RetroUser } from '@/lib/store'
+import { useSiteUi, type SiteUiConfig } from '@/lib/siteui'
 import { Avatar, OnlineDot } from './Shell'
 import { FxText } from '@/lib/textfx'
 import { VideoCard, type VideoSummary } from './VideosView'
@@ -364,6 +365,8 @@ function CommunityPulse() {
 /* ---------------- Home ---------------- */
 
 export function HomeView() {
+  const hero = useSiteUi((s) => s.config.hero)
+  const siteName = useSiteUi((s) => s.config.siteName)
   const { user, pendingRequests } = useRetro()
   const [friends, setFriends] = useState<RetroUser[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])

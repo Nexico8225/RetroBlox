@@ -811,3 +811,9 @@ model UgcPricePoint {
 
   @@index([itemId, createdAt])
 }
+
+model SiteUi {
+  id        Int      @id @default(1)
+  config    String // JSON blob of the web UI editor settings (owner edits at /site-ui)
+  updatedAt DateTime @updatedAt
+}
