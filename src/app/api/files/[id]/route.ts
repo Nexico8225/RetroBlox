@@ -81,6 +81,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const buf = Buffer.from(file.data)
     const size = buf.length
 
+    // v6: game-file downloads carry their game's identity — when the game
+    // page downloads a .retroplace with ?game=<id>, inject the id so the
+    // desktop player can fetch the owner's PUBLISHED UI for everyone
+    const gameId = new URL(req.url).searchParams.get('game')
+    if (gameId && /\.(retroplace|json)$/i.test(file.filename || '') && buf.length < 2_000_000) {
+      try {
+        const parsed: unknown = JSON.parse(buf.toString('utf8'))
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const obj = parsed as Record<string, unknown>
+          if (!obj.gameId) {
+            obj.gameId = gameId
+            const out = JSON.stringify(obj)
+            return new NextResponse(out, {
+              headers: {
+                ...baseHeaders,
+                'Content-Type': 'application/json',
+                'Content-Length': String(Buffer.byteLength(out)),
+                'Content-Disposition': `attachment; filename="${path.basename(file.filename)}"`,
+              },
+            })
+          }
+        }
+      } catch { /* not JSON — serve raw bytes below */ }
+    }
+
     const range = req.headers.get('range')
     if (range && !download) {
       const m = /bytes=(\d*)-(\d*)/.exec(range)

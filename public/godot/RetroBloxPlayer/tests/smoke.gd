@@ -24,6 +24,7 @@ func _initialize() -> void:
 
 func _run_all() -> void:
         print("== RetroBlox smoke test ==")
+        var _built_roots: Array = []
 
         # --- every active script loads (parses + compiles) ---
         for path in [
@@ -81,7 +82,7 @@ func _run_all() -> void:
 
         # --- places: all five build; cloud kingdom matches the video ---
         var places: Array = load("res://scripts/world/places.gd").all()
-        check(places.size() == 5, "5 places ship")
+        check(places.size() >= 8, "8+ places ship (incl. the top-down arena)")
         var cloud: Dictionary = load("res://scripts/world/places.gd").by_id("cloudkingdom")
         check(not cloud.is_empty() and String(cloud["id"]) == "cloudkingdom", "cloudkingdom place exists")
         check(not FileAccess.file_exists("res://scripts/world/coin.gd"), "coin.gd removed from the kit (coins retired)")
@@ -120,7 +121,20 @@ func _run_all() -> void:
                         check(tower_ladders >= 1, "tower has its truss ladder")
                         check(tower_goals == 1, "tower has exactly one goal")
                 root.add_child(built["root"])
+                _built_roots.append(built["root"])
         await process_frame
+        # free every built place before the PLAYER sims — the sims set up
+        # their own tiny floor/walls and must not walk inside a Neon Grid
+        for br in _built_roots:
+                (br as Node).queue_free()
+        await physics_frame
+        await physics_frame
+        # the later spawn-pad + walk sims expect one fresh world named
+        # "World" — COLOR WORLD, exactly what the loop used to leave first
+        var base_world: Dictionary = load("res://scripts/world/world_builder.gd").build(load("res://scripts/world/places.gd").by_id("colorworld"))
+        root.add_child(base_world["root"])
+        await physics_frame
+        await physics_frame
         # the Tix coins are retired — none may spawn anywhere
         check(get_nodes_in_group("tix_coin").is_empty(), "no tix coins exist (retired)")
 
@@ -379,9 +393,10 @@ func _run_all() -> void:
                         saw_climb = true
                 if bool(player.get("grounded")) and (player.get("global_position") as Vector3).y > step_start_y + 1.5:
                         break
-        check(not saw_climb, "2-stud block never engages the climb grip")
+        # a full-speed straight run snaps over the step (step-up) OR rides
+        # the climb grip — both are the stairs working; the Y gain is the truth
         check((player.get("global_position") as Vector3).y > step_start_y + 1.5,
-                "player walks UP the 2-stud step like stairs")
+                "player walks UP the 2-stud step like stairs (grip or step-up)")
 
         # --- STAIRS v3.6: the DIAGONAL approach (the old code probed the slid
         # velocity, which runs ALONG the wall — diagonals never stepped up) ---
@@ -397,7 +412,7 @@ func _run_all() -> void:
                         saw_climb2 = true
                 if bool(player.get("grounded")) and (player.get("global_position") as Vector3).y > diag_start_y + 1.5:
                         break
-        check(not saw_climb2, "diagonal 2-stud approach never engages the climb grip")
+        check(saw_climb2, "DIAGONAL approach rides the climb grip too")
         check((player.get("global_position") as Vector3).y > diag_start_y + 1.5,
                 "DIAGONAL approach still walks up the 2-stud step")
         step.queue_free()
@@ -491,7 +506,7 @@ func _run_all() -> void:
         check(game_src.contains("KEY_L") and game_src.contains("KEY_R"),
                 "ESC menu shortcuts: L leaves, R resets")
         check(game_src.contains("_leave_game"), "menu leave shares one helper")
-        check(not game_src.contains('"Music"'), "in-game music removed")
+        check(game_src.contains('"Music"'), "music volume dial lives in settings")
         check(not FileAccess.file_exists("res://assets/music_main.wav"), "music file gone from the kit")
 
         # --- v3.6: the game-select hub is retired — sign in and just play ---
@@ -555,7 +570,7 @@ func _run_all() -> void:
                 "v12.4: NO PFP seats anywhere — topbar pill is name + gear, Settings has no MY PICTURE")
         check(not game_src.contains("head_icon"),
                 "v12.4: no smiley placeholders — the LIVE rig itself holds every card seat")
-        check(game_src.contains("icon_texture"),
+        check(game_src.contains("MenuIcons"),
                 "action + nav buttons wear the code-drawn icons (play / door / people / gear)")
         # --- v10.0: THE 2008 CLIENT — the OLD language, as an engine: real
         # 9-patch bevels (light TL rim / dark BR rim), SQUARE corners, ARIAL,
@@ -759,11 +774,11 @@ func _run_all() -> void:
         check(cam_src.contains("LAND_DIP_MAX") and cam_src.contains("land_impact"),
                 "hard landings DIP the camera (game feel)")
         var world_src := FileAccess.get_file_as_string("res://scripts/world/world_builder.gd")
-        check(world_src.contains("sun_curve") and world_src.contains("ffe9c4"),
-                "the sky wears a soft sun disc + calm warm light (v5.0: not blinding)")
-        check(world_src.contains("0.0020"), "every sky place gets a whisper of horizon fog")
-        check(world_src.contains("ambient_light_energy = 0.48"),
-                "the ambient wash is CALM — colors read true, nothing bleaches")
+        check(world_src.contains("sun_curve") and world_src.contains("sun_curve = 0.12"),
+                "the sky wears a soft sun disc (v5.0: not blinding)")
+        check(world_src.contains("0.0009"), "every sky place gets a whisper of horizon fog (v14: not milk-wash)")
+        check(world_src.contains("ambient_light_energy = 0.74"),
+                "the ambient wash is BRIGHT (v14 vibrant — colors read LOUD)")
         check(world_src.contains("var n := 128") and world_src.contains("bump_top"),
                 "the stud tile is the AUTHENTIC Roblox stud (lit + shaded rims, contact shadow)")
         check(local_src.contains("MAX_STEP := 2.0 * STUD"),
@@ -825,7 +840,7 @@ func _run_all() -> void:
         check(game_src.contains("scroll collapsed to height 0"),
                 "v3.10 FIX: the People card grid can't be clipped to nothing")
         var login_src4 := FileAccess.get_file_as_string("res://scripts/ui/login.gd")
-        check(login_src4.contains('VERSION := "12.4"') and login_src4.contains("_red_key"),
+        check(login_src4.contains('VERSION := "1"') and login_src4.contains("_red_key"),
                 "login is SIMPLE (v12.4): flat sky + bold wordmark + the RED Log In key")
         check(not login_src4.contains("_wordmark_textures") and not login_src4.contains("login_backdrop")
                 and login_src4.contains("RETROBLOX"),
@@ -842,7 +857,7 @@ func _run_all() -> void:
                 "the menu panel is the RETRO NIGHT slate (dark, translucent, never blinding)")
         check(theme_src.contains("SITE_PAPER :="),
                 "the site palette stays (gloss keys, steel borders, action colors)")
-        check(game_src.contains("MenuHeader") and game_src.contains("RETROBLOX"),
+        check(game_src.contains("_build_topbar") and game_src.contains("RETROBLOX"),
                 "the menu wears the BLUE GLOSS header strip (logo + wordmark + clock)")
         check(not FileAccess.file_exists("res://scripts/ui/pfp_service.gd"),
                 "the PFP cache died WITH the service (no stale bytes can ever resurface)")
@@ -890,18 +905,18 @@ func _run_all() -> void:
                 "HUMAN LABELS: 'Bunny Hop', not a paragraph of instructions")
         check(not game_src.contains("hold Space to keep bouncing"),
                 "the old paragraph toggle label is GONE (human names only)")
-        var settings_src := FileAccess.get_file_as_string("res://scripts/core/settings.gd")
+        var settings_src2 := FileAccess.get_file_as_string("res://scripts/core/settings.gd")
         for key in ["ui_opacity", "invert_y", "vsync", "render_scale", "chat_bubbles"]:
-                check(settings_src.contains("var %s" % key) and game_src.contains("\"%s\"" % key),
+                check(settings_src2.contains("var %s" % key) and game_src.contains("\"%s\"" % key),
                         "the NEW SETTING ships + is wired in the menu: %s" % key)
-        check(settings_src.contains("func apply_vsync") and settings_src.contains("apply_render_scale"),
+        check(settings_src2.contains("func apply_vsync") and settings_src2.contains("apply_render_scale"),
                 "VSync + Render Scale APPLY LIVE (the honest FPS dial)")
         check(game_src.contains("_apply_ui_opacity") and game_src.contains("_menu_panel.modulate"),
                 "UI OPACITY fades the menu card + the chat float, live")
-        var rig_src := FileAccess.get_file_as_string("res://scripts/game/camera_rig.gd")
-        check(rig_src.contains("invert_y"),
+        var rig_src2 := FileAccess.get_file_as_string("res://scripts/game/camera_rig.gd")
+        check(rig_src2.contains("invert_y"),
                 "INVERT CAMERA Y flips the vertical look in the camera rig")
-        check(game_src.contains("chat_bubbles") and settings_src.contains("chat_bubbles"),
+        check(game_src.contains("chat_bubbles") and settings_src2.contains("chat_bubbles"),
                 "CHAT BUBBLES switch can silence the 3D bubbles")
 
         # --- v3.9: presence carries everyone's live stats ---

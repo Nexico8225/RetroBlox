@@ -158,7 +158,12 @@ export function GameDetailView({ id }: { id: string }) {
       const res = await api<{ downloads: number; fileUrl: string }>(`/api/games/${game.id}/download`, {
         method: 'POST',
       })
-      triggerFile(res.fileUrl, game.fileName || 'game')
+      // v6: the classic download dance — a bare page opens, the download
+      // starts by itself, the tab closes. Game files carry ?game=<id> so the
+      // desktop player can load the owner's PUBLISHED UI for everyone.
+      const dlUrl = `${res.fileUrl}${res.fileUrl.includes('?') ? '&' : '?'}dl=1&game=${game.id}`
+      const dlName = game.fileName || 'game'
+      window.open(`/download?u=${encodeURIComponent(dlUrl)}&n=${encodeURIComponent(dlName)}`, '_blank')
       localStorage.setItem(`rb_dl_${game.id}`, '1')
       setDownloaded(true)
       setGame({ ...game, downloads: res.downloads })
@@ -178,7 +183,7 @@ export function GameDetailView({ id }: { id: string }) {
     if (user) {
       api(`/api/games/${game.id}/play`, { method: 'POST' }).catch(() => {})
     }
-    window.open(`/api/files/${game.fileId}`, '_blank')
+    window.open(`/download?u=${encodeURIComponent(`/api/files/${game.fileId}?dl=1&game=${game.id}`)}&n=${encodeURIComponent(game.fileName || 'game')}`, '_blank')
   }
 
   function triggerFile(url: string, name: string) {
@@ -611,8 +616,9 @@ export function GameDetailView({ id }: { id: string }) {
                 </div>
                 <a
                   className={isSdkSource ? 'rb-btn rb-btn-green' : 'rb-btn'}
-                  href={`/api/files/${game.sourceFileId}?dl=1`}
-                  download={game.sourceFileName || 'source.zip'}
+                  href={`/download?u=${encodeURIComponent(`/api/files/${game.sourceFileId}?dl=1`)}&n=${encodeURIComponent(game.sourceFileName || 'source.zip')}`}
+                  target="_blank"
+                  rel="noreferrer"
                   style={isSdkSource ? { fontSize: 13, padding: '9px 16px', textDecoration: 'none' } : undefined}
                 >
                   {isSdkSource ? '⬇ Download the SDK (.zip)' : 'Download Source'}

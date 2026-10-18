@@ -120,6 +120,7 @@ model Game {
   views          Int          @default(0) // game page views
   statsJson      String       @default("{}") // daily {"YYYY-MM-DD": {v: views, d: downloads}}
   mediaJson      String       @default("[]") // Steam-style media: [{fileId,type:"video"|"image",name}]
+  uiConfigJson   String       @default("") // v6: the owner's PUBLISHED game UI — widget JSON from /ui-studio, spawned for every player
   gem            Boolean      @default(false) // Hidden Gem — marked by admins, powers the Hidden Gems filter
   groupId        String? // set when the game was published into a group
   group          Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)

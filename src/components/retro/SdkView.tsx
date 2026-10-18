@@ -8,15 +8,17 @@
 
 import Link from 'next/link'
 
-const VERSION = 'v5 "TOP-DOWN"'
-const V_TAG = 'v5'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=5.0'
+const VERSION = 'v6 "UI STUDIO"'
+const V_TAG = 'v6'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=6.0'
 
 const INK = '#1c3a52'
 const DIM = '#5a6b7b'
 const EDGE = '#b6c0cb'
 
 const NEW_STUFF: [string, string][] = [
+  ['UI STUDIO — EDIT THE GAME UI ON THE WEB', 'A new page (sidebar → UI Studio) where a game\'s OWNER composes the UI EVERY player sees: add TEXT, ICONS, IMAGES (from a URL) and BUTTONS that open real links, drag them anywhere, then dress them with CLICK + HOVER FX — punch, bounce, smooth-scale-then-rotate, glow, fade — with power + speed dials so your mix is YOUR fx. Publish and the desktop player spawns it for everyone (personal F2 edits stay private).'],
+  ['DOWNLOADS DO THE CLASSIC DANCE', 'Every download button now opens a bare little page — nothing on it but the url — the download starts by itself and the tab closes, exactly like the big download sites. Game files also carry their game\'s ID now, so published UIs load for anyone who downloaded that game.'],
   ['TOP-DOWN MODE + BRICK ARENA', 'A whole new way to play: places can ask for the TOP-DOWN camera ("cam": "topdown" in the place data) — the view parks high above you and WASD moves up/left/down/right ON THE SCREEN like a board game. The new built-in BRICK ARENA place plays top-down: cross the grey maze, dodge the red lava, bounce over the corner shortcuts, reach the gold vault. Perfect for dungeon / tower-defense / shooter ideas.'],
   ['GAME TEMPLATES — DOWNLOAD & PLAY', 'A new /templates page with ready-made game files anyone can download: Brick Arena (top-down), Paint World, Classic Obby, Baseplate and the My Place starter. Each is a .retroplace file — download, then STUDIO > OPEN GAME FILE and it plays. Game devs can open the same file in the Map Editor, change everything and save their own version.'],
   ['ROLES — PLAYERS PLAY, GAME DEVS EDIT', 'Three kinds of people: PLAYERS play the game, USERS use the website, GAME DEVS make and edit games. The Studio checks your account when it opens and wears a ROLE chip: GAME DEV unlocks every editor scene; PLAYERS get the editors locked — with a one-sentence tell of how in (publish any game on the site, a Web game counts, and a BECOME A GAME DEV button opens the page for you). The same gate rides the F2 UI editor in-game and the ESC Studio tab.'],
@@ -129,12 +131,13 @@ export function SdkView() {
             anyone in the same place <b style={{ fontWeight: 600 }}>across the internet</b>. No LAN needed, ever.
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <a className="rb-btn rb-btn-green" href={ZIP_URL} download style={{ textDecoration: 'none', fontSize: 14, padding: '10px 18px' }}>
+            <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent(ZIP_URL)}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', fontSize: 14, padding: '10px 18px' }}>
               ⬇ Download the RetroBlox Player ({V_TAG}) (.zip)
             </a>
             <a href="https://raw.githubusercontent.com/Nexico8225/RetroBlox/main/public/godot/retroblox-godot-player.zip" download style={{ fontSize: 11, color: DIM, textDecoration: 'underline', marginLeft: 12 }}>
               mirror: direct from GitHub (always the latest build)
             </a>
+            <Link className="rb-btn" href="/ui-studio" style={{ textDecoration: 'none' }}>UI Studio — edit a game's UI</Link>
             <Link className="rb-btn" href="/templates" style={{ textDecoration: 'none' }}>⬇ Game templates</Link>
             <Link className="rb-btn" href="/avatar" style={{ textDecoration: 'none' }}>Dress your avatar first</Link>
             <Link className="rb-btn" href="/create" style={{ textDecoration: 'none' }}>Publish a game</Link>

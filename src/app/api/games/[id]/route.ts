@@ -205,6 +205,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (form.get('engine') === 'Web') data.engine = 'Web'
   }
 
+  // v6: the owner publishes their GAME UI from /ui-studio — widget JSON the
+  // desktop player fetches and spawns for EVERY player of this game
+  const uiConfig = form.get('uiConfig')
+  if (typeof uiConfig === 'string' && uiConfig.trim()) {
+    if (uiConfig.length > 100_000) return NextResponse.json({ error: 'UI config too large (max 100KB).' }, { status: 400 })
+    let parsed: unknown
+    try { parsed = JSON.parse(uiConfig) } catch { return NextResponse.json({ error: 'UI config is not valid JSON.' }, { status: 400 }) }
+    const obj = parsed as { widgets?: unknown }
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.widgets)) {
+      return NextResponse.json({ error: 'UI config must be { widgets: [...] }.' }, { status: 400 })
+    }
+    if (obj.widgets.length > 120) return NextResponse.json({ error: 'Too many widgets (max 120).' }, { status: 400 })
+    data.uiConfigJson = uiConfig
+  }
+  const clearUi = form.get('clearUiConfig')
+  if (clearUi === '1') data.uiConfigJson = ''
+
   // append new media to the Steam-style gallery
   let current: { fileId: string; type: string; name: string }[] = []
   try {

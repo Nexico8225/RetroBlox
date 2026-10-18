@@ -16,6 +16,7 @@ var ui_scale := 1.0               # global HUD/menu scale (0.6 .. 1.6)
 var elements: Dictionary = {}     # id -> {"dx": float, "dy": float, "scale": float, "text": String}
 var labels: Array = []            # [{id, text, x, y, size, color}] — the details THEY add
 var widgets: Array = []           # [{id, kind, x, y, w, h, text, size, color}] — UI EDITOR builds (v14.0)
+var server_widgets: Array = []    # v6.0: the GAME OWNER's published UI (from /ui-studio on the site) — everyone sees these; never saved to user://
 
 
 func _ready() -> void:
@@ -87,8 +88,23 @@ func clear_all() -> void:
         elements.clear()
         labels.clear()
         widgets.clear()
+        server_widgets.clear()
         ui_scale = 1.0
         save_config()
+
+
+# ---------------------------------------------------------------- server UI (v6.0)
+
+## The game's OWNER published a UI on the site — the game fetches it at
+## startup (game.gd) and hands it here. Runtime only: it belongs to the
+## game, not to this device, so it never touches user://ui_config.json.
+func apply_server(widgets_in: Array) -> void:
+        var clean: Array = []
+        for w in widgets_in:
+                if typeof(w) == TYPE_DICTIONARY and String((w as Dictionary).get("kind", "")) != "":
+                        clean.append(w)
+        server_widgets = clean
+        changed.emit()
 
 
 # ---------------------------------------------------------------- custom labels

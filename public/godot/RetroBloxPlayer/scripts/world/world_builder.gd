@@ -265,15 +265,13 @@ static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> vo
                 "flower":
                         _flower(root, pos, _vivid(Color(prop.get("c", "e8333f"))))
                 "fence":
-                        var fs: Array = prop.get("s", [6, 1.4, 0.35])
-                        _fence(root, pos, Vector3(float(fs[0]), float(fs[1]), float(fs[2])), prop.get("yaw", 0.0))
+                        _fence(root, pos, _s3(prop.get("s", [6, 1.4, 0.35]), Vector3(6, 1.4, 0.35)), prop.get("yaw", 0.0))
                 "crate":
-                        var cs: Array = prop.get("s", [2.4, 2.4, 2.4])
-                        _crate(root, pos, Vector3(float(cs[0]), float(cs[1]), float(cs[2])) * STUD)
+                        _crate(root, pos, _s3(prop.get("s", [2.4, 2.4, 2.4]), Vector3(2.4, 2.4, 2.4)) * STUD)
                 "cloud":
                         _cloud(root, pos, float(prop.get("s", 6.0)))
                 "cloudpad":
-                        var ps: Array = prop.get("s", [8, 8])
+                        var ps := _s3(prop.get("s", [8, 8]), Vector3(8, 8, 0))
                         _cloudpad(root, pos, Vector2(float(ps[0]), float(ps[1])) * STUD, tex)
                 "sign":
                         _sign(root, pos, String(prop.get("title", "")), String(prop.get("text", "")),
@@ -286,8 +284,20 @@ static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> vo
                 "house":
                         _house(root, pos)
                 "snow":
-                        var ss: Array = prop.get("s", [5, 2, 5])
-                        _snow(root, pos, Vector3(float(ss[0]), float(ss[1]), float(ss[2])))
+                        _snow(root, pos, _s3(prop.get("s", [5, 2, 5]), Vector3(5, 2, 5)))
+
+
+## Prop sizes may arrive as [x,y,z] OR a single number ("s": 2 = a 2-stud
+## cube — the docs' own shorthand). Accept both so one typo can't crash a
+## whole place build.
+static func _s3(v: Variant, fallback: Vector3) -> Vector3:
+        if typeof(v) == TYPE_ARRAY and (v as Array).size() >= 3:
+                return Vector3(float(v[0]), float(v[1]), float(v[2]))
+        if typeof(v) == TYPE_ARRAY and (v as Array).size() == 2:
+                return Vector3(float(v[0]), float(v[1]), fallback.z)
+        if typeof(v) in [TYPE_INT, TYPE_FLOAT]:
+                return Vector3(float(v), float(v), float(v))
+        return fallback
 
 
 static func _tree(root: Node3D, pos: Vector3, h: float) -> void:

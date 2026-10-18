@@ -21,6 +21,7 @@ var _dev_checked := false
 var avatar: Dictionary = {}        # own /api/platform/me payload ({} for guests)
 var avatar_cache: Dictionary = {}  # userId -> avatar payload (remote players)
 var current_place: Dictionary = {} # legacy hub pick — empty now: login drops you straight into baseplate
+var server_ui_game := ""       # v6.0: the game id whose PUBLISHED UI to fetch (set when a .retroplace with "gameId" opens)
 
 
 func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role: String, p_seq: int = 0) -> void:

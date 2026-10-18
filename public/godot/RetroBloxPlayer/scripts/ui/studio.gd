@@ -286,5 +286,11 @@ func _open_game_file(path: String) -> void:
         var pr: Variant = d.get("props", [])
         if typeof(pr) == TYPE_ARRAY and not (pr as Array).is_empty():
                 def["props"] = pr
+        # v6.0: files downloaded from a game page carry that game's id — the
+        # game then fetches the owner's PUBLISHED UI from the site for everyone
+        if d.has("gameId") and String(d.get("gameId", "")) != "":
+                Session.server_ui_game = String(d.get("gameId"))
+        else:
+                Session.server_ui_game = ""
         Session.current_place = def
         get_tree().change_scene_to_file("res://scenes/game.tscn")

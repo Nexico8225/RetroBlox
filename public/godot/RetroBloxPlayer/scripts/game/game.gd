@@ -498,6 +498,12 @@ func _build_hud() -> void:
                         _custom_healthbars.append(n)
                         (n as ProgressBar).value = _custom_health01 * 100.0
 
+        # ---- v6.0: the GAME OWNER's published UI — fetched from the site so
+        # EVERY player sees it (the owner edits it at /ui-studio). Personal
+        # widgets from the local UI Editor still render on top of these.
+        if Session.server_ui_game != "":
+                _fetch_server_ui()
+
         # ---- center: esc menu with the icon rail (People / Settings) ----
         _menu = _build_menu()
         # the shared retro theme never reaches a CanvasLayer on its own —
@@ -827,6 +833,25 @@ func _toast_style() -> StyleBox:
 ## v14.0 UI EDITOR hookup — your custom widgets talk back here: pressing
 ## one of your buttons (or submitting your text box) pops a toast. The
 ## HUD is yours; make it say things.
+## v6.0: fetch the game's PUBLISHED UI (owner-authored on the site) and
+## re-spawn the custom widget layer — server widgets under, personal over.
+func _fetch_server_ui() -> void:
+        var res: Dictionary = await Api.get_json("/api/games/%s/ui-config" % Session.server_ui_game)
+        if not bool(res.get("ok", false)):
+                return  # no published UI / offline — local widgets only
+        var cfg: Variant = res.get("uiConfig", {})
+        if typeof(cfg) != TYPE_DICTIONARY:
+                return
+        var list: Variant = (cfg as Dictionary).get("widgets", [])
+        if typeof(list) != TYPE_ARRAY or (list as Array).is_empty():
+                return
+        UiConfig.apply_server(list)
+        for n in UiWidgetsScript.spawn_all(hud, self):
+                if n.has_meta("custom_health"):
+                        _custom_healthbars.append(n)
+                        (n as ProgressBar).value = _custom_health01 * 100.0
+
+
 func _custom_widget_action(txt: String) -> void:
         _notify(txt, false)
 

@@ -30,6 +30,22 @@ const TEMPLATES: Tpl[] = [
     parts: 32,
   },
   {
+    file: 'top-down-dungeon.retroplace',
+    icon: '🏰',
+    name: 'Dungeon — Top-Down',
+    desc: 'Four stone rooms joined by dark corridors: checkpoint braziers light the way, lava pits fill the dead ends and a GOLD treasure vault waits behind the last door. Classic dungeon-crawl base.',
+    badges: ['TOP-DOWN CAMERA', 'CHECKPOINTS', 'BOSS VAULT'],
+    parts: 37,
+  },
+  {
+    file: 'top-down-neon-grid.retroplace',
+    icon: '⚡',
+    name: 'Neon Grid — Top-Down',
+    desc: 'A black arcade board with glowing cyan grid lines, red laser walls that delete you and yellow bounce pads that fling you across the map. Reach the humming PINK CORE. Fast, loud, arcade.',
+    badges: ['TOP-DOWN CAMERA', 'LASERS', 'BOUNCE CHAINS'],
+    parts: 30,
+  },
+  {
     file: 'paint-world.retroplace',
     icon: '🎨',
     name: 'Paint World',
@@ -100,7 +116,7 @@ export function TemplatesView() {
                 <span key={b} style={{ fontSize: 9, fontWeight: 700, color: '#00639e', background: '#e1f2fb', border: '1px solid #b5d9ee', padding: '2px 7px', borderRadius: 3 }}>{b}</span>
               ))}
             </div>
-            <a className="rb-btn rb-btn-green" href={`/templates/${t.file}`} download style={{ textDecoration: 'none', textAlign: 'center', fontSize: 12, padding: '8px 12px' }}>
+            <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent(`/api/template/${t.file}`)}&n=${encodeURIComponent(t.file)}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', textAlign: 'center', fontSize: 12, padding: '8px 12px' }}>
               ⬇ Download {t.file}
             </a>
           </div>

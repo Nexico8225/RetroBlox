@@ -25,7 +25,7 @@ class_name UiWidgets
 
 const RETRO := preload("res://scripts/ui/retro_theme.gd")
 
-const KINDS: Array = ["button", "label", "panel", "textbox", "healthbar", "money"]
+const KINDS: Array = ["button", "label", "panel", "textbox", "healthbar", "money", "icon", "image"]
 
 ## The shared 12-color retro palette (same family as the paint brush)
 const SWATCHES: Array = [
@@ -34,7 +34,8 @@ const SWATCHES: Array = [
 ]
 
 const DEFAULT_SIZE := {"button": [150.0, 42.0], "label": [160.0, 26.0], "panel": [220.0, 120.0],
-        "textbox": [190.0, 36.0], "healthbar": [200.0, 20.0], "money": [110.0, 30.0]}
+        "textbox": [190.0, 36.0], "healthbar": [200.0, 20.0], "money": [110.0, 30.0],
+        "icon": [48.0, 48.0], "image": [160.0, 120.0]}
 
 
 static func kind_title(kind: String) -> String:
@@ -45,12 +46,15 @@ static func kind_title(kind: String) -> String:
                 "textbox": return "Text Box"
                 "healthbar": return "Health Bar"
                 "money": return "Money"
+                "icon": return "Icon"
+                "image": return "Image"
         return kind.capitalize()
 
 
 ## Build ONE Control from a widget dict. Used by the editor (live preview)
 ## and by spawn_all (the real game HUD) — one look, everywhere.
-static func build(w: Dictionary) -> Control:
+## `live` = playing for real: click/hover FX fire, buttons open URLs.
+static func build(w: Dictionary, live := false) -> Control:
         var kind := String(w.get("kind", "label"))
         var text := String(w.get("text", ""))
         var hex := String(w.get("color", "0d69ac"))
@@ -118,21 +122,68 @@ static func build(w: Dictionary) -> Control:
                         m.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
                         m.add_theme_constant_override("outline_size", 4)
                         node = m
+                "icon":
+                        # v6.0: a big glyph/emoji chip — text IS the icon
+                        var ic := Label.new()
+                        ic.text = text if text != "" else "★"
+                        ic.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+                        ic.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+                        ic.add_theme_font_size_override("font_size", maxi(fsize, 28))
+                        ic.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
+                        ic.add_theme_constant_override("shadow_offset_y", 2)
+                        node = ic
+                "image":
+                        # v6.0: a texture widget that fills itself from a URL
+                        var holder := Panel.new()
+                        var hsb := StyleBoxFlat.new()
+                        hsb.bg_color = Color(accent.r, accent.g, accent.b, 0.35)
+                        hsb.set_corner_radius_all(6)
+                        holder.add_theme_stylebox_override("panel", hsb)
+                        var tr := TextureRect.new()
+                        tr.name = "Tex"
+                        tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                        tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+                        tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+                        tr.offset_left = 2
+                        tr.offset_top = 2
+                        tr.offset_right = -2
+                        tr.offset_bottom = -2
+                        tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                        holder.add_child(tr)
+                        var cap := Label.new()
+                        cap.name = "Cap"
+                        cap.text = text if text != "" else "image"
+                        cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+                        cap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+                        cap.set_anchors_preset(Control.PRESET_FULL_RECT)
+                        cap.add_theme_font_size_override("font_size", 12)
+                        cap.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+                        holder.add_child(cap)
+                        holder.set_meta("img_url", String(w.get("url", "")))
+                        if live and String(w.get("url", "")) != "":
+                                UiImages.load_into(tr, String(w.get("url")))
+                        node = holder
                 _:
                         var x := Label.new()
                         x.text = "?"
                         node = x
-        if kind != "money" and kind != "label":
+        if kind != "money" and kind != "label" and kind != "icon":
                 node.custom_minimum_size = Vector2(float(w.get("w", 150.0)), float(w.get("h", 40.0)))
         node.position = Vector2(float(w.get("x", 40.0)), float(w.get("y", 40.0)))
         node.size = node.custom_minimum_size
         node.set_meta("cfg", w)
+        # v6.0: click + hover FX (punch, bounce, scale-then-rotate, glow, fade)
+        if w.has("fx") and typeof(w.get("fx")) == TYPE_DICTIONARY:
+                UiFx.apply(node, w.get("fx"), live)
         return node
 
 
 ## Spawn every saved widget into a live surface. `root` is the Control (or
 ## CanvasLayer — anything that can add_child) the HUD lives on; `game` is
 ## the running game node (optional) that buttons/healthbars wire into.
+## v6.0: SERVER widgets (the game owner published them from /ui-studio on
+## the site) render first — they belong to the GAME; the player's own
+## widgets render on top, because personal edits stay personal.
 static func spawn_all(root: Node, game: Node = null) -> Array:
         for child in root.get_children():
                 if child is Control and child.name == "CustomWidgets":
@@ -143,20 +194,33 @@ static func spawn_all(root: Node, game: Node = null) -> Array:
         layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
         root.add_child(layer)
         var out: Array = []
+        for w in UiConfig.server_widgets:
+                out.append(_spawn_one(layer, w, game, true))
         for w in UiConfig.widgets:
-                var node := build(w)
-                layer.add_child(node)
-                out.append(node)
-                if node is Button and game != null and game.has_method("_custom_widget_action"):
-                        var txt: String = (node as Button).text
-                        (node as Button).pressed.connect(func() -> void: game._custom_widget_action(txt))
-                elif node is LineEdit and game != null:
-                        var le := node as LineEdit
-                        le.text_submitted.connect(func(t: String) -> void:
-                                if game.has_method("_custom_widget_action"):
-                                        game._custom_widget_action("typed: %s" % t)
-                                le.clear())
+                out.append(_spawn_one(layer, w, game, false))
         return out
+
+
+static func _spawn_one(layer: Control, w: Dictionary, game: Node, from_server: bool) -> Control:
+        var node := build(w, true)
+        node.set_meta("server_ui", from_server)
+        layer.add_child(node)
+        if node is Button:
+                var b := node as Button
+                var url := String(w.get("url", ""))
+                if url != "":
+                        # v6.0: LINK BUTTON — opens the site it points to
+                        b.pressed.connect(func() -> void: OS.shell_open(url))
+                elif game != null and game.has_method("_custom_widget_action"):
+                        var txt: String = b.text
+                        b.pressed.connect(func() -> void: game._custom_widget_action(txt))
+        elif node is LineEdit and game != null:
+                var le := node as LineEdit
+                le.text_submitted.connect(func(t: String) -> void:
+                        if game.has_method("_custom_widget_action"):
+                                game._custom_widget_action("typed: %s" % t)
+                        le.clear())
+        return node
 
 
 ## One classic beveled key (the editor's own chrome uses it too)

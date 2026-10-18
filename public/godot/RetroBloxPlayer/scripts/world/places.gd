@@ -9,7 +9,7 @@ extends RefCounted
 static func all() -> Array:
         # "My Place (template)" is the EDITABLE starter map — live docs.
         # Edit scripts/world/my_place.gd, press F5, see your changes.
-        return [color_world(), cloud_kingdom(), baseplate(), MyPlace.build(), obby(), skylands(), tower(), topdown_arena()]
+        return [color_world(), cloud_kingdom(), baseplate(), MyPlace.build(), obby(), skylands(), tower(), topdown_arena(), topdown_dungeon(), topdown_neon()]
 
 
 ## ---------------------------------------------------------------- Brick Arena
@@ -472,5 +472,152 @@ static func tower() -> Dictionary:
                         { "type": "fence", "p": [4.5, 20, 4.5], "s": [2, 1.4, 0.35], "yaw": 45 },
                         # the tower's welcome board
                         { "type": "sign", "p": [8, 3, 8], "yaw": 225, "title": "WOBBLY TOWER", "title_c": "ffd400", "text": "20 studs up.\nDo not look down.\nReach the summit gold!", "w": 10, "h": 5 },
+                ],
+        }
+
+
+## ---------------------------------------------------------------- Dungeon (top-down)
+## v6.0 THE TOP-DOWN DUNGEON — four stone rooms joined by dark corridors,
+## checkpoint braziers to light the way, lava pits in the dead ends and a
+## GOLD TREASURE vault behind the last door. Plays with the board-game camera.
+
+static func topdown_dungeon() -> Dictionary:
+        var stone := "6b6472"
+        return {
+                "id": "dungeon",
+                "name": "Dungeon (Top-Down)",
+                "desc": "TOP-DOWN: four rooms, checkpoints, lava dead-ends and a gold treasure vault. Mind the dark corners.",
+                "tile": "4a4550",
+                "cam": "topdown",
+                "sky_top": "1f2733",
+                "sky_horizon": "3a4452",
+                "sky_ground": "141920",
+                "void_y": -40.0,
+                "parts": [
+                        # ---- the floor slabs (four rooms + corridors) ----
+                        { "p": [0, -1, 0], "s": [140, 2, 140], "c": "4a4550" },
+                        # room 1 (spawn, south-west)
+                        { "p": [-40, 0.5, 40], "s": [40, 1, 40], "c": "565062" },
+                        # room 2 (south-east)
+                        { "p": [40, 0.5, 40], "s": [40, 1, 40], "c": "565062" },
+                        # room 3 (north-west)
+                        { "p": [-40, 0.5, -40], "s": [40, 1, 40], "c": "565062" },
+                        # room 4 (north-east) — the treasure vault
+                        { "p": [40, 0.5, -40], "s": [40, 1, 40], "c": "5f5869" },
+                        # ---- outer dungeon walls ----
+                        { "p": [0, 3, -70], "s": [144, 8, 2], "c": stone },
+                        { "p": [0, 3, 70], "s": [144, 8, 2], "c": stone },
+                        { "p": [-70, 3, 0], "s": [2, 8, 144], "c": stone },
+                        { "p": [70, 3, 0], "s": [2, 8, 144], "c": stone },
+                        # ---- room walls with doorways ----
+                        # wall between room1/room2 (gap in the middle)
+                        { "p": [-30, 2, 20], "s": [22, 6, 2], "c": stone },
+                        { "p": [30, 2, 20], "s": [22, 6, 2], "c": stone },
+                        # wall between room3/room4 (gap off-center)
+                        { "p": [-30, 2, -20], "s": [24, 6, 2], "c": stone },
+                        { "p": [26, 2, -20], "s": [30, 6, 2], "c": stone },
+                        # wall between west rooms (gap top)
+                        { "p": [-20, 2, 50], "s": [2, 6, 42], "c": stone },
+                        { "p": [-20, 2, -4], "s": [2, 6, 34], "c": stone },
+                        # wall between east rooms (gap bottom)
+                        { "p": [20, 2, 46], "s": [2, 6, 50], "c": stone },
+                        { "p": [20, 2, -8], "s": [2, 6, 26], "c": stone },
+                        # ---- pillars in the big rooms ----
+                        { "p": [-48, 2, 48], "s": [4, 6, 4], "c": "7d7688" },
+                        { "p": [-32, 2, 48], "s": [4, 6, 4], "c": "7d7688" },
+                        { "p": [-48, 2, 32], "s": [4, 6, 4], "c": "7d7688" },
+                        { "p": [48, 2, 32], "s": [4, 6, 4], "c": "7d7688" },
+                        { "p": [-48, 2, -48], "s": [4, 6, 4], "c": "7d7688" },
+                        { "p": [48, 2, -48], "s": [4, 6, 4], "c": "7d7688" },
+                        { "p": [32, 2, -48], "s": [4, 6, 4], "c": "7d7688" },
+                        # ---- spawn + checkpoints (the braziers) ----
+                        { "p": [-50, 0.5, 58], "s": [9, 1, 9], "c": "a8adb3", "g": "spawn" },
+                        { "p": [0, 0.5, 40], "s": [6, 1, 6], "c": "e8752a", "g": "checkpoint" },
+                        { "p": [-40, 0.5, 0], "s": [6, 1, 6], "c": "e8752a", "g": "checkpoint" },
+                        { "p": [40, 0.5, 0], "s": [6, 1, 6], "c": "e8752a", "g": "checkpoint" },
+                        # ---- lava pits in the dead ends ----
+                        { "p": [-56, 0.4, 20], "s": [16, 0.8, 14], "c": "e2231a", "g": "kill" },
+                        { "p": [56, 0.4, 52], "s": [14, 0.8, 12], "c": "e2231a", "g": "kill" },
+                        { "p": [0, 0.4, -52], "s": [18, 0.8, 12], "c": "e2231a", "g": "kill" },
+                        { "p": [-52, 0.4, -40], "s": [12, 0.8, 16], "c": "e2231a", "g": "kill" },
+                        # ---- the GOLD TREASURE VAULT (room 4 center) ----
+                        { "p": [46, 0.6, -46], "s": [14, 1.2, 14], "c": "f5cd30", "g": "goal" },
+                        { "p": [39, 2, -39], "s": [1, 4, 6], "c": "f5cd30" },
+                        { "p": [53, 2, -39], "s": [1, 4, 6], "c": "f5cd30" },
+                        { "p": [46, 2, -39.5], "s": [6, 4, 1], "c": "f5cd30" },
+                        # ---- bounce escape hatch (over a wall, one way) ----
+                        { "p": [12, 0.5, -12], "s": [5, 1, 5], "c": "00a2ff", "m": "neon", "g": "bounce" },
+                ],
+                "props": [
+                        { "type": "sign", "p": [-44, 1.2, 54], "yaw": 0, "title": "THE DUNGEON",
+                                "title_c": "f5cd30", "c": "2b2f36", "w": 12, "h": 4,
+                                "text": "TOP-DOWN PLACE.\nFour rooms stand between you\nand the GOLD vault. Orange pads\nsave your progress." },
+                        { "type": "crate", "p": [-34, 1.2, 56], "s": [2.4, 2.4, 2.4] },
+                        { "type": "crate", "p": [-34, 3.6, 56], "s": 2 },
+                ],
+        }
+
+
+## ---------------------------------------------------------------- Neon Grid (top-down)
+## v6.0 THE NEON GRID — a black arcade board with glowing laser lines, bounce
+## pads everywhere and a humming neon goal. The fast one: bounce chains across
+## the grid, dodge the red lasers, tag the pink core.
+
+static func topdown_neon() -> Dictionary:
+        var dark := "14181f"
+        return {
+                "id": "neongrid",
+                "name": "Neon Grid (Top-Down)",
+                "desc": "TOP-DOWN: a black arcade board. Bounce across the glowing grid, dodge the red lasers, reach the pink core.",
+                "tile": dark,
+                "cam": "topdown",
+                "sky_top": "0c1016",
+                "sky_horizon": "16202c",
+                "sky_ground": "0a0e13",
+                "void_y": -40.0,
+                "parts": [
+                        # ---- the board ----
+                        { "p": [0, -1, 0], "s": [130, 2, 130], "c": dark },
+                        # outer glow rim
+                        { "p": [0, 1, -65], "s": [132, 2, 2], "c": "00e5ff", "m": "neon" },
+                        { "p": [0, 1, 65], "s": [132, 2, 2], "c": "00e5ff", "m": "neon" },
+                        { "p": [-65, 1, 0], "s": [2, 2, 132], "c": "00e5ff", "m": "neon" },
+                        { "p": [65, 1, 0], "s": [2, 2, 132], "c": "00e5ff", "m": "neon" },
+                        # ---- the grid lines (cyan, flat) ----
+                        { "p": [-40, 0.05, 0], "s": [1, 0.4, 130], "c": "0f6f7a", "m": "neon" },
+                        { "p": [0, 0.05, 0], "s": [1, 0.4, 130], "c": "0f6f7a", "m": "neon" },
+                        { "p": [40, 0.05, 0], "s": [1, 0.4, 130], "c": "0f6f7a", "m": "neon" },
+                        { "p": [0, 0.05, -40], "s": [130, 0.4, 1], "c": "0f6f7a", "m": "neon" },
+                        { "p": [0, 0.05, 0], "s": [130, 0.4, 1], "c": "0f6f7a", "m": "neon" },
+                        { "p": [0, 0.05, 40], "s": [130, 0.4, 1], "c": "0f6f7a", "m": "neon" },
+                        # ---- the PINK CORE (goal, center) ----
+                        { "p": [0, 0.5, 0], "s": [10, 1, 10], "c": "ff2d95", "m": "neon", "g": "goal" },
+                        { "p": [0, 3, 0], "s": [3, 6, 3], "c": "ff2d95", "m": "neon" },
+                        # ---- red laser walls (kill!) ----
+                        { "p": [-20, 1.5, -32], "s": [40, 3, 1], "c": "ff2222", "m": "neon", "g": "kill" },
+                        { "p": [32, 1.5, 20], "s": [1, 3, 40], "c": "ff2222", "m": "neon", "g": "kill" },
+                        { "p": [20, 1.5, 44], "s": [30, 3, 1], "c": "ff2222", "m": "neon", "g": "kill" },
+                        { "p": [-44, 1.5, -8], "s": [1, 3, 30], "c": "ff2222", "m": "neon", "g": "kill" },
+                        { "p": [-8, 1.5, 12], "s": [24, 3, 1], "c": "ff2222", "m": "neon", "g": "kill" },
+                        # ---- spawn ----
+                        { "p": [-50, 0.5, 50], "s": [9, 1, 9], "c": "a8adb3", "g": "spawn" },
+                        # ---- bounce chains (the fun part) ----
+                        { "p": [-50, 0.5, 30], "s": [6, 1, 6], "c": "ffe14d", "m": "neon", "g": "bounce" },
+                        { "p": [-30, 0.5, 30], "s": [6, 1, 6], "c": "ffe14d", "m": "neon", "g": "bounce" },
+                        { "p": [-10, 0.5, 30], "s": [6, 1, 6], "c": "ffe14d", "m": "neon", "g": "bounce" },
+                        { "p": [50, 0.5, 50], "s": [6, 1, 6], "c": "ffe14d", "m": "neon", "g": "bounce" },
+                        { "p": [50, 0.5, 30], "s": [6, 1, 6], "c": "ffe14d", "m": "neon", "g": "bounce" },
+                        { "p": [50, 0.5, -30], "s": [6, 1, 6], "c": "ffe14d", "m": "neon", "g": "bounce" },
+                        { "p": [30, 0.5, -50], "s": [6, 1, 6], "c": "ffe14d", "m": "neon", "g": "bounce" },
+                        { "p": [-30, 0.5, -50], "s": [6, 1, 6], "c": "ffe14d", "m": "neon", "g": "bounce" },
+                        # ---- safe ledges between the lasers ----
+                        { "p": [-20, 0.3, 20], "s": [12, 0.6, 12], "c": "22303d" },
+                        { "p": [20, 0.3, -20], "s": [12, 0.6, 12], "c": "22303d" },
+                        { "p": [-40, 0.3, -40], "s": [10, 0.6, 10], "c": "22303d" },
+                ],
+                "props": [
+                        { "type": "sign", "p": [-44, 1.2, 56], "yaw": 0, "title": "NEON GRID",
+                                "title_c": "ff2d95", "c": "14181f", "w": 12, "h": 4,
+                                "text": "TOP-DOWN PLACE.\nYellow pads BOUNCE you.\nRED LINES delete you.\nThe pink core is the goal." },
                 ],
         }

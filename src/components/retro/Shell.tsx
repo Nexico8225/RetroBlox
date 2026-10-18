@@ -79,6 +79,8 @@ const NAV = [
   { label: 'Catalog', href: '/catalog' },
   { label: 'Avatar', href: '/avatar' },
   { label: 'Create', href: '/create' },
+  { label: 'SDK', href: '/sdk' },
+  { label: 'Templates', href: '/templates' },
   { label: 'Videos', href: '/videos' },
   { label: 'Groups', href: '/groups' },
   { label: 'Communities', href: '/community' },
@@ -363,6 +365,7 @@ export function Sidebar() {
         {sec('Create')}
         {item('My Games', '/my')}
         {item('Create a Game', '/create')}
+        {item('UI Studio', '/ui-studio')}
 
         {sec('Me')}
         {item('My Profile', `/users/${user.id}`)}

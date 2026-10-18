@@ -270,6 +270,21 @@ prints a script error it names the file + line — fix and re-run.
 | My map didn't change | edit `my_place.gd`, save, F5, and pick "My Place (template)" again in the menu |
 | Login works on the site but not in-game | the game talks to `https://retro-blox.vercel.app` — check Settings → Network server URL |
 
+## 10. UI Studio on the web + click/hover FX (v6.0)
+
+**UI STUDIO** — retro-blox.vercel.app/ui-studio (sidebar: UI Studio). Pick YOUR
+game, then compose the UI every player sees: **Text, Icons, Images (any URL),
+Buttons that open real links**, drag them anywhere on the 960x540 stage. Give
+any widget CLICK FX (Punch, Bounce) and HOVER FX (smooth scale-then-rotate,
+Glow, Fade) with Power + Speed dials — the same effect names play in the game
+as Godot tweens, and hovering the widget on the web stage previews it with CSS.
+Press **Publish to EVERYONE** and the desktop player fetches that UI when the
+game starts (game files downloaded from the page carry the game's ID). Anyone
+can also build fx in their own player with F2 — those stay private to them.
+
+**Scenes look empty?** They build in code on purpose — read `docs/SCENES.md`
+for where every screen actually lives and how to edit it with nodes + scripts.
+
 ## 10. Game templates + the top-down camera (v5.0)
 
 **Templates.** The site serves ready-made game files at **retro-blox.vercel.app/templates** —

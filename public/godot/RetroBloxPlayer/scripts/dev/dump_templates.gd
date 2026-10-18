@@ -14,6 +14,8 @@ func _init() -> void:
 
         var defs: Array = [
                 PlacesScript.topdown_arena(),
+                PlacesScript.topdown_dungeon(),
+                PlacesScript.topdown_neon(),
                 PlacesScript.obby(),
                 PlacesScript.baseplate(),
                 PlacesScript.color_world(),
@@ -21,6 +23,8 @@ func _init() -> void:
         ]
         var names: Array = [
                 "top-down-arena.retroplace",
+                "top-down-dungeon.retroplace",
+                "top-down-neon-grid.retroplace",
                 "classic-obby.retroplace",
                 "baseplate.retroplace",
                 "paint-world.retroplace",
