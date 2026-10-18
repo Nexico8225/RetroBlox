@@ -1,40 +1,33 @@
-# scripts/ — RetroBlox maintenance tools
+# scripts/ — RetroBlox Maintenance & Developer Tools
 
-Active tools live here. One-off historical scripts (old E2E runs,
-patches, checks) are in `archive/` — do not run them blind, they
-document past migrations.
+Active tools live here. One-off historical scripts (old E2E runs, patches, migration checks) are moved to `archive/` — do not run them blind, they document past migrations.
 
-## Database
-| Script | What it does |
-|---|---|
-| `seed.ts` | Seed demo users/games into db/custom.db |
-| `attach_builds.ts` | Attach real demo .zip builds to seeded games |
-| `create_admin.ts` | Create/promote the admin account |
-| `backup_db.ts` | Timestamped backup of db/custom.db -> db/backups/ |
-| `restore_db.ts` | Restore a backup |
-| `protect_data.ts` | Guard against accidental data wipes |
-| `db_inspect.mjs` | Quick look inside the SQLite file |
-| `backfill-file-blobs.js` | Copy disk uploads INTO the DB (BLOB storage) |
+## Active Database & Platform Tools
+| Script | Command | Purpose |
+|---|---|---|
+| `backup_db.ts` | `npm run backup` | Timestamped backup of `db/custom.db` into `db/backups/` |
+| `restore_db.ts` | `npm run restore` | Restores database from latest or chosen backup |
+| `protect_data.ts` | `npm run protect` | Safety check against accidental data loss and ensures admin user exists |
+| `sync-schema.mjs` | `npm run build` | Syncs schema columns and unique indices on SQLite / Turso cloud |
+| `create_admin.ts` | `npx tsx scripts/create_admin.ts` | Upserts/promotes owner admin account (`Nexico8225`) |
+| `dev_game_seed.ts` | `npx tsx scripts/dev_game_seed.ts` | Seeds demo games for development |
+| `db_inspect.mjs` | `node scripts/db_inspect.mjs` | Quick inspector for tables, row counts, and schema health |
+| `turso_migrate.sh` | `bash scripts/turso_migrate.sh` | Migrates local SQLite database to Turso cloud LibSQL |
 
-## Assets / branding
-| Script | What it does |
-|---|---|
-| `process_assets.py` | Cursors/logo/image processing into public/retro/ |
-| `crop_retrofont.py` | Crop the owner's font sheet -> public/retro/font/A..Z.png |
-| `gen_retrofont_meta.py` | Regenerate src/lib/retrofont-meta.ts glyph widths |
-| `fix_x_glyph.py` | One-glyph repair helper |
-| `make_grid.py` | Letter-grid detection for the font sheet |
-| `crop_auth_bg.py` / `make_auth_bg.py` | Auth key-art -> public/retro/auth-bg.jpg |
-| `make_default_face.py` | Classic default face texture |
-| `make_rig_template.py` | R6 rig template model (backlog) |
-| `make_ugc_templates.py` | UGC item template models |
-| `make_painted_shirt.py` / `make_test_models.py` | Shirt/model generators |
+## Asset & Game Tools
+| Script | Command | Purpose |
+|---|---|---|
+| `make_godot_kit_zip.py` | `python scripts/make_godot_kit_zip.py` | Bundles `public/godot/RetroBloxPlayer` into downloadable kit zip |
+| `make_wordmark.py` | `python scripts/make_wordmark.py` | Generates 2006 retro wordmark assets |
+| `parse_baseplate.py` | `python scripts/parse_baseplate.py` | Parses classic baseplate model parts and coordinates |
 
-## Project hygiene
-| Script | What it does |
-|---|---|
-| `cleanup_project.sh` | Remove transient trash (screenshots, pastes, caches) |
-| `organize_scripts.sh` | This organization (idempotent) |
-
-`blockyard-src/` and `_DANGER_do_not_run/` belong to the Godot game
-AI's world — hands off.
+## `archive/`
+Contains one-off E2E tests, audit scripts, and historical migrations:
+- `cleanup_market_e2e.ts`
+- `debug_counter.cjs`
+- `e2e_market2.cjs`
+- `e2e_market3.cjs`
+- `e2e_update5.cjs`
+- `migrate_player_no.py`
+- `test_hard_delete.py`
+- `test_sync_drift.cjs`

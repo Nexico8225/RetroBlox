@@ -45,18 +45,19 @@ URLs — same Prisma client, writes work on every host.
 
 ## Layout
 ```
-src/app/            pages + API routes (see src/app/api/)
-src/components/retro/  one component per page view + Shell (header/sidebar)
-src/lib/            db, auth (v2 tokens), uploads, platform API, text FX,
-                    avatar assets, sprite font meta, easter eggs
-prisma/schema.prisma  the data model
-db/custom.db          THE database (git-tracked — commit it when data matters)
-public/retro/         cursors, logo, auth key art, sprite font A..Z
-public/godot/         the multiplayer player + game (game AI's domain)
-brand-assets/         the owner's original art (logo, font sheet, mockups)
-scripts/              maintenance tools (scripts/README.md), history in archive/
-download/             owner deliverables (game master prompt, handoff prompt)
-worklog.md            the project's memory — every task logs here
+src/app/                  Pages + API routes (see src/app/api/)
+src/components/retro/     One component per page view + Shell (header/sidebar)
+src/components/ui/        Radix/shadcn UI primitives
+src/lib/                  DB client, auth, platform API, text FX, avatar assets
+prisma/schema.prisma      Prisma ORM schema
+db/custom.db              THE database (git-tracked — commit it when data matters)
+public/retro/             Cursors, logo, auth art, sprite font A..Z, stickers
+public/models/            3D models and rig templates
+public/godot/             Multiplayer player + kit (game AI's domain)
+public/sdk/               RetroBlox SDK models & assets
+scripts/                  Active maintenance tools (see scripts/README.md)
+scripts/archive/          Historical E2E tests, checks, and migrations
+worklog.md                Project memory — every task logs here
 ```
 
 ## Ground rules (short version)

@@ -6,8 +6,11 @@ the originals. Excludes Godot cache (.godot/) and OS junk."""
 import os
 import zipfile
 
-ROOT = "/home/z/my-project/public/godot/RetroBloxPlayer"
-OUT = "/home/z/my-project/public/godot/retroblox-godot-player.zip"
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+ROOT = str(BASE_DIR / "public" / "godot" / "RetroBloxPlayer")
+OUT = str(BASE_DIR / "public" / "godot" / "retroblox-godot-player.zip")
 
 SKIP_DIRS = {".godot", "__pycache__"}
 SKIP_FILES = {".DS_Store"}

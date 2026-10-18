@@ -1,13 +1,16 @@
 {
-  "name": "nextjs_tailwind_shadcn_ts",
+  "name": "retroblox",
   "version": "0.2.1",
+  "description": "RetroBlox - 2006-2016 retro sandbox platform",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "next dev -p 3000",
     "build": "prisma generate && node scripts/sync-schema.mjs && next build",
     "build:standalone": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "kit:pack": "python scripts/make_godot_kit_zip.py",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

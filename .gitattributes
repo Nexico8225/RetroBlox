@@ -1,0 +1,40 @@
+# Auto-detect text files and perform LF normalization
+* text=auto eol=lf
+
+# Explicit text files
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.prisma text eol=lf
+*.gd text eol=lf
+*.tscn text eol=lf
+*.godot text eol=lf
+*.cfg text eol=lf
+
+# Binary files - prevent CRLF conversion and corruption
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.fbx binary
+*.glb binary
+*.gltf binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.svg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.wav binary
+*.mp3 binary
+*.mp4 binary

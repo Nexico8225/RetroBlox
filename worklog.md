@@ -1077,3 +1077,22 @@ Stage Summary:
 - Full trade economy live: offer UGC + Tix for UGC, free to send, atomic accept, bell notifications
 - Sequential player IDs live (Nexico8225 = #1); UGC comment walls live; people search on Friends page; Text FX renders across items/chat/bios/trades
 - Robux removal confirmed complete (Tix-only economy, zero "Robux" strings in src)
+
+---
+Task ID: clean-org-1
+Agent: main
+Task: Make project very organized — clean root clutter, Godot .import hygiene, scripts archiving, package.json polish, gitattributes
+
+Work Log:
+- R6IK ASSET PLACEMENT: Moved loose root R6IK folder (`RetroBlox Anims.fbx` and texture) to `public/godot/RetroBloxPlayer/assets/anims/` as designated for drop-in player animations; cleaned temporary files
+- GODOT IMPORT HYGIENE: Removed 62 stray `.import` files generated across web static folders (`public/fonts/`, `public/retro/`, `public/models/`, `public/tix/`, `public/ugc-templates/`); added `.gdignore` in each directory so Godot will never scan or pollute web folders again
+- GIT HYGIENE (.gitignore & .gitattributes): Added `.godot/` and non-kit `*.import` rules to `.gitignore`; created `.gitattributes` to guarantee binary safety for SQLite databases (`*.db`), 3D models (`*.fbx`, `*.glb`), audio and images against CRLF corruption
+- SCRIPTS ORGANIZATION: Created `scripts/archive/` and moved 8 historical/one-off test and migration scripts (`cleanup_market_e2e.ts`, `debug_counter.cjs`, `e2e_market2.cjs`, `e2e_market3.cjs`, `e2e_update5.cjs`, `migrate_player_no.py`, `test_hard_delete.py`, `test_sync_drift.cjs`) into `scripts/archive/`; kept core active CLI tools at root of `scripts/`
+- PORTABILITY & DOCS: Made `scripts/make_godot_kit_zip.py` portable across all operating systems using `pathlib`; updated `scripts/README.md` and repository `README.md` layout section with clear tables of all active tools and project structure
+- PACKAGE.JSON: Updated project name to `retroblox`, added description, and added `typecheck` and `kit:pack` scripts
+
+Stage Summary:
+- Root directory is completely clean and clutter-free
+- Git working tree is organized with clear separation between active tools and historical archives
+- Godot web asset pollution is permanently prevented with `.gdignore` and `.gitignore`
+- Binary SQLite database files and 3D assets are protected with `.gitattributes`
