@@ -342,7 +342,6 @@ Work Log:
 - Pushed a3d6a34; Vercel success; live verified: /templates 200 + chunk carries the Godot buttons + WHO'S WHO, /ui-studio chunk carries "site owner: ANY game", ALL SEVEN zips 200 via /api/template with sizes matching local (arena md5 88d50d0e35ea713e5b06d7cceaa15503 matches), zip listing shows project.godot/main.tscn/player.gd/game.gd/README inside the top-level folder
 
 Stage Summary:
-<<<<<<< HEAD
 - Creators can now show off metal: .glb metallic passes through untouched, and every 3D UGC has Metallic/Roughness sliders (site + catalog thumbs + avatar + Godot player all match)
 - Site re-skinned to the 2006 steel-bevel look; all views transformed via the shared design system
 - Full trade economy live: offer UGC + Tix for UGC, free to send, atomic accept, bell notifications
@@ -367,6 +366,26 @@ Stage Summary:
 - Git working tree is organized with clear separation between active tools and historical archives
 - Godot web asset pollution is permanently prevented with `.gdignore` and `.gitignore`
 - Binary SQLite database files and 3D assets are protected with `.gitattributes`
-=======
+
+---
+Task ID: v7-godot-templates-roles (stage summary, restored)
 - Live a3d6a34. A template download is now an actual game you open in Godot and edit — nodes, scripts, physics — not a dead file; the web finally says the words right (users use the web, players play, game devs edit their UI, the site owner edits ANY UI and sees every game in UI Studio); the site is emoji-free. Note: the three pre-existing tsc errors (store/notifications types) are unchanged from origin/main, not from this push.
->>>>>>> a8593d7e0cb477b6e37dbbef32a9f1fb2515425d
+
+---
+Task ID: v8-web-ui-editor-sdk-baseplate
+Agent: Super Z (main)
+Task: "I SAID MAKE IT SO I CAN FUCKING EDIT THE WEB UI" + "when i download the SDK it gives me the fucking colowrld game no it should give me the sdk where you walk and climb"
+
+Work Log:
+- WEB UI EDITOR (the headline): new /site-ui page — owner-only (role admin, everyone else gets a polite door). Edits the ACTUAL website: 8 colors (header top/bar/bottom, link blue, button blue, action green, green dark, page bg), site name (tab titles), navbar links (add/remove/reorder/hide/custom label+href), welcome banner (show/hide, guest + member titles with {name}, subtitle, 3 CTA buttons), footer tagline + bottom line
+- LIVE EDITING: every keystroke/click calls applySiteUi() which sets CSS custom properties on :root — the real site around the editor recolors instantly; Save (PUT /api/site-ui) persists to the new SiteUi row (upsert + raw-SQL self-heal) and everyone gets it on next load; Reset-to-default + Restore-default-for-everyone buttons
+- WIRING: globals.css header gradient/border, header-search Go button, rb-btn-blue, rb-btn-green, navbar-item hover/active, body bg all now flow through vars (--rb-nav-light/--rb-nav-dark/--rb-accent/--rb-accent-dark/--rbx-page-bg + existing --rb-nav/--rb-green pairs) — DEFAULTS PIXEL-IDENTICAL; Shell navbar renders config links (NAV array = fallback), Title uses config siteName, footer tagline/bottom from config, admin menu + admin footer links gained "Site UI Editor"; HomeView welcome card fully config-driven incl. hero.show=false hide; Providers fetches /api/site-ui once on boot and applies
+- API: /api/site-ui GET public (normalize+merge over defaults, never throws), PUT admin-only; new prisma model SiteUi (id=1, config JSON) — additive, sync-schema creates it on Vercel build; local db push done
+- CAUGHT A REAL BUG THE BUILD HID: GET returned {} because siteui.ts was 'use client' — the server route got a client-reference stub and DEFAULT_SITE_UI serialized empty; split pure data+normalize into src/lib/siteui-config.ts (no directive), siteui.ts keeps zustand store + applySiteUi and re-exports; GET then returns the full config (verified)
+- E2E VERIFIED locally: signup -> promote admin -> PUT {"siteName":"TestBlox","nav":"#b30707",...} -> public GET returns saved config; 401/403 path for anonymous PUT; test rows cleaned; tsc clean on all touched files, eslint clean, npm build green (/site-ui + /api/site-ui in manifest)
+- SDK NOT-COLORWORLD FIX: RetroBloxPlayer/scripts/game/game.gd booted by_id("colorworld") when no place set and places.gd by_id() fell back to color_world() — both now resolve to the classic BASEPLATE (stairs fort + truss ladder + trampoline = walk and climb); README rewritten (spawn on Happy Baseplate, Color World still in the place list); kit zip rebuilt via make_godot_kit_zip.py and content-verified inside the zip (game.gd baseplate default, places.gd baseplate fallback, README); cache-buster bumped v6.0 -> v7.0 in SdkView + HomeView
+- Pushed 6eec42c + a8593d7 (gitignore db/backups); Vercel deploy success; live checks: GET /api/site-ui 200 full config, /site-ui 200, zip 200
+
+Stage Summary:
+- Live 6eec42c. The owner can finally edit the web itself from the web: /site-ui paints the real site live and Save makes it stick for every visitor (users use the web — now literally). Downloading the SDK gives the walk-and-climb sandbox again: spawn on Happy Baseplate, climb the truss; Color World is a choice in the menu, not a trap.
+>>>>>>> fd7533e (e21fb158-f972-4ef6-87a8-119b899b6962)
