@@ -388,3 +388,19 @@ Work Log:
 
 Stage Summary:
 - Live 6eec42c. The owner can finally edit the web itself from the web: /site-ui paints the real site live and Save makes it stick for every visitor (users use the web — now literally). Downloading the SDK gives the walk-and-climb sandbox again: spawn on Happy Baseplate, climb the truss; Color World is a choice in the menu, not a trap.
+
+---
+Task ID: v9-the-whole-web-ui
+Agent: Super Z (main)
+Task: "make it so i can edit the whole web ui" (x80, very insistent)
+
+Work Log:
+- CUSTOM CSS (the everything tool): config gained customCss (24k cap) — the editor has a full-width monospace textarea; applySiteUi injects it as one <style id="rb-site-custom-css"> tag live on EVERY page as you type; Page shell now sets body[data-path] per pathname so the owner can target single pages: body[data-path='/games'] .rb-page-title { ... }; editor ships examples (.rb-header, .rb-box, .rb-btn, font swap, hide the blue bar)
+- SIDEBAR GROUPS: config gained sidebar: SiteUiGroup[] (title + links, defaults Create/Me matching the old hardcoded list); Shell Sidebar renders the owner's groups with {me} token -> my profile, badge logic moved to href (/friends -> requests, /chat -> unread), and ALWAYS appends Account (Admin Panel, Site UI Editor for admins) + Settings + Log Out so the owner can never lock themselves out; editor gained full group CRUD (retitle, add/delete group, link show/label/href/reorder/delete)
+- LOGO SWAP: headerLogoUrl (30x30 icon), headerWordmarkUrl (blue bar), footerLogoUrl (footer) with live previews in the editor; '' = classic; normalize only accepts https://, /, data:image — javascript: and friends rejected (verified e2e)
+- SANITIZE E2E: PUT with customCss stored, js: url dropped, empty-href sidebar link dropped, valid group kept; GET public returns everything; 401 anonymous PUT; test rows cleaned
+- GIT: remote had two user commits (bun.lock, .gitattributes, db backups...) with an UNRESOLVED conflict inside worklog.md itself — rebased main onto it, hand-merged the worklog (kept both historical entries + v8), removed a leftover marker, pushed 0cd2080
+- Build green; tsc + eslint clean on touched files; live verified: /api/site-ui returns sidebar/headerLogoUrl/headerWordmarkUrl/customCss, /site-ui 200
+
+Stage Summary:
+- Live 0cd2080. The whole web UI is now the owner's: every color, every link, both logos, the sidebar, the home banner, the footer — plus raw custom CSS with per-page targeting that covers literally everything else, all editable live at /site-ui and saved for every visitor.
