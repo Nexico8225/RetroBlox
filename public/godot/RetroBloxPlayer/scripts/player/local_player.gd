@@ -30,13 +30,19 @@ signal land_impact(speed: float)
 ## builder, camera and avatar rig. A player is 5 studs tall.
 const STUD := 1.0
 
-const WALK_SPEED := 16.0 * STUD   # studs / second (classic WalkSpeed)
-const JUMP_SPEED := 50.0 * STUD   # studs / second (classic JumpPower)
-const GRAVITY := 196.2 * STUD     # studs / s^2 (classic workspace gravity)
+@export_group("Player Physics & Tuning")
+@export var walk_speed: float = 16.0 * STUD   # studs / second (classic WalkSpeed)
+@export var jump_height: float = 50.0 * STUD  # studs / second (classic JumpPower)
+@export var gravity: float = 196.2 * STUD     # studs / s^2 (classic workspace gravity)
+@export var coyote_time: float = 0.15         # grace window after walking off a ledge
+@export var max_air_jumps: int = 0            # 0 = normal 1 jump, 1 = double jump, etc.
+@export var momentum_enabled: bool = false    # gain momentum when moving continuously
+@export var momentum_max_multiplier: float = 2.2
+@export var momentum_buildup_rate: float = 0.6
+
 const ACCEL_GROUND := 145.0 * STUD  # reach full speed in ~0.11s: crisp
 const ACCEL_AIR := 62.0 * STUD    # real air control — you can steer mid-jump
 const BRAKE_GROUND := 170.0 * STUD  # stop on release, classic style
-const COYOTE_TIME := 0.08         # grace window after walking off a ledge
 const JUMP_BUFFER := 0.12         # pressing jump just before landing still jumps
 
 const MAX_STEP := 2.0 * STUD      # v12.3: walk over 2-stud and 1-stud and

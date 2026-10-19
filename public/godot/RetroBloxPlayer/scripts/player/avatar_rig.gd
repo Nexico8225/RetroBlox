@@ -207,42 +207,52 @@ func set_face(tex: Texture2D, face_scale: float) -> void:
         _face_decal = quad
 
 
-func animate(delta: float, speed: float, grounded: bool, climbing: bool = false) -> void:
+func animate(delta: float, speed: float, grounded: bool, climbing: bool = false, climb_speed: float = 0.0) -> void:
         _ensure_built()
-        _time += delta
         if _using_r6ik and _anim_player != null:
-                _animate_r6ik(delta, speed, grounded, climbing)
+                _time += delta
+                _animate_r6ik(delta, speed, grounded, climbing, climb_speed)
                 return
-        _animate_boxes(delta, speed, grounded, climbing)
+        _animate_boxes(delta, speed, grounded, climbing, climb_speed)
 
 
-func _animate_r6ik(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_r6ik(delta: float, speed: float, grounded: bool, climbing: bool, climb_speed: float) -> void:
         var next: StringName = ANIM_IDLE
         var rate := 1.0
+        var is_climb_moving := absf(climb_speed) > 0.15
+
         if climbing:
                 next = ANIM_CLIMB
-                rate = clampf(speed / (9.0 * STUD), 0.5, 1.5)
+                rate = clampf(absf(climb_speed) / (9.0 * STUD), 0.7, 1.6) if is_climb_moving else 0.0
         elif not grounded:
                 next = ANIM_JUMP
+                rate = 1.35
         elif speed > 1.2 * STUD:
                 next = ANIM_WALK
                 rate = clampf(speed / (8.0 * STUD), 0.8, 2.2)
+
         if _current_anim != next:
                 _current_anim = next
-                # v11.0: the JUMP crossfade doubles (0.08 -> 0.16) — the old
-                # near-instant cut was the arm pop every time you left the ground
-                _anim_player.play(next, 0.16, rate if next != ANIM_JUMP else 1.35)
-        elif next == ANIM_WALK or next == ANIM_CLIMB:
-                # v11.0: playback speed EASES toward its target — the climb
-                # rate rides |velocity.y| which jitters frame to frame, and
-                # that jitter read as twitching arms on the ladder
-                var k := 1.0 - exp(-8.0 * delta)
-                if next == ANIM_WALK:
-                        _walk_rate = lerpf(_walk_rate, rate, k)
-                        _anim_player.speed_scale = _walk_rate
-                else:
-                        _climb_rate = lerpf(_climb_rate, rate, k)
+                _anim_player.play(next, 0.12, 1.0 if not climbing else (rate if is_climb_moving else 0.001))
+                if climbing and not is_climb_moving:
+                        _anim_player.speed_scale = 0.0
+                        _climb_rate = 0.0
+                elif not climbing:
+                        _anim_player.speed_scale = rate
+        elif climbing:
+                # Roblox ladder climb: freeze when stopped, play when moving
+                if is_climb_moving:
+                        _climb_rate = lerpf(_climb_rate, rate, 1.0 - exp(-10.0 * delta))
                         _anim_player.speed_scale = _climb_rate
+                else:
+                        _climb_rate = 0.0
+                        _anim_player.speed_scale = 0.0
+        elif next == ANIM_WALK:
+                var k := 1.0 - exp(-8.0 * delta)
+                _walk_rate = lerpf(_walk_rate, rate, k)
+                _anim_player.speed_scale = _walk_rate
+        else:
+                _anim_player.speed_scale = 1.0
 
 
 ## Settings > Animations: pose the character with a rig clip ("Sit", ...).
@@ -260,14 +270,13 @@ func play_emote(clip: String) -> void:
                 _anim_player.play(anim_name, 0.2)
 
 
-func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
+func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool, climb_speed: float = 0.0) -> void:
+        var is_climb_moving := absf(climb_speed) > 0.15
+        if not climbing or is_climb_moving:
+                _time += delta
         var movement := clampf(absf(speed) / (5.0 * STUD), 0.0, 1.0)
         var walk_rate := 4.8 + movement * 2.0
         var swing := sin(_time * walk_rate) * movement
-        # v11.0: every state computes a TARGET pose and the rig EASES toward
-        # it (1-exp blend) — the old direct assignments teleported the arms
-        # between walk / climb / jump poses every time the state flipped, and
-        # that teleport WAS the twitch / out-of-place arms you felt climbing.
         var k := 1.0 - exp(-12.0 * delta)
         var arm_l_x := 0.0
         var arm_r_x := 0.0
