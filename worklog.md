@@ -388,4 +388,3 @@ Work Log:
 
 Stage Summary:
 - Live 6eec42c. The owner can finally edit the web itself from the web: /site-ui paints the real site live and Save makes it stick for every visitor (users use the web — now literally). Downloading the SDK gives the walk-and-climb sandbox again: spawn on Happy Baseplate, climb the truss; Color World is a choice in the menu, not a trap.
->>>>>>> fd7533e (e21fb158-f972-4ef6-87a8-119b899b6962)

@@ -14,9 +14,9 @@
 ------------------------------------------------------------------ */
 
 import { create } from 'zustand'
-import { DEFAULT_SITE_UI, normalizeSiteUi, type SiteUiConfig, type SiteUiCta, type SiteUiLink } from './siteui-config'
+import { DEFAULT_SITE_UI, normalizeSiteUi, type SiteUiConfig, type SiteUiCta, type SiteUiGroup, type SiteUiLink } from './siteui-config'
 
-export type { SiteUiConfig, SiteUiCta, SiteUiLink }
+export type { SiteUiConfig, SiteUiCta, SiteUiGroup, SiteUiLink }
 export { DEFAULT_SITE_UI, normalizeSiteUi }
 
 /** Push a config into the live CSS variables — instant, site-wide. */
@@ -38,6 +38,21 @@ export function applySiteUi(cfg: SiteUiConfig) {
   root.setProperty('--rb-green-dark', cfg.colors.greenDark)
   // page background
   root.setProperty('--rbx-page-bg', cfg.colors.pageBg)
+  // THE WHOLE WEB UI: the owner's raw CSS, live on every page
+  applyCustomCss(cfg.customCss)
+}
+
+/** Inject / update the owner's custom CSS as one style tag. */
+export function applyCustomCss(css: string) {
+  if (typeof document === 'undefined') return
+  const id = 'rb-site-custom-css'
+  let tag = document.getElementById(id) as HTMLStyleElement | null
+  if (!tag) {
+    tag = document.createElement('style')
+    tag.id = id
+    document.head.appendChild(tag)
+  }
+  tag.textContent = css || ''
 }
 
 interface SiteUiState {

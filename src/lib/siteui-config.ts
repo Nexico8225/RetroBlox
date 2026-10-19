@@ -11,6 +11,8 @@ export type SiteUiLink = { label: string; href: string; show: boolean }
 
 export type SiteUiCta = { label: string; href: string; show: boolean }
 
+export type SiteUiGroup = { title: string; links: SiteUiLink[] }
+
 export type SiteUiConfig = {
   siteName: string
   colors: {
@@ -35,6 +37,12 @@ export type SiteUiConfig = {
     tagline: string
     bottom: string
   }
+  /* ---- THE WHOLE WEB UI ---- */
+  headerLogoUrl: string // '' = classic icon; any image url
+  headerWordmarkUrl: string // '' = classic wordmark in the blue bar
+  footerLogoUrl: string // '' = classic wordmark in the footer
+  sidebar: SiteUiGroup[] // the left sidebar groups (Account + Log Out are always appended, so you can't lock yourself out)
+  customCss: string // raw CSS applied to EVERY page — target one page with body[data-path^='/games']
 }
 
 /** The current look — every editor field falls back to these. */
@@ -79,6 +87,30 @@ export const DEFAULT_SITE_UI: SiteUiConfig = {
     tagline: '— you can see the ROBLOX inside ReTROBLOX. A fan-made tribute to classic blocky gaming.',
     bottom: 'Best viewed at 1024x768 with a 56k modem',
   },
+  headerLogoUrl: '',
+  headerWordmarkUrl: '',
+  footerLogoUrl: '',
+  sidebar: [
+    {
+      title: 'Create',
+      links: [
+        { label: 'My Games', href: '/my', show: true },
+        { label: 'Create a Game', href: '/create', show: true },
+        { label: 'UI Studio', href: '/ui-studio', show: true },
+      ],
+    },
+    {
+      title: 'Me',
+      links: [
+        { label: 'My Profile', href: '/users/{me}', show: true },
+        { label: 'Friends', href: '/friends', show: true },
+        { label: 'Chat', href: '/chat', show: true },
+        { label: 'Favorites', href: '/favorites', show: true },
+        { label: 'Avatar Editor', href: '/avatar', show: true },
+      ],
+    },
+  ],
+  customCss: '',
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/
@@ -120,6 +152,27 @@ function ctas(v: unknown, fallback: SiteUiCta[]): SiteUiCta[] {
   return out.slice(0, 6)
 }
 
+function groups(v: unknown, fallback: SiteUiGroup[]): SiteUiGroup[] {
+  if (!Array.isArray(v)) return fallback
+  const out: SiteUiGroup[] = []
+  for (const raw of v) {
+    if (!raw || typeof raw !== 'object') continue
+    const r = raw as Record<string, unknown>
+    const title = typeof r.title === 'string' ? r.title.slice(0, 40) : ''
+    if (!title) continue
+    out.push({ title, links: links(r.links, []) })
+  }
+  return out.slice(0, 8)
+}
+
+/** '' or a sane image path/url (https, /, data:image) */
+function imgUrl(v: unknown): string {
+  if (typeof v !== 'string') return ''
+  const s = v.trim()
+  if (!s) return ''
+  return /^https:\/\//.test(s) || /^\//.test(s) || /^data:image\//.test(s) ? s.slice(0, 300) : ''
+}
+
 /** Merge any junk (old rows, partial saves, hand-edited JSON) into a valid config. */
 export function normalizeSiteUi(raw: unknown): SiteUiConfig {
   const d = DEFAULT_SITE_UI
@@ -152,5 +205,10 @@ export function normalizeSiteUi(raw: unknown): SiteUiConfig {
       tagline: typeof f.tagline === 'string' ? f.tagline.slice(0, 200) : d.footer.tagline,
       bottom: typeof f.bottom === 'string' ? f.bottom.slice(0, 120) : d.footer.bottom,
     },
+    headerLogoUrl: imgUrl(r.headerLogoUrl),
+    headerWordmarkUrl: imgUrl(r.headerWordmarkUrl),
+    footerLogoUrl: imgUrl(r.footerLogoUrl),
+    sidebar: groups(r.sidebar, d.sidebar),
+    customCss: typeof r.customCss === 'string' ? r.customCss.slice(0, 24000) : d.customCss,
   }
 }

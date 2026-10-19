@@ -99,6 +99,8 @@ function useNavLinks() {
 export function Header() {
   const { user, pendingRequests, unreadChats, setPendingRequests, setUnreadChats, setToast } = useRetro()
   const siteName = useSiteUi((s) => s.config.siteName)
+  const headerLogoUrl = useSiteUi((s) => s.config.headerLogoUrl)
+  const headerWordmarkUrl = useSiteUi((s) => s.config.headerWordmarkUrl)
   const navLinks = useNavLinks()
   const router = useRouter()
   const pathname = usePathname()
@@ -147,14 +149,14 @@ export function Header() {
               boxShadow: 'inset 1px 1px 0 #fff',
             }}
           >
-            <img src="/retro/logo.png" alt="RetroBlox logo" width={30} height={30} style={{ display: 'block' }} />
+            <img src={headerLogoUrl || '/retro/logo.png'} alt={`${siteName} logo`} width={30} height={30} style={{ display: 'block' }} />
           </span>
           {/* span wrapper only — the <480px media rule hides the wordmark on
               phones and it must be able to win over inline styles */}
           <span className="rb-brand-desktop">
             <img
-              src="/retro/logo-wordmark.png"
-              alt="ReTROBLOX"
+              src={headerWordmarkUrl || '/retro/logo-wordmark.png'}
+              alt={siteName}
               style={{ display: 'block', height: 24, width: 'auto', filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.5))' }}
             />
           </span>
@@ -317,6 +319,7 @@ function ChatIcon() {
 
 export function Sidebar() {
   const { user, pendingRequests, unreadChats, setUser, setPendingRequests, setUnreadChats, setToast } = useRetro()
+  const sidebarGroups = useSiteUi((s) => s.config.sidebar)
   const router = useRouter()
   const pathname = usePathname()
   if (!user) return null
@@ -337,7 +340,7 @@ export function Sidebar() {
     const active = pathname === href
     return (
       <Link
-        key={href}
+        key={href + label}
         href={href}
         className="rb-side-item"
         style={{
@@ -353,6 +356,13 @@ export function Sidebar() {
 
   // little uppercase group headers that organize the sidebar
   const sec = (label: string) => <div className="rb-side-sec">{label}</div>
+
+  /* badge logic lives on href so the owner can move links between groups */
+  const badgeFor = (href: string) =>
+    href === '/friends' ? pendingRequests || undefined : href === '/chat' ? unreadChats || undefined : undefined
+
+  /* {me} in a saved href points at MY profile */
+  const hrefFor = (href: string) => href.replace(/\{me\}/g, user.id)
 
   return (
     <aside className="rb-sidebar" style={{ width: 200, flexShrink: 0 }}>
@@ -374,18 +384,20 @@ export function Sidebar() {
             </span>
           </div>
         </div>
-        {sec('Create')}
-        {item('My Games', '/my')}
-        {item('Create a Game', '/create')}
-        {item('UI Studio', '/ui-studio')}
-
-        {sec('Me')}
-        {item('My Profile', `/users/${user.id}`)}
-        {item('Friends', '/friends', pendingRequests || undefined)}
-        {item('Chat', '/chat', unreadChats || undefined)}
-        {item('Favorites', '/favorites')}
-        {item('Avatar Editor', '/avatar')}
-
+        {/* the owner's groups (edited at /site-ui) */}
+        {sidebarGroups.map(
+          (g) =>
+            g.title &&
+            g.links.some((l) => l.show && l.label && l.href) && (
+              <div key={g.title}>
+                {sec(g.title)}
+                {g.links.map((l) =>
+                  l.show && l.label && l.href ? item(l.label, hrefFor(l.href), badgeFor(l.href)) : null
+                )}
+              </div>
+            )
+        )}
+        {/* Account + Log Out are ALWAYS here — the owner can't lock themselves out */}
         {sec('Account')}
         {user.role === 'admin' && item('Admin Panel', '/admin')}
         {user.role === 'admin' && item('Site UI Editor', '/site-ui')}
@@ -701,6 +713,7 @@ function isPublicPath(p: string) {
 export function Page({ children }: { children: React.ReactNode }) {
   const { booted, user } = useRetro()
   const footer = useSiteUi((s) => s.config.footer)
+  const footerLogoUrl = useSiteUi((s) => s.config.footerLogoUrl)
   const siteName = useSiteUi((s) => s.config.siteName)
   const router = useRouter()
   const pathname = usePathname()
@@ -711,6 +724,11 @@ export function Page({ children }: { children: React.ReactNode }) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`)
     }
   }, [booted, user, router, pathname, pub])
+
+  /* per-page targeting for the owner's custom CSS: body[data-path^='/games'] */
+  useEffect(() => {
+    document.body.dataset.path = pathname
+  }, [pathname])
 
   if (!booted) return <BootScreen />
   if (!user && !pub) return null
@@ -739,7 +757,7 @@ export function Page({ children }: { children: React.ReactNode }) {
       <footer className="rb-footer">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
           <img
-            src="/retro/logo-wordmark.png"
+            src={footerLogoUrl || '/retro/logo-wordmark.png'}
             alt={siteName}
             style={{ display: 'block', height: 17, width: 'auto', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.55))' }}
           />

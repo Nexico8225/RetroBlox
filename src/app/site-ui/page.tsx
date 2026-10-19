@@ -14,9 +14,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Page, Title, GameIcon } from '@/components/retro/Shell'
+import { Page, Title } from '@/components/retro/Shell'
 import { useRetro, api } from '@/lib/store'
-import { applySiteUi, normalizeSiteUi, useSiteUi, type SiteUiConfig, type SiteUiLink } from '@/lib/siteui'
+import { applySiteUi, normalizeSiteUi, useSiteUi, type SiteUiConfig, type SiteUiGroup, type SiteUiLink } from '@/lib/siteui'
 
 /* one color row: swatch + hex text, edits apply instantly */
 function ColorRow({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (v: string) => void }) {
@@ -118,6 +118,39 @@ function SiteUiEditor() {
 
   const setCta = (i: number, p: Partial<SiteUiConfig['hero']['ctas'][number]>) =>
     patch((d) => ({ ...d, hero: { ...d.hero, ctas: d.hero.ctas.map((c, j) => (j === i ? { ...c, ...p } : c)) } }))
+
+  /* sidebar groups: {me} means MY profile; Account + Log Out always appended by the site itself */
+  const setGroup = (i: number, p: Partial<SiteUiGroup>) =>
+    patch((d) => ({ ...d, sidebar: d.sidebar.map((g, j) => (j === i ? { ...g, ...p } : g)) }))
+  const setGroupLink = (gi: number, li: number, p: Partial<SiteUiLink>) =>
+    patch((d) => ({
+      ...d,
+      sidebar: d.sidebar.map((g, j) => (j === gi ? { ...g, links: g.links.map((l, k) => (k === li ? { ...l, ...p } : l)) } : g)),
+    }))
+  const moveGroupLink = (gi: number, li: number, dir: -1 | 1) =>
+    patch((d) => ({
+      ...d,
+      sidebar: d.sidebar.map((g, j) => {
+        if (j !== gi) return g
+        const k = li + dir
+        if (k < 0 || k >= g.links.length) return g
+        const links = [...g.links]
+        ;[links[li], links[k]] = [links[k], links[li]]
+        return { ...g, links }
+      }),
+    }))
+  const addGroupLink = (gi: number) =>
+    patch((d) => ({
+      ...d,
+      sidebar: d.sidebar.map((g, j) => (j === gi ? { ...g, links: [...g.links, { label: 'New Link', href: '/games', show: true }] } : g)),
+    }))
+  const delGroupLink = (gi: number, li: number) =>
+    patch((d) => ({
+      ...d,
+      sidebar: d.sidebar.map((g, j) => (j === gi ? { ...g, links: g.links.filter((_, k) => k !== li) } : g)),
+    }))
+  const addGroup = () => patch((d) => ({ ...d, sidebar: [...d.sidebar, { title: 'New Group', links: [] }] }))
+  const delGroup = (gi: number) => patch((d) => ({ ...d, sidebar: d.sidebar.filter((_, j) => j !== gi) }))
 
   async function save(config: SiteUiConfig) {
     setSaving(true)
@@ -241,6 +274,42 @@ function SiteUiEditor() {
             {head('Footer')}
             <Field label="Tagline (next to the logo)" value={draft.footer.tagline} onChange={setFooter('tagline')} max={200} />
             <Field label="Bottom line" value={draft.footer.bottom} onChange={setFooter('bottom')} max={120} />
+
+            {head('Logos')}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+              <img src={draft.headerLogoUrl || '/retro/logo.png'} alt="icon preview" width={30} height={30} style={{ borderRadius: 4, background: '#fff', border: '1px solid var(--rb-border)' }} />
+              <img src={draft.headerWordmarkUrl || '/retro/logo-wordmark.png'} alt="wordmark preview" style={{ height: 24, width: 'auto' }} />
+              <img src={draft.footerLogoUrl || '/retro/logo-wordmark.png'} alt="footer preview" style={{ height: 17, width: 'auto' }} />
+            </div>
+            <Field label="Header icon url (30x30, empty = classic)" value={draft.headerLogoUrl} onChange={(v) => patch((d) => ({ ...d, headerLogoUrl: v.trim() }))} max={300} mono />
+            <Field label="Header wordmark url (blue bar, empty = classic)" value={draft.headerWordmarkUrl} onChange={(v) => patch((d) => ({ ...d, headerWordmarkUrl: v.trim() }))} max={300} mono />
+            <Field label="Footer wordmark url (empty = classic)" value={draft.footerLogoUrl} onChange={(v) => patch((d) => ({ ...d, footerLogoUrl: v.trim() }))} max={300} mono />
+
+            {head('Sidebar groups (left menu)')}
+            <div style={{ fontSize: 10, color: 'var(--rb-text-dim)', marginBottom: 6 }}>
+              Use {'{me}'} as the href to link to MY profile. The Account group (Admin Panel, Site UI Editor,
+              Settings) and the Log Out button are always added by the site itself — you cannot lock yourself out.
+            </div>
+            {draft.sidebar.map((g, gi) => (
+              <div key={gi} style={{ border: '1px solid var(--rb-border-light)', borderRadius: 6, padding: '8px 10px', marginBottom: 8 }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                  <input className="rb-input" value={g.title} maxLength={40} onChange={(e) => setGroup(gi, { title: e.target.value })} style={{ width: 140, fontSize: 11, fontWeight: 700 }} spellCheck={false} />
+                  <button className="rb-btn rb-btn-red" onClick={() => delGroup(gi)} style={{ padding: '2px 7px', fontSize: 11, marginLeft: 'auto' }}>Delete group</button>
+                </div>
+                {g.links.map((l, li) => (
+                  <div key={li} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 5 }}>
+                    <input type="checkbox" checked={l.show} onChange={(e) => setGroupLink(gi, li, { show: e.target.checked })} style={{ width: 15, height: 15, flexShrink: 0 }} title="Show this link" />
+                    <input className="rb-input" value={l.label} maxLength={40} onChange={(e) => setGroupLink(gi, li, { label: e.target.value })} style={{ width: 110, fontSize: 11 }} spellCheck={false} />
+                    <input className="rb-input" value={l.href} maxLength={200} onChange={(e) => setGroupLink(gi, li, { href: e.target.value })} style={{ flex: 1, minWidth: 70, fontSize: 11, fontFamily: 'monospace' }} spellCheck={false} />
+                    <button className="rb-btn" onClick={() => moveGroupLink(gi, li, -1)} style={{ padding: '2px 7px', fontSize: 11 }}>&uarr;</button>
+                    <button className="rb-btn" onClick={() => moveGroupLink(gi, li, 1)} style={{ padding: '2px 7px', fontSize: 11 }}>&darr;</button>
+                    <button className="rb-btn rb-btn-red" onClick={() => delGroupLink(gi, li)} style={{ padding: '2px 7px', fontSize: 11 }}>X</button>
+                  </div>
+                ))}
+                <button className="rb-btn rb-btn-blue" onClick={() => addGroupLink(gi)} style={{ fontSize: 10, padding: '3px 8px' }}>+ Add link to {g.title || 'group'}</button>
+              </div>
+            ))}
+            <button className="rb-btn rb-btn-blue" onClick={addGroup} style={{ fontSize: 11 }}>+ Add a sidebar group</button>
           </div>
 
           {/* what the owner is editing — a small cheat sheet */}
@@ -251,10 +320,47 @@ function SiteUiEditor() {
               <li>Link + button colors: site-wide, all rb-link and action buttons</li>
               <li>Navbar links: the white strip under the blue bar (order, labels, hide, custom pages)</li>
               <li>Welcome banner: the home page card with your name and its buttons</li>
-              <li>Footer: tagline + bottom line on every page</li>
+              <li>Footer: tagline + bottom line + wordmark on every page</li>
+              <li>Sidebar: your groups and links in the left menu</li>
+              <li>Logos: header icon, header wordmark, footer wordmark</li>
               <li>Site name: browser tab titles</li>
+              <li>Custom CSS: absolutely everything else, on any page</li>
             </ul>
           </div>
+        </div>
+      </div>
+
+      {/* -------- CUSTOM CSS: the whole web UI -------- */}
+      <div className="rb-box" style={{ padding: '12px 14px', marginTop: 12 }}>
+        {head('Custom CSS — edit ANYTHING, on ANY page')}
+        <div style={{ fontSize: 11, color: 'var(--rb-text-dim)', marginBottom: 8, lineHeight: 1.6 }}>
+          This CSS applies to every page the moment you type it. Target one page with the {' '}<code>data-path</code>{' '}
+          attribute the site puts on the body tag (for example {' '}<code>body[data-path='/games'] .rb-page-title &#123; color: red; &#125;</code>).
+          Every class on the site is fair game: <code>.rb-header</code>, <code>.rb-navbar</code>, <code>.rb-box</code>,{' '}
+          <code>.rb-btn</code>, <code>.rb-footer</code>, <code>.rb-sidebar</code>, <code>.rb-page-title</code> ... or write your own from scratch.
+          Tip: <code>body &#123; font-family: Verdana; &#125;</code> changes every font; <code>.rb-header &#123; display: none; &#125;</code> removes the blue bar.
+        </div>
+        <textarea
+          className="rb-textarea"
+          value={draft.customCss}
+          onChange={(e) => patch((d) => ({ ...d, customCss: e.target.value.slice(0, 24000) }))}
+          spellCheck={false}
+          placeholder={'/* your web, your rules — examples: */\n.rb-header { border-bottom: 4px solid #e2231a; }\nbody[data-path="/games"] .rb-page-title { text-transform: uppercase; }\n.rb-btn-green { background: #ff7a00; }'}
+          style={{
+            width: '100%',
+            minHeight: 220,
+            fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+            fontSize: 12,
+            lineHeight: 1.5,
+            resize: 'vertical',
+            whiteSpace: 'pre',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 10, color: 'var(--rb-text-dim)' }}>{draft.customCss.length} / 24000 characters</span>
+          <button className="rb-btn" style={{ fontSize: 11, marginLeft: 'auto' }} onClick={() => patch((d) => ({ ...d, customCss: '' }))}>
+            Clear custom CSS
+          </button>
         </div>
       </div>
     </div>
