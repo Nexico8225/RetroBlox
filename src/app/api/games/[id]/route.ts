@@ -207,8 +207,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (form.get('engine') === 'Web') data.engine = 'Web'
   }
 
-  // v6: the owner publishes their GAME UI from /ui-studio — widget JSON the
-  // desktop player fetches and spawns for EVERY player of this game
+  // the owner's published GAME UI — widget JSON the desktop player fetches
+  // and spawns for EVERY player of this game
   const uiConfig = form.get('uiConfig')
   if (typeof uiConfig === 'string' && uiConfig.trim()) {
     if (uiConfig.length > 100_000) return NextResponse.json({ error: 'UI config too large (max 100KB).' }, { status: 400 })

@@ -9,7 +9,7 @@ extends Control
 const KINDS: Array = [
         "person", "gear", "mouse", "lock", "camera", "speaker", "note", "sun",
         "monitor", "gauge", "expand", "sync", "layers", "chart", "signal",
-        "tag", "bubble", "bounce", "reset", "exit", "sliders", "invert",
+        "tag", "bubble", "bounce", "reset", "exit", "sliders", "invert", "brush",
 ]
 
 var kind := "gear"
@@ -48,6 +48,7 @@ func _draw() -> void:
                 "exit": _exit()
                 "sliders": _sliders()
                 "invert": _invert()
+                "brush": _brush()
 
 
 # ---- the design grid helpers ---------------------------------------------
@@ -253,3 +254,11 @@ func _invert() -> void:
         _arrow_tip(Vector2(12, 19.4), Vector2(0, -1))
         _line(Vector2(6.8, 8.4), Vector2(6.8, 15.6))
         _arrow_tip(Vector2(6.8, 8.4), Vector2(0, 1))
+
+
+## The paint bucket: rim, tapered body, handle and one falling drop.
+func _brush() -> void:
+        _line(Vector2(5.2, 9.0), Vector2(18.8, 9.0))
+        _poly([Vector2(6.6, 9.0), Vector2(17.4, 9.0), Vector2(15.9, 17.6), Vector2(8.1, 17.6)])
+        _arc(Vector2(12.0, 9.0), 3.2, PI, TAU)
+        _circle(Vector2(12.0, 20.9), 1.15, true)

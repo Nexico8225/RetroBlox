@@ -735,6 +735,16 @@ static func icon_texture(kind: String, ink := Color(1, 1, 1, 0.96)) -> ImageText
                         px.call(15, 7)
                         px.call(14, 6)
                         px.call(14, 8)
+                "brush":
+                        # the paint bucket — rim, tapered body, one falling drop
+                        for x in range(3, 15):
+                                px.call(x, 4)
+                        for y in range(5, 12):
+                                var bucket_inset: int = int(float(y - 5) / 7.0 * 2.0)
+                                for x in range(4 + bucket_inset, 14 - bucket_inset):
+                                        px.call(x, y)
+                        px.call(8, 13)
+                        px.call(8, 14)
         img.resize(18, 18, Image.INTERPOLATE_BILINEAR)
         var tex := ImageTexture.create_from_image(img)
         _icon_cache[cache_key] = tex

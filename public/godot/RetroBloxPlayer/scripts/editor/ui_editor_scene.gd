@@ -3,7 +3,7 @@ extends Control
 ##  UI EDITOR SCENE — DRAG. DROP. DONE. (v14.0 "STUDIO")
 ## ==================================================================
 ##  A whole SCENE for editing the client UI (run it from the STUDIO hub,
-##  the login screen, or the in-game menu's Studio tab):
+##  login screen (the STUDIO button):
 ##
 ##    · the LEFT shelf holds WIDGETS — grab one, DRAG it onto the stage,
 ##      release: a real Button / Label / Panel / TextBox / Health Bar /

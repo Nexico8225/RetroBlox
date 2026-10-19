@@ -3,7 +3,7 @@ extends Node3D
 ##  MAP EDITOR — BUILD YOUR WORLD BRICK BY BRICK (v14.0 "STUDIO")
 ## ==================================================================
 ##  A whole SCENE for building maps (open it from the STUDIO hub, the
-##  login screen, or the in-game menu's Studio tab):
+##  login screen (the STUDIO button):
 ##
 ##    · LEFT CLICK  — does the selected tool: ADD a brick / PAINT a
 ##                    brick with the current color / DELETE a brick

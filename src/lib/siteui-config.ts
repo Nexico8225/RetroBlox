@@ -67,7 +67,6 @@ export const DEFAULT_SITE_UI: SiteUiConfig = {
     { label: 'Avatar', href: '/avatar', show: true },
     { label: 'Create', href: '/create', show: true },
     { label: 'SDK', href: '/sdk', show: true },
-    { label: 'Templates', href: '/templates', show: true },
     { label: 'Videos', href: '/videos', show: true },
     { label: 'Groups', href: '/groups', show: true },
     { label: 'Communities', href: '/community', show: true },
@@ -96,7 +95,6 @@ export const DEFAULT_SITE_UI: SiteUiConfig = {
       links: [
         { label: 'My Games', href: '/my', show: true },
         { label: 'Create a Game', href: '/create', show: true },
-        { label: 'UI Studio', href: '/ui-studio', show: true },
       ],
     },
     {
@@ -132,9 +130,16 @@ function links(v: unknown, fallback: SiteUiLink[]): SiteUiLink[] {
     const label = typeof r.label === 'string' ? r.label.slice(0, 40) : ''
     const href = typeof r.href === 'string' ? r.href.slice(0, 200) : ''
     if (!label || !href) continue
+    if (retiredHref(href)) continue // pages that no longer exist
     out.push({ label, href, show: r.show !== false })
   }
   return out.slice(0, 30)
+}
+
+/** Links to pages we deleted — dropped from every saved config so they never render. */
+function retiredHref(href: string): boolean {
+  const h = href.split('?')[0].replace(/\/$/, '')
+  return h === '/templates' || h === '/ui-studio'
 }
 
 function ctas(v: unknown, fallback: SiteUiCta[]): SiteUiCta[] {

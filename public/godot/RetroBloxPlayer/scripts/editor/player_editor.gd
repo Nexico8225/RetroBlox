@@ -3,7 +3,7 @@ extends Node3D
 ##  PLAYER EDITOR — YOUR AVATAR, YOUR COLORS (v14.0 "STUDIO")
 ## ==================================================================
 ##  A whole SCENE for editing your player (open it from the STUDIO hub,
-##  the login screen, or the in-game menu's Studio tab):
+##  login screen (the STUDIO button):
 ##
 ##    · your LIVE 3D avatar stands on the stage — DRAG left/right to
 ##      spin them around and check every angle

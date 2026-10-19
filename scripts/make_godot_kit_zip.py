@@ -6,18 +6,12 @@ no more loose files dumped into your downloads directory. Includes explicit
 directory entries like the originals. Excludes Godot cache (.godot/) and OS junk."""
 import os
 import zipfile
-
-<<<<<<< HEAD
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT = str(BASE_DIR / "public" / "godot" / "RetroBloxPlayer")
 OUT = str(BASE_DIR / "public" / "godot" / "retroblox-godot-player.zip")
-=======
-ROOT = "/home/z/my-project/public/godot/RetroBloxPlayer"
-OUT = "/home/z/my-project/public/godot/retroblox-godot-player.zip"
 TOP = "RetroBloxPlayer"  # the one folder inside the zip
->>>>>>> a8593d7e0cb477b6e37dbbef32a9f1fb2515425d
 
 SKIP_DIRS = {".godot", "__pycache__"}
 SKIP_FILES = {".DS_Store"}

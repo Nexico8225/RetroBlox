@@ -404,3 +404,20 @@ Work Log:
 
 Stage Summary:
 - Live 0cd2080. The whole web UI is now the owner's: every color, every link, both logos, the sidebar, the home banner, the footer — plus raw custom CSS with per-page targeting that covers literally everything else, all editable live at /site-ui and saved for every visitor.
+
+---
+Task ID: v10-strip-studio-clean-sdk
+Agent: Super Z (main)
+Task: "remove the colorpicker and able to color the world" + "remove this (ESC Studio tab)" + "remove the UI studio and game templates" + "use godot icon, put unity icon coming soon" + "make the SDK page UI better, the text is garbage"
+
+Work Log:
+- PAINT, NOT A COLORPICKER: the always-on bottom-center PAINT bar is GONE — it now hides until asked; C toggles it, a new paint-bucket key in the topbar toggles it too (brush glyph added to menu_icons.gd KINDS + a pixel "brush" case in retro_theme.icon_texture so icon_png never shows a hole); LEFT CLICK still paints the world everywhere, spawn toast now says "Born WHITE — press C for colors"; opened-palette toast explains pick+click
+- ESC STUDIO TAB REMOVED (image 2): tab_defs is now People/Settings only; the whole studio_page block (heading, hint, three editor doors, note) deleted — the editors stay reachable from the login-screen STUDIO door; editor scene header comments + game.gd comment updated
+- UI STUDIO + GAME TEMPLATES REMOVED (image 3): /ui-studio + /templates routes deleted with UiStudioView.tsx + TemplatesView.tsx; Shell NAV fallback and DEFAULT_SITE_UI lost their Templates/UI Studio entries; normalizeSiteUi now drops any saved link whose href is /templates or /ui-studio (retiredHref) so old saved configs can never render them; HomeView "Game templates" link removed; games/[id] PATCH comment de-referenced
+- SDK PAGE REWRITTEN (image 4): hero is one human sentence ("The whole game, free to run and edit.") + a 2-sentence what-it-is; the 12-card ALL-CAPS NEW_STUFF wall replaced by six short "What it does" cards; dead RENAMED code dropped; FILES list now 9 terse rows; endpoints table trimmed to 8; controls table shortened (C = paint colors, Left click = paint, B = build); OFFICIAL ICONS: Godot icon.svg (godotengine/godot 4.2, on a dark tile so the white mouth reads) in the hero, Unity cube icon (simple-icons) inside the blue "A Unity version is coming" banner with COMING SOON chip; both saved to public/icons/; version bumped to v7
+- KIT: README updated (palette behavior, People/Settings menu, login-screen-only studio, game-files section de-templated, published-UI section de-webbed); scripts/make_godot_kit_zip.py had UNRESOLVED MERGE CONFLICT MARKERS from the v9 rebase (syntax error, zip silently stale!) — fixed to the pathlib portable version; zip rebuilt and content-verified (no studio tab, paint hidden w/ C toggle, brush glyph, no ui-studio refs)
+- CACHE: zip buster v7.0 -> v8.0 in SdkView + HomeView
+- VERIFY: eslint clean on touched files; tsc shows only the pre-existing origin/main errors (plus stale .next validators, regenerated); npm build green with /ui-studio + /templates absent from the manifest; dev e2e: /sdk 200, /ui-studio 404, /templates 404, /icons/godot-icon.svg 200, /icons/unity-icon.svg 200, GET /api/site-ui returns links without Templates and sidebar without UI Studio
+
+Stage Summary:
+- The game reads like a game again: no permanent color-picker bar (C or the bucket key brings colors back, click still paints), no Studio tab in the ESC menu, no UI Studio or Templates anywhere on the web. The SDK page finally speaks English: short sentences, official Godot + Unity icons, honest file list.

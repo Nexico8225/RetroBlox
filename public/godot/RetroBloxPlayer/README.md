@@ -17,7 +17,7 @@ files to make the game YOURS. Everything talks plain HTTP + JSON to
 4. You spawn on the **HAPPY BASEPLATE** — the classic sandbox: run with
    **WASD**, jump with **SPACE**, walk up the stairs fort and **CLIMB the
    grey truss ladder** to the sky platform. Press **ESC** for the menu
-   (People / Studio / Settings), **Enter** to chat. Want Color World
+   (People / Settings), **Enter** to chat. Want Color World
    (paint every brick)? Pick it from the place list in the menu.
 5. Back on the login screen there is a **STUDIO** button — the organized
    door to the editor scenes (UI / Map / Player).
@@ -33,11 +33,11 @@ place: a plain sandbox made to be walked and climbed, no gimmick.
 
 **Painting (Color World) is still in the kit:** open the menu (ESC) →
 People → Places → **Color World**, or pick any other place — the world is
-born white, **LEFT CLICK** paints the brick under your cursor with the
-picked palette color (the palette of 12 classic swatches lives
-bottom-center — white is the eraser). The counter shows how many parts you
-painted in places flagged `"paint": true`, and painting every part fires
-WORLD COMPLETE.
+born white, **LEFT CLICK** paints the brick under your cursor. Press **C**
+(or the bucket button, top-left) for the 12 classic swatches — the palette
+stays out of your way until you ask for it. The counter shows how many
+parts you painted in places flagged `"paint": true`, and painting every
+part fires WORLD COMPLETE.
 
 **BUILD MODE — edit the map while you play:** press **B** and LEFT CLICK
 places a 4x1x4 brick (in your brush color!) on any surface you aim at;
@@ -67,7 +67,7 @@ too. Make a place born-white by giving every part the same `"c": "f2f3f3"`
 
 The game is ORGANIZED: each thing you can touch lives in its own scene,
 and the STUDIO hub ties them together. Open it from the **login screen**
-(STUDIO button) or in-game (**ESC → Studio tab**):
+(STUDIO button):
 
 | Scene | File | What you do there |
 |-------|------|-------------------|
@@ -93,8 +93,8 @@ scene unlocked` or `ROLE: PLAYER — editors locked`. A player who opens an
 editor door gets one orange sentence telling them exactly how in:
 publish any game on the site and every editor unlocks on this device
 (the hub even has a **BECOME A GAME DEV** button that opens the site).
-The same gate rides the **F2** UI editor inside the game and the ESC
-menu's Studio tab — players play, game devs edit.
+The same gate rides the **F2** UI editor inside the game — players play,
+game devs edit.
 
 ### The UI Editor — DRAG. DROP. DONE.
 A shelf of widgets sits on the left: **Button, Label, Panel, Text Box,
@@ -278,28 +278,25 @@ prints a script error it names the file + line — fix and re-run.
 | My map didn't change | edit `my_place.gd`, save, F5, and pick "My Place (template)" again in the menu |
 | Login works on the site but not in-game | the game talks to `https://retro-blox.vercel.app` — check Settings → Network server URL |
 
-## 10. UI Studio on the web + click/hover FX (v6.0)
+## 10. Published game UIs + click/hover FX (v6.0)
 
-**UI STUDIO** — retro-blox.vercel.app/ui-studio (sidebar: UI Studio). Pick YOUR
-game, then compose the UI every player sees: **Text, Icons, Images (any URL),
-Buttons that open real links**, drag them anywhere on the 960x540 stage. Give
-any widget CLICK FX (Punch, Bounce) and HOVER FX (smooth scale-then-rotate,
-Glow, Fade) with Power + Speed dials — the same effect names play in the game
-as Godot tweens, and hovering the widget on the web stage previews it with CSS.
-Press **Publish to EVERYONE** and the desktop player fetches that UI when the
-game starts (game files downloaded from the page carry the game's ID). Anyone
-can also build fx in their own player with F2 — those stay private to them.
+A game's owner can publish a UI for EVERY player of that game: **Text,
+Icons, Images (any URL), Buttons that open real links** — placed on a
+960x540 stage, with CLICK FX (Punch, Bounce) and HOVER FX (smooth
+scale-then-rotate, Glow, Fade) with Power + Speed dials. The desktop
+player fetches that UI when the game starts (game files downloaded from
+the page carry the game's ID). Anyone can also build fx in their own
+player with F2 — those stay private to them.
 
 **Scenes look empty?** They build in code on purpose — read `docs/SCENES.md`
 for where every screen actually lives and how to edit it with nodes + scripts.
 
 ## 10. Game templates + the top-down camera (v5.0)
 
-**Templates.** The site serves ready-made game files at **retro-blox.vercel.app/templates** —
-Brick Arena (top-down), Paint World, Classic Obby, Baseplate and the My Place starter.
-Each is a `.retroplace` file: download it, then **STUDIO > OPEN GAME FILE** and it plays.
-Game devs can open the same file in the **Map Editor**, change everything and save their
-own version (SAVE FILE exports a `.retroplace` you can share or publish).
+**Game files.** Any place can be shared as a `.retroplace` file: download a
+game from its page (or SAVE FILE in the Map Editor), then
+**STUDIO > OPEN GAME FILE** and it plays. Game devs can open the same file
+in the **Map Editor**, change everything and save their own version.
 
 **Top-down.** A place can ask for the board-game camera with `"cam": "topdown"` in its
 place dictionary (or in a `.retroplace` file). The camera then parks high above the
@@ -310,9 +307,9 @@ bounce shortcuts, a gold vault to reach. Copy `scripts/world/places.gd → topdo
 to make your own, or hand-edit a downloaded `.retroplace` in any text editor — it is
 plain JSON (`"cam": "topdown"` at the top).
 
-The templates are generated from the same data the game ships with —
-`scripts/dev/dump_templates.gd` runs headless and writes every built-in place
-into `.retroplace` files.
+Game files can also be generated from the built-in places:
+`scripts/dev/dump_templates.gd` runs headless and writes every built-in
+place into `.retroplace` files.
 
 ## 11. Publish your game
 

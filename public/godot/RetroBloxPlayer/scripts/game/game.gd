@@ -367,6 +367,14 @@ func _unhandled_input(event: InputEvent) -> void:
                 _toggle_build_mode()
                 get_viewport().set_input_as_handled()
                 return
+        # ---- v16 PAINT COLORS: C shows/hides the palette (no permanent bar) ----
+        if event is InputEventKey and event.is_pressed() and not event.is_echo() \
+                        and (event as InputEventKey).keycode == KEY_C and not _menu_open \
+                        and chat != null and is_instance_valid(chat) and not chat.is_open \
+                        and not chat.is_reading:
+                _toggle_paint_bar()
+                get_viewport().set_input_as_handled()
+                return
         # ---- v13.0 THE PAINT BRUSH: LEFT CLICK paints the brick under the
         # cursor with the picked palette color (palette lives bottom-center;
         # buttons eat their own clicks so painting never fires on UI) ----
@@ -500,8 +508,8 @@ func _build_hud() -> void:
                         (n as ProgressBar).value = _custom_health01 * 100.0
 
         # ---- v6.0: the GAME OWNER's published UI — fetched from the site so
-        # EVERY player sees it (the owner edits it at /ui-studio). Personal
-        # widgets from the local UI Editor still render on top of these.
+        # EVERY player sees it (the owner publishes it from the site).
+        # Personal widgets from the local UI Editor still render on top of these.
         if Session.server_ui_game != "":
                 _fetch_server_ui()
 
@@ -591,6 +599,14 @@ func _build_topbar() -> void:
         _chat_badge_panel = badge_panel
         badge_panel.visible = false   # no unread yet — no red dot
         cluster.add_child(chat_btn)
+
+        # v16: the paint bucket key — shows/hides the color palette (C does it too)
+        var paint_btn := _topbar_key()
+        paint_btn.tooltip_text = "Paint colors (C)"
+        paint_btn.icon = RetroUI.icon_png("brush", Color.WHITE)
+        paint_btn.pressed.connect(_toggle_paint_bar)
+        cluster.add_child(paint_btn)
+
         UiEditor.register("topbar", cluster, false)
 
         # ---- the TOP-RIGHT USER PILL — name + the settings gear,
@@ -917,9 +933,10 @@ func _build_paint_bar() -> void:
                 _text(_paint_count, 12, Color("ffd400"))
                 _paint_count.text = "0 / %d painted" % _paint_total
                 row.add_child(_paint_count)
-                _notify("This world is born WHITE — click a brick to paint it!", true)
+                _notify("Born WHITE — press C for colors, click a brick to paint it!", true)
 
         hud.add_child(_paint_bar)
+        _paint_bar.visible = false   # v16: hidden until C or the bucket key — no permanent palette
         UiEditor.register("paint_bar", _paint_bar, false)
 
 
@@ -942,6 +959,15 @@ func _pick_paint(hex: String) -> void:
                 b.add_theme_stylebox_override("normal", _paint_swatch_face(hx, on))
                 b.add_theme_stylebox_override("hover", _paint_swatch_face(hx, on))
                 b.add_theme_stylebox_override("pressed", _paint_swatch_face(hx, on))
+
+
+## v16: the palette hides until asked — C or the topbar bucket key.
+func _toggle_paint_bar() -> void:
+        if _paint_bar == null or not is_instance_valid(_paint_bar):
+                return
+        _paint_bar.visible = not _paint_bar.visible
+        if _paint_bar.visible:
+                _notify("Pick a color, then click a brick to paint it. C hides this.", false)
 
 
 ## LEFT CLICK: in build mode you place / remove bricks, otherwise you paint.
@@ -1127,7 +1153,6 @@ func _build_menu() -> Control:
         root.add_child(rail)
         var tab_defs := [
                 ["players", "People", "person"],
-                ["studio", "Studio", "layers"],
                 ["settings", "Settings", "gear"],
         ]
         for td in tab_defs:
@@ -1206,54 +1231,6 @@ func _build_menu() -> Control:
         _settings_tab.visible = false
         pages.add_child(_settings_tab)
         _pages["settings"] = _settings_tab
-
-        # ---- v14.0 STUDIO — the organized edit page: a door per scene ----
-        var studio_page := VBoxContainer.new()
-        studio_page.name = "StudioPage"
-        studio_page.set_anchors_preset(Control.PRESET_FULL_RECT)
-        studio_page.add_theme_constant_override("separation", 8)
-        studio_page.visible = false
-        pages.add_child(studio_page)
-        _pages["studio"] = studio_page
-        var s_head := Label.new()
-        s_head.text = "Studio"
-        _title(s_head, 18, RetroUI.NIGHT_INK)
-        studio_page.add_child(s_head)
-        var s_hint := Label.new()
-        s_hint.text = "Four editor scenes — for GAME DEVS. Players play; publish any game on the site and the editors unlock. Edits save to this device and ride with you."
-        _text(s_hint, 12, RetroUI.NIGHT_INK_MUTED)
-        s_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        studio_page.add_child(s_hint)
-        for door in [
-                ["UI EDITOR", "Drag & drop widgets to rebuild the client UI", "res://scenes/ui_editor.tscn"],
-                ["MAP EDITOR", "Build maps brick by brick — your map becomes My Place", "res://scenes/map_editor.tscn"],
-                ["PLAYER EDITOR", "Paint your avatar's skin, shirt and pants", "res://scenes/player_editor.tscn"],
-        ]:
-                var btn := Button.new()
-                btn.text = "%s   ·   %s" % [door[0], door[1]]
-                btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-                btn.custom_minimum_size = Vector2(0, 40)
-                btn.focus_mode = Control.FOCUS_NONE
-                btn.add_theme_stylebox_override("normal", _row_btn(false))
-                btn.add_theme_stylebox_override("hover", _row_btn(true))
-                btn.add_theme_stylebox_override("pressed", _row_btn(false))
-                if RetroUI.gotham(600) != null:
-                        btn.add_theme_font_override("font", RetroUI.gotham(600))
-                btn.add_theme_font_size_override("font_size", 13)
-                btn.add_theme_color_override("font_color", Color(0.92, 0.93, 0.95))
-                btn.add_theme_color_override("font_hover_color", Color.WHITE)
-                var scene_path := String(door[2])
-                btn.pressed.connect(func() -> void:
-                        # v15.0: editor doors are for GAME DEVS — players play
-                        if not Session.is_dev:
-                                _notify("GAME DEVS ONLY — %s is an editor scene. Publish any game on retro-blox.vercel.app and it unlocks." % String(door[0]))
-                                return
-                        get_tree().change_scene_to_file(scene_path))
-                studio_page.add_child(btn)
-        var s_note := Label.new()
-        s_note.text = "The full STUDIO hub — with Open Game File — lives on the login screen."
-        _text(s_note, 11, RetroUI.NIGHT_INK_FAINT)
-        studio_page.add_child(s_note)
 
         var set_tab := func(tab: String) -> void:
                 for key in _pages.keys():
