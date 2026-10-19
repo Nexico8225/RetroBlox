@@ -132,6 +132,8 @@ var _ladder_dismount := 0.0
 var _input_shiftlock := false     # live input flags (ladder-grip rules)
 var _input_first_person := false
 var _last_vy := 0.0
+var _momentum := 1.0
+var _air_jumps_left := 0
 
 
 func _init() -> void:
@@ -167,7 +169,47 @@ func _init() -> void:
 func _ready() -> void:
         # autoloads are reachable from _ready — never from _init
         _settings = get_node_or_null("/root/Settings")
+        load_tuning()
         _setup_character_sfx()
+
+
+func load_tuning() -> void:
+        var path := "user://player_config.json"
+        if not FileAccess.file_exists(path):
+                return
+        var f := FileAccess.open(path, FileAccess.READ)
+        if f == null:
+                return
+        var text := f.get_as_text()
+        var json := JSON.new()
+        if json.parse(text) == OK and json.data is Dictionary:
+                var d: Dictionary = json.data
+                if d.has("walk_speed"): walk_speed = float(d["walk_speed"]) * STUD
+                if d.has("jump_height"): jump_height = float(d["jump_height"]) * STUD
+                if d.has("gravity"): gravity = float(d["gravity"]) * STUD
+                if d.has("coyote_time"): coyote_time = float(d["coyote_time"])
+                if d.has("max_air_jumps"): max_air_jumps = int(d["max_air_jumps"])
+                if d.has("momentum_enabled"): momentum_enabled = bool(d["momentum_enabled"])
+                if d.has("momentum_max_multiplier"): momentum_max_multiplier = float(d["momentum_max_multiplier"])
+                if d.has("momentum_buildup_rate"): momentum_buildup_rate = float(d["momentum_buildup_rate"])
+
+
+func save_tuning() -> void:
+        var path := "user://player_config.json"
+        var d := {
+                "walk_speed": walk_speed / STUD,
+                "jump_height": jump_height / STUD,
+                "gravity": gravity / STUD,
+                "coyote_time": coyote_time,
+                "max_air_jumps": max_air_jumps,
+                "momentum_enabled": momentum_enabled,
+                "momentum_max_multiplier": momentum_max_multiplier,
+                "momentum_buildup_rate": momentum_buildup_rate
+        }
+        var f := FileAccess.open(path, FileAccess.WRITE)
+        if f != null:
+                f.store_string(JSON.stringify(d, "\t"))
+                f.close()
 
 
 ## The classic character sounds — plastic footsteps while walking, the jump
@@ -236,7 +278,8 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         elif _jump_buffer_left > 0.0:
                 _jump_buffer_left -= delta
         if grounded:
-                _coyote = COYOTE_TIME
+                _coyote = coyote_time
+                _air_jumps_left = max_air_jumps
         elif _coyote > 0.0:
                 _coyote -= delta
 
@@ -266,7 +309,7 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
                 var forward := Vector3(-sin(heading), 0.0, -cos(heading))
                 if forward.dot(_climb_face) < CLIMB_FACE_STAY:
                         _stop_climb()
-                        velocity.y -= GRAVITY * delta
+                        velocity.y -= gravity * delta
         else:
                 _drive_ground_air(wish, delta)
 
@@ -294,7 +337,7 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
         # rig clips: Idle / Walk / Jump / Climb — driven by THIS player's state
         var hspeed := Vector2(velocity.x, velocity.z).length()
         var anim_speed := absf(velocity.y) if climbing else hspeed
-        avatar.call("animate", delta, anim_speed, grounded, climbing)
+        avatar.call("animate", delta, anim_speed, grounded, climbing, velocity.y if climbing else 0.0)
 
 
 # ---------------------------------------------------------------- climbing
@@ -482,7 +525,17 @@ func _try_mantle() -> bool:
 
 func _drive_ground_air(wish: Vector3, delta: float) -> void:
         var accel := ACCEL_GROUND if is_on_floor() else ACCEL_AIR
-        var target := wish * WALK_SPEED
+
+        # Momentum calculation: gain speed while running continuously
+        if momentum_enabled and wish.length_squared() > 0.005:
+                _momentum = move_toward(_momentum, momentum_max_multiplier, momentum_buildup_rate * delta)
+        elif is_on_floor() and wish.length_squared() <= 0.005:
+                _momentum = move_toward(_momentum, 1.0, 3.5 * delta)
+        elif not momentum_enabled:
+                _momentum = 1.0
+
+        var eff_speed := walk_speed * _momentum
+        var target := wish * eff_speed
         if wish.length_squared() < 0.005 and is_on_floor():
                 velocity.x = move_toward(velocity.x, 0.0, BRAKE_GROUND * delta)
                 velocity.z = move_toward(velocity.z, 0.0, BRAKE_GROUND * delta)
@@ -492,15 +545,26 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
         if _rise_left > 0.0:
                 velocity.y = 0.0   # v3.7: the stair glide owns the vertical axis
         elif not is_on_floor():
-                velocity.y -= GRAVITY * delta
+                velocity.y -= gravity * delta
         elif velocity.y < 0.0:
                 velocity.y = 0.0
-        if _rise_left <= 0.0 and _jump_buffer_left > 0.0 and (is_on_floor() or _coyote > 0.0):
-                _jump_buffer_left = 0.0
-                _coyote = 0.0
-                velocity.y = JUMP_SPEED
-                _play_jump_sound()
-                _dust()
+
+        # Jump handling: ground / coyote jump, plus mid-air jumps (double/multi jump)
+        if _rise_left <= 0.0 and _jump_buffer_left > 0.0:
+                if is_on_floor() or _coyote > 0.0:
+                        _jump_buffer_left = 0.0
+                        _coyote = 0.0
+                        _air_jumps_left = max_air_jumps
+                        velocity.y = jump_height
+                        _play_jump_sound()
+                        _dust()
+                elif _air_jumps_left > 0:
+                        # Mid-air jump!
+                        _jump_buffer_left = 0.0
+                        _air_jumps_left -= 1
+                        velocity.y = jump_height
+                        _play_jump_sound()
+                        _dust(1.3)
 
 
 ## A soft dust puff at the feet — takeoffs, hard landings, bounces.

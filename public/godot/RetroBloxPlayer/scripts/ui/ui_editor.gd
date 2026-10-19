@@ -220,15 +220,6 @@ func _show_locked() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
         if event is InputEventKey and event.is_pressed() and not event.is_echo():
                 if (event as InputEventKey).keycode == KEY_F2:
-                        # v15.0 ROLES: the UI editor is an editor scene — game
-                        # devs edit the UI, players play. Session.check_dev()
-                        # answers once per session (one GET, then cached).
-                        if not Session.is_dev:
-                                Session.check_dev()
-                                if not Session.is_dev:
-                                        _show_locked()
-                                        get_viewport().set_input_as_handled()
-                                        return
                         toggle()
                         get_viewport().set_input_as_handled()
 

@@ -10,6 +10,7 @@ const KINDS: Array = [
         "person", "gear", "mouse", "lock", "camera", "speaker", "note", "sun",
         "monitor", "gauge", "expand", "sync", "layers", "chart", "signal",
         "tag", "bubble", "bounce", "reset", "exit", "sliders", "invert", "brush",
+        "help", "cross", "speed", "jump",
 ]
 
 var kind := "gear"
@@ -49,6 +50,10 @@ func _draw() -> void:
                 "sliders": _sliders()
                 "invert": _invert()
                 "brush": _brush()
+                "help": _help()
+                "cross": _cross()
+                "speed": _speed()
+                "jump": _jump()
 
 
 # ---- the design grid helpers ---------------------------------------------
@@ -262,3 +267,28 @@ func _brush() -> void:
         _poly([Vector2(6.6, 9.0), Vector2(17.4, 9.0), Vector2(15.9, 17.6), Vector2(8.1, 17.6)])
         _arc(Vector2(12.0, 9.0), 3.2, PI, TAU)
         _circle(Vector2(12.0, 20.9), 1.15, true)
+
+
+func _help() -> void:
+        _circle(Vector2(12, 12), 8.5)
+        _arc(Vector2(12, 9.5), 2.8, -PI * 0.7, 0.4)
+        _line(Vector2(12, 12.3), Vector2(12, 14.5))
+        _circle(Vector2(12, 17.2), 0.9, true)
+
+
+func _cross() -> void:
+        _line(Vector2(6.0, 6.0), Vector2(18.0, 18.0))
+        _line(Vector2(18.0, 6.0), Vector2(6.0, 18.0))
+
+
+func _speed() -> void:
+        _line(Vector2(4.0, 7.0), Vector2(14.0, 7.0))
+        _line(Vector2(2.0, 12.0), Vector2(18.0, 12.0))
+        _line(Vector2(4.0, 17.0), Vector2(14.0, 17.0))
+        _arrow_tip(Vector2(18.0, 12.0), Vector2(-1, 0))
+
+
+func _jump() -> void:
+        _line(Vector2(12.0, 19.0), Vector2(12.0, 5.0))
+        _arrow_tip(Vector2(12.0, 5.0), Vector2(0, 1))
+        _line(Vector2(5.0, 20.0), Vector2(19.0, 20.0))

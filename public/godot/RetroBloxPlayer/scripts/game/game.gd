@@ -106,7 +106,6 @@ func _ready() -> void:
         var built: Dictionary = WorldBuilderScript.build(place)
         add_child(built["root"])
         _spawns = built["spawns"]
-        _tag_paintables(built["root"])   # v13.0: every part accepts the brush
         _built_root = Node3D.new()       # v13.1: bricks the player builds land here
         _built_root.name = "BuiltBricks"
         built["root"].add_child(_built_root)
@@ -357,31 +356,11 @@ func _unhandled_input(event: InputEvent) -> void:
                 chat.close()
                 get_viewport().set_input_as_handled()
                 return
-        # ---- v13.1 BUILD MODE: the B key turns the world into your map
-        # editor — click places a brick (in your brush color), CTRL+click
-        # removes one you placed, B again is back to painting ----
+        # ---- F1: Toggle UI / HUD visibility (clean view / screenshots) ----
         if event is InputEventKey and event.is_pressed() and not event.is_echo() \
-                        and (event as InputEventKey).keycode == KEY_B and not _menu_open \
-                        and chat != null and is_instance_valid(chat) and not chat.is_open:
-                _toggle_build_mode()
+                        and (event as InputEventKey).keycode == KEY_F1:
+                _toggle_hud_visibility()
                 get_viewport().set_input_as_handled()
-                return
-        # ---- v16 PAINT COLORS: C shows/hides the palette (no permanent bar) ----
-        if event is InputEventKey and event.is_pressed() and not event.is_echo() \
-                        and (event as InputEventKey).keycode == KEY_C and not _menu_open \
-                        and chat != null and is_instance_valid(chat) and not chat.is_open \
-                        and not chat.is_reading:
-                _toggle_paint_bar()
-                get_viewport().set_input_as_handled()
-                return
-        # ---- v13.0 THE PAINT BRUSH: LEFT CLICK paints the brick under the
-        # cursor with the picked palette color (palette lives bottom-center;
-        # buttons eat their own clicks so painting never fires on UI) ----
-        if event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
-                        and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT \
-                        and not _menu_open and chat != null and is_instance_valid(chat) \
-                        and not chat.is_open and not chat.is_reading:
-                _brush_click(event)
                 return
         # ---- ESC menu keyboard shortcuts (classic and fast) ----
         if _menu_open and event is InputEventKey and event.is_pressed() and not event.is_echo() \
@@ -497,9 +476,6 @@ func _build_hud() -> void:
         hud.add_child(_toast_box)
         UiEditor.register("toasts", _toast_box, false)
 
-        # ---- v13.0: the paint palette — paint the world yourself ----
-        _build_paint_bar()
-
         # ---- v14.0: YOUR widgets — whatever the UI Editor scene holds ----
         for n in UiWidgetsScript.spawn_all(hud, self):
                 if n.has_meta("custom_health"):
@@ -520,6 +496,12 @@ func _build_hud() -> void:
         hud.add_child(_menu)
         # v1.1: honor the saved UI OPACITY the moment the menu exists
         _apply_ui_opacity()
+
+
+## F1 key: toggles HUD visibility on/off for clean screenshots and recording
+func _toggle_hud_visibility() -> void:
+        if hud != null and is_instance_valid(hud):
+                hud.visible = not hud.visible
 
 
 # ---- topbar ------------------------------------------------------------
@@ -598,13 +580,6 @@ func _build_topbar() -> void:
         _chat_badge_panel = badge_panel
         badge_panel.visible = false   # no unread yet — no red dot
         cluster.add_child(chat_btn)
-
-        # v16: the paint bucket key — shows/hides the color palette (C does it too)
-        var paint_btn := _topbar_key()
-        paint_btn.tooltip_text = "Paint colors (C)"
-        paint_btn.icon = RetroUI.icon_png("brush", Color.WHITE)
-        paint_btn.pressed.connect(_toggle_paint_bar)
-        cluster.add_child(paint_btn)
 
         UiEditor.register("topbar", cluster, false)
 
@@ -872,223 +847,6 @@ func _custom_widget_action(txt: String) -> void:
         _notify(txt, false)
 
 
-# ---------------------------------------------------------------- paint brush
-# v13.0 PAINT THE WORLD. Every part of every place accepts
-# the brush: LEFT CLICK paints the brick under the cursor with the picked
-# palette color. Paint is your own view of the world (client-side) — the
-# classic feeling of coloring a baseplate, now built into the client.
-
-## Tag every paintable part after the world builds. A part = a StaticBody3D
-## with a MeshInstance3D child (exactly what WorldBuilder._build_part makes).
-func _tag_paintables(world_root: Node) -> void:
-        var stack: Array[Node] = [world_root]
-        while not stack.is_empty():
-                var n: Node = stack.pop_back()
-                for c in n.get_children():
-                        stack.append(c)
-                if n is StaticBody3D:
-                        for c in n.get_children():
-                                if c is MeshInstance3D:
-                                        n.add_to_group("paintable")
-                                        _paint_total += 1
-                                        break
-
-
-## The bottom-center palette: PAINT + the 12 swatches (+ the painted counter
-## in places flagged "paint": true). Swatch buttons eat their own clicks.
-func _build_paint_bar() -> void:
-        _paint_bar = PanelContainer.new()
-        _paint_bar.name = "PaintBar"
-        _paint_bar.add_theme_stylebox_override("panel", _toast_style())
-        _paint_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-        _paint_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
-        _paint_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
-        _paint_bar.offset_bottom = -12.0
-        var row := HBoxContainer.new()
-        row.add_theme_constant_override("separation", 5)
-        _paint_bar.add_child(row)
-
-        var title := Label.new()
-        title.text = "PAINT"
-        _text(title, 12, Color(1, 1, 1, 0.85))
-        row.add_child(title)
-
-        for hex in PAINT_COLORS:
-                var hx := String(hex)
-                var swatch := Button.new()
-                swatch.custom_minimum_size = Vector2(24, 24)
-                swatch.focus_mode = Control.FOCUS_NONE
-                swatch.tooltip_text = "#" + hx
-                swatch.add_theme_stylebox_override("normal", _paint_swatch_face(hx, false))
-                swatch.add_theme_stylebox_override("hover", _paint_swatch_face(hx, false))
-                swatch.add_theme_stylebox_override("pressed", _paint_swatch_face(hx, false))
-                swatch.pressed.connect(_pick_paint.bind(hx))
-                row.add_child(swatch)
-                _paint_swatch[hx] = swatch
-        _pick_paint("c4281c")   # bright red ships picked
-
-        if bool(place.get("paint", false)):
-                _paint_count = Label.new()
-                _text(_paint_count, 12, Color("ffd400"))
-                _paint_count.text = "0 / %d painted" % _paint_total
-                row.add_child(_paint_count)
-                _notify("Born WHITE — press C for colors, click a brick to paint it!", true)
-
-        hud.add_child(_paint_bar)
-        _paint_bar.visible = false   # v16: hidden until C or the bucket key — no permanent palette
-        UiEditor.register("paint_bar", _paint_bar, false)
-
-
-## A swatch face: the color itself, yellow-rimmed when it is the picked brush.
-func _paint_swatch_face(hex: String, picked: bool) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(hex)
-        sb.set_corner_radius_all(5)
-        sb.set_border_width_all(3 if picked else 2)
-        sb.border_color = Color("ffd400") if picked else Color(1, 1, 1, 0.22)
-        return sb
-
-
-func _pick_paint(hex: String) -> void:
-        _brush = Color(hex)
-        for key in _paint_swatch:
-                var hx := String(key)
-                var on := hx == hex
-                var b: Button = _paint_swatch[key]
-                b.add_theme_stylebox_override("normal", _paint_swatch_face(hx, on))
-                b.add_theme_stylebox_override("hover", _paint_swatch_face(hx, on))
-                b.add_theme_stylebox_override("pressed", _paint_swatch_face(hx, on))
-
-
-## v16: the palette hides until asked — C or the topbar bucket key.
-func _toggle_paint_bar() -> void:
-        if _paint_bar == null or not is_instance_valid(_paint_bar):
-                return
-        _paint_bar.visible = not _paint_bar.visible
-        if _paint_bar.visible:
-                _notify("Pick a color, then click a brick to paint it. C hides this.", false)
-
-
-## LEFT CLICK: in build mode you place / remove bricks, otherwise you paint.
-func _brush_click(event: InputEvent) -> void:
-        if _build_mode:
-                _build_click(event as InputEventMouseButton)
-        else:
-                _paint_brick()
-
-
-func _toggle_build_mode() -> void:
-        _build_mode = not _build_mode
-        if _build_mode:
-                _notify("BUILD MODE — click places a brick in your brush color · CTRL+click removes one you built · B = back to painting", false)
-        else:
-                _notify("Back to the brush — click paints again.", false)
-
-
-## BUILD MODE placement: ray out of the camera, sit a 4x1x4 stud brick flush
-## on the face you aim at (grid-snapped), wearing the current brush color.
-## CTRL+click removes a brick YOU placed (the map itself stays untouchable).
-func _build_click(mb: InputEventMouseButton) -> void:
-        var cam: Camera3D = get_viewport().get_camera_3d()
-        if cam == null:
-                return
-        var mp := get_viewport().get_mouse_position()
-        if camera_rig != null and is_instance_valid(camera_rig) and camera_rig.is_first_person():
-                mp = get_viewport().get_visible_rect().size * 0.5
-        var from := cam.project_ray_origin(mp)
-        var query := PhysicsRayQueryParameters3D.create(
-                from, from + cam.project_ray_normal(mp) * 300.0, 1)
-        var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
-        if hit.is_empty():
-                return
-        var body: Object = hit.get("collider")
-        if body == null or not (body is StaticBody3D):
-                return
-        if mb.ctrl_pressed or mb.meta_pressed:
-                # demolish — only bricks the player built, never the authored map
-                if (body as Node).has_meta("built"):
-                        (body as Node).queue_free()
-                        _notify("Brick removed.", false)
-                return
-        # place: offset the brick half its size along the face normal so it
-        # sits EXACTLY on the surface, then grid-snap the footprint
-        var n: Vector3 = hit.get("normal", Vector3.UP)
-        var half := Vector3(absf(n.x) * 2.0, absf(n.y) * 0.5, absf(n.z) * 2.0)
-        var center: Vector3 = (hit.get("position", Vector3.ZERO) as Vector3) + Vector3(n.x * half.x, n.y * half.y, n.z * half.z)
-        center.x = roundf(center.x)
-        center.z = roundf(center.z)
-        var brick := StaticBody3D.new()
-        brick.collision_layer = 1
-        brick.collision_mask = 0
-        var cs := CollisionShape3D.new()
-        var sh := BoxShape3D.new()
-        sh.size = Vector3(4, 1, 4)
-        cs.shape = sh
-        brick.add_child(cs)
-        var mi := MeshInstance3D.new()
-        var bm := BoxMesh.new()
-        bm.size = Vector3(4, 1, 4)
-        mi.mesh = bm
-        var m := StandardMaterial3D.new()
-        m.albedo_color = _brush
-        m.roughness = 0.78
-        m.albedo_texture = WorldBuilderScript.stud_texture()
-        m.uv1_triplanar = true
-        m.uv1_world_triplanar = true
-        m.uv1_scale = Vector3.ONE / WorldBuilderScript.STUD
-        mi.material_override = m
-        brick.add_child(mi)
-        brick.position = center
-        brick.add_to_group("paintable")   # the brush works on it too
-        brick.set_meta("built", true)     # ...but it never counts as world progress
-        _built_root.add_child(brick)
-
-
-func _paint_brick() -> void:
-        var cam: Camera3D = get_viewport().get_camera_3d()
-        if cam == null:
-                return
-        var mp := get_viewport().get_mouse_position()
-        if camera_rig != null and is_instance_valid(camera_rig) and camera_rig.is_first_person():
-                mp = get_viewport().get_visible_rect().size * 0.5
-        var from := cam.project_ray_origin(mp)
-        var query := PhysicsRayQueryParameters3D.create(
-                from, from + cam.project_ray_normal(mp) * 300.0, 1)
-        var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
-        if hit.is_empty():
-                return
-        var body: Object = hit.get("collider")
-        if body == null or not (body is StaticBody3D) or not (body as Node).is_in_group("paintable"):
-                return
-        var mesh_node: MeshInstance3D = null
-        for c in (body as Node).get_children():
-                if c is MeshInstance3D:
-                        mesh_node = c
-                        break
-        if mesh_node == null or mesh_node.material_override == null:
-                return
-        var mat := mesh_node.material_override as StandardMaterial3D
-        if mat == null:
-                return
-        mat.albedo_color = _brush
-        if mat.emission_enabled:
-                mat.emission = _brush   # neon parts keep glowing in the NEW color
-        if not _painted.has((body as Node).get_instance_id()) \
-                        and not (body as Node).has_meta("built"):
-                _painted[(body as Node).get_instance_id()] = true
-                _update_paint_count()
-
-
-func _update_paint_count() -> void:
-        if _paint_count == null or not is_instance_valid(_paint_count):
-                return
-        _paint_count.text = "%d / %d painted" % [_painted.size(), _paint_total]
-        if not _paint_done and _paint_total > 0 and _painted.size() >= _paint_total:
-                _paint_done = true
-                _notify("WORLD COMPLETE — you painted every brick!", true)
-                _paint_count.text = "ALL PAINTED!"
-
-
 # ---------------------------------------------------------------- audio bed
 
 ## The wind bed on sky places (the music box is gone — you asked!). Loops
@@ -1118,14 +876,13 @@ func _build_menu() -> Control:
         overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.visible = false
 
-        # the deep veil — the world keeps breathing behind the panel
+        # Dim veil background
         var dim := ColorRect.new()
         dim.name = "Dim"
         dim.color = RetroUI.NIGHT_VEIL
         dim.set_anchors_preset(Control.PRESET_FULL_RECT)
         overlay.add_child(dim)
 
-        # the centered panel — KINDA BIGGER (your order), still not full-bleed
         var center := CenterContainer.new()
         center.name = "MenuCenter"
         center.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1137,60 +894,54 @@ func _build_menu() -> Control:
         center.add_child(panel)
         _menu_panel = panel
 
-        # ---- v1.1 THE TAB RAIL — the ROBLOX layout: a slim icon rail down
-        # the LEFT (a person glyph for People, a gear for Settings), the
-        # page on the right. Icons carry the menu now — black & white,
-        # hand-drawn in code, no gloss, no banner, no clock.
-        var root := HBoxContainer.new()
-        root.name = "MenuRoot"
-        panel.add_child(root)
+        # 2016 Roblox Layout: Top horizontal tab bar, Body pages, Bottom action footer
+        var col := VBoxContainer.new()
+        col.name = "MenuRoot"
+        col.set_anchors_preset(Control.PRESET_FULL_RECT)
+        col.add_theme_constant_override("separation", 10)
+        panel.add_child(col)
 
-        var rail := VBoxContainer.new()
-        rail.name = "Tabs"
-        rail.custom_minimum_size = Vector2(78, 0)
-        rail.add_theme_constant_override("separation", 6)
-        root.add_child(rail)
+        # Top horizontal tab bar
+        var tab_bar := HBoxContainer.new()
+        tab_bar.name = "Tabs"
+        tab_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+        tab_bar.add_theme_constant_override("separation", 14)
+        col.add_child(tab_bar)
+
         var tab_defs := [
-                ["players", "People", "person"],
+                ["players", "Players", "person"],
                 ["settings", "Settings", "gear"],
+                ["help", "Help", "help"],
         ]
         for td in tab_defs:
                 var b := _tab_button(String(td[1]), String(td[2]))
                 _tab_buttons[String(td[0])] = b
-                rail.add_child(b)
+                tab_bar.add_child(b)
 
-        # the 1px rule between the rail and the page (the quiet divide)
+        # Divider rule between tabs and content
         var rule := ColorRect.new()
         rule.name = "TabRule"
-        rule.color = RetroUI.MENU_EDGE
-        rule.custom_minimum_size = Vector2(1, 0)
-        rule.size_flags_vertical = Control.SIZE_EXPAND_FILL
-        root.add_child(rule)
+        rule.color = Color(1, 1, 1, 0.12)
+        rule.custom_minimum_size = Vector2(0, 1)
+        col.add_child(rule)
 
-        # ---- the right column: the pages + the footer action row ----
-        var right := VBoxContainer.new()
-        right.name = "MenuRight"
-        right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-        right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        root.add_child(right)
+        # Body: pages
         var body := MarginContainer.new()
         body.name = "MenuBody"
         body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-        body.add_theme_constant_override("margin_left", 14)
-        body.add_theme_constant_override("margin_right", 14)
-        body.add_theme_constant_override("margin_top", 12)
-        body.add_theme_constant_override("margin_bottom", 10)
-        right.add_child(body)
+        body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        body.add_theme_constant_override("margin_left", 8)
+        body.add_theme_constant_override("margin_right", 8)
+        body.add_theme_constant_override("margin_top", 6)
+        body.add_theme_constant_override("margin_bottom", 6)
+        col.add_child(body)
         var pages := Control.new()
         pages.name = "Pages"
         pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
         pages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         body.add_child(pages)
 
-        # ---- PEOPLE — SIMPLE + ALIVE: a heading, then ONE grid.
-        # Every card is a player: their real AVATAR LIVE on a 3D stage
-        # (drag to spin them around, wheel to zoom in close) with their
-        # NAME under it. No PFP fetches — the avatar IS the picture.
+        # 1. Players Page
         var players_page := VBoxContainer.new()
         players_page.name = "PeoplePage"
         players_page.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1203,14 +954,12 @@ func _build_menu() -> Control:
         players_page.add_child(p_head)
         _people_title = Label.new()
         _people_title.text = "Players"
-        _title(_people_title, 18, RetroUI.NIGHT_INK)
+        _title(_people_title, 17, RetroUI.NIGHT_INK)
         p_head.add_child(_people_title)
         p_head.add_child(_spacer())
 
         var scroll := ScrollContainer.new()
         scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-        # v3.10 FIX: inside the page's VBox the scroll collapsed to height 0
-        # (VBox hands out MINIMUM heights) — expand to own the page.
         scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
         scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1223,13 +972,21 @@ func _build_menu() -> Control:
         _players_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         scroll.add_child(_players_grid)
 
-        # ---- SETTINGS — the redesigned icon-row page + ACCOUNT (Log Out)
+        # 2. Settings Page
         _settings_tab = _build_settings_tab()
         _settings_tab.name = "SettingsPage"
         _settings_tab.set_anchors_preset(Control.PRESET_FULL_RECT)
         _settings_tab.visible = false
         pages.add_child(_settings_tab)
         _pages["settings"] = _settings_tab
+
+        # 3. Help Page
+        var help_tab := _build_help_tab()
+        help_tab.name = "HelpPage"
+        help_tab.set_anchors_preset(Control.PRESET_FULL_RECT)
+        help_tab.visible = false
+        pages.add_child(help_tab)
+        _pages["help"] = help_tab
 
         var set_tab := func(tab: String) -> void:
                 for key in _pages.keys():
@@ -1244,99 +1001,157 @@ func _build_menu() -> Control:
                 _tab_buttons[tab_id].pressed.connect(func() -> void: set_tab.call(tab_id))
         _menu_switch = set_tab
 
-        # ---- the footer action row ----
-        right.add_child(_menu_footer())
+        # Divider above footer
+        var foot_rule := ColorRect.new()
+        foot_rule.name = "FootRule"
+        foot_rule.color = Color(1, 1, 1, 0.10)
+        foot_rule.custom_minimum_size = Vector2(0, 1)
+        col.add_child(foot_rule)
+
+        # Footer action row
+        col.add_child(_menu_footer())
         set_tab.call("players")
         return overlay
 
 
-## The panel's size — v1.1 KINDA BIGGER (your order): a real menu now,
-## max 680 x 580 — the avatar stages get room, the settings breathe.
+func _build_help_tab() -> VBoxContainer:
+        var tab := VBoxContainer.new()
+        tab.add_theme_constant_override("separation", 10)
+        var scroll := ScrollContainer.new()
+        scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+        tab.add_child(scroll)
+        var page := VBoxContainer.new()
+        page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        page.add_theme_constant_override("separation", 8)
+        scroll.add_child(page)
+
+        _section(page, "help", "KEYBOARD & MOUSE CONTROLS (CLASSIC 2016)")
+        var controls := [
+                ["W, A, S, D / Arrows", "Move your character around the world"],
+                ["Spacebar", "Jump / Mid-air extra jumps (when enabled in settings)"],
+                ["Ladder Climbing", "Walk into ladder to climb. Freeze pose when stopped! Space to jump off"],
+                ["Right Mouse + Drag", "Rotate and orbit camera smoothly"],
+                ["Mouse Wheel", "Zoom in / out (zoom fully in for first person)"],
+                ["Left Shift", "Toggle Shift Lock mode (crosshair camera steering)"],
+                ["/ or Enter", "Open chat box (type message, Enter sends, ESC cancels)"],
+                ["F1", "Hide / Unhide Game UI (clean view for taking screenshots)"],
+                ["F2", "Open UI Editor (customize and reposition HUD widgets freely)"],
+                ["R", "Reset Character (Respawn)"],
+                ["L", "Leave Game (Quit or exit place)"],
+                ["ESC", "Open / Close this Escape Menu"],
+        ]
+        for item in controls:
+                _help_row(page, item[0], item[1])
+        return tab
+
+
+func _help_row(parent: VBoxContainer, keys: String, desc: String) -> void:
+        var r := HBoxContainer.new()
+        r.add_theme_constant_override("separation", 14)
+        parent.add_child(r)
+        var badge := PanelContainer.new()
+        var bsb := StyleBoxFlat.new()
+        bsb.bg_color = Color(1, 1, 1, 0.12)
+        bsb.set_corner_radius_all(6)
+        bsb.content_margin_left = 12.0
+        bsb.content_margin_right = 12.0
+        bsb.content_margin_top = 5.0
+        bsb.content_margin_bottom = 5.0
+        badge.add_theme_stylebox_override("panel", bsb)
+        badge.custom_minimum_size = Vector2(170, 0)
+        r.add_child(badge)
+        var kl := Label.new()
+        kl.text = keys
+        kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        _title(kl, 12, Color.WHITE, 700)
+        badge.add_child(kl)
+        var dl := Label.new()
+        dl.text = desc
+        dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        dl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        _text(dl, 13, RetroUI.NIGHT_INK)
+        r.add_child(dl)
+
+
 func _menu_panel_size() -> Vector2:
         var vp := Vector2(1280.0, 720.0)
         var viewport := get_viewport()
         if viewport != null:
                 vp = viewport.get_visible_rect().size
-        return Vector2(minf(vp.x * 0.58, 680.0), minf(vp.y * 0.84, 580.0))
+        return Vector2(minf(vp.x * 0.72, 740.0), minf(vp.y * 0.86, 620.0))
 
 
-## The panel face — v1 THE SIMPLE CARD: one deep, quiet, near-opaque
-## dark surface with a hairline border. No gloss, no bevel, no glow.
 func _menu_panel_style() -> StyleBox:
         var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(0.045, 0.058, 0.075, 0.97)
-        sb.set_corner_radius_all(12)
+        sb.bg_color = Color(0.08, 0.09, 0.12, 0.96)
+        sb.set_corner_radius_all(10)
         sb.anti_aliasing = true
         sb.set_border_width_all(1)
-        sb.border_color = Color(1, 1, 1, 0.09)
-        sb.shadow_color = Color(0, 0, 0, 0.45)
-        sb.shadow_size = 28
-        sb.content_margin_left = 14.0
-        sb.content_margin_right = 14.0
-        sb.content_margin_top = 12.0
-        sb.content_margin_bottom = 12.0
+        sb.border_color = Color(1, 1, 1, 0.14)
+        sb.shadow_color = Color(0, 0, 0, 0.6)
+        sb.shadow_size = 32
+        sb.content_margin_left = 16.0
+        sb.content_margin_right = 16.0
+        sb.content_margin_top = 14.0
+        sb.content_margin_bottom = 14.0
         return sb
 
 
-## One RAIL TAB — v1.1: an icon square (the hand-drawn glyph on top, the
-## word under it). No gloss, no banner — the open tab is a white-ink glyph
-## on a faint white pill, the rest stay muted gray.
 func _tab_button(label: String, icon_kind: String) -> Button:
         var b := Button.new()
         b.tooltip_text = label
-        b.custom_minimum_size = Vector2(70, 60)
+        b.custom_minimum_size = Vector2(140, 40)
         b.focus_mode = Control.FOCUS_NONE
-        var col := VBoxContainer.new()
-        col.set_anchors_preset(Control.PRESET_FULL_RECT)
-        col.alignment = BoxContainer.ALIGNMENT_CENTER
-        col.add_theme_constant_override("separation", 3)
-        col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        b.add_child(col)
+        var row := HBoxContainer.new()
+        row.name = "HBox"
+        row.set_anchors_preset(Control.PRESET_FULL_RECT)
+        row.alignment = BoxContainer.ALIGNMENT_CENTER
+        row.add_theme_constant_override("separation", 8)
+        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        b.add_child(row)
         var icon := MenuIcons.new()
         icon.name = "Glyph"
         icon.kind = icon_kind
-        icon.custom_minimum_size = Vector2(24, 24)
-        icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+        icon.custom_minimum_size = Vector2(20, 20)
         icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        col.add_child(icon)
+        row.add_child(icon)
         var l := Label.new()
         l.name = "TabLabel"
         l.text = label
         l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        col.add_child(l)
+        row.add_child(l)
         _style_tab(b, false)
         return b
 
 
-## The rail tab faces — v1.1 MONOCHROME: flat quiet squares, the active
-## one lifts (faint white pill) while its glyph + word light up white and
-## the rest stay muted gray.
 func _style_tab(b: Button, on: bool) -> void:
         var sb := StyleBoxFlat.new()
-        sb.set_corner_radius_all(10)
+        sb.set_corner_radius_all(8)
         sb.anti_aliasing = true
-        sb.bg_color = Color(1, 1, 1, 0.09) if on else Color(0, 0, 0, 0)
-        sb.expand_margin_left = 4.0
-        sb.expand_margin_right = 4.0
+        sb.bg_color = Color(1, 1, 1, 0.16) if on else Color(0, 0, 0, 0)
+        sb.border_width_bottom = 3 if on else 0
+        sb.border_color = Color(1, 1, 1, 0.95) if on else Color(0, 0, 0, 0)
         b.add_theme_stylebox_override("normal", sb)
         var hb := StyleBoxFlat.new()
-        hb.set_corner_radius_all(10)
+        hb.set_corner_radius_all(8)
         hb.anti_aliasing = true
-        hb.bg_color = Color(1, 1, 1, 0.13) if on else Color(1, 1, 1, 0.05)
-        hb.expand_margin_left = 4.0
-        hb.expand_margin_right = 4.0
+        hb.bg_color = Color(1, 1, 1, 0.22) if on else Color(1, 1, 1, 0.08)
+        hb.border_width_bottom = 3 if on else 0
+        hb.border_color = Color(1, 1, 1, 0.95) if on else Color(0, 0, 0, 0)
         b.add_theme_stylebox_override("hover", hb)
         b.add_theme_stylebox_override("pressed", sb)
         b.add_theme_stylebox_override("hover_pressed", sb)
         b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-        var ink := Color.WHITE if on else Color(0.62, 0.66, 0.72)
-        var glyph: Control = b.get_node_or_null("Glyph")
+        var ink := Color.WHITE if on else Color(0.70, 0.74, 0.80)
+        var glyph: Control = b.find_child("Glyph", true, false)
         if glyph != null and is_instance_valid(glyph):
                 glyph.set("ink", ink)
-        var l: Label = b.get_node_or_null("TabLabel")
+        var l: Label = b.find_child("TabLabel", true, false)
         if l != null and is_instance_valid(l):
-                _title(l, 12, ink, 600)
+                _title(l, 14, ink, 700 if on else 500)
 
 
 ## The menu's text voices (v8.0): BOTH speak the Montserrat family —
@@ -1357,36 +1172,30 @@ func _text(l: Label, size: int, color: Color) -> void:
         l.add_theme_color_override("font_color", color)
 
 
-## The action row — v1.1 BLACK & WHITE (your order: no too much colors):
-## three equal flat buttons — Leave · Respawn · Resume — all gray on the
-## dark card, and RESUME is the primary: a WHITE button with black ink,
-## exactly how the Roblox menu marks its main action. No red, no blue.
+## The action row — 2016 Roblox style Leave (Red), Reset (Dark), Resume (Green)
 func _menu_footer() -> VBoxContainer:
         var col := VBoxContainer.new()
         col.add_theme_constant_override("separation", 6)
         var actions := HBoxContainer.new()
         actions.name = "ActionRow"
-        actions.add_theme_constant_override("separation", 10)
+        actions.add_theme_constant_override("separation", 12)
         col.add_child(actions)
-        actions.add_child(_footer_key("L", "Leave", false, func() -> void: _leave_game()))
-        actions.add_child(_footer_key("R", "Respawn", false,
+        actions.add_child(_footer_key("L", "Leave Game (L)", false, func() -> void: _leave_game()))
+        actions.add_child(_footer_key("R", "Reset Character (R)", false,
                 func() -> void:
                         _toggle_menu()
                         if player.alive:
                                 player.die(self)
                         _start_respawn()))
-        actions.add_child(_footer_key("ESC", "Resume", true, func() -> void: _toggle_menu()))
+        actions.add_child(_footer_key("ESC", "Resume Game (ESC)", true, func() -> void: _toggle_menu()))
         return col
 
 
-## One footer button — v1.1 FLAT MONOCHROME: one quiet face, one hover
-## lift, no icons, no gloss, no key chips. Resume inverts (white face,
-## black ink) — the primary carries itself.
 func _footer_key(key: String, _label: String, _primary: bool, handler: Callable) -> Button:
         var b := Button.new()
         b.text = _label
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        b.custom_minimum_size = Vector2(0, 38)
+        b.custom_minimum_size = Vector2(0, 44)
         b.focus_mode = Control.FOCUS_NONE
         var face := _flat_key_face(key, false)
         var face_hover := _flat_key_face(key, true)
@@ -1394,40 +1203,36 @@ func _footer_key(key: String, _label: String, _primary: bool, handler: Callable)
         b.add_theme_stylebox_override("hover", face_hover)
         b.add_theme_stylebox_override("pressed", face)
         b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-        var ink := Color(0.92, 0.93, 0.95)
-        if key == "ESC":
-                ink = Color(0.07, 0.08, 0.10)
-        for st in ["font_color", "font_hover_color"]:
-                b.add_theme_color_override(st, ink)
-        b.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 0.7) if key != "ESC" else Color(0.1, 0.1, 0.12, 0.8))
-        if RetroUI.gotham(600) != null:
-                b.add_theme_font_override("font", RetroUI.gotham(600))
-        b.add_theme_font_size_override("font_size", 13)
+        for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+                b.add_theme_color_override(st, Color.WHITE)
+        if RetroUI.gotham(700) != null:
+                b.add_theme_font_override("font", RetroUI.gotham(700))
+        b.add_theme_font_size_override("font_size", 14)
         b.pressed.connect(handler)
         return b
 
 
-## The v1.1 flat footer faces — GRAY only, on the dark card: Leave wears a
-## white hairline (the exit), Respawn stays plain, Resume is the WHITE card.
 func _flat_key_face(key: String, hover: bool) -> StyleBox:
         var sb := StyleBoxFlat.new()
         sb.set_corner_radius_all(8)
         sb.anti_aliasing = true
         match key:
                 "L":
-                        sb.bg_color = Color(1, 1, 1, 0.07 if hover else 0.045)
-                        sb.set_border_width_all(1)
-                        sb.border_color = Color(1, 1, 1, 0.30 if hover else 0.20)
+                        sb.bg_color = Color(0.82, 0.18, 0.22, 0.95) if hover else Color(0.70, 0.14, 0.18, 0.90)
+                        sb.border_width_bottom = 3
+                        sb.border_color = Color(0.50, 0.08, 0.10)
                 "ESC":
-                        sb.bg_color = Color(0.96, 0.96, 0.97) if hover else Color.WHITE
+                        sb.bg_color = Color(0.00, 0.76, 0.45) if hover else Color(0.00, 0.65, 0.38)
+                        sb.border_width_bottom = 3
+                        sb.border_color = Color(0.00, 0.45, 0.26)
                 _:
-                        sb.bg_color = Color(1, 1, 1, 0.09 if hover else 0.05)
-                        sb.set_border_width_all(1)
-                        sb.border_color = Color(1, 1, 1, 0.10)
-        sb.content_margin_left = 10.0
-        sb.content_margin_right = 10.0
-        sb.content_margin_top = 8.0
-        sb.content_margin_bottom = 8.0
+                        sb.bg_color = Color(0.24, 0.26, 0.30) if hover else Color(0.18, 0.20, 0.23)
+                        sb.border_width_bottom = 3
+                        sb.border_color = Color(0.12, 0.13, 0.16)
+        sb.content_margin_left = 12.0
+        sb.content_margin_right = 12.0
+        sb.content_margin_top = 10.0
+        sb.content_margin_bottom = 10.0
         return sb
 
 
@@ -1789,6 +1594,63 @@ func _build_settings_tab() -> VBoxContainer:
                         if player != null and is_instance_valid(player):
                                 player.avatar.call("play_emote", txt))
 
+        # ---- PLAYER PHYSICS & TUNING ---------------------------------
+        _section(page, "speed", "PLAYER PHYSICS & TUNING")
+        var cur_speed := 16.0
+        var cur_jump := 50.0
+        var cur_grav := 196.2
+        var cur_coyote := 0.15
+        var cur_air_jumps := 0
+        var cur_momentum := false
+        if player != null and is_instance_valid(player):
+                cur_speed = float(player.walk_speed) / WorldBuilderScript.STUD
+                cur_jump = float(player.jump_height) / WorldBuilderScript.STUD
+                cur_grav = float(player.gravity) / WorldBuilderScript.STUD
+                cur_coyote = float(player.coyote_time)
+                cur_air_jumps = int(player.max_air_jumps)
+                cur_momentum = bool(player.momentum_enabled)
+
+        _slider_row(page, "speed", "Walk Speed", 8.0, 64.0, cur_speed,
+                func(v: float) -> String: return "%d studs/s" % int(roundf(v)),
+                func(v: float) -> void:
+                        if player != null and is_instance_valid(player):
+                                player.walk_speed = v * WorldBuilderScript.STUD
+                                player.call("save_tuning"))
+
+        _slider_row(page, "jump", "Jump Height / Power", 15.0, 100.0, cur_jump,
+                func(v: float) -> String: return "%d studs" % int(roundf(v)),
+                func(v: float) -> void:
+                        if player != null and is_instance_valid(player):
+                                player.jump_height = v * WorldBuilderScript.STUD
+                                player.call("save_tuning"))
+
+        _slider_row(page, "cross", "Gravity", 40.0, 300.0, cur_grav,
+                func(v: float) -> String: return "%d studs/s²" % int(roundf(v)),
+                func(v: float) -> void:
+                        if player != null and is_instance_valid(player):
+                                player.gravity = v * WorldBuilderScript.STUD
+                                player.call("save_tuning"))
+
+        _slider_row(page, "clock", "Coyote Jump Window", 0.0, 0.40, cur_coyote,
+                func(v: float) -> String: return "%.2fs" % v,
+                func(v: float) -> void:
+                        if player != null and is_instance_valid(player):
+                                player.coyote_time = v
+                                player.call("save_tuning"))
+
+        var air_opts: Array = [["1 Jump (Normal)", 0], ["Double Jump", 1], ["Triple Jump", 2], ["4 Jumps", 3]]
+        _row_chips(page, "jump", "Max Air Jumps", air_opts, cur_air_jumps,
+                func(v: int) -> void:
+                        if player != null and is_instance_valid(player):
+                                player.max_air_jumps = v
+                                player.call("save_tuning"))
+
+        _row_toggle(page, "speed", "Momentum Player (Run to gain speed)", cur_momentum,
+                func(on: bool) -> void:
+                        if player != null and is_instance_valid(player):
+                                player.momentum_enabled = on
+                                player.call("save_tuning"))
+
         # ---- ACCOUNT — who is signed in, and the ways OUT ------------
         _section(page, "person", "ACCOUNT")
         var acct := _row(page, "tag", "Signed in as %s" % Session.username)
@@ -1822,10 +1684,6 @@ func _build_settings_tab() -> VBoxContainer:
                 ui_btn.add_theme_font_override("font", RetroUI.gotham(600))
         ui_btn.add_theme_font_size_override("font_size", 12)
         ui_btn.pressed.connect(func() -> void:
-                # v15.0: UI editing is a game-dev power — players play
-                if not Session.is_dev:
-                        _notify("GAME DEVS ONLY — the UI editor is an editor scene. Publish any game on retro-blox.vercel.app and it unlocks.")
-                        return
                 _toggle_menu()
                 UiEditor.toggle())
         uirow.add_child(ui_btn)
@@ -2136,6 +1994,8 @@ func _paper_slider(s: HSlider) -> void:
 
 
 func _toggle_menu() -> void:
+        if hud != null and is_instance_valid(hud) and not hud.visible:
+                hud.visible = true
         if _menu == null or not is_instance_valid(_menu):
                 return
         _menu_open = not _menu_open
