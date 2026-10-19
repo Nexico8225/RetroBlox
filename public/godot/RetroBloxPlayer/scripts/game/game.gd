@@ -68,7 +68,7 @@ var _loading: Control             # the v3.6 loading veil (no more load hitch)
 var _session_start_ms := 0        # the match timer
 var _last_ping_ms := 0            # last platform round-trip, shown as ping
 
-# ---- v13.0 THE PAINT BRUSH: the game world is a color world ----
+# ---- v13.0 THE PAINT BRUSH: paint the world yourself ----
 # The 12 classic swatches (hex, no #): white is the eraser, black is ink,
 # the rest are the bright plastic colors the old bricks shipped in.
 const PAINT_COLORS := [
@@ -94,8 +94,7 @@ func _ready() -> void:
         if place.is_empty():
                 # THE SDK IS THE WALK-AND-CLIMB SANDBOX: no place selected ->
                 # the classic Happy Baseplate (stairs fort, truss ladder to
-                # climb, trampoline). Color World stays one click away in the
-                # place list — it is no longer the default.
+                # climb, trampoline) — the place the SDK boots into.
                 place = PlacesScript.by_id("baseplate")
         _session_start_ms = Time.get_ticks_msec()
 
@@ -498,7 +497,7 @@ func _build_hud() -> void:
         hud.add_child(_toast_box)
         UiEditor.register("toasts", _toast_box, false)
 
-        # ---- v13.0: the paint palette — the game world is a color world ----
+        # ---- v13.0: the paint palette — paint the world yourself ----
         _build_paint_bar()
 
         # ---- v14.0: YOUR widgets — whatever the UI Editor scene holds ----
@@ -874,7 +873,7 @@ func _custom_widget_action(txt: String) -> void:
 
 
 # ---------------------------------------------------------------- paint brush
-# v13.0 THE GAME WORLD IS A COLOR WORLD. Every part of every place accepts
+# v13.0 PAINT THE WORLD. Every part of every place accepts
 # the brush: LEFT CLICK paints the brick under the cursor with the picked
 # palette color. Paint is your own view of the world (client-side) — the
 # classic feeling of coloring a baseplate, now built into the client.

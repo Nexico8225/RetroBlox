@@ -17,8 +17,7 @@ files to make the game YOURS. Everything talks plain HTTP + JSON to
 4. You spawn on the **HAPPY BASEPLATE** — the classic sandbox: run with
    **WASD**, jump with **SPACE**, walk up the stairs fort and **CLIMB the
    grey truss ladder** to the sky platform. Press **ESC** for the menu
-   (People / Settings), **Enter** to chat. Want Color World
-   (paint every brick)? Pick it from the place list in the menu.
+   (People / Settings), **Enter** to chat.
 5. Back on the login screen there is a **STUDIO** button — the organized
    door to the editor scenes (UI / Map / Player).
 
@@ -31,13 +30,9 @@ You spawn on the classic **Happy Baseplate**: run with **WASD**, jump with
 sky platform — then hop off onto the trampoline. That is the SDK's default
 place: a plain sandbox made to be walked and climbed, no gimmick.
 
-**Painting (Color World) is still in the kit:** open the menu (ESC) →
-People → Places → **Color World**, or pick any other place — the world is
-born white, **LEFT CLICK** paints the brick under your cursor. Press **C**
-(or the bucket button, top-left) for the 12 classic swatches — the palette
-stays out of your way until you ask for it. The counter shows how many
-parts you painted in places flagged `"paint": true`, and painting every
-part fires WORLD COMPLETE.
+**Painting is built in:** press **C** (or the bucket button, top-left)
+for the 12 classic swatches — **LEFT CLICK** paints the brick under your
+cursor. The palette stays out of your way until you ask for it.
 
 **BUILD MODE — edit the map while you play:** press **B** and LEFT CLICK
 places a 4x1x4 brick (in your brush color!) on any surface you aim at;
@@ -60,8 +55,7 @@ Want to tweak it? Everything lives in `scripts/game/game.gd`:
 | the UI editor | `scripts/ui/ui_editor.gd` — F2, drag, save |
 
 Paint is your own view of the world (client-side), so it works offline
-too. Make a place born-white by giving every part the same `"c": "f2f3f3"`
-— exactly what `color_world()` in `scripts/world/places.gd` does.
+too. Every brick accepts the brush — no special place needed.
 
 ## 3. STUDIO — four scenes, every thing editable (v15.0)
 
@@ -75,6 +69,17 @@ and the STUDIO hub ties them together. Open it from the **login screen**
 | UI EDITOR | `scenes/ui_editor.tscn` | drag & drop your own HUD |
 | MAP EDITOR | `scenes/map_editor.tscn` | build maps brick by brick |
 | PLAYER EDITOR | `scenes/player_editor.tscn` | paint your avatar |
+
+### Undo everything — the revert buttons
+Changed your mind? You never get stuck:
+
+- **UI EDITOR → RESET** wipes every widget/move this device saved —
+  the stock HUD is back.
+- **PLAYER EDITOR → DEFAULT** wipes the saved look — the classic noob
+  colors (yellow / blue / green) return in every game.
+- **STUDIO hub → FACTORY RESET** (bottom row, click twice) wipes all
+  three saves at once: avatar colors, UI edits and your map. Day one,
+  like it never happened.
 
 ### Who edits what — players vs game devs (v15.0)
 RetroBlox has three kinds of people:

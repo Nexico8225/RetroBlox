@@ -8,7 +8,7 @@
 import Link from 'next/link'
 
 const V_TAG = 'v7'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=8.0'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=9.0'
 
 const INK = '#1c3a52'
 const DIM = '#5a6b7b'

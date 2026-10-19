@@ -148,6 +148,29 @@ func _build() -> void:
                 get_tree().change_scene_to_file("res://scenes/login.tscn"))
         row.add_child(back)
 
+        # ---- FACTORY RESET — the one-button undo for everything the
+        # studio saves on this device (avatar colors, UI edits, your map).
+        # Two clicks: first arms it, second wipes. Stock look + HUD return.
+        var reset := Button.new()
+        reset.text = "FACTORY RESET"
+        _key(reset, Color("7a2020"), 13)
+        reset.pressed.connect(func() -> void:
+                if not reset.has_meta("armed"):
+                        reset.set_meta("armed", true)
+                        reset.text = "SURE? CLICK AGAIN"
+                        _status.text = "Factory reset wipes your avatar colors, UI edits and your map on THIS device."
+                        _status.add_theme_color_override("font_color", Color("e8752a"))
+                        return
+                for p in ["user://avatar_colors.json", "user://ui_config.json", "user://my_map.json"]:
+                        if FileAccess.file_exists(p):
+                                DirAccess.remove_absolute(p)
+                UiConfig.clear_all()
+                reset.text = "FACTORY RESET"
+                reset.remove_meta("armed")
+                _status.text = "RESET DONE — stock avatar, stock UI, no map. Back to day one."
+                _status.add_theme_color_override("font_color", Color("7fd18b")))
+        row.add_child(reset)
+
         _status = Label.new()
         _status.text = ""
         _status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

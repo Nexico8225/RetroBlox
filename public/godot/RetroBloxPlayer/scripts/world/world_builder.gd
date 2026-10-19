@@ -127,7 +127,7 @@ static func build(def: Dictionary) -> Dictionary:
 ## v14.0 VIBRANT — the Roblox saturation push. 2006 bricks were LOUD: the
 ## palette was pure hue, no pastel dust. A gentle HSV lift at build time
 ## makes every authored color read vivid (white stays white — s=0 is kept,
-## and near-white misses the push too so the Color World spawn stays clean).
+## and near-white misses the push too so classic grey pads stay clean).
 static func _vivid(c: Color, strength := 1.24) -> Color:
         if c.s > 0.03:
                 c.s = clampf(c.s * strength + 0.03, 0.0, 1.0)

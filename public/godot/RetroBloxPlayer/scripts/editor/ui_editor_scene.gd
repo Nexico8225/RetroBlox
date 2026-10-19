@@ -107,6 +107,7 @@ func _build() -> void:
         spring.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         trow.add_child(spring)
 
+        trow.add_child(_key("RESET", Color("6b327c"), _on_reset))
         trow.add_child(_key("SAVE", Color("1f4a2a"), _on_save))
         trow.add_child(_key("TEST PLAY", Color("0d69ac"), func() -> void:
                 _on_save()
@@ -426,6 +427,14 @@ func _on_delete() -> void:
 func _on_save() -> void:
         UiConfig.save_config()
         _status_flash("SAVED — your UI rides with you into every game.")
+
+
+## RESET — the revert button: wipe every move/edit/widget this device
+## saved and rebuild the stage bare. The stock HUD comes back next boot.
+func _on_reset() -> void:
+        UiConfig.clear_all()
+        _rebuild_stage()
+        _status_flash("RESET — your UI edits are gone, stock HUD restored.")
 
 
 func _status_flash(t: String) -> void:

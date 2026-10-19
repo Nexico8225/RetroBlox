@@ -77,7 +77,6 @@ export function OnlineDot({ online }: { online: boolean }) {
 const NAV = [
   { label: 'Home', href: '/' },
   { label: 'Games', href: '/games' },
-  { label: 'ColorWorld', href: '/colorworld' },
   { label: 'Webs', href: '/webs' },
   { label: 'Catalog', href: '/catalog' },
   { label: 'Avatar', href: '/avatar' },

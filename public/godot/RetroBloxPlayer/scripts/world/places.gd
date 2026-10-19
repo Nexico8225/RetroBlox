@@ -9,7 +9,7 @@ extends RefCounted
 static func all() -> Array:
         # "My Place (template)" is the EDITABLE starter map — live docs.
         # Edit scripts/world/my_place.gd, press F5, see your changes.
-        return [color_world(), cloud_kingdom(), baseplate(), MyPlace.build(), obby(), skylands(), tower(), topdown_arena(), topdown_dungeon(), topdown_neon()]
+        return [baseplate(), cloud_kingdom(), MyPlace.build(), obby(), skylands(), tower(), topdown_arena(), topdown_dungeon(), topdown_neon()]
 
 
 ## ---------------------------------------------------------------- Brick Arena
@@ -84,83 +84,8 @@ static func by_id(id: String) -> Dictionary:
         for def in all():
                 if def["id"] == id:
                         return def
-        # unknown id -> the classic walk-and-climb sandbox (never Color World)
+        # unknown id -> the classic walk-and-climb sandbox
         return baseplate()
-
-
-## ---------------------------------------------------------------- Color World
-## THE GAME WORLD IS BORN WHITE — the paint brush is the game. Every part
-## below ships the same "f2f3f3" white; LEFT CLICK paints the part under the
-## cursor with the picked palette color. Paint every part = WORLD COMPLETE.
-## (The "paint": true flag turns on the "N / M painted" counter in the HUD.)
-
-static func color_world() -> Dictionary:
-        var w := "f2f3f3"   # born white — every part starts here
-        return {
-                "id": "colorworld",
-                "name": "Color World",
-                "desc": "The world is born WHITE — pick a color and click bricks to paint it!",
-                "tile": w,
-                "paint": true,
-                "sky_top": "3d8fd1",
-                "sky_horizon": "bfe0f5",
-                "void_y": -40.0,
-                "parts": [
-                        # ---- the great white plain ----
-                        { "p": [0, -1, 0], "s": [110, 2, 110], "c": w },
-                        # classic spawn pad (grey + black — paint them too)
-                        { "p": [0, 0.5, 24], "s": [9, 1, 9], "c": "a8adb3", "g": "spawn" },
-                        { "p": [0, 1.15, 24], "s": [5.6, 0.4, 5.6], "c": "23262b", "no_studs": true },
-                        # ---- stairs fort (north-west) ----
-                        { "p": [-30, 1, -18], "s": [6, 2, 6], "c": w },
-                        { "p": [-30, 3, -24], "s": [6, 2, 6], "c": w },
-                        { "p": [-30, 5, -30], "s": [6, 2, 6], "c": w },
-                        { "p": [-30, 7, -36], "s": [6, 2, 6], "c": w },
-                        { "p": [-30, 7.5, -46], "s": [12, 1, 14], "c": w },
-                        # ---- truss tower (north-east) ----
-                        { "p": [32, 9.5, -30], "s": [8, 1, 8], "c": w },
-                        { "p": [32, 5, -25.7], "s": [1.5, 10, 0.6], "c": w, "g": "ladder" },
-                        # ---- the gate: paint your own banner ----
-                        { "p": [14, 6, 0], "s": [3, 12, 3], "c": w },
-                        { "p": [24, 6, 0], "s": [3, 12, 3], "c": w },
-                        { "p": [19, 13, 0], "s": [13, 2, 3], "c": w },
-                        # ---- the gallery: five blank canvases facing spawn ----
-                        { "p": [-12, 4, -8], "s": [0.8, 8, 5], "c": w },
-                        { "p": [-6, 4, -8], "s": [0.8, 8, 5], "c": w },
-                        { "p": [0, 4, -8], "s": [0.8, 8, 5], "c": w },
-                        { "p": [6, 4, -8], "s": [0.8, 8, 5], "c": w },
-                        { "p": [12, 4, -8], "s": [0.8, 8, 5], "c": w },
-                        # ---- stage with a back wall (south-west) ----
-                        { "p": [-34, 0.5, 14], "s": [16, 1, 12], "c": w },
-                        { "p": [-34, 4.5, 19.5], "s": [16, 8, 1], "c": w },
-                        { "p": [-41.5, 3, 14], "s": [1, 5, 12], "c": w },
-                        { "p": [-26.5, 3, 14], "s": [1, 5, 12], "c": w },
-                        # ---- the little white house (south-east) ----
-                        { "p": [34, 2, 20], "s": [10, 6, 8], "c": w },
-                        { "p": [34, 5.9, 20], "s": [11, 1.2, 9], "c": w },
-                        { "p": [34, 1.4, 16.2], "s": [3, 2.8, 0.4], "c": "d8d8d8", "no_studs": true },
-                        # ---- hop pillars across the middle ----
-                        { "p": [-4, 2, 4], "s": [4, 4, 4], "c": w },
-                        { "p": [4, 4, -2], "s": [4, 8, 4], "c": w },
-                        { "p": [-10, 3, -2], "s": [4, 6, 4], "c": w },
-                        # ---- glow trampoline + metal shed (yes, paintable) ----
-                        { "p": [10, 0.5, -18], "s": [6, 1, 6], "c": w, "m": "neon", "g": "bounce" },
-                        { "p": [-8, 2, 28], "s": [6, 4, 6], "c": w, "m": "metal" },
-                        { "p": [-8, 4.6, 28], "s": [7, 0.6, 7], "c": w, "m": "metal" },
-                        # ---- gentle mounds to break the plain ----
-                        { "p": [-16, -0.25, 8], "s": [14, 1.5, 14], "c": w },
-                        { "p": [18, -0.5, 10], "s": [10, 1, 10], "c": w },
-                ],
-                "props": [
-                        # the welcome board tells the one rule of this place
-                        { "type": "sign", "p": [-6, 1.2, 20], "yaw": 0, "title": "COLOR WORLD",
-                                "title_c": "e2231a", "c": "ffffff", "w": 12, "h": 4,
-                                "text": "This world is BORN WHITE.\nPick a color below, then CLICK a brick.\nPaint every part to win!" },
-                        { "type": "snow", "p": [24, 1, -8], "s": [5, 1.4, 5] },
-                        { "type": "snow", "p": [-22, 1, -6], "s": [4, 1.2, 4] },
-                        { "type": "fence", "p": [8, 0, 30], "s": [14, 1.4, 0.35], "yaw": 0 },
-                ],
-        }
 
 
 ## ---------------------------------------------------------------- Cloud Kingdom

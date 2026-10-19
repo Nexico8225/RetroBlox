@@ -12,6 +12,7 @@ extends Node3D
 ##    · SAVE writes user://avatar_colors.json — the colors ride with
 ##      you into every game (they repaint YOUR rig right after spawn,
 ##      over the classic noob paint or on top of your site avatar)
+##    · DEFAULT wipes the save — back to the classic noob look
 ##    · TEST PLAY jumps into the game wearing the look
 ##
 ##  The rig is the REAL AvatarRig the game plays with — same meshes,
@@ -151,6 +152,16 @@ func _on_save() -> void:
         _status_flash("SAVED — you wear this look in every game.")
 
 
+## DEFAULT — the revert button: wipe the saved look, back to the classic
+## noob colors (yellow skin, blue shirt, green pants) everywhere.
+func _on_default() -> void:
+        if FileAccess.file_exists(SAVE_PATH):
+                DirAccess.remove_absolute(SAVE_PATH)
+        colors = {"skin": NOOB_SKIN, "shirt": NOOB_SHIRT, "pants": NOOB_PANTS}
+        _apply_look()
+        _status_flash("DEFAULT — the classic noob look is back.")
+
+
 func _on_test_play() -> void:
         _on_save()
         get_tree().change_scene_to_file("res://scenes/game.tscn")
@@ -199,6 +210,7 @@ func _build_ui() -> void:
         var spring := Control.new()
         spring.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         trow.add_child(spring)
+        trow.add_child(_key("DEFAULT", Color("6b327c"), _on_default))
         trow.add_child(_key("SAVE", Color("1f4a2a"), _on_save))
         trow.add_child(_key("TEST PLAY", Color("0d69ac"), _on_test_play))
 

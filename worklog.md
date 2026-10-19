@@ -421,3 +421,18 @@ Work Log:
 
 Stage Summary:
 - The game reads like a game again: no permanent color-picker bar (C or the bucket key brings colors back, click still paints), no Studio tab in the ESC menu, no UI Studio or Templates anywhere on the web. The SDK page finally speaks English: short sentences, official Godot + Unity icons, honest file list.
+
+---
+Task ID: v11-colorworld-erased-studio-revert
+Agent: Super Z (main)
+Task: "remove colorworld completely 100%" + "i used the studio where i can change the avatar and UI so how do i revert it back"
+
+Work Log:
+- COLORWORLD 100% GONE FROM THE WEB: /colorworld page + ColorWorldView.tsx + colorworld/maps.ts + /api/colormaps (+[id]/play) deleted; ColorMap prisma model + User.colorMaps relation removed (db push synced, client regenerated); Shell NAV fallback + DEFAULT_SITE_UI links lost the ColorWorld entry; retiredHref now drops saved /colorworld links forever (verified e2e: PUT with ColorWorld link -> GET returns it dropped)
+- COLORWORLD 100% GONE FROM THE SDK: places.gd color_world() block deleted (places list now starts at baseplate); game.gd / world_builder.gd comments de-referenced (paint brush stays — it is a tool, not a place); dump_templates.gd + smoke.gd switched to baseplate; README rewritten (no Color World anywhere, paint documented as the built-in tool); export_presets.cfg description fixed; public/godot/ColorWorld/ + colorworld-godot-sdk.zip deleted; scripts/_godot_tpl_build + public/templates + /api/template route + publish_v5/v6/v15 scripts (all template-era, colorworld-tainted) deleted
+- KIT REBUILT + VERIFIED: make_godot_kit_zip.py rebuilt retroblox-godot-player.zip (220 files), unzipped and grepped — ZERO colorworld strings inside; buster v8.0 -> v9.0 in SdkView + HomeView
+- THE REVERT (the real answer to "how do i revert it back"): the studio saves ride on YOUR device (user://avatar_colors.json, user://ui_config.json, user://my_map.json — IndexedDB on web) with NO undo until now. Three new buttons: PLAYER EDITOR top bar gains DEFAULT (deletes the save, classic noob colors repaint instantly); UI EDITOR scene gains RESET (UiConfig.clear_all + stage rebuild, stock HUD next boot); STUDIO hub footer gains FACTORY RESET (two-click confirm: wipes all three saves, "RESET DONE — back to day one"); README gained "Undo everything — the revert buttons" section
+- VERIFY: npm build green (85 pages, /colorworld + /api/colormaps + /api/template absent from manifest); e2e on dev: /colorworld 404, /api/colormaps 404, /sdk 200, home 200, GET /api/site-ui default links have no ColorWorld; prisma validate + db push clean; test rows (V10Check user, SiteUi row) cleaned after
+
+Stage Summary:
+- ColorWorld does not exist anywhere in the codebase, the kit zip, the places list or the site nav — only leftover is the Game #2 row in the PRODUCTION Turso DB (creator-uploaded earlier, untouchable without admin creds): the owner deletes it with one click on the game page (Delete Game (Admin)). The studio finally has an undo: DEFAULT (avatar), RESET (UI), FACTORY RESET (everything) — the exact answer to "how do i revert it back".

@@ -146,7 +146,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const subgenre = form.get('subgenre')
   if (typeof subgenre === 'string') data.subgenre = subgenre.trim()
 
-  // the creator can switch engines (e.g. ColorWorld: Web prototype -> the
+  // the creator can switch engines (e.g. a Web prototype -> the
   // full Godot/SDK build) — validated so nothing weird lands in the DB
   const engine = form.get('engine')
   if (typeof engine === 'string' && ['Godot', 'Unity', 'Unreal', 'Other', 'Web'].includes(engine)) {

@@ -130,8 +130,8 @@ func _run_all() -> void:
         await physics_frame
         await physics_frame
         # the later spawn-pad + walk sims expect one fresh world named
-        # "World" — COLOR WORLD, exactly what the loop used to leave first
-        var base_world: Dictionary = load("res://scripts/world/world_builder.gd").build(load("res://scripts/world/places.gd").by_id("colorworld"))
+        # "World" — the classic Happy Baseplate
+        var base_world: Dictionary = load("res://scripts/world/world_builder.gd").build(load("res://scripts/world/places.gd").by_id("baseplate"))
         root.add_child(base_world["root"])
         await physics_frame
         await physics_frame

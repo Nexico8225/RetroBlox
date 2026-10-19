@@ -18,7 +18,6 @@ func _init() -> void:
                 PlacesScript.topdown_neon(),
                 PlacesScript.obby(),
                 PlacesScript.baseplate(),
-                PlacesScript.color_world(),
                 MyPlaceScript.build(),
         ]
         var names: Array = [
@@ -27,7 +26,6 @@ func _init() -> void:
                 "top-down-neon-grid.retroplace",
                 "classic-obby.retroplace",
                 "baseplate.retroplace",
-                "paint-world.retroplace",
                 "my-place.retroplace",
         ]
 

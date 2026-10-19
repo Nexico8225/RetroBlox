@@ -61,7 +61,6 @@ export const DEFAULT_SITE_UI: SiteUiConfig = {
   links: [
     { label: 'Home', href: '/', show: true },
     { label: 'Games', href: '/games', show: true },
-    { label: 'ColorWorld', href: '/colorworld', show: true },
     { label: 'Webs', href: '/webs', show: true },
     { label: 'Catalog', href: '/catalog', show: true },
     { label: 'Avatar', href: '/avatar', show: true },
@@ -139,7 +138,7 @@ function links(v: unknown, fallback: SiteUiLink[]): SiteUiLink[] {
 /** Links to pages we deleted — dropped from every saved config so they never render. */
 function retiredHref(href: string): boolean {
   const h = href.split('?')[0].replace(/\/$/, '')
-  return h === '/templates' || h === '/ui-studio'
+  return h === '/templates' || h === '/ui-studio' || h === '/colorworld'
 }
 
 function ctas(v: unknown, fallback: SiteUiCta[]): SiteUiCta[] {
