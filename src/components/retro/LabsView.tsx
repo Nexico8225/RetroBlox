@@ -457,7 +457,7 @@ export function LabsView() {
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
                   <BoardChip board={p.board} />
-                  {p.videoUrl && <span style={{ fontSize: 10, color: '#c81c14' }}>▶ video</span>}
+                  {p.videoUrl && <span style={{ fontSize: 10, color: '#c81c14' }}>video</span>}
                   {media.length > 0 && <span style={{ fontSize: 10, color: '#7b8896' }}>media ×{media.length}</span>}
                   {p.codeFileId && <span style={{ fontSize: 10, color: '#6b3fa0', fontFamily: "'Courier New', monospace" }}>{'</>'} {p.codeFileName || 'source'}</span>}
                 </div>

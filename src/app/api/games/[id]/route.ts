@@ -1,23 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { saveUpload } from '@/lib/uploads'
+import { saveUpload, resolveUpload, keepChunks } from '@/lib/uploads'
+import { ensureGameSeq } from '@/lib/seq'
 
-async function gameDetail(id: string, viewerId: string | null) {
+// "1" -> Game ID #1 (the first game ever published); cuid links keep working too
+async function resolveGameParam(raw: string): Promise<string | null> {
+  const p = (raw || '').trim()
+  if (!p) return null
+  if (/^\d+$/.test(p)) {
+    const bySeq = await db.game.findUnique({ where: { seqId: Number(p) }, select: { id: true } })
+    if (bySeq) return bySeq.id
+  }
+  return p
+}
+
+async function gameDetail(id: string | null, viewerId: string | null) {
+  if (!id) return null
   const g = await db.game.findUnique({
     where: { id },
     include: {
-      creator: { select: { id: true, username: true, avatarUrl: true, role: true, createdAt: true, lastSeen: true } },
+      creator: { select: { id: true, username: true, seqId: true, avatarUrl: true, role: true, createdAt: true, lastSeen: true } },
       group: { select: { id: true, name: true } },
       likes: true,
       favorites: true,
       comments: {
-        include: { user: { select: { id: true, username: true, avatarUrl: true, role: true, lastSeen: true } } },
+        include: { user: { select: { id: true, username: true, seqId: true, avatarUrl: true, role: true, lastSeen: true } } },
         orderBy: { createdAt: 'desc' },
       },
     },
   })
   if (!g) return null
+  // old games get their short numeric ID on first view (Game ID #1 = first published)
+  await ensureGameSeq(g)
   const likes = g.likes.filter((l) => l.value === 1).length
   const dislikes = g.likes.filter((l) => l.value === -1).length
   const isOwner = viewerId === g.creatorId
@@ -53,6 +68,7 @@ async function gameDetail(id: string, viewerId: string | null) {
 
   return {
     id: g.id,
+    seqId: g.seqId,
     name: g.name,
     description: g.description,
     genre: g.genre,
@@ -66,6 +82,9 @@ async function gameDetail(id: string, viewerId: string | null) {
     sourceFileId: g.sourceFileId,
     sourceFileName: g.sourceFileName,
     hasFile: !!g.fileId,
+    // Web games: the playable code rides along (the play page + the creator's
+    // "edit code" flow read it from here). Never sent for non-web games.
+    webCode: g.engine === 'Web' ? g.webCode || null : null,
     downloads: g.downloads,
     views: g.views,
     gem: g.gem,
@@ -96,7 +115,7 @@ async function gameDetail(id: string, viewerId: string | null) {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const user = await getUserFromReq(req)
-  const detail = await gameDetail(id, user?.id || null)
+  const detail = await gameDetail(await resolveGameParam(id), user?.id || null)
   if (!detail) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
   return NextResponse.json({ game: detail })
 }
@@ -107,9 +126,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const user = await getUserFromReq(req)
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
 
-  const game = await db.game.findUnique({ where: { id } })
+  const gid = await resolveGameParam(id)
+  if (!gid) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
+
+  const game = await db.game.findUnique({ where: { id: gid } })
   if (!game) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
-  if (game.creatorId !== user.id) return NextResponse.json({ error: 'Not your game!' }, { status: 403 })
+  // game devs own their games; the SITE OWNER (role admin) may edit any UI /
+  // any game — everyone else gets the door
+  if (game.creatorId !== user.id && user.role !== 'admin') return NextResponse.json({ error: 'Not your game!' }, { status: 403 })
 
   const form = await req.formData()
   const data: Record<string, unknown> = { updatedAt: new Date() }
@@ -122,21 +146,83 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const subgenre = form.get('subgenre')
   if (typeof subgenre === 'string') data.subgenre = subgenre.trim()
 
-  const gameFile = form.get('gameFile')
-  if (gameFile instanceof File && gameFile.size > 0) {
-    if (gameFile.size > 60 * 1024 * 1024) return NextResponse.json({ error: 'Game file too large (max 60MB).' }, { status: 400 })
-    const saved = await saveUpload(gameFile, user.id)
-    data.fileId = saved.id
-    data.fileName = gameFile.name
+  // the creator can switch engines (e.g. ColorWorld: Web prototype -> the
+  // full Godot/SDK build) — validated so nothing weird lands in the DB
+  const engine = form.get('engine')
+  if (typeof engine === 'string' && ['Godot', 'Unity', 'Unreal', 'Other', 'Web'].includes(engine)) {
+    data.engine = engine
   }
 
-  const sourceFile = form.get('sourceFile')
-  if (sourceFile instanceof File && sourceFile.size > 0) {
+  // gameFile can arrive directly (multipart, small) OR as a chunked upload id
+  // ("gameUploadId" + "gameFileName") — big game builds (a real exported game
+  // is 60MB+) KEEP their chunk rows as the storage: re-writing a blob that
+  // big into a single Turso row blows the statement size limit.
+  const gameUploadId = typeof form.get('gameUploadId') === 'string' ? String(form.get('gameUploadId')).trim() : ''
+  if (gameUploadId && /^[a-zA-Z0-9]{8,64}$/.test(gameUploadId)) {
+    try {
+      const kept = await keepChunks(gameUploadId)
+      if (!kept) return NextResponse.json({ error: 'Chunked upload not found — upload the game again.' }, { status: 400 })
+      data.fileId = gameUploadId
+      const gn = form.get('gameFileName')
+      data.fileName = typeof gn === 'string' && gn.trim() ? gn.trim().slice(-80) : 'game.zip'
+    } catch (e) {
+      return NextResponse.json({ error: 'Game build attach failed: ' + (e instanceof Error ? e.message : String(e)) }, { status: 500 })
+    }
+  } else {
+    const gameFile = await resolveUpload(form.get('gameFile'), null)
+    if (gameFile) {
+      if (gameFile.size > 60 * 1024 * 1024) return NextResponse.json({ error: 'Game file too large (max 60MB direct; use the chunk uploader).' }, { status: 400 })
+      const saved = await saveUpload(gameFile, user.id)
+      data.fileId = saved.id
+      data.fileName = gameFile.name
+    }
+  }
+
+  const sourceFile = await resolveUpload(form.get('sourceFile'), form.get('sourceUploadId'))
+  if (sourceFile) {
     if (sourceFile.size > 40 * 1024 * 1024) return NextResponse.json({ error: 'Source archive too large (max 40MB).' }, { status: 400 })
     const saved = await saveUpload(sourceFile, user.id)
     data.sourceFileId = saved.id
     data.sourceFileName = sourceFile.name
   }
+
+  // the owner can re-skin their game page: new icon / thumbnail (same limits
+  // as publish) — patching art refreshes the card + the page header instantly
+  const icon = form.get('icon')
+  if (icon instanceof File && icon.size > 0) {
+    if (icon.size > 2 * 1024 * 1024) return NextResponse.json({ error: 'Icon too large (max 2MB).' }, { status: 400 })
+    data.iconUrl = await fileToDataUrl(icon)
+  }
+  const thumbnail = form.get('thumbnail')
+  if (thumbnail instanceof File && thumbnail.size > 0) {
+    if (thumbnail.size > 3 * 1024 * 1024) return NextResponse.json({ error: 'Thumbnail too large (max 3MB).' }, { status: 400 })
+    data.thumbnailUrl = await fileToDataUrl(thumbnail)
+  }
+
+  // Web games: the creator can update their code (and switch a game to Web)
+  const webCode = form.get('webCode')
+  if (typeof webCode === 'string' && webCode.trim()) {
+    if (webCode.length > 200_000) return NextResponse.json({ error: 'Web game code too large (max 200KB).' }, { status: 400 })
+    data.webCode = webCode
+    if (form.get('engine') === 'Web') data.engine = 'Web'
+  }
+
+  // v6: the owner publishes their GAME UI from /ui-studio — widget JSON the
+  // desktop player fetches and spawns for EVERY player of this game
+  const uiConfig = form.get('uiConfig')
+  if (typeof uiConfig === 'string' && uiConfig.trim()) {
+    if (uiConfig.length > 100_000) return NextResponse.json({ error: 'UI config too large (max 100KB).' }, { status: 400 })
+    let parsed: unknown
+    try { parsed = JSON.parse(uiConfig) } catch { return NextResponse.json({ error: 'UI config is not valid JSON.' }, { status: 400 }) }
+    const obj = parsed as { widgets?: unknown }
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.widgets)) {
+      return NextResponse.json({ error: 'UI config must be { widgets: [...] }.' }, { status: 400 })
+    }
+    if (obj.widgets.length > 120) return NextResponse.json({ error: 'Too many widgets (max 120).' }, { status: 400 })
+    data.uiConfigJson = uiConfig
+  }
+  const clearUi = form.get('clearUiConfig')
+  if (clearUi === '1') data.uiConfigJson = ''
 
   // append new media to the Steam-style gallery
   let current: { fileId: string; type: string; name: string }[] = []
@@ -167,7 +253,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.mediaJson = JSON.stringify(current)
   }
 
-  await db.game.update({ where: { id }, data: data as never })
+  await db.game.update({ where: { id: gid }, data: data as never })
   return NextResponse.json({ ok: true })
 }
 
@@ -175,12 +261,22 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   const user = await getUserFromReq(req)
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
-  const game = await db.game.findUnique({ where: { id } })
+  const gid = await resolveGameParam(id)
+  if (!gid) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
+  const game = await db.game.findUnique({ where: { id: gid } })
   if (!game) return NextResponse.json({ error: 'Game not found' }, { status: 404 })
   // the creator can delete their own game; an admin can delete ANY game
   if (game.creatorId !== user.id && user.role !== 'admin') {
     return NextResponse.json({ error: 'Not your game!' }, { status: 403 })
   }
-  await db.game.delete({ where: { id } })
+  await db.game.delete({ where: { id: gid } })
   return NextResponse.json({ ok: true, deletedBy: user.role === 'admin' && game.creatorId !== user.id ? 'admin' : 'owner' })
+}
+
+// same data-url helper the publish route uses (icons/thumbnails ride the card
+// directly — no extra file row, no extra request)
+async function fileToDataUrl(file: File): Promise<string> {
+  const buf = Buffer.from(await file.arrayBuffer())
+  const mime = file.type && file.type.startsWith('image/') ? file.type : 'image/png'
+  return `data:${mime};base64,${buf.toString('base64')}`
 }

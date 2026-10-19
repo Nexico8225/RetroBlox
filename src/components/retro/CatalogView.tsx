@@ -30,11 +30,11 @@ import {
   placementJson,
   type Placement,
 } from '@/lib/avatarAssets'
-import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig } from '@/lib/three/convert'
-import { captureRiggedThumb } from '@/lib/three/animCapture'
+import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig, inspectGlbAnimations } from '@/lib/three/convert'
+import { captureNoobThumb, captureRiggedThumb } from '@/lib/three/animCapture'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
-import DeleteConfirmFullScreen from './DeleteConfirmFullScreen'
+import { clipHasBoneTracks } from '@/lib/three/rig'
 
 /* 3D pieces load on demand (three.js is heavy and browser-only) */
 const PlacementEditor = dynamic(() => import('./PlacementEditor'), { ssr: false })
@@ -64,6 +64,15 @@ function thumbPlaceholder(type: string): string {
     + `<text x='110' y='196' font-family='Verdana,sans-serif' font-size='17' font-weight='bold' fill='#9aa7b4' text-anchor='middle'>${label}</text>`
     + `</svg>`
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+/* Blender's glTF/FBX exports sometimes name animations "Armature|wave" —
+   the prefix is the ARMATURE object, not the action. The dropdowns and the
+   timeline show just the action tail; the RAW name still rides to publish
+   (the Godot kit looks the clip up by exactly that name in the same GLB). */
+function clipLabel(name: string): string {
+  const i = name.lastIndexOf('|')
+  return i >= 0 ? name.slice(i + 1).trim() : name
 }
 
 /* short placement hint per type — placement is the creator's call, we never move it */
@@ -192,23 +201,27 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   const [myGroups, setMyGroups] = useState<GroupOpt[]>([])
   const [tryOn, setTryOn] = useState<CatalogItem | null>(null)
   const [editing, setEditing] = useState<CatalogItem | null>(null)
-  // the screen-filling permanent-delete gate — remove = delete = true
-  const [deleteTarget, setDeleteTarget] = useState<CatalogItem | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  // admin-only: soft-deleted UGC — deletes are reversible, nothing is ever really gone
+  const [deletedItems, setDeletedItems] = useState<CatalogItem[]>([])
   const isAdmin = user?.role === 'admin'
 
-  async function confirmDelete() {
-    if (!deleteTarget) return
-    setDeleting(true)
+  const loadDeleted = useCallback(async () => {
+    if (!isAdmin) { setDeletedItems([]); return }
     try {
-      await api(`/api/catalog/${deleteTarget.id}`, { method: 'DELETE' })
-      flash(setToast, `"${deleteTarget.name}" deleted permanently.`)
-      setDeleteTarget(null)
-      await load()
+      const res = await api<{ items: CatalogItem[] }>('/api/catalog?deleted=1')
+      setDeletedItems(res.items)
+    } catch { /* ignore */ }
+  }, [isAdmin])
+
+  useEffect(() => { loadDeleted() }, [loadDeleted])
+
+  async function restoreItem(item: CatalogItem) {
+    try {
+      const res = await api<{ message?: string }>(`/api/catalog/${item.id}`, { method: 'POST', body: JSON.stringify({ action: 'restore' }) })
+      flash(setToast, res.message || 'Restored!')
+      await Promise.all([loadDeleted(), load()])
     } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Delete failed', 3000)
-    } finally {
-      setDeleting(false)
+      flash(setToast, e instanceof Error ? e.message : 'Restore failed', 3000)
     }
   }
 
@@ -250,10 +263,16 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
     }
   }
 
-  /** remove = delete = true: the button opens the full-screen permanent-delete
-   *  gate; confirming HARD-deletes the item — no hide, no replace, no undo. */
-  function removeItem(item: CatalogItem) {
-    setDeleteTarget(item)
+  async function removeItem(item: CatalogItem) {
+    if (!window.confirm(`Delete "${item.name}"? It hides from the catalog — an admin can restore it any time.`)) return
+    try {
+      await api(`/api/catalog/${item.id}`, { method: 'DELETE' })
+      flash(setToast, 'UGC deleted — restorable by an admin.')
+      load()
+      loadDeleted()
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Failed', 2400)
+    }
   }
 
   const canDelete = (item: CatalogItem) =>
@@ -337,6 +356,32 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
         </div>
       </div>
 
+      {/* admin-only recycle bin — deleted UGC is restorable, nothing is ever gone for good */}
+      {isAdmin && deletedItems.length > 0 && (
+        <div className="rb-box" style={{ padding: 10, marginBottom: 12, background: '#fff8e8', borderColor: '#e0c98a' }}>
+          <div style={{ fontSize: 11, fontWeight: 'bold', color: '#8a6d1a', marginBottom: 6 }}>
+            Deleted UGC ({deletedItems.length}) — restorable, nothing is ever gone for good
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {deletedItems.map((item) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e0c98a', padding: '3px 8px', borderRadius: 3 }}>
+                <span style={{ fontSize: 10, color: '#5d4a0a' }}>
+                  {item.name} <span style={{ fontFamily: 'monospace', color: '#9aa7b4' }}>({item.assetId})</span>
+                </span>
+                <button
+                  type="button"
+                  className="rb-btn rb-btn-green"
+                  style={{ fontSize: 9, padding: '2px 8px' }}
+                  onClick={() => restoreItem(item)}
+                >
+                  ↺ Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* item grid */}
       {loading ? (
         <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Loading the catalog...</div>
@@ -352,10 +397,9 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
             return (
               <div key={item.id} className="rb-box rb-card" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{ background: '#ffffff', borderBottom: '1px solid #dbe4ec', position: 'relative' }}>
-                  {/* THE ICON IS THE IMAGE — the saved thumbnail paints and stays.
-                      The live 3D render only ever lives in the try-on view and the
-                      avatar editor, so re-framing or swapping the icon can never
-                      move the UGC itself (icon and placement are decoupled). */}
+                  {/* the SAVED thumbnail always paints first — the live 3D render (if any)
+                      covers it, and if that render ever fails the saved shot still shows:
+                      this slot can never end up blank */}
                   <img
                     src={`/api/files/${item.imageFileId}`}
                     alt={item.name}
@@ -367,6 +411,17 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                     }}
                     style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
                   />
+                  {item.modelFileId && (
+                    <ItemThumb3D
+                      modelUrl={`/api/files/${item.modelFileId}`}
+                      placement={item.placement}
+                      alt={item.name}
+                      fallbackSrc={`/api/files/${item.imageFileId}`}
+                      textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
+                      color={item.baseColor || undefined}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#fff' }}
+                    />
+                  )}
                   <span
                     style={{
                       position: 'absolute', top: 6, left: 6, fontSize: 9, padding: '2px 6px',
@@ -531,16 +586,6 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
           }}
         />
       )}
-
-      {/* the screen-filling permanent-delete gate — remove = delete = true */}
-      {deleteTarget && (
-        <DeleteConfirmFullScreen
-          target={{ id: deleteTarget.id, name: deleteTarget.name, imageFileId: deleteTarget.imageFileId, assetId: deleteTarget.assetId, type: deleteTarget.type }}
-          busy={deleting}
-          onDelete={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
     </div>
   )
 }
@@ -608,7 +653,7 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
           <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
         </div>
         <div style={{ padding: 12 }}>
-          <Player3DView look={look} height={380} anim={anim} />
+          <Player3DView look={look} height={380} anim={anim} selfAnim={item.type === 'emote'} />
           {clips.length > 1 && !isAnimPack && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
               <span style={{ fontSize: 11, color: '#1c4e7c' }}>Clip:</span>
@@ -636,9 +681,11 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
           <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 8 }}>
             {item.type === 'bundle'
               ? 'This bundle replaces the body parts its creator modeled — the classic blocky body steps aside.'
-              : item.type === 'emote' || item.type === 'anim'
-                ? 'Clips retarget onto the body by part name — animate against the R6 template and it plays right on your character.'
-                : 'This is the exact spot its creator left it in — RetroBlox never moves UGC on its own.'}
+              : item.type === 'emote'
+                ? 'This plays the creator\u2019s uploaded model doing the animation — exactly what players see when they do the emote in-game.'
+                : item.type === 'anim'
+                  ? 'Clips retarget onto the body by part name — animate against the R6 template and it plays right on your character.'
+                  : 'This is the exact spot its creator left it in — RetroBlox never moves UGC on its own.'}
           </div>
         </div>
       </div>
@@ -777,12 +824,12 @@ function EditItemModal({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              {/* the saved thumbnail IS the current icon — show exactly what
-                  the owner uploaded; the 3D live render belongs to try-on */}
               {item.modelFileId && !newImage ? (
-                <img
-                  src={`/api/files/${item.imageFileId}`}
+                <ItemThumb3D
+                  modelUrl={`/api/files/${item.modelFileId}`}
+                  placement={item.placement}
                   alt={item.name}
+                  fallbackSrc={`/api/files/${item.imageFileId}`}
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
                 />
               ) : (
@@ -1051,6 +1098,17 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [targetAssetId, setTargetAssetId] = useState('')
   const [marketRigs, setMarketRigs] = useState<CatalogItem[]>([])
   const [marketUgc, setMarketUgc] = useState<CatalogItem[]>([])
+  // ---- emote studio: preview body + the icon timeline ----
+  // 'self' = the UPLOADED MODEL plays its own clip (WYSIWYG — byte-for-byte
+  // what the Godot game does with a custom emote: spawn the GLB, play its
+  // own AnimationPlayer, hide the body). 'target' / 'noob' = retarget
+  // previews for clips animated against the official R6 template.
+  const [previewBody, setPreviewBody] = useState<'self' | 'target' | 'noob'>('self')
+  const [scrub, setScrub] = useState<number | null>(null) // null = the clip plays
+  const [clipDur, setClipDur] = useState(0)
+  const [iconPose, setIconPose] = useState<{ clip: string; t: number } | null>(null)
+  const [iconThumb, setIconThumb] = useState<Blob | null>(null)
+  const handleClipTime = useCallback((d: number) => setClipDur(d), [])
 
   /* live painted preview — the picked GLB as a local object URL so the
      picker box shows the model WITH its texture / flat color the moment
@@ -1074,6 +1132,20 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       tshirtUrls: [],
       models: [],
     }
+    if (previewBody !== 'target') {
+      // the GREY NOOB emote guy — the plain all-grey classic body, nothing worn
+      // (the WYSIWYG 'self' mode hides the body anyway and plays the model)
+      look.skin = '#9aa0a6'
+      look.shirtColor = '#8f959c'
+      look.shirtImage = null
+      look.pantsColor = '#868c93'
+      look.pantsImage = null
+      look.faceUrl = null
+      look.tshirtUrls = []
+      look.models = []
+      look.bundle = null
+      return look
+    }
     if (targetKind === 'bundle' && targetAssetId) {
       const b = marketRigs.find((r) => r.assetId === targetAssetId)
       if (b?.modelFileId) look.bundle = { url: `/api/files/${b.modelFileId}` }
@@ -1091,7 +1163,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       }
     }
     return look
-  }, [targetKind, targetAssetId, marketRigs, marketUgc])
+  }, [targetKind, targetAssetId, marketRigs, marketUgc, previewBody])
 
   /* the realtime cycle order for an anim pack: mapped slots first (the moves
      that take over the classic ones), any remaining clips after */
@@ -1100,6 +1172,34 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
     const rest = clipNames.filter((c) => !mapped.includes(c))
     return [...mapped, ...rest].slice(0, 6)
   }, [clipMap, clipNames])
+
+  /* the clip the timeline drives: the picked NLA track for an emote, the
+     Idle move (or first clip) for an animation pack */
+  const timelineClip = type === 'anim'
+    ? (clipMap.idle || animCycleClips[0] || '')
+    : (previewClip || clipNames[0] || '')
+
+  /* lock the CURRENT timeline moment as the emote icon: the grey noob is
+     photographed mid-clip and that shot rides to the marketplace AND the
+     in-game emote wheel */
+  async function setIconFromMarker() {
+    if (!previewModelUrl) return
+    const t = scrub ?? 0
+    try {
+      // the icon is captured on the body being previewed: 'self' photographs
+      // the creator's OWN model at the marker (what the game shows), the
+      // retarget previews photograph the classic grey noob
+      const blob = previewBody === 'self'
+        ? await captureRiggedThumb(previewModelUrl, timelineClip || undefined, 512, t)
+        : await captureNoobThumb(previewModelUrl, timelineClip || undefined, t)
+      setIconThumb(blob)
+      setIconPose({ clip: timelineClip, t })
+      setThumbUrl((old) => {
+        if (old) URL.revokeObjectURL(old)
+        return URL.createObjectURL(blob)
+      })
+    } catch { /* keep the previous thumbnail */ }
+  }
   useEffect(() => {
     return () => {
       if (previewModelUrl) URL.revokeObjectURL(previewModelUrl)
@@ -1109,14 +1209,52 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   /* ---- rigged GLB intake: enumerate the Blender clips + detect body parts,
      then auto-capture the catalog thumbnail from a mid-clip pose. This is
      the door for "upload a rig with anims and preview the anim". */
-  async function ingestRiggedGlb(glb: Blob) {
+  async function ingestRiggedGlb(glb: Blob, original: File | Blob) {
     const url = URL.createObjectURL(glb)
     try {
       const loader = new GLTFLoader()
       const gltf = await loader.loadAsync(url)
-      const names = (gltf.animations || []).map((c: { name: string }) => c.name).filter(Boolean)
+      // empty clips (Blender can emit an animation with zero channels) would
+      // sit in the NLA dropdown as a dead pick — drop them up front. So do
+      // OBJECT-LEVEL clips (the "Head|Run" / "Left Arm|Run" leftovers an
+      // imported FBX keeps inside Blender): they animate mesh nodes, never
+      // bones, and only clutter the track picker with dead names. A rig with
+      // no bones at all (blocky mesh characters) keeps every clip — the
+      // self-model fallback plays those on the uploaded model itself.
+      const withTracks = (gltf.animations || []).filter((c: { tracks?: unknown[] }) => (c.tracks || []).length > 0)
+      const boneClips = withTracks.filter((c) => clipHasBoneTracks(c as never, gltf.scene))
+      const usable = boneClips.length > 0 ? boneClips : withTracks
+      // NEVER drop an unnamed clip on top of that — Blender's "Scene" mode
+      // (and some FBX takes) export clips with an EMPTY name, and a plain
+      // .filter(Boolean) throws them away so the NLA dropdown shows nothing
+      // even though the file DID carry the animation. Unnamed clips become
+      // "Clip 1", "Clip 2", ... and play exactly the same.
+      const names = usable.map((c: { name?: string }, i: number) => (c.name && c.name.trim() ? c.name.trim() : `Clip ${i + 1}`))
       setClipNames(names)
       setPreviewClip(names[0] || '')
+      if (names.length === 0) {
+        // the file plays nothing — tell the creator WHICH export step went
+        // wrong instead of leaving an empty dropdown. The raw-JSON peek
+        // distinguishes "no animation exported at all" from "animation is
+        // in the file but the loader could not bind it".
+        const info = await inspectGlbAnimations(original)
+        if (info.rawCount === 0) {
+          setModelNotice(
+            'No animations were found inside this file, so there is nothing to preview. Blender recipe: 1) click your ARMATURE (not just the mesh), 2) in the Dope Sheet press Push Down on your action (or leave it active), 3) File > Export > glTF 2.0, 4) tick ANIMATION with mode "Actions" (FBX instead: tick Bake Animation), 5) upload the fresh file here.'
+          )
+        } else {
+          setModelNotice(
+            `Your file DOES hold ${info.rawCount} animation clip${info.rawCount === 1 ? '' : 's'} (${info.rawNames.join(', ')}) but the browser could not bind any of them to bones — usually the keys sit on objects that did not export. Re-export with the ARMATURE selected, Animation mode "Actions", and try again.`
+          )
+        }
+      } else {
+        setModelNotice('')
+      }
+      // a fresh model resets the studio: no marker, no icon, timeline at play
+      setScrub(null)
+      setIconPose(null)
+      setIconThumb(null)
+      setClipDur(0)
       // keep any existing mapping whose clip still exists (re-picking a model)
       setClipMap((old) => {
         const next: Partial<Record<AnimSlot, string>> = {}
@@ -1279,6 +1417,9 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
     const was = publishMode(type)
     const will = publishMode(t)
     setType(t)
+    // emotes default to the WYSIWYG self preview; animation packs replace
+    // the classic moves on the real body, so they default to the retarget
+    setPreviewBody(t === 'anim' ? 'target' : 'self')
     setError('')
     if (was !== will) {
       setImage(null)
@@ -1309,9 +1450,13 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         .then(async (glb) => {
           setModelBlob(glb)
           setEditorOpen(false)
-          await ingestRiggedGlb(glb)
+          await ingestRiggedGlb(glb, f)
         })
-        .catch((e) => setError(e instanceof Error ? e.message : 'Could not read that model.'))
+        .catch((e) => setError(
+          `${e instanceof Error ? e.message : 'Could not read that model.'} `
+          + `Tip: Blender users — File > Export > glTF 2.0 and pick FORMAT glTF Binary (.glb). `
+          + `"glTF Separate" (.gltf + .bin) cannot be read here.`
+        ))
         .finally(() => setConverting(false))
       return
     }
@@ -1382,7 +1527,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       const blob = await res.blob()
       const file = new File([blob], `${src.assetId}.glb`, { type: 'model/gltf-binary' })
       setModelBlob(file)
-      await ingestRiggedGlb(file)
+      await ingestRiggedGlb(file, file)
       flash(setToast, `Rig from "${src.name}" loaded — map your clips and publish.`)
     } catch {
       setError('Could not load that rig — try uploading your own GLB.')
@@ -1399,7 +1544,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
     if (priceMode === 'paid' && finalPrice < 1) { setError('Paid items need a price of at least T$ 1 (or mark it Free).'); return }
     if (limited && finalPrice < 1) { setError('Limited items need a price of at least T$ 1.'); return }
     if (rigged) {
-      if (!modelBlob) { setError('Pick a rigged GLB first (exported from Blender with its rig + animations).'); return }
+      if (!modelBlob) { setError('Pick a rigged GLB or FBX first (exported from Blender with its rig + animations).'); return }
       if (type === 'anim' && clipNames.length === 0) { setError('Your GLB has no animation clips — an animation pack needs at least one.'); return }
       if (type === 'anim' && Object.keys(clipMap).length === 0) { setError('Map at least one move (Idle / Walk / Jump / Climb / Fall) to a clip from your GLB.'); return }
     } else if (is3D) {
@@ -1421,11 +1566,14 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       if (limited && stockInput.trim() !== '') fd.append('stock', stockInput.trim())
       if (groupId) fd.append('groupId', groupId)
       if (rigged && modelBlob) {
-        // the rigged GLB IS the item; the catalog shot is captured automatically
+        // the rigged GLB IS the item; the catalog shot is the marker pose
+        // when the creator locked one, else an automatic mid-clip moment
         await attachUpload(fd, 'model', modelBlob, 'model.glb', 'model/gltf-binary', setUploadNote)
         const capUrl = previewModelUrl || URL.createObjectURL(modelBlob)
         try {
-          const thumbBlob = await captureRiggedThumb(capUrl, type === 'anim' ? (clipMap.idle || clipNames[0]) : (previewClip || clipNames[0] || undefined))
+          const thumbBlob = iconThumb
+            ? iconThumb
+            : await captureRiggedThumb(capUrl, type === 'anim' ? (clipMap.idle || clipNames[0]) : (previewClip || clipNames[0] || undefined))
           await attachUpload(fd, 'image', thumbBlob, 'thumbnail.png', 'image/png', setUploadNote)
         } catch {
           throw new Error('Could not capture the preview image — re-pick the model and try again.')
@@ -1433,7 +1581,14 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         if (type === 'bundle') {
           if (detectedParts.length > 0) fd.append('bundleParts', JSON.stringify(detectedParts))
         } else {
-          fd.append('animClips', JSON.stringify({ clips: clipNames, ...(type === 'anim' ? { map: clipMap } : {}) }))
+          // useClip + iconTime: the NLA track the creator picked and the
+          // timeline moment they locked — games play THAT clip and the
+          // wheel shows THAT pose
+          fd.append('animClips', JSON.stringify({
+            clips: clipNames,
+            ...(type === 'anim' ? { map: clipMap } : {}),
+            ...(type === 'emote' && iconPose && iconPose.clip ? { useClip: iconPose.clip, iconTime: iconPose.t } : {}),
+          }))
           fd.append('animTarget', JSON.stringify({ kind: targetKind, ...(targetKind !== 'avatar' && targetAssetId ? { assetId: targetAssetId } : {}) }))
         }
       } else if (is3D && modelBlob && placement && thumbUrl) {
@@ -1502,8 +1657,8 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               ) : (
                 <>
                   <span style={{ fontSize: 26, color: '#5a7b9a' }}>+</span>
-                  <span style={{ fontSize: 10, color: '#5a7b9a' }}>Rigged GLB</span>
-                  <span style={{ fontSize: 8, color: '#8ba0b3', padding: '0 6px' }}>rig + animations · from Blender</span>
+                  <span style={{ fontSize: 10, color: '#5a7b9a' }}>Rigged model</span>
+                  <span style={{ fontSize: 8, color: '#8ba0b3', padding: '0 6px' }}>rig + animations · GLB or FBX</span>
                 </>
               )
             ) : is3D ? (
@@ -1561,8 +1716,13 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           {is3D || rigged ? (
             <>
               <div style={{ fontSize: 9, color: '#7b8896', marginTop: 4 }}>
-                {rigged ? 'Click or drop — a rigged GLB (rig + clips), max 24MB' : 'Click or drop — FBX / GLB / OBJ, max 24MB'}
+                {rigged ? 'Click or drop — rigged GLB or FBX (rig + clips), max 24MB' : 'Click or drop — FBX / GLB / OBJ, max 24MB'}
               </div>
+              {rigged && (
+                <div style={{ fontSize: 9, color: '#1c4e7c', marginTop: 3, lineHeight: 1.4 }}>
+                  <strong>Made in Blender?</strong> File &gt; Export &gt; glTF 2.0, format = <strong>glTF Binary (.glb)</strong> — a .blend itself cannot be read in the browser. FBX works too (Path Mode Copy + Embed Textures when you use textures).
+                </div>
+              )}
               {is3D && (
                 <div style={{ fontSize: 9, color: '#1c4e7c', marginTop: 3, lineHeight: 1.4 }}>
                   <strong>Using materials or textures? Upload .glb.</strong> Blender: File &gt; Export &gt; glTF 2.0
@@ -1588,7 +1748,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   }}
                   role="alert"
                 >
-                  <strong style={{ fontSize: 10 }}>⚠ No material colors found in this model.</strong>
+                  <strong style={{ fontSize: 10 }}>Note: No material colors found in this model.</strong>
                   <br />
                   {modelNotice}
                   <br />
@@ -1596,6 +1756,19 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                     Blender recipe: Shading workspace → New Material → Base Color → pick grey / brown / anything →
                     File Export → glTF 2.0 (.glb). That export always keeps your colors.
                   </span>
+                </div>
+              )}
+              {rigged && modelNotice && (
+                <div
+                  style={{
+                    border: '1px solid #e0c98a', background: '#fff8e8', padding: '6px 8px',
+                    marginTop: 6, fontSize: 9.5, color: '#7a5c0e', lineHeight: 1.5,
+                  }}
+                  role="alert"
+                >
+                  <strong style={{ fontSize: 10 }}>Note: Animation check for this upload.</strong>
+                  <br />
+                  {modelNotice}
                 </div>
               )}
               {thumbUrl && (
@@ -1614,7 +1787,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                 href={`/ugc-templates/${type}-template.png`}
                 download
               >
-                ⬇ Official {TYPE_SINGULAR[type] || type} template
+                Official {TYPE_SINGULAR[type] || type} template
               </a>
             </>
           )}
@@ -1677,17 +1850,77 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                         key={previewModelUrl}
                         look={previewLook}
                         height={300}
+                        scrub={scrub}
+                        onClipTime={handleClipTime}
+                        selfAnim={previewBody === 'self'}
                         anim={previewModelUrl ? { url: previewModelUrl, clips: type === 'anim' ? animCycleClips : [previewClip || clipNames[0]], single: type !== 'anim' } : null}
                       />
+                      {type !== 'bundle' && timelineClip && clipDur > 0 && (
+                        /* THE ICON TIMELINE — pause on your pose, lock it: the
+                           grey noob at this exact moment becomes the icon that
+                           shows on the marketplace card AND in the emote wheel */
+                        <div style={{ padding: '6px 8px', borderTop: '1px solid #dbe4ec', background: '#fff' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              type="button"
+                              className="rb-btn"
+                              style={{ fontSize: 10, padding: '1px 7px', flexShrink: 0 }}
+                              onClick={() => setScrub((s) => (s == null ? (iconPose?.t ?? Math.min(0.5, clipDur / 2)) : null))}
+                            >
+                              {scrub == null ? 'II Pause' : '> Play'}
+                            </button>
+                            <input
+                              type="range"
+                              min={0}
+                              max={Math.max(clipDur, 0.05)}
+                              step={0.02}
+                              value={scrub ?? 0}
+                              onChange={(e) => setScrub(Number(e.target.value))}
+                              style={{ flex: 1, minWidth: 0 }}
+                              aria-label="Emote timeline"
+                            />
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#5a6b7b' }}>
+                              {(scrub ?? 0).toFixed(2)}s / {clipDur.toFixed(2)}s
+                            </span>
+                            <button
+                              type="button"
+                              className="rb-btn rb-btn-green"
+                              style={{ fontSize: 10, padding: '1px 7px' }}
+                              disabled={scrub == null}
+                              title={scrub == null ? 'Pause on the pose you want first' : 'This pose becomes the emote icon'}
+                              onClick={setIconFromMarker}
+                            >
+                              Set icon at this pose
+                            </button>
+                            {iconPose && (
+                              <button
+                                type="button"
+                                className="rb-link"
+                                style={{ background: 'none', border: 'none', padding: 0, fontSize: 10 }}
+                                onClick={() => { setIconPose(null); setIconThumb(null) }}
+                              >
+                                clear
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 9, color: '#8ba0b3', marginTop: 3, lineHeight: 1.4 }}>
+                            {iconPose
+                              ? `Icon locked: ${clipLabel(iconPose.clip)} @ ${iconPose.t.toFixed(2)}s — ${previewBody === 'self' ? 'YOUR model' : 'the grey noob'} at this pose rides to the marketplace + your emote wheel.`
+                              : 'Move the timeline, pause on your pose, lock it as the icon.'}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div style={{ height: 300, border: '1px dashed #b7c6d4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#7b8896', textAlign: 'center', padding: 12 }}>
-                      Pick a rigged GLB above and your animation preview plays here.
+                      Pick a rigged GLB or FBX above and your animation preview plays here.
                     </div>
                   )}
                   {clipNames.length > 0 && (
                     <div style={{ fontSize: 10, color: '#3e8e41', marginTop: 6 }}>
-                      ✓ {clipNames.length} clip{clipNames.length === 1 ? '' : 's'} found in your GLB
+                      ✓ {clipNames.length} clip{clipNames.length === 1 ? '' : 's'} found in your model
                       {detectedParts.length > 0 && type === 'bundle' && ` · replaces: ${detectedParts.join(', ')}`}
                     </div>
                   )}
@@ -1695,7 +1928,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                 <div style={{ flex: 1, minWidth: 220, fontSize: 11 }}>
                   {type !== 'bundle' && clipNames.length > 0 && (
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ color: '#1c4e7c', marginBottom: 3 }}>{type === 'anim' ? 'Map each move to a clip from your GLB' : 'Clip to preview'}</div>
+                      <div style={{ color: '#1c4e7c', marginBottom: 3 }}>{type === 'anim' ? 'Map each move to a clip from your model' : 'NLA track (the action that plays)'}</div>
                       {type === 'anim' ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 5 }}>
                           {ANIM_SLOTS.map((slot) => (
@@ -1709,14 +1942,14 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                                 aria-label={`${ANIM_SLOT_LABELS[slot]} clip`}
                               >
                                 <option value="">— classic —</option>
-                                {clipNames.map((c) => <option key={c} value={c}>{c}</option>)}
+                                {clipNames.map((c) => <option key={c} value={c}>{clipLabel(c)}</option>)}
                               </select>
                             </label>
                           ))}
                         </div>
                       ) : (
-                        <select className="rb-input" value={previewClip} onChange={(e) => setPreviewClip(e.target.value)} style={{ fontSize: 11, width: '100%' }} aria-label="Preview clip">
-                          {clipNames.map((c) => <option key={c} value={c}>{c}</option>)}
+                        <select className="rb-input" value={previewClip} onChange={(e) => { setPreviewClip(e.target.value); setScrub(null) }} style={{ fontSize: 11, width: '100%' }} aria-label="Preview clip">
+                          {clipNames.map((c) => <option key={c} value={c}>{clipLabel(c)}</option>)}
                         </select>
                       )}
                     </div>
@@ -1725,22 +1958,42 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                     <div style={{ marginBottom: 8 }}>
                       <div style={{ color: '#1c4e7c', marginBottom: 3 }}>Preview it on…</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 5 }}>
-                        {([['avatar', 'Normal avatar'], ['bundle', 'A bundle'], ['ugc', 'Avatar + UGC']] as const).map(([k, label]) => (
-                          <button
-                            key={k}
-                            type="button"
-                            onClick={() => { setTargetKind(k); setTargetAssetId('') }}
-                            aria-pressed={targetKind === k}
-                            style={{
-                              fontSize: 10, padding: '2px 8px', cursor: 'pointer',
-                              border: targetKind === k ? '1px solid #0069a8' : '1px solid #b7c6d4',
-                              background: targetKind === k ? '#0085cf' : '#fff',
-                              color: targetKind === k ? '#fff' : '#1c4e7c',
-                            }}
-                          >
-                            {label}
-                          </button>
-                        ))}
+                        {([['self', 'My model'], ['avatar', 'Normal avatar'], ['noob', 'Grey noob'], ['bundle', 'A bundle'], ['ugc', 'Avatar + UGC']] as const).map(([k, label]) => {
+                          const active = k === 'self'
+                            ? previewBody === 'self'
+                            : k === 'noob'
+                              ? previewBody === 'noob'
+                              : targetKind === k && previewBody === 'target'
+                          return (
+                            <button
+                              key={k}
+                              type="button"
+                              onClick={() => {
+                                if (k === 'self') {
+                                  setPreviewBody('self')
+                                  setTargetKind('avatar')
+                                  setTargetAssetId('')
+                                } else if (k === 'noob') {
+                                  setPreviewBody((b) => (b === 'noob' ? 'target' : 'noob'))
+                                  if (previewBody !== 'noob') { setTargetKind('avatar'); setTargetAssetId('') }
+                                } else {
+                                  setPreviewBody('target')
+                                  setTargetKind(k)
+                                  setTargetAssetId('')
+                                }
+                              }}
+                              aria-pressed={active}
+                              style={{
+                                fontSize: 10, padding: '2px 8px', cursor: 'pointer',
+                                border: active ? '1px solid #0069a8' : '1px solid #b7c6d4',
+                                background: active ? '#0085cf' : '#fff',
+                                color: active ? '#fff' : '#1c4e7c',
+                              }}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
                       </div>
                       {targetKind === 'bundle' && (
                         <select className="rb-input" value={targetAssetId} onChange={(e) => setTargetAssetId(e.target.value)} style={{ fontSize: 11, width: '100%' }} aria-label="Bundle to preview on">
@@ -1755,9 +2008,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                         </select>
                       )}
                       <div style={{ fontSize: 9, color: '#8ba0b3', marginTop: 3 }}>
-                        {targetKind === 'avatar' && 'Plays on the classic blocky body.'}
-                        {targetKind === 'bundle' && 'Plays on the bundle you pick — animate a bundle!'}
-                        {targetKind === 'ugc' && 'Your item worn with a marketplace UGC piece — pets flying around you.'}
+                        {previewBody === 'self' && 'YOUR model plays its own animation — exactly what the game shows when you do this emote. Only switch to Normal avatar if you animated on the official R6 template.'}
+                        {previewBody === 'noob' && 'The grey noob emote guy — exactly what your icon shows.'}
+                        {previewBody === 'target' && targetKind === 'avatar' && 'Plays on the classic blocky body.'}
+                        {previewBody === 'target' && targetKind === 'bundle' && 'Plays on the bundle you pick — animate a bundle!'}
+                        {previewBody === 'target' && targetKind === 'ugc' && 'Your item worn with a marketplace UGC piece — pets flying around you.'}
                       </div>
                     </div>
                   )}
@@ -1774,7 +2029,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                       {marketRigs.map((i) => <option key={i.assetId} value={i.assetId}>{i.name} · {UGC_TYPE_LABELS[i.type] || i.type}</option>)}
                     </select>
                     <a className="rb-link" style={{ fontSize: 10, display: 'inline-block', marginTop: 5 }} href="/models/retroblox-rig-template.glb" download>
-                      ⬇ Official R6 rig template (.glb) — animate these parts in Blender
+                      Official R6 rig template (.glb) — animate these parts in Blender
                     </a>
                   </div>
                 </div>

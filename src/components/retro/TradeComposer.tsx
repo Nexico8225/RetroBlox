@@ -366,7 +366,7 @@ function TradeComposerInner() {
         <div>That&apos;s your own item — you already have it! Give it away from here, or check the <b>Trades</b> page for incoming offers.</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Link href={`/trades/new?give=${itemParam}`} className="rb-btn rb-btn-green" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 14px' }}>
-            🔁 Give it to someone
+            Give it to someone
           </Link>
           <Link href="/trades" className="rb-btn" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 14px' }}>Open Trades</Link>
         </div>

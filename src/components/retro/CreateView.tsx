@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useRetro, api, GENRES, SUBGENRE_IDEAS, flash } from '@/lib/store'
+import { WEB_TEMPLATES, buildWebGameDoc } from '@/lib/webgame'
 
 /* Publish a game: build file (Unity/Godot/anything), optional source code,
    icon, thumbnail, description, genre + subgenre. New games start at 0 downloads.
-   Optionally publish straight into one of your groups. */
+   Optionally publish straight into one of your groups.
+   ENGINE "Web": skip the build file — write the game IN the browser with
+   the code studio (templates + test play) and players run it on the site. */
 
 interface MyGroupT { id: string; name: string; role: string }
 
@@ -23,6 +26,11 @@ export function CreateView() {
   const [subgenre, setSubgenre] = useState('')
   const [engine, setEngine] = useState('Godot')
   const [maturity, setMaturity] = useState('Minimal')
+  // Web studio: the game's code + which starter template is loaded + test play
+  const [webCode, setWebCode] = useState('')
+  const [webTemplate, setWebTemplate] = useState('blank')
+  const [testOpen, setTestOpen] = useState(false)
+  const [testKey, setTestKey] = useState(0)
   const [icon, setIcon] = useState<File | null>(null)
   const [thumb, setThumb] = useState<File | null>(null)
   const [gameFile, setGameFile] = useState<File | null>(null)
@@ -64,7 +72,13 @@ export function CreateView() {
       setError('Game name must be at least 3 characters.')
       return
     }
-    if (!gameFile) {
+    if (engine === 'Web') {
+      if (webCode.trim().length < 10) {
+        setError('Your web game needs code! Load a template below the engine picker and start coding.')
+        return
+      }
+    }
+    if (engine !== 'Web' && !gameFile) {
       setError('Attach your game build file! (Unity export, Godot pack, .zip, .exe...)')
       return
     }
@@ -80,7 +94,8 @@ export function CreateView() {
       if (groupId) fd.append('groupId', groupId)
       if (icon) fd.append('icon', icon)
       if (thumb) fd.append('thumbnail', thumb)
-      fd.append('gameFile', gameFile)
+      if (engine === 'Web') fd.append('webCode', webCode)
+      else if (gameFile) fd.append('gameFile', gameFile)
       if (sourceFile) fd.append('sourceFile', sourceFile)
       for (const m of mediaFiles) fd.append('media', m)
 
@@ -115,7 +130,7 @@ export function CreateView() {
                 {iconPreview ? (
                   <img src={iconPreview} alt="Icon preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <span style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#8ba0b3' }}>▶</span>
+                  <span style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#8ba0b3' }}></span>
                 )}
               </span>
             </div>
@@ -205,17 +220,23 @@ export function CreateView() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>
             <label style={labelStyle} htmlFor="g-engine">Engine *</label>
-            <select id="g-engine" className="rb-select" value={engine} onChange={(e) => setEngine(e.target.value)} style={{ width: '100%' }}>
+            <select id="g-engine" className="rb-select" value={engine} onChange={(e) => { setEngine(e.target.value); setTestOpen(false) }} style={{ width: '100%' }}>
               <option>Unity</option>
               <option>Godot</option>
               <option>Unreal</option>
               <option>GameMaker</option>
               <option>RetroBlox Studio</option>
+              <option value="Web">Web — code it right here!</option>
               <option>Other</option>
             </select>
             {engine === 'Unity' && (
               <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 4 }}>
                 Made in Unity? Grab the <a href="/sdk" className="rb-link">RetroBlox Player System</a> — players sign in once and spawn wearing their own avatar.
+              </div>
+            )}
+            {engine === 'Web' && (
+              <div style={{ fontSize: 10, color: '#1c4e7c', marginTop: 4 }}>
+                No build file needed — write JavaScript below and players play it right on RetroBlox, in their browser, with no download.
               </div>
             )}
           </div>
@@ -246,21 +267,95 @@ export function CreateView() {
           </div>
         </div>
 
-        <div style={{ background: '#f4f8fb', border: '1px dashed #9db2c4', borderRadius: 4, padding: 10 }}>
-          <label style={labelStyle}>Game Build File * <span style={{ color: '#7b8896' }}>(max 60MB)</span></label>
-          <input type="file" className="rb-input" style={{ width: '100%', fontSize: 10 }} onChange={(e) => setGameFile(e.target.files?.[0] || null)} />
-          <div style={{ fontSize: 10, color: '#7b8896', marginTop: 4 }}>
-            Unity build (.zip / .exe / .apk), Godot pack (.pck / .zip) — players download it and hit Play now.
+        {engine === 'Web' ? (
+          <div style={{ background: '#101820', border: '1px solid #24425f', borderRadius: 4, padding: 10 }}>
+            <label style={{ ...labelStyle, color: '#7fd4ff' }}>Web Game Studio — your code *</label>
+            {/* starter templates */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+              <span style={{ fontSize: 10, color: '#9db4c6', alignSelf: 'center' }}>Starters:</span>
+              {WEB_TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => { setWebCode(t.code); setWebTemplate(t.id); setTestOpen(false) }}
+                  title={t.blurb}
+                  className="rb-btn"
+                  style={{
+                    fontSize: 10,
+                    background: webTemplate === t.id ? '#0d69ac' : '#1c3a5c',
+                    color: '#fff',
+                    borderColor: '#24425f',
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              aria-label="Game code editor"
+              value={webCode}
+              onChange={(e) => setWebCode(e.target.value)}
+              rows={16}
+              spellCheck={false}
+              maxLength={200000}
+              placeholder="Write your game here, or press a starter template above..."
+              style={{
+                width: '100%', resize: 'vertical', background: '#0b1218', color: '#bfe3ff',
+                border: '1px solid #24425f', borderRadius: 3, padding: 10,
+                fontFamily: "'Courier New', monospace", fontSize: 12, lineHeight: 1.55,
+                outline: 'none', whiteSpace: 'pre', overflowX: 'auto',
+              }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="rb-btn rb-btn-green" style={{ fontSize: 11 }} onClick={() => { setTestOpen(true); setTestKey((n) => n + 1) }}>
+                &#9654; Test Play
+              </button>
+              {testOpen && (
+                <button type="button" className="rb-btn" style={{ fontSize: 10 }} onClick={() => setTestKey((n) => n + 1)}>
+                  &#10227; Restart test
+                </button>
+              )}
+              <span style={{ fontSize: 10, color: '#9db4c6' }}>
+                {webCode.length ? `${(webCode.length / 1024).toFixed(1)}KB` : '0KB'} / 200KB
+                {' '}&middot; helpers: RetroBlox.say / .score / .win / .lose
+              </span>
+            </div>
+            {testOpen && (
+              <div style={{ marginTop: 8, border: '1px solid #24425f', borderRadius: 3, overflow: 'hidden' }}>
+                <iframe
+                  key={testKey}
+                  title="Web game test play"
+                  srcDoc={buildWebGameDoc(webCode)}
+                  sandbox="allow-scripts allow-pointer-lock allow-modals"
+                  style={{ display: 'block', width: '100%', height: 360, border: '0', background: '#101820' }}
+                />
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: '#9db4c6', marginTop: 8, lineHeight: 1.6 }}>
+              Your JavaScript runs inside a safe sandbox on the play page — it cannot touch RetroBlox accounts.
+              If your code has a bug, a red <strong>Code error</strong> banner shows the exact line. You can also paste a full
+              HTML document (with your own &lt;canvas&gt; and &lt;style&gt;) instead of plain JS.
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ background: '#f4f8fb', border: '1px dashed #9db2c4', borderRadius: 4, padding: 10 }}>
+            <label style={labelStyle}>Game Build File * <span style={{ color: '#7b8896' }}>(max 60MB)</span></label>
+            <input type="file" className="rb-input" style={{ width: '100%', fontSize: 10 }} onChange={(e) => setGameFile(e.target.files?.[0] || null)} />
+            <div style={{ fontSize: 10, color: '#7b8896', marginTop: 4 }}>
+              Unity build (.zip / .exe / .apk), Godot pack (.pck / .zip) — players download it and hit Play now.
+            </div>
+          </div>
+        )}
 
-        <div style={{ background: '#f6f6f4', border: '1px dashed #b8b2a4', borderRadius: 4, padding: 10 }}>
-          <label style={labelStyle}>Source Code (optional) <span style={{ color: '#7b8896' }}>— like GitHub!</span></label>
-          <input type="file" className="rb-input" style={{ width: '100%', fontSize: 10 }} onChange={(e) => setSourceFile(e.target.files?.[0] || null)} />
-          <div style={{ fontSize: 10, color: '#7b8896', marginTop: 4 }}>
-            Share your project source (.zip) so others can remix your game.
+        {engine !== 'Web' && (
+          <div style={{ background: '#f6f6f4', border: '1px dashed #b8b2a4', borderRadius: 4, padding: 10 }}>
+            <label style={labelStyle}>Source Code (optional) <span style={{ color: '#7b8896' }}>— like GitHub!</span></label>
+            <input type="file" className="rb-input" style={{ width: '100%', fontSize: 10 }} onChange={(e) => setSourceFile(e.target.files?.[0] || null)} />
+            <div style={{ fontSize: 10, color: '#7b8896', marginTop: 4 }}>
+              Share your project source (.zip) so others can remix your game.
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ background: '#fdf6ee', border: '1px dashed #d9c26a', borderRadius: 4, padding: 10 }}>
           <label style={labelStyle}>Trailer &amp; Screenshots (optional) <span style={{ color: '#7b8896' }}>— Steam-style media gallery!</span></label>
@@ -280,7 +375,7 @@ export function CreateView() {
             <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
               {mediaFiles.map((m, i) => (
                 <div key={`${m.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#24425f', background: '#fff', border: '1px solid #e4eaf0', borderRadius: 3, padding: '4px 8px' }}>
-                  <span>{m.type.startsWith('video/') ? '▶ VIDEO' : '🖼 IMAGE'}</span>
+                  <span>{m.type.startsWith('video/') ? 'VIDEO' : 'IMAGE'}</span>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
                   <span style={{ color: '#7b8896' }}>{Math.ceil(m.size / (1024 * 1024))}MB</span>
                   <button type="button" className="rb-link" style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: '#a03a34' }} onClick={() => setMediaFiles((arr) => arr.filter((_, j) => j !== i))}>
@@ -296,7 +391,7 @@ export function CreateView() {
         </div>
 
         <button className="rb-btn rb-btn-red" type="submit" disabled={busy} style={{ fontSize: 14, padding: '10px 0' }}>
-          {busy ? 'Publishing...' : '⬆ Publish Game'}
+          {busy ? 'Publishing...' : 'Publish Game'}
         </button>
         <div style={{ fontSize: 10, color: '#7b8896', textAlign: 'center' }}>
           New games start with 0 downloads — share the link with friends!

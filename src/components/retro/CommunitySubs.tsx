@@ -253,10 +253,10 @@ export function CommunitySidebar({
           + Create Post
         </Link>
         <Link className="rb-btn" href="/community/new?video=1" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', fontSize: 12, padding: '8px 0' }}>
-          ▶ Post a Video
+          Post a Video
         </Link>
         <Link className="rb-btn" href="/subs/new" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', fontSize: 12, padding: '8px 0' }}>
-          🏳 Create your own r/
+          Create your own r/
         </Link>
       </div>
 

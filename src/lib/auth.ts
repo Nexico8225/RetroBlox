@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { db } from '@/lib/db'
+import { ensureUserSeq } from '@/lib/seq'
 import { NextRequest, NextResponse } from 'next/server'
 
 /* ------------------------------------------------------------------
@@ -112,7 +113,9 @@ export async function getUserFromReq(req: NextRequest) {
   const uid = parseSignedToken(token)
   if (uid) {
     const u = await db.user.findUnique({ where: { id: uid } }).catch(() => null)
-    return u || null
+    // every authenticated request doubles as the chance to hand an old
+    // account its short numeric ID (#1 = first person to join)
+    return u ? await ensureUserSeq(u) : null
   }
 
   // legacy random tokens -> Session table (still works on a real host)
@@ -122,7 +125,7 @@ export async function getUserFromReq(req: NextRequest) {
       include: { user: true },
     })
     .catch(() => null)
-  return session?.user || null
+  return session?.user ? await ensureUserSeq(session.user) : null
 }
 
 export function isOnline(lastSeen: Date | string): boolean {
@@ -145,6 +148,12 @@ export async function resolveUserIdParam(raw: string, viewerId?: string | null):
   const param = decodeURIComponent(raw || '').trim()
   if (!param) return null
   if (param === 'me') return viewerId || null
+  // a plain number is a PLAYER ID (#1, #2 ...) — /users/1 is the first
+  // person who joined; cuid links and usernames keep working below
+  if (/^\d+$/.test(param)) {
+    const bySeq = await db.user.findUnique({ where: { seqId: Number(param) }, select: { id: true } })
+    if (bySeq) return bySeq.id
+  }
   const byId = await db.user.findUnique({ where: { id: param }, select: { id: true } })
   if (byId) return byId.id
   // not an id (or a stale one) — treat it as a username, case-insensitively
@@ -159,6 +168,7 @@ export async function resolveUserIdParam(raw: string, viewerId?: string | null):
 export function publicUser(u: {
   id: string
   username: string
+  seqId?: number | null
   avatarUrl: string | null
   role?: string
   gender?: string | null
@@ -170,6 +180,7 @@ export function publicUser(u: {
   return {
     id: u.id,
     username: u.username,
+    seqId: typeof u.seqId === 'number' ? u.seqId : null,
     avatarUrl: u.avatarUrl,
     role: u.role ?? 'user',
     gender: u.gender ?? null,

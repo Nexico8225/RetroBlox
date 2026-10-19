@@ -413,7 +413,7 @@ export function AvatarView() {
             </div>
             {previewAnim && animPackEntry && (
               <div style={{ fontSize: 10, color: '#8a6d1a', background: '#fff8e8', border: '1px solid #e0c98a', padding: '3px 6px', marginTop: 6 }}>
-                ▶ {animPackEntry.name} active — its moves play live (idle → walk → jump…)
+                {animPackEntry.name} active — its moves play live (idle → walk → jump…)
               </div>
             )}
             {look3d?.bundle && (
@@ -520,7 +520,7 @@ export function AvatarView() {
                 aria-label={`Hex color for ${AVATAR_PART_LABELS[colorPart]}`}
               />
               <button className="rb-btn" style={{ fontSize: 10 }} onClick={pickFromScreen} title="Pick any color from anywhere on your screen">
-                ⛶ Pick from screen
+                Pick from screen
               </button>
               {cfg.colors?.[colorPart] && (
                 <button className="rb-btn" style={{ fontSize: 10 }} onClick={() => clearPartColor(colorPart)}>
@@ -642,7 +642,7 @@ export function AvatarView() {
                 {ugcSub === 'emote' && 'Emotes are rigged GLBs published from the Catalog\u2019s Publish form — upload a rig with an animation and it lands here.'}
                 {ugcSub === 'bundle' && 'Bundles replace your body parts — publish one from the Catalog with a rigged body model.'}
                 {ugcSub === 'anim' && 'Animation packs replace your REAL moves — animate the R6 template in Blender, map the clips at publish, and they play everywhere.'}
-                {' '}<a className="rb-link" href="/models/retroblox-rig-template.glb" download>⬇ R6 rig template (.glb)</a>
+                {' '}<a className="rb-link" href="/models/retroblox-rig-template.glb" download>R6 rig template (.glb)</a>
               </div>
             )}
             </>

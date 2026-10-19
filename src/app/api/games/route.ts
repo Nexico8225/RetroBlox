@@ -3,11 +3,14 @@ import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
 import { saveUpload } from '@/lib/uploads'
 import { Prisma } from '@prisma/client'
+import { genreShelf } from '@/lib/genres'
+import { healGameSeqs } from '@/lib/seq'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim() || ''
   const genre = searchParams.get('genre') || ''
+  const engine = searchParams.get('engine') || '' // 'Web' -> the Webs tab, 'Godot' -> SDK games, ...
   const sort = searchParams.get('sort') || 'popular' // popular | recommended | trending | recent | updated | downloads | topRated | gems
   const creatorId = searchParams.get('creatorId') || ''
   const list = searchParams.get('list') || '' // played | downloaded — "your games" rails
@@ -15,12 +18,16 @@ export async function GET(req: NextRequest) {
 
   const viewer = await getUserFromReq(req)
 
+  // one visit to the Games page numbers every game that predates the
+  // numbering — oldest first, so Game ID #1 = the first game published
+  if ((await db.game.count({ where: { seqId: null } }).catch(() => 0)) > 0) await healGameSeqs()
+
   /* "Games You've Played" / "Your Downloaded Games" rails on the home page */
   if (list === 'played' || list === 'downloaded') {
     if (!viewer) return NextResponse.json({ games: [] })
     const gameInclude = {
       include: {
-        creator: { select: { id: true, username: true, avatarUrl: true } },
+        creator: { select: { id: true, username: true, seqId: true, avatarUrl: true } },
         likes: true,
         _count: { select: { comments: true, favorites: true } },
       },
@@ -57,7 +64,10 @@ export async function GET(req: NextRequest) {
       { creator: { is: { username: { contains: v } } } },
     ])
   }
-  if (genre && genre !== 'All Genres') where.genre = genre
+  // genre shelves are FOLDED: picking Adventure also surfaces legacy
+  // genres that now live there (Horror, Sci-Fi, Western) — see lib/genres
+  if (genre && genre !== 'All Genres') where.genre = { in: genreShelf(genre) }
+  if (engine) where.engine = engine
   if (creatorId) where.creatorId = creatorId
   if (sort === 'gems') where.gem = true
 
@@ -78,7 +88,7 @@ export async function GET(req: NextRequest) {
     orderBy,
     take: fetchLimit,
     include: {
-      creator: { select: { id: true, username: true, avatarUrl: true } },
+      creator: { select: { id: true, username: true, seqId: true, avatarUrl: true } },
       likes: true,
       _count: { select: { comments: true, favorites: true } },
     },
@@ -121,6 +131,7 @@ export async function GET(req: NextRequest) {
 
 function mapGameLite(g: {
   id: string
+  seqId: number | null
   name: string
   genre: string
   subgenre: string
@@ -132,7 +143,7 @@ function mapGameLite(g: {
   gem: boolean
   createdAt: Date
   updatedAt: Date
-  creator: { id: string; username: string; avatarUrl: string | null }
+  creator: { id: string; username: string; avatarUrl: string | null; seqId?: number | null }
   likes: { value: number }[]
   _count: { comments: number; favorites: number }
 }) {
@@ -140,6 +151,7 @@ function mapGameLite(g: {
   const dislikes = g.likes.filter((l) => l.value === -1).length
   return {
     id: g.id,
+    seqId: g.seqId,
     name: g.name,
     genre: g.genre,
     subgenre: g.subgenre,
@@ -179,12 +191,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Game name must be 3-60 characters.' }, { status: 400 })
     }
 
+    /* WEB GAMES — engine "Web" carries CODE instead of a build file.
+       The code runs client-side in a sandboxed iframe, so the server
+       just stores it (bounded, text-only). */
+    let webCode: string | null = null
+    if (engine === 'Web') {
+      const raw = form.get('webCode')
+      if (typeof raw !== 'string' || raw.trim().length < 10) {
+        return NextResponse.json({ error: 'Web games need code! Write (or load a template) in the studio box.' }, { status: 400 })
+      }
+      if (raw.length > 200_000) {
+        return NextResponse.json({ error: 'Web game code too large (max 200KB).' }, { status: 400 })
+      }
+      webCode = raw
+    }
+
     const gameFile = form.get('gameFile')
-    if (!(gameFile instanceof File) || gameFile.size === 0) {
+    if (engine !== 'Web' && (!(gameFile instanceof File) || gameFile.size === 0)) {
       return NextResponse.json({ error: 'Please attach your game build file (.zip, .exe, .apk, etc.)' }, { status: 400 })
     }
-    if (gameFile.size > 60 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Game file is too large (max 60MB).' }, { status: 400 })
+    let saved: { id: string } | null = null
+    if (gameFile instanceof File && gameFile.size > 0) {
+      if (gameFile.size > 60 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Game file is too large (max 60MB).' }, { status: 400 })
+      }
+      saved = await saveUpload(gameFile, user.id)
     }
 
     const icon = form.get('icon')
@@ -199,8 +230,6 @@ export async function POST(req: NextRequest) {
       if (thumbnail.size > 3 * 1024 * 1024) return NextResponse.json({ error: 'Thumbnail too large (max 3MB).' }, { status: 400 })
       thumbnailUrl = await fileToDataUrl(thumbnail)
     }
-
-    const saved = await saveUpload(gameFile, user.id)
 
     // optional: publish straight into one of my groups
     const groupIdRaw = String(form.get('groupId') || '')
@@ -252,8 +281,8 @@ export async function POST(req: NextRequest) {
         maturity,
         iconUrl,
         thumbnailUrl,
-        fileId: saved.id,
-        fileName: gameFile.name,
+        ...(saved ? { fileId: saved.id, fileName: gameFile instanceof File ? gameFile.name : null } : {}),
+        ...(webCode ? { webCode } : {}),
         sourceFileId,
         sourceFileName,
         mediaJson: JSON.stringify(media),
@@ -262,7 +291,13 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ game: { id: game.id, name: game.name } })
+    // Game ID — a short human number like the player #seqId: assigned in
+    // publish order. Best-effort: a rare race just leaves it NULL and the
+    // next publish (or the deploy backfill) fills the gap.
+    const maxSeq = await db.game.aggregate({ _max: { seqId: true } })
+    await db.game.update({ where: { id: game.id }, data: { seqId: (maxSeq._max.seqId ?? 0) + 1 } }).catch(() => {})
+
+    return NextResponse.json({ game: { id: game.id, name: game.name, seqId: (maxSeq._max.seqId ?? 0) + 1 } })
   } catch (e) {
     console.error('publish error', e)
     return NextResponse.json({ error: 'Failed to publish game. Try again.' }, { status: 500 })

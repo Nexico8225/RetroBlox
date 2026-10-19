@@ -15,6 +15,7 @@ import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { dedupeBoneNameCollisions, sanitizeBoneTracks } from './sanitizeTracks'
 
 export const MODEL_ACCEPT = '.fbx,.glb,.gltf,.obj'
 export const MAX_MODEL_MB = 24
@@ -276,14 +277,70 @@ export async function fileToGlbWithCheck(file: File, opts?: { keepAnimations?: b
   return { glb: await objectToGlb(object, animations), colorWarning }
 }
 
+/** FBX files can carry HUNDREDS of object-level takes (Blender bakes every
+ *  mesh object's animation as its own take — measured: a wave FBX produced
+ *  458 clips named "Head|Right Arm|Old_Idle", 392 of them single-node
+ *  cross-product slices of the imported actions). Writing all of them into
+ *  the GLB balloons the file past the 24MB upload cap and floods the NLA
+ *  track picker with dead names. What can pose a skinned body: clips that
+ *  drive BONES, across at least two nodes (every baked armature take is
+ *  multi-bone; single-node takes are mesh objects). The same action often
+ *  appears several times ("wave" and "Armature|wave") — dedupe by the
+ *  ACTION TAIL and keep the richest take. A rig with no bones at all
+ *  (blocky mesh characters) keeps everything. */
+export function worthyClips(object: THREE.Object3D, animations: THREE.AnimationClip[]): THREE.AnimationClip[] {
+  const bones = new Set<string>()
+  object.traverse((o) => {
+    if ((o as THREE.Bone).isBone && o.name) {
+      bones.add(o.name.toLowerCase().replace(/\$[a-z0-9_]+/g, '').replace(/[\s._]+/g, ' ').trim())
+    }
+  })
+  const hasBones = bones.size > 0
+  const byTail = new Map<string, THREE.AnimationClip>()
+  for (const clip of animations) {
+    if (clip.tracks.length === 0) continue
+    const nodes = new Set<string>()
+    let boneHit = false
+    for (const t of clip.tracks) {
+      const dot = t.name.lastIndexOf('.')
+      if (dot < 1) continue
+      const nodeName = t.name.slice(0, dot).toLowerCase().replace(/\$[a-z0-9_]+/g, '').replace(/[\s._]+/g, ' ').trim()
+      nodes.add(nodeName)
+      if (bones.has(nodeName)) boneHit = true
+    }
+    if (hasBones && (!boneHit || nodes.size < 2)) continue
+    const raw = clip.name || ''
+    const tail = raw.includes('|') ? raw.slice(raw.lastIndexOf('|') + 1) : raw
+    const key = tail || `clip${byTail.size}`
+    const prev = byTail.get(key)
+    if (!prev || clip.tracks.length > prev.tracks.length) byTail.set(key, clip)
+    if (byTail.size >= 64) break // paranoia cap — no emote needs 64 actions
+  }
+  return [...byTail.values()]
+}
+
 async function objectToGlb(object: THREE.Object3D, animations?: THREE.AnimationClip[]): Promise<Blob> {
   stripNonMeshes(object)
   dropUnloadedTextures(object)
+  // THE "100X BROKEN" GATE: Blender FBX bakes bone position keys in a space
+  // the rest of the file does not use (measured on the official R6IK.fbx:
+  // Left_Arm key 0.347 vs rest 0.003, Torso key ~0 vs rest 0.38). Those keys
+  // would be written VERBATIM into the stored GLB and then replayed by the
+  // studio preview, the item page AND the Godot game — the character blows
+  // apart everywhere. Dropping them here means the stored GLB itself is
+  // clean, so the fix rides with the upload instead of living in every
+  // renderer. Rotation tracks (the real motion) pass untouched.
+  // name collisions FIRST (mesh vs bone sharing one name): export resolves
+  // track names to the FIRST node — the mesh — so bones must own their names
+  // before anything binds; then drop foreign-space position/scale junk
+  dedupeBoneNameCollisions(object)
+  const safeAnimations = animations && animations.length > 0 ? sanitizeBoneTracks(animations, object) : animations
+  const clips = safeAnimations && safeAnimations.length > 0 ? worthyClips(object, safeAnimations) : undefined
   const exporter = new GLTFExporter()
   const buf = (await exporter.parseAsync(object, {
     binary: true,
     onlyVisible: true,
-    ...(animations && animations.length > 0 ? { animations } : {}),
+    ...(clips && clips.length > 0 ? { animations: clips } : {}),
   })) as ArrayBuffer
   return new Blob([buf], { type: 'model/gltf-binary' })
 }
@@ -340,4 +397,47 @@ export function modelTooBig(file: File | Blob): string | null {
   const mb = file.size / (1024 * 1024)
   if (mb > MAX_MODEL_MB) return `Model too large (${mb.toFixed(1)}MB) — the limit is ${MAX_MODEL_MB}MB.`
   return null
+}
+
+/* ------------------------------------------------------------------
+   GLB ANIMATION INSPECTOR — reads the raw glTF JSON chunk straight
+   out of the binary (no three.js involved). When a rigged upload
+   lands with ZERO playable clips, this tells us WHICH failure it is:
+
+   - rawCount === 0  -> the file truly carries no animation data: the
+     creator's export never included the action (Animation box off,
+     action never pushed down into the NLA / not the active action).
+     The publish form shows the exact Blender recipe.
+   - rawCount  >  0  -> the clips EXIST but GLTFLoader could not turn
+     them into playable AnimationClips (keyed objects that did not
+     export, or a broken exporter flag). Different fix, same dialog.
+
+   GLB layout: 12-byte header, then chunks: [len u32][type u32][data].
+   Chunk 0 is always JSON ('JSON' = 0x4E4F534A little-endian).
+------------------------------------------------------------------ */
+export interface GlbAnimInfo {
+  rawCount: number
+  rawNames: string[]
+}
+
+export async function inspectGlbAnimations(file: File | Blob): Promise<GlbAnimInfo> {
+  const empty: GlbAnimInfo = { rawCount: 0, rawNames: [] }
+  try {
+    const head = new Uint8Array(await file.slice(0, 20).arrayBuffer())
+    // magic 'glTF' = 0x67 0x6C 0x54 0x46
+    if (head.length < 20 || head[0] !== 0x67 || head[1] !== 0x6c || head[2] !== 0x54 || head[3] !== 0x46) return empty
+    const hv = new DataView(head.buffer)
+    const jsonLen = hv.getUint32(12, true)
+    const jsonType = hv.getUint32(16, true)
+    if (jsonType !== 0x4e4f534a || jsonLen < 2) return empty
+    const jsonBytes = new Uint8Array(await file.slice(20, 20 + jsonLen).arrayBuffer())
+    const json = JSON.parse(new TextDecoder().decode(jsonBytes)) as { animations?: { name?: string }[] }
+    const anims = Array.isArray(json.animations) ? json.animations : []
+    return {
+      rawCount: anims.length,
+      rawNames: anims.map((a, i) => (a && typeof a.name === 'string' && a.name.trim() ? a.name.trim() : `Clip ${i + 1}`)),
+    }
+  } catch {
+    return empty
+  }
 }

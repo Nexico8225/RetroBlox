@@ -189,7 +189,7 @@ export function MusicView() {
                   </div>
                 )}
                 <button className="rb-btn rb-btn-green" style={{ width: '100%', fontSize: 11 }} disabled={busy} onClick={upload}>
-                  {busy ? 'Uploading...' : '⬆ Upload track'}
+                  {busy ? 'Uploading...' : 'Upload track'}
                 </button>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRetro, api, type RetroUser } from '@/lib/store'
 import { getStoredToken, wipeStaleToken, inIframe } from '@/lib/session'
 import { installEggListeners } from '@/lib/eggs'
+import { applySiteUi, normalizeSiteUi, useSiteUi } from '@/lib/siteui'
 
 /**
  * App-level client bootstrap:
@@ -76,6 +77,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
   /* easter eggs: konami code, typed codes, console greeting */
   useEffect(() => {
     installEggListeners()
+  }, [])
+
+  /* site UI: load the owner's web theme and apply it live (colors, name) */
+  useEffect(() => {
+    api<{ config: unknown }>('/api/site-ui')
+      .then((res) => {
+        const cfg = normalizeSiteUi(res.config)
+        useSiteUi.getState().setConfig(cfg)
+        applySiteUi(cfg)
+      })
+      .catch(() => {
+        /* offline — keep the default theme */
+      })
   }, [])
 
   /* heartbeat: keeps "online" status fresh (only when storage works) */

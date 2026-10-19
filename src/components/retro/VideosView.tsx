@@ -220,7 +220,7 @@ export function VideosBrowserView({ q, sort, embedded = false }: { q: string; so
       {embedded ? (
         /* compact search bar when living inside the Community tab */
         <div className="rb-box" style={{ padding: '8px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: '#a02018' }}>▶ Player videos</span>
+          <span style={{ fontSize: 12, color: '#a02018' }}>Player videos</span>
           <form
             onSubmit={(e) => {
               e.preventDefault()

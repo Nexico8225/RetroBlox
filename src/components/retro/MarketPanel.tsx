@@ -728,7 +728,7 @@ export function MarketPanel({
                       ＋UGC
                     </button>
                     <button type="button" className="rb-btn" onClick={() => setTradeFor({ userId: l.seller.id, label: l.seller.username })} style={{ fontSize: 11.5, padding: '4px 10px' }} title="Offer items from your inventory instead">
-                      🔁 Trade
+                      Trade
                     </button>
                     <button type="button" className="rb-link" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11 }} onClick={() => setChatFor(chatFor === l.id ? null : l.id)}>
                       {chatFor === l.id ? 'hide chat' : 'chat'}

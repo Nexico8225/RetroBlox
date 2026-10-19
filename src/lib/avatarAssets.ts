@@ -308,8 +308,11 @@ function pantsName(id: string) {
 
 export const UGC_TYPES: AvatarKind[] = [
   'hat', 'hair', 'face', 'accessory', 'neck', 'shoulder', 'front', 'waist',
-  'gear', 'tshirt', 'shirt', 'pants', 'emote', 'bundle', 'anim',
+  'gear', 'tshirt', 'shirt', 'pants', 'bundle', 'anim',
 ]
+// 'emote' was REMOVED from the live type list (the custom-model emote
+// experiment is retired) — the label below stays so legacy rows and item
+// pages still render a human name, and the catalog API hides old emote rows.
 export const UGC_TYPE_LABELS: Record<string, string> = {
   hat: 'Hats',
   hair: 'Hair',
@@ -358,6 +361,12 @@ export interface AnimClipsT {
   clips: string[]
   /** anim packs only: slot -> clip name (a subset is fine; unmapped slots keep the classic move) */
   map?: Partial<Record<AnimSlot, string>>
+  /** emotes: WHICH clip is the emote (the NLA track the creator picked in the
+   *  studio). Games play this one; the icon was captured from it too. */
+  useClip?: string
+  /** the timeline marker (seconds into useClip) the creator chose — the pose
+   *  that became the icon shown in game and on the marketplace */
+  iconTime?: number
 }
 
 /** the creator's suggested preview context for an emote / anim pack:
@@ -374,7 +383,7 @@ function clipNameOk(v: unknown): v is string {
 /** Validate an animClips payload (from the publish form / DB). Returns null when unusable. */
 export function sanitizeAnimClips(raw: unknown): AnimClipsT | null {
   if (!raw || typeof raw !== 'object') return null
-  const obj = raw as { clips?: unknown; map?: unknown }
+  const obj = raw as { clips?: unknown; map?: unknown; useClip?: unknown; iconTime?: unknown }
   const clips = Array.isArray(obj.clips)
     ? Array.from(new Set(obj.clips.filter(clipNameOk).map((c) => c.trim()))).slice(0, 40)
     : []
@@ -386,7 +395,13 @@ export function sanitizeAnimClips(raw: unknown): AnimClipsT | null {
       if (clipNameOk(v) && clips.includes(v)) map[slot] = v
     }
   }
-  return Object.keys(map).length > 0 ? { clips, map } : { clips }
+  const out: AnimClipsT = Object.keys(map).length > 0 ? { clips, map } : { clips }
+  // the studio's NLA pick + timeline marker survive validation only when sane
+  if (obj.useClip != null && clipNameOk(obj.useClip) && clips.includes(obj.useClip)) out.useClip = obj.useClip.trim()
+  if (obj.iconTime != null && typeof obj.iconTime === 'number' && Number.isFinite(obj.iconTime) && obj.iconTime >= 0 && obj.iconTime <= 600) {
+    out.iconTime = Math.round(obj.iconTime * 100) / 100
+  }
+  return out
 }
 
 export function parseAnimClipsJson(raw: string | null | undefined): AnimClipsT | null {

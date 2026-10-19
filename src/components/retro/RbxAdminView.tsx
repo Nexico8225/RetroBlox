@@ -90,6 +90,10 @@ export function RbxAdminView() {
   const [bots, setBots] = useState<BotRow[]>([])
   const [botPicked, setBotPicked] = useState<Set<string>>(new Set())
   const [botBusy, setBotBusy] = useState(false)
+  // account tools — the owner's master password reset (their own included)
+  const [pwUser, setPwUser] = useState('')
+  const [pwNew, setPwNew] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -203,6 +207,25 @@ export function RbxAdminView() {
   if (error) return <div className="rb-box" style={{ padding: 20, color: '#a81a13', fontSize: 12 }}>{error}</div>
   if (!data) return <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Loading the Tix desk...</div>
 
+  async function resetPassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (pwBusy) return
+    if (!window.confirm(`Set the password for "${pwUser}"? The old password stops working everywhere (game client included).`)) return
+    setPwBusy(true)
+    try {
+      const res = await api<{ message: string }>('/api/admin/password', {
+        method: 'POST',
+        body: JSON.stringify({ username: pwUser, newPassword: pwNew }),
+      })
+      flash(setToast, res.message, 4500)
+      setPwUser(''); setPwNew('')
+    } catch (err) {
+      flash(setToast, err instanceof Error ? err.message : 'Reset failed', 3200)
+    } finally {
+      setPwBusy(false)
+    }
+  }
+
   const d = (id: string, field: keyof Pkg) => draft[id]?.[field]
 
   return (
@@ -289,6 +312,16 @@ export function RbxAdminView() {
           <input className="rb-input" placeholder="± Tix (negative takes back)" type="number" value={grantAmount} onChange={(e) => setGrantAmount(e.target.value)} style={{ width: 170, fontSize: 11 }} required />
           <input className="rb-input" placeholder="Note (why)" value={grantNote} onChange={(e) => setGrantNote(e.target.value)} style={{ flex: 1, minWidth: 140, fontSize: 11 }} maxLength={200} />
           <button className="rb-btn rb-btn-green" style={{ fontSize: 11 }} disabled={busy}>Grant</button>
+        </form>
+      </div>
+
+      {/* account tools — the owner's master key */}
+      <div className="rb-box" style={{ marginBottom: 12 }}>
+        <div className="rb-panel-head"><span>Account Tools <span style={{ fontSize: 10, fontWeight: 'normal' }}>(set any account's password — the old one stops working everywhere)</span></span></div>
+        <form onSubmit={resetPassword} style={{ padding: 10, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <input className="rb-input" placeholder="Username" value={pwUser} onChange={(e) => setPwUser(e.target.value)} style={{ width: 150, fontSize: 11 }} required />
+          <input className="rb-input" placeholder="New password (3+ chars)" value={pwNew} onChange={(e) => setPwNew(e.target.value)} style={{ width: 200, fontSize: 11 }} required minLength={3} />
+          <button className="rb-btn rb-btn-green" style={{ fontSize: 11 }} disabled={pwBusy}>Set password</button>
         </form>
       </div>
 

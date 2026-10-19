@@ -167,11 +167,11 @@ export function AnalyticsView() {
                   </span>
                 </span>
                 <span style={{ display: 'flex', gap: 14, fontSize: 11, color: '#24425f', flexWrap: 'wrap' }}>
-                  <span title="Page views">👁 {fmtCount(g.views)}</span>
-                  <span title="Downloads">⬇ {fmtCount(g.downloads)}</span>
-                  <span title="Likes">👍 {fmtCount(g.likes)}</span>
+                  <span title="Page views">{fmtCount(g.views)}</span>
+                  <span title="Downloads">{fmtCount(g.downloads)}</span>
+                  <span title="Likes">{fmtCount(g.likes)}</span>
                   <span title="Rating">{g.rating !== null ? `${g.rating}%` : 'New'}</span>
-                  <span title="Comments">💬 {fmtCount(g.comments)}</span>
+                  <span title="Comments">{fmtCount(g.comments)}</span>
                 </span>
                 <span style={{ fontSize: 10, color: '#5a7b9a' }}>{open ? '▲ hide chart' : '▼ show chart'}</span>
               </div>

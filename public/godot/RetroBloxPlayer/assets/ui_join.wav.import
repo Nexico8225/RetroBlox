@@ -1,0 +1,34 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+<<<<<<< HEAD:public/godot/RetroBloxPlayer/assets/sounds/Hover.wav.import
+uid="uid://6whe357spjrv"
+path="res://.godot/imported/hover.wav-79bd5a2afc8896e76c3d4ab9ae38b25f.sample"
+
+[deps]
+
+source_file="res://assets/sounds/hover.wav"
+dest_files=["res://.godot/imported/hover.wav-79bd5a2afc8896e76c3d4ab9ae38b25f.sample"]
+=======
+uid="uid://2k2wfudmpo0a"
+path="res://.godot/imported/ui_join.wav-f680a81e4f121234e978613ee04b8537.sample"
+
+[deps]
+
+source_file="res://assets/ui_join.wav"
+dest_files=["res://.godot/imported/ui_join.wav-f680a81e4f121234e978613ee04b8537.sample"]
+>>>>>>> a8593d7e0cb477b6e37dbbef32a9f1fb2515425d:public/godot/RetroBloxPlayer/assets/ui_join.wav.import
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

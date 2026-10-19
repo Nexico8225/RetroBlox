@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useRetro, api, letterAvatar, clearAuthToken, type RetroUser } from '@/lib/store'
+import { useSiteUi } from '@/lib/siteui'
 import { tixCompact } from '@/lib/tix'
 import { eggLogoClick } from '@/lib/eggs'
 
@@ -70,20 +71,35 @@ export function OnlineDot({ online }: { online: boolean }) {
 
 /* The top strip carries only the pages people actually browse every day.
    Niche corners (Music, RetroLabs, SDK, Tix Store...) live in the footer and
-   the mobile drawer — the sidebar was never meant to be a sitemap. */
+   the mobile drawer — the sidebar was never meant to be a sitemap.
+   The SITE OWNER can reorder / relabel / hide all of this at /site-ui —
+   these entries are just the fallback. */
 const NAV = [
   { label: 'Home', href: '/' },
   { label: 'Games', href: '/games' },
+  { label: 'ColorWorld', href: '/colorworld' },
+  { label: 'Webs', href: '/webs' },
   { label: 'Catalog', href: '/catalog' },
   { label: 'Avatar', href: '/avatar' },
   { label: 'Create', href: '/create' },
+  { label: 'SDK', href: '/sdk' },
+  { label: 'Templates', href: '/templates' },
   { label: 'Videos', href: '/videos' },
   { label: 'Groups', href: '/groups' },
   { label: 'Communities', href: '/community' },
 ]
 
+/** Navbar entries: the owner's saved links, or the defaults. */
+function useNavLinks() {
+  const links = useSiteUi((s) => s.config.links)
+  const shown = links.filter((l) => l.show && l.label && l.href)
+  return shown.length ? shown : NAV
+}
+
 export function Header() {
   const { user, pendingRequests, unreadChats, setPendingRequests, setUnreadChats, setToast } = useRetro()
+  const siteName = useSiteUi((s) => s.config.siteName)
+  const navLinks = useNavLinks()
   const router = useRouter()
   const pathname = usePathname()
   const [q, setQ] = useState('')
@@ -266,7 +282,7 @@ export function Header() {
           All the page links live here so the blue bar stays clean. */}
       <nav className="rb-navbar" aria-label="Site sections">
         <div className="rb-navbar-inner">
-          {NAV.map((n) => (
+          {navLinks.map((n) => (
             <Link
               key={n.href}
               href={n.href}
@@ -361,6 +377,7 @@ export function Sidebar() {
         {sec('Create')}
         {item('My Games', '/my')}
         {item('Create a Game', '/create')}
+        {item('UI Studio', '/ui-studio')}
 
         {sec('Me')}
         {item('My Profile', `/users/${user.id}`)}
@@ -371,6 +388,7 @@ export function Sidebar() {
 
         {sec('Account')}
         {user.role === 'admin' && item('Admin Panel', '/admin')}
+        {user.role === 'admin' && item('Site UI Editor', '/site-ui')}
         {item('Settings', '/settings')}
         <div style={{ padding: '8px 10px', borderTop: '1px solid #e4eaf0' }}>
           <button className="rb-btn rb-btn-red" style={{ width: '100%', fontSize: 11 }} onClick={logout}>
@@ -571,6 +589,7 @@ function MobileDrawer() {
         {link('Friends', '/friends', pendingRequests || undefined)}
         {link('Tix Store', '/store')}
         {user.role === 'admin' && link('Tix Admin', '/admin')}
+        {user.role === 'admin' && link('Site UI Editor', '/site-ui')}
         {link('Analytics', '/analytics')}
         {link('RetroBlox SDK', '/sdk')}
         {link('Settings', '/settings')}
@@ -636,9 +655,10 @@ function MobileTabs() {
 
 /** Sets a per-page browser tab title (every page is its own URL). */
 export function Title({ t }: { t: string }) {
+  const siteName = useSiteUi((s) => s.config.siteName)
   useEffect(() => {
-    document.title = t === 'RetroBlox' ? t : `${t} - RetroBlox`
-  }, [t])
+    document.title = t === siteName ? t : `${t} - ${siteName}`
+  }, [t, siteName])
   return null
 }
 
@@ -680,6 +700,8 @@ function isPublicPath(p: string) {
  */
 export function Page({ children }: { children: React.ReactNode }) {
   const { booted, user } = useRetro()
+  const footer = useSiteUi((s) => s.config.footer)
+  const siteName = useSiteUi((s) => s.config.siteName)
   const router = useRouter()
   const pathname = usePathname()
   const pub = isPublicPath(pathname)
@@ -718,23 +740,24 @@ export function Page({ children }: { children: React.ReactNode }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
           <img
             src="/retro/logo-wordmark.png"
-            alt="ReTROBLOX"
+            alt={siteName}
             style={{ display: 'block', height: 17, width: 'auto', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.55))' }}
           />
-          <span>— you can see the ROBLOX inside ReTROBLOX. A fan-made tribute to classic blocky gaming.</span>
+          <span>{footer.tagline}</span>
         </div>
         <div>
           <Link href="/" className="rb-link">Home</Link> · <Link href="/games" className="rb-link">Games</Link> ·{' '}
-          <Link href="/videos" className="rb-link">Videos</Link> · <Link href="/music" className="rb-link">Music</Link> ·{' '}
-          <Link href="/groups" className="rb-link">Groups</Link> ·{' '}
+          <Link href="/webs" className="rb-link">Webs</Link> · <Link href="/videos" className="rb-link">Videos</Link> ·{' '}
           <Link href="/labs" className="rb-link">RetroLabs</Link> · <Link href="/community" className="rb-link">Communities</Link> ·{' '}
+          <Link href="/groups" className="rb-link">Groups</Link> ·{' '}
+          <Link href="/music" className="rb-link">Music</Link> ·{' '}
           <Link href="/catalog" className="rb-link">Catalog</Link> ·{' '}
           <Link href="/store" className="rb-link">Tix Store</Link> ·{' '}
           <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> ·{' '}
           <Link href="/create" className="rb-link">Create</Link> ·{' '}
           {new Date().getFullYear()} RetroBlox Corporation
         </div>
-        <div style={{ fontSize: 10, color: '#7fa8c9' }}>Best viewed at 1024x768 with a 56k modem</div>
+        <div style={{ fontSize: 10, color: '#7fa8c9' }}>{footer.bottom}</div>
       </footer>
       {user && <MobileTabs />}
     </div>

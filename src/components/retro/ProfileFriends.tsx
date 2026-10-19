@@ -352,10 +352,11 @@ export function ProfileView({ id }: { id: string }) {
               Games Published: {profile.games.length} · Total Downloads:{' '}
               {fmtCount(profile.games.reduce((s, g) => s + g.downloads, 0))}
             </div>
-            {/* every member has an ID — copyable, like the classic profile pages */}
+            {/* every member has a short numeric ID — copyable, like the classic
+                profile pages. #1 = the first person who ever joined. */}
             <div style={{ fontSize: 11, color: '#5a6b7b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span>
-                ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>{p.id}</span>
+              <span title="Join order — the first person to join RetroBlox is #1">
+                ID: <span style={{ fontFamily: 'monospace', color: '#24425f' }}>{typeof p.seqId === 'number' ? `#${p.seqId}` : p.id}</span>
               </span>
               <button
                 type="button"
@@ -363,11 +364,12 @@ export function ProfileView({ id }: { id: string }) {
                 style={{ fontSize: 9, padding: '2px 8px' }}
                 title="Copy this member's ID"
                 onClick={() => {
+                  const idText = typeof p.seqId === 'number' ? String(p.seqId) : p.id
                   try {
-                    navigator.clipboard.writeText(p.id)
-                    flash(setToast, 'ID copied!', 1600)
+                    navigator.clipboard.writeText(idText)
+                    flash(setToast, `ID #${idText} copied!`, 1600)
                   } catch {
-                    flash(setToast, p.id, 3000)
+                    flash(setToast, idText, 3000)
                   }
                 }}
               >
@@ -406,12 +408,12 @@ export function ProfileView({ id }: { id: string }) {
         {/* Steam-style profile stat chips */}
         <div style={{ padding: '10px 12px', borderTop: '1px solid #e4eaf0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
-            ['🎮 Games Played', profile.gamesPlayed ?? 0, 'games they have hit Play now on'],
+            ['Games Played', profile.gamesPlayed ?? 0, 'games they have hit Play now on'],
             ['⏱ Playtime', stats ? fmtHours(stats.totalSeconds) : '—', 'time played in RetroBlox games'],
-            ['📅 Last 2 Weeks', stats ? fmtHours(stats.weekSeconds) : '—', 'playtime in the last 2 weeks'],
-            ['🛠 Games Created', profile.games.length, 'games published'],
-            ['⭐ Favorites', profile.favoriteGames.length, 'games favorited'],
-            ['👥 Followers', profile.followersCount, 'players following them'],
+            ['Last 2 Weeks', stats ? fmtHours(stats.weekSeconds) : '—', 'playtime in the last 2 weeks'],
+            ['Games Created', profile.games.length, 'games published'],
+            ['Favorites', profile.favoriteGames.length, 'games favorited'],
+            ['Followers', profile.followersCount, 'players following them'],
           ].map(([label, value, title]) => (
             <div
               key={String(label)}

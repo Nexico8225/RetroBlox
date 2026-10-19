@@ -56,8 +56,3 @@ server.log
 /archive/
 /tool-results/
 /shots/
-
-# godot caches & external imports
-.godot/
-*.import
-!public/godot/**/*.import

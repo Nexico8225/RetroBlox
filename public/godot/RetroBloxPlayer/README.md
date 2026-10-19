@@ -1,235 +1,336 @@
-# RetroBlox Godot Player — web-synced multiplayer
+# RetroBlox Player SDK (Godot 4.5+)
 
-The official RetroBlox player for **Godot 4.5+**: log in with your RetroBlox
-account, wear your account avatar (including your own 3D UGC), and play the
-**Baseplate** together with everyone else. The game itself is **synced from
-the RetroBlox website** — the site owns the games, this player downloads and
-runs them.
-
-It is also a **starter kit for your own games** — every piece ships as a
-Godot **scene** built from plain nodes you can drag into any project: the
-block avatar, the player, the login card, the HUD, the part/spawn/ladder
-builders, and a small HTTP client class that talks to the RetroBlox platform.
-
-> **Login only.** There is no guest mode — your RetroBlox account IS your
-> player. Accounts made on the website work here, and accounts made here
-> (Sign Up tab) work on the website.
+The official way to make a RetroBlox game: open this folder in Godot,
+press **F5**, and you are playing — signed in, wearing your real account
+avatar, chatting on the live platform. Edit a few friendly GDScript
+files to make the game YOURS. Everything talks plain HTTP + JSON to
+`https://retro-blox.vercel.app` (the same API the website uses).
 
 ---
 
-## 1. Just play it
+## 1. Quick start (5 minutes)
 
-Install [Godot 4.5.1](https://godotengine.org/download/archive/4.5.1-stable/)
-(or any newer Godot 4.5+), open the project folder, let imports finish,
-press **F5**. No plugins, no external assets.
+1. Install **Godot 4.5+** (free, godotengine.org — the standard build).
+2. Open Godot → **Import** → pick this folder's `project.godot`.
+3. Press **F5** (Run Project). The login screen appears — sign in with
+   your RetroBlox account, sign up, or play as a guest.
+4. You spawn on the **HAPPY BASEPLATE** — the classic sandbox: run with
+   **WASD**, jump with **SPACE**, walk up the stairs fort and **CLIMB the
+   grey truss ladder** to the sky platform. Press **ESC** for the menu
+   (People / Studio / Settings), **Enter** to chat. Want Color World
+   (paint every brick)? Pick it from the place list in the menu.
+5. Back on the login screen there is a **STUDIO** button — the organized
+   door to the editor scenes (UI / Map / Player).
 
-The game opens on the login card:
+You are now running a real multiplayer RetroBlox place.
 
-- **Log In** — your existing RetroBlox account. Your avatar (body colors,
-  shirt, pants, face, 3D UGC) loads from the website.
-- **Sign Up** — create a brand-new account without leaving the game.
+## 2. The sandbox you drop into (walk, jump, CLIMB)
 
-Then it downloads the game list from the website and drops you into
-**Baseplate** with everyone else who is online.
+You spawn on the classic **Happy Baseplate**: run with **WASD**, jump with
+**SPACE**, walk up the stairs fort and **CLIMB the grey truss ladder** to the
+sky platform — then hop off onto the trampoline. That is the SDK's default
+place: a plain sandbox made to be walked and climbed, no gimmick.
 
-### Controls
+**Painting (Color World) is still in the kit:** open the menu (ESC) →
+People → Places → **Color World**, or pick any other place — the world is
+born white, **LEFT CLICK** paints the brick under your cursor with the
+picked palette color (the palette of 12 classic swatches lives
+bottom-center — white is the eraser). The counter shows how many parts you
+painted in places flagged `"paint": true`, and painting every part fires
+WORLD COMPLETE.
 
-| Input | Action |
-| --- | --- |
-| W A S D / arrows | Move (classic WalkSpeed 16, JumpPower 50) |
-| Space | Jump — climb a ladder and press Space to **jump OFF** |
-| Shift | **Shift Lock** on/off (also in the ESC menu) |
-| Right mouse (hold) | Free-look camera |
-| Mouse wheel | Zoom in/out (all the way in = first person) |
-| `/` or Enter | **Chat** — everyone in the place sees it live |
-| Esc | Release chat focus / open the menu |
+**BUILD MODE — edit the map while you play:** press **B** and LEFT CLICK
+places a 4x1x4 brick (in your brush color!) on any surface you aim at;
+**CTRL+click** removes a brick you placed; **B** again is back to painting.
+Your map edits happen live, in game, no code needed.
 
-### Mobile / touch
+**EDIT THE UI — every pixel is yours:** press **F2** (or ESC menu →
+Settings → *Open UI Editor*): click any HUD element, drag it, scale it,
+edit its text, add your own floating labels, zoom the whole client.
+Save keeps your layout forever (`user://ui_config.json`).
 
-On phones and tablets the touch controls appear automatically:
+Want to tweak it? Everything lives in `scripts/game/game.gd`:
 
-| Control | Action |
-| --- | --- |
-| Left stick | Move (the classic WASD, under your thumb) |
-| JUMP button | Jump / jump off ladders |
-| LOCK button | Shift Lock toggle |
-| RESET button | Rebuild your character |
-| Drag on free screen | Orbit the camera |
-| Pinch | Zoom in/out |
+| What | Where |
+|------|-------|
+| the palette colors | `PAINT_COLORS` (12 hex strings, no `#`) |
+| turn the counter on for YOUR map | add `"paint": true` to the place Dictionary |
+| the painting itself | `_paint_brick()` — raycast + recolor, easy to reskin |
+| build-mode bricks | `_build_click()` — size, snap, colors, all one function |
+| the UI editor | `scripts/ui/ui_editor.gd` — F2, drag, save |
 
-The top-left toolbar (menu / chat / people) gets bigger touch targets
-while touch controls are on. Force them on or off in **Menu > Settings >
-Touch Controls** (Auto / On / Off).
+Paint is your own view of the world (client-side), so it works offline
+too. Make a place born-white by giving every part the same `"c": "f2f3f3"`
+— exactly what `color_world()` in `scripts/world/places.gd` does.
 
-### Settings (ESC menu > Settings…)
+## 3. STUDIO — four scenes, every thing editable (v15.0)
 
-| Setting | What it does |
-| --- | --- |
-| Quality | Auto / Low / Medium / High — presets for the options below. Auto picks Low on touch devices and **drops to Low by itself** if the game runs below 40 FPS for 4 seconds. |
-| Draw Scale | Renders the 3D world at a lower resolution and upscales it — the single biggest speed boost on phones (65% = roughly half the GPU work). |
-| Shadows | Sun shadows on/off. Off = much faster. |
-| Field of View | 60–100, classic default 70. |
-| Show FPS | Tiny FPS counter top-center (green/yellow/red). |
-| Touch Controls | Auto / On / Off. |
+The game is ORGANIZED: each thing you can touch lives in its own scene,
+and the STUDIO hub ties them together. Open it from the **login screen**
+(STUDIO button) or in-game (**ESC → Studio tab**):
 
-Mouse sensitivity, volume and Shift Lock stay on the main menu card.
-Everything is saved to `user://profile.cfg` between sessions.
+| Scene | File | What you do there |
+|-------|------|-------------------|
+| PLAY GAME | `scenes/game.tscn` | the world, live and multiplayer |
+| UI EDITOR | `scenes/ui_editor.tscn` | drag & drop your own HUD |
+| MAP EDITOR | `scenes/map_editor.tscn` | build maps brick by brick |
+| PLAYER EDITOR | `scenes/player_editor.tscn` | paint your avatar |
 
-### Shift Lock
+### Who edits what — players vs game devs (v15.0)
+RetroBlox has three kinds of people:
 
-Press **Shift** (or toggle it in the menu): the cursor locks to the screen
-center, the camera rests on your right shoulder, and your character squares
-up to the camera direction while strafing — exactly the classic feel. The
-setting is remembered between sessions.
+- **PLAYERS** play the game. They run PLAY GAME, download and open
+  `.retroplace` game files, paint bricks, chat, collect Tix. The three
+  editor scenes stay **LOCKED** for them.
+- **USERS** use the website — browse games, dress their avatar, comment.
+- **GAME DEVS** make and edit games. A game dev = a signed-in account
+  that owns **at least one game on retro-blox.vercel.app** (any engine
+  counts — a Web game works too).
 
-### Ladders
+The STUDIO checks your role the moment it opens (one GET to the platform,
+then cached): the hub wears a **ROLE chip** — `ROLE: GAME DEV — every
+scene unlocked` or `ROLE: PLAYER — editors locked`. A player who opens an
+editor door gets one orange sentence telling them exactly how in:
+publish any game on the site and every editor unlocks on this device
+(the hub even has a **BECOME A GAME DEV** button that opens the site).
+The same gate rides the **F2** UI editor inside the game and the ESC
+menu's Studio tab — players play, game devs edit.
 
-RetroLadder (truss) parts are climbable: walk into one and push **forward**
-to climb up, **back** to climb down, and press **Space** to jump off. The
-rig's Climb animation plays while you climb.
+### The UI Editor — DRAG. DROP. DONE.
+A shelf of widgets sits on the left: **Button, Label, Panel, Text Box,
+Health Bar, Money**. Grab one, DRAG it onto the stage, release — it is
+born where you dropped it. Click to select, drag to move, and use the
+right panel for X / Y / W / H, text, font size and the 12 retro colors.
+**SAVE** writes `user://ui_config.json` and the real game HUD spawns the
+EXACT same widgets (same factory: `scripts/editor/ui_widgets.gd`) —
+your buttons pop toasts, your health bar fills with YOUR real health,
+your text box takes typing. **TEST PLAY** jumps in to see it live.
 
----
+### The Map Editor — brick by brick
+A real 3D scene: **RIGHT DRAG** orbits, **WHEEL** zooms, **WASD/QE** pans.
+Tools on the left: **ADD** (left click the world to place a brick),
+**PAINT** (recolor any brick), **DELETE**. The bottom bar holds the 12
+colors, 5 brick sizes (BRICK / CUBE / PLATE / TILE / PILLAR), materials
+(plastic/neon/metal/wood/grass/dirt) and the classic groups (spawn, kill,
+ladder, goal, checkpoint, bounce). **SAVE** makes the map YOUR PLACE in
+the game (`user://my_map.json`). **TEST PLAY** drops you straight in.
+**SAVE FILE** exports a `.retroplace` game file you can share.
 
-## 2. How the web sync works
+### The Player Editor — your look
+Your live rig on a photo stage. Drag to spin. Three rows of colors:
+**SKIN** (head), **SHIRT** (torso + arms), **PANTS** (legs). SAVE writes
+`user://avatar_colors.json` — the colors repaint YOUR rig right after
+spawn in every game, over the noob paint or on top of your site avatar.
+
+### Game files — .retroplace
+A game file is one small JSON: `{"format":"retroblox-place-1", parts:[...]}`.
+The Map Editor saves them (SAVE FILE); the STUDIO hub's **OPEN GAME FILE**
+loads one and drops you in. Games on the site can ship their build as a
+`.retroplace` — download, open, play. That is the whole loop.
+
+## 4. Make it yours — the 3 files that matter
+
+| File | What it is | Edit it to... |
+|------|-----------|----------------|
+| `scripts/world/my_place.gd` | **YOUR MAP — a working, commented template** | build your world brick by brick |
+| `scripts/world/places.gd` | the built-in places list | add more maps, or remove ours |
+| `scripts/game/game.gd` | the play session (world + HUD + win/lose) | change rules, add game logic |
+
+**Start here:** open `scripts/world/my_place.gd`. It is a complete map
+documented line by line — spawn pads, a parkour course, a trampoline, a
+lava moat, a ladder tower, a gold goal, trees and signs. Edit it, press
+F5, and pick **"My Place (template)"** in the place menu. That is the
+entire workflow: edit → F5 → play.
+
+### The map format in 20 seconds
+
+A place is one Dictionary. Bricks live in `"parts"`, decorations in
+`"props"`:
+
+```gdscript
+"parts": [
+    { "p": [0, -0.5, 0], "s": [80, 1, 80], "c": "58b64c" },          # the ground
+    { "p": [0, 0.5, 20], "s": [5, 1, 5], "c": "cfd4da", "g": "spawn" }, # spawn pad
+    { "p": [0, -0.4, -26], "s": [80, 0.8, 8], "c": "e74c3c", "g": "kill" }, # lava!
+    { "p": [-14, 8.5, -26], "s": [4, 1, 4], "c": "ffd700", "g": "goal", "m": "metal" },
+],
+"props": [
+    { "type": "sign", "p": [4, 0, 20], "text": "Welcome!" },
+    { "type": "tree", "p": [16, 0, 16] },
+],
+```
+
+- `p` = center position in **studs**, `s` = size in studs, `c` = hex
+  color (no `#`)
+- groups `g`: `spawn` · `kill` · `ladder` · `goal` · `checkpoint` · `bounce`
+- materials `m`: `plastic` · `metal` · `neon` · `wood` · `grass` · `dirt`
+- shapes: `box` (default) · `cyl` · `sphere`; `no_studs: true` hides the bumps
+- props: `tree` · `flower` · `fence` · `crate` · `cloud` · `cloudpad` ·
+  `sign` · `pipe` · `arch` · `snow`
+- jump math: a flat jump clears ~12 studs → keep gaps 6–10; 1–2 stud
+  ledges step up automatically
+
+When your map is ready, publish it: put your game in a `.zip` and upload
+it on retro-blox.vercel.app → **Create** (engine "Godot"). Players
+download and play. Ship the same zip as **Source Code** so anyone can
+remix it (it already IS the source).
+
+## 5. File map (the guided tour)
 
 ```
-   retroblox website (source of truth)          this player
-   ┌────────────────────────────────┐          ┌────────────────────┐
-   │ GET  /api/game/places          │ ◀─────── │ after login: list  │
-   │ GET  /api/game/places/baseplate│ ◀─────── │ download the map   │
-   │ POST /api/game/state  ~7x/s    │ ◀─────── │ pos/yaw/anim/chat  │
-   │      -> other players + chat   │ ───────▶ │ smoothed, rendered │
-   └────────────────────────────────┘          └────────────────────┘
+project.godot            the project (open this in Godot)
+scenes/
+  login.tscn             the sign-in screen
+  game.tscn              the play session
+scripts/
+  core/
+    api.gd               EVERY HTTP call to RetroBlox lives here
+    session.gd           who is logged in (token + profile)
+    settings.gd          persisted player settings (volume, FPS...)
+    sfx.gd               sounds
+    ui_config.gd         UI scale/opacity knobs
+  player/
+    local_player.gd      YOUR character: movement, camera, climbing
+    avatar_rig.gd        the R6 blocky avatar (walk/jump/climb/fall anims)
+    avatar_dresser.gd    dresses avatars from the account (shirt/pants/hat/face)
+    remote_player.gd     other players you see online
+    chat_bubble.gd       speech bubbles over heads
+  world/
+    world_builder.gd     turns a place Dictionary into a live 3D world
+    places.gd            the list of built-in places
+    my_place.gd          ★ YOUR editable starter map
+  game/
+    game.gd              the play session: builds the world, HUD, win/lose
+    camera_rig.gd        the third-person camera (+ Shift lock)
+    chat_box.gd          the chat window
+  ui/
+    login.gd             the login screen logic
+    retro_theme.gd       the RetroBlox look (fonts, buttons, panels)
+    menu_icons.gd        hand-drawn menu glyphs (pure code, no textures)
+    avatar_viewer.gd     the drag-to-spin rig stage in the ESC menu
+    emote_wheel.gd       the emote wheel UI
+assets/                  sounds, faces, studs texture, fonts, icons
 ```
 
-- The map (every part, spawn pad, ladder) is stored **on the website** — one
-  game ships today: `baseplate`. Edit the place on the web and the next
-  launch plays the new version.
-- Multiplayer runs over plain HTTPS through the site — **no port forwarding,
-  no LAN setup**. Your client posts its position ~7 times per second and
-  receives everyone else's; remote characters are smoothed so it feels instant.
-- Chat is part of the same loop: messages land in the website's chat store
-  and are delivered to every player in the place (with a spam guard).
-- If the website cannot be reached, the bundled Baseplate scene loads so you
-  can still play solo; the player keeps retrying in the background.
+## 6. Change the rules — game.gd hooks
 
-Point the player at a different website (self-host): the Server field on the
-login card, `RETROBLOX_API=<url>` or `--api=<url>`.
+`game.gd` is where gameplay lives. The useful bits:
 
----
+- `place` — the active place Dictionary (what `WorldBuilder.build` got)
+- goal pads fire the win sequence; `kill` parts gibs + respawns you
+- the void: falling below `void_y` respawns you
+- chat: `chat.add_system("...")` prints a line to everyone's feed
+- the API door: `Api` (core/api.gd) is an autoload — call it anywhere
 
-## 3. For creators — nodes and scenes
+Simple examples you can paste into `game.gd`:
 
-The world is built from the SAME scenes on the web and in the editor:
+```gdscript
+# greet the player by name when the world is built
+chat.add_system("Have fun, %s!" % Session.username)
 
-| Scene | Node | What it does |
-| --- | --- | --- |
-| `scenes/part.tscn` | `RetroPart` | One classic studded block (size + color in the inspector) |
-| `scenes/spawn_location.tscn` | `SpawnLocation` | Spawn pad — players appear on these round-robin |
-| `scenes/ladder.tscn` | `RetroLadder` | Climbable truss with rungs |
-| `scenes/maps/classic_baseplate.tscn` | — | The classic map, hand-built from the three nodes above |
-
-To build your own place: open any map scene (or make a new one), drag in
-`part.tscn` / `spawn_location.tscn` / `ladder.tscn`, and set `size` +
-`color` in the inspector. Everything is in **studs** (1 unit = 1 stud, a
-player is 5 studs tall). Players step over ledges up to 3 studs, so
-staircases just work — stack 1-stud steps.
-
-The web-sync path spawns these very same scenes from the website's map JSON:
-
-```json
-{
-  "parts":   [{ "name": "Baseplate", "p": [0,-1,0], "s": [128,2,128], "color": "#287f47" }],
-  "spawns":  [{ "name": "Spawn1",    "p": [-6,0.5,-6], "s": [6,1,6],  "color": "#a3a2a5" }],
-  "ladders": [{ "name": "Truss",     "p": [-14.5,6,0], "s": [2,12,1],  "color": "#63666a" }]
-}
+# a coin that counts: put this in _process and move a part first
+if player.global_position.distance_to(coin_pos) < 2.0:
+        coins += 1
+        chat.add_system("Coins: %d" % coins)
 ```
 
-`scripts/arena.gd` builds either source: `apply_map_data()` (web JSON) or the
-bundled `classic_baseplate.tscn` (offline fallback). The map you edit as
-nodes in the editor converts to that JSON 1:1 with
-`scripts/parse_baseplate.py` (in the website repo).
+## 7. The platform API (core/api.gd)
 
-### Player + avatar scenes
+Everything is plain HTTP + JSON — the same endpoints power the website
+and the Unity SDK. From any script: `Api.get_json(...)`, `Api.post_json(...)`.
 
-- `scenes/player.tscn` — the character: capsule physics + avatar + chat
-  bubble. `initialize(id, name)` for locals, `render_remote()` for network
-  players.
-- `scenes/avatar.tscn` + `scripts/avatar.gd` — the six-part classic rig.
-  In R6IK mode it uses the REAL catalog model (`assets/models/R6IK.fbx`) with
-  the site's own part-matching rules; the box rig is the fallback.
-- `scripts/avatar_platform.gd` — dresses the avatar from the platform
-  payload (body colors, shirt/pants templates, face decal, 3D UGC placed
-  EXACTLY where the creator left it — site-space mapped, so UGC never wears
-  backwards).
+| Call | What it does |
+|------|--------------|
+| `POST /api/platform/login` | `{username,password}` → `{token, userId, seqId, username}` |
+| `POST /api/platform/signup` | create an account in-game (gets its own Player ID) |
+| `GET /api/platform/me` | your profile + full avatar payload |
+| `GET /api/users/{id}/avatar` | any player's public avatar |
+| `GET /api/files/{fileId}` | raw bytes: images, GLB models, audio |
+| `GET /api/games?engine=Web` | browse games (Webs are engine "Web") |
+| `POST /api/games/{id}/play` | tell the platform you are playing a game |
 
-### Scripts map
+**Player ID & Game ID:** every account has a short human **Player ID**
+(`#1`, `#2`, ... join order) — it comes back from login as `seqId`, and
+it is the same number shown on the website profile. Every published game
+has a **Game ID** the same way (shown on its game page). Show them off
+in your game's HUD: `"%s #%d" % [Session.username, Session.player_seq]`.
 
-| Script | Role |
-| --- | --- |
-| `scripts/main.gd` | The whole game flow: login → download game → build world → multiplayer heartbeat → chat → respawn |
-| `scripts/player.gd` | Classic movement (WalkSpeed 16 / JumpPower 50 / gravity 196.2), step-up, ladders, fall damage, health |
-| `scripts/arena.gd` | Sky + sun + the map (web JSON or scene) |
-| `scripts/retroblox_api.gd` | The one HTTP door: login, signup, me, avatars, assets, files, game sync |
-| `scripts/hud.gd` | Classic old-Roblox HUD: toolbar, chat, player list, health, ESC menu, Shift Lock toggle, touch controls (joystick + buttons), Settings card, FPS counter |
-| `scripts/rbx_animations.gd` | The animation slot system: drop-in user clips, name→slot matching, track remapping onto the rig |
-| `scripts/auth_screen.gd` | The login / signup card (remembers the last username + token) |
+## 8. Editing with ChatGPT (yes, really)
+
+These files are written to be READ — by humans and by AIs. The recipe:
+
+1. Attach the file you want to change (for maps: `my_place.gd` — it is
+   fully self-contained documentation).
+2. Say what you want: *"add a volcano with a kill-brick lava lake and a
+   bounce pad to the top"*.
+3. Paste the answer back over the file, press F5, play.
+
+Tips: keep one place per Dictionary, keep ids unique, and if Godot
+prints a script error it names the file + line — fix and re-run.
+
+## 9. Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| "Could not reach RetroBlox" | check your internet; the Server field in Settings → Network |
+| Spawned as a plain noob | log in on the login screen — avatars come from your account |
+| Godot says "Parse Error" | the file+line is in the error; usually a missing comma/quote in a parts list |
+| My map didn't change | edit `my_place.gd`, save, F5, and pick "My Place (template)" again in the menu |
+| Login works on the site but not in-game | the game talks to `https://retro-blox.vercel.app` — check Settings → Network server URL |
+
+## 10. UI Studio on the web + click/hover FX (v6.0)
+
+**UI STUDIO** — retro-blox.vercel.app/ui-studio (sidebar: UI Studio). Pick YOUR
+game, then compose the UI every player sees: **Text, Icons, Images (any URL),
+Buttons that open real links**, drag them anywhere on the 960x540 stage. Give
+any widget CLICK FX (Punch, Bounce) and HOVER FX (smooth scale-then-rotate,
+Glow, Fade) with Power + Speed dials — the same effect names play in the game
+as Godot tweens, and hovering the widget on the web stage previews it with CSS.
+Press **Publish to EVERYONE** and the desktop player fetches that UI when the
+game starts (game files downloaded from the page carry the game's ID). Anyone
+can also build fx in their own player with F2 — those stay private to them.
+
+**Scenes look empty?** They build in code on purpose — read `docs/SCENES.md`
+for where every screen actually lives and how to edit it with nodes + scripts.
+
+## 10. Game templates + the top-down camera (v5.0)
+
+**Templates.** The site serves ready-made game files at **retro-blox.vercel.app/templates** —
+Brick Arena (top-down), Paint World, Classic Obby, Baseplate and the My Place starter.
+Each is a `.retroplace` file: download it, then **STUDIO > OPEN GAME FILE** and it plays.
+Game devs can open the same file in the **Map Editor**, change everything and save their
+own version (SAVE FILE exports a `.retroplace` you can share or publish).
+
+**Top-down.** A place can ask for the board-game camera with `"cam": "topdown"` in its
+place dictionary (or in a `.retroplace` file). The camera then parks high above the
+player and looks down at a fixed angle — **WASD moves up/left/down/right on the screen**,
+the wheel zooms (16–64 studs), and orbiting / shift lock / first person are switched off.
+The built-in **Brick Arena** place plays exactly this way: grey maze, red lava, neon
+bounce shortcuts, a gold vault to reach. Copy `scripts/world/places.gd → topdown_arena()`
+to make your own, or hand-edit a downloaded `.retroplace` in any text editor — it is
+plain JSON (`"cam": "topdown"` at the top).
+
+The templates are generated from the same data the game ships with —
+`scripts/dev/dump_templates.gd` runs headless and writes every built-in place
+into `.retroplace` files.
+
+## 11. Publish your game
+
+1. Zip this folder's CONTENTS (project.godot at the zip root).
+2. retro-blox.vercel.app → **Create** → engine **Godot** → upload the zip.
+3. Upload the same zip as **Source Code** — remixing is the point.
+4. Your game gets a Game ID and a page with comments, ratings and plays.
 
 ---
 
-## 4. Animations — swapping in new ones
+### Icon + image credits (downloaded from the internet)
 
-**The drop-in way (new):** put an animation file (.fbx or .glb) into
-`assets/anims/` and open the project. That's it. Clips are matched to
-slots by name:
+- `assets/icons/menu.png` — hamburger glyph, Pixabay (recolored white)
+- `assets/icons/settings.png`, `people.png`, `chat.png`, `respawn.png` — Icons8 (iOS Glyph style, white)
+- `assets/icons/close.png` — close badge, Pixabay
+- `assets/ui/login_backdrop.jpg` — classic baseplate photograph (Reddit)
 
-| Clip names in your file | Plays when |
-| --- | --- |
-| Idle / Old_Idle / Stand | standing still |
-| Walk / Old_Walk / Walking | moving |
-| Run / Running / Sprint | fast movement (fallback when no walk clip) |
-| Jump / Old_Jump / Leap | jumping — holds the last frame mid-air |
-| Fall / Falling / Freefall | falling (falls back to the jump clip) |
-| Climb / Ladder / Truss | on a ladder — auto speed-scaled |
-| Sit / Sitting | reserved for seats |
-
-Matching is loose: `My_Cool-Walk 2` plays as the walk clip. User clips
-always win over the rig's built-in `Old_*` clips, and every track is
-remapped onto the rig's real nodes (so part names like `Left Arm` bind
-correctly). See `assets/anims/README.txt` for the Blender export
-checklist — **Bake Animation must be ON**, or the FBX ships with no
-animation data at all (a very common miss). `.glb` never has this problem.
-
-Under the hood: `scripts/rbx_animations.gd` owns the slots
-(idle/walk/run/jump/fall/climb/sit), `scripts/avatar.gd` plays them and
-speed-scales walk/climb to the actual movement. There is also a runtime
-path — drop `.glb` files in `user://anims/` and they play without
-re-downloading the kit.
-
-Making a whole new rig? Keep `scenes/avatar.tscn`'s box rig animating
-procedurally, or extend `rbx_animations.gd`'s alias table — clip mapping
-lives in ONE place.
-
----
-
-## 5. Self-hosting / SDK notes
-
-- Everything talks to the same platform API the website exposes — see the
-  endpoint list at the top of `scripts/retroblox_api.gd`.
-- The game sync endpoints are public read (`/api/game/places*`); presence
-  and chat require a login token (`POST /api/game/state`).
-- `tests/probe_web_game.gd` is a full headless E2E: login → avatar → game
-  list → map → two players seeing each other → chat round trip → rate
-  limit → leave → placement math. Point it at any server:
-  change `API_URL`, then
-  `godot --headless --path . --script res://tests/probe_web_game.gd`.
-
-### Troubleshooting
-
-- **"Could not reach the server"** — check the Server field / your internet.
-  The exact network reason is printed.
-- **Wrong colors / white UGC** — creators: export `.glb` from Blender (or
-  FBX with Path Mode "Copy" + "Embed Textures"). The site converter warns at
-  upload when a model carries no material colors.
-- **Stale install** — re-download the kit zip from the site; old zips had
-  missing scenes/icons.
+> One platform, every engine. Everything here is plain HTTP + JSON against
+> `https://retro-blox.vercel.app` — the same API the website and the Unity
+> SDK use, so a game made with this kit and a game made in Unity play on
+> the same servers, with the same avatars, in the same world.

@@ -433,7 +433,7 @@ export function GroupDetailView({ id }: { id: string }) {
                 whiteSpace: 'nowrap',
               }}
             >
-              {key === 'settings' && canManageRoles ? '⚙ Settings' : label}
+              {key === 'settings' && canManageRoles ? 'Settings' : label}
             </button>
           ))}
         </div>
@@ -579,7 +579,7 @@ function GroupWall({
               )}
               {file && file.type.startsWith('video/') && (
                 <div style={{ fontSize: 10, color: '#2c6e31', background: '#e8f5e4', border: '1px solid #9fce93', borderRadius: 4, padding: '5px 8px' }}>
-                  ▶ Video attached: {file.name} ({Math.ceil(file.size / (1024 * 1024))}MB) — plays right on the wall.
+                  Video attached: {file.name} ({Math.ceil(file.size / (1024 * 1024))}MB) — plays right on the wall.
                 </div>
               )}
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -708,7 +708,7 @@ function GroupWall({
                         })
                       }
                     >
-                      💬 Reply
+                      Reply
                     </button>
                   )}
                 </div>
@@ -797,7 +797,7 @@ function GroupMembers({
         {canManageRoles && (
           <div style={{ fontSize: 10, color: '#5a6b7b', background: '#f4f8fb', border: '1px solid #c3cdd7', borderRadius: 4, padding: '6px 10px' }}>
             Assign roles with the dropdown — you can only give roles below your own rank.
-            Create or edit roles under the ⚙ Settings tab.
+            Create or edit roles under the Settings tab.
           </div>
         )}
         {group.members.map((m) => {

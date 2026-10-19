@@ -231,7 +231,7 @@ function FeedVideoPlayer({ video }: { video: VideoT }) {
           <img src={`/api/files/${video.thumbFileId}`} alt={video.title} style={{ display: 'block', width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(160deg,#12233a,#1c3a5c)' }}>
-            <span style={{ fontFamily: "'Courier New', monospace", color: '#7fd4ff', fontSize: 12 }}>▶ RETROBLOX VIDEO</span>
+            <span style={{ fontFamily: "'Courier New', monospace", color: '#7fd4ff', fontSize: 12 }}>RETROBLOX VIDEO</span>
           </div>
         )}
         <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden="true">
@@ -428,7 +428,7 @@ export function CommunityView() {
             cursor: 'pointer',
           }}
         >
-          ▶ Videos
+          Videos
         </button>
       </div>
     </div>
@@ -536,7 +536,7 @@ export function CommunityView() {
                 }}
                 aria-pressed={sort === s}
               >
-                {s === 'hot' ? '🔥 Hot' : s === 'new' ? '✦ New' : '★ Top'}
+                {s === 'hot' ? 'Hot' : s === 'new' ? '✦ New' : '★ Top'}
               </button>
             ))}
             {(q || r !== 'r/all') && (
@@ -846,7 +846,7 @@ export function CommunityNewView() {
             )}
             {mediaFile && mediaFile.type.startsWith('video/') && (
               <div style={{ fontSize: 10, color: '#2c6e31', marginTop: 5, background: '#e8f5e4', border: '1px solid #9fce93', borderRadius: 4, padding: '5px 8px' }}>
-                ▶ Videos up to 100MB — it plays right in the feed AND gets its own watch page on the Videos tab.
+                Videos up to 100MB — it plays right in the feed AND gets its own watch page on the Videos tab.
               </div>
             )}
             {hintVideo && !mediaFile && (

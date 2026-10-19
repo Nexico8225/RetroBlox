@@ -8,13 +8,13 @@ import { Providers } from "@/components/retro/Providers";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1b5e9e",
+  themeColor: "#0070b6",
 };
 
 export const metadata: Metadata = {
   title: "RetroBlox",
   description:
-    "RetroBlox is the old-school game platform. Publish your Unity, Godot or any-engine games, download and play classics, add friends and rate games - all in glorious 2006 style.",
+    "Dress your avatar, publish and play games, collect Tix and hang out with friends — RetroBlox is the old-school game platform, in glorious 2006 style.",
   icons: {
     icon: "/retro/logo.png",
   },

@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useRetro, api, fmtCount, flash, type RetroUser } from '@/lib/store'
+import { useRetro, api, fmtCount, flash, GENRES, type RetroUser } from '@/lib/store'
+import { useSiteUi, type SiteUiConfig } from '@/lib/siteui'
 import { Avatar, OnlineDot } from './Shell'
 import { FxText } from '@/lib/textfx'
 import { VideoCard, type VideoSummary } from './VideosView'
 
 export interface GameSummary {
   id: string
+  seqId?: number | null
   name: string
   genre: string
   subgenre: string
@@ -99,7 +101,7 @@ export function GameCard({ game }: { game: GameSummary }) {
               border: '1px solid #d9c26a',
             }}
           >
-            💎 GEM
+             GEM
           </span>
         )}
       </div>
@@ -165,7 +167,7 @@ export function PersonIcon() {
 /* ---------------- Shared: people-you-may-know strip ---------------- */
 
 export function SuggestedStrip({ users, title }: { users: SuggestedUser[]; title: string }) {
-  const { user, setToast } = useRetro()
+  const { setToast } = useRetro()
   const [sent, setSent] = useState<Record<string, boolean>>({})
 
   async function add(u: SuggestedUser) {
@@ -184,16 +186,14 @@ export function SuggestedStrip({ users, title }: { users: SuggestedUser[]; title
   if (users.length === 0) return null
 
   return (
-    <section className="rb-box" style={{ marginBottom: 16 }}>
+    <section className="rb-box" style={{ marginBottom: 12 }}>
       <div className="rb-panel-head">
         <span>{title}</span>
-        {user && (
-          <Link className="rb-link" style={{ fontSize: 11 }} href="/friends">
-            See All &rarr;
-          </Link>
-        )}
+        <Link className="rb-link" style={{ fontSize: 11 }} href="/friends">
+          See All &rarr;
+        </Link>
       </div>
-      <div style={{ padding: '12px 14px', display: 'flex', gap: 14, overflowX: 'auto' }}>
+      <div style={{ padding: '10px 12px', display: 'flex', gap: 14, overflowX: 'auto' }}>
         {users.slice(0, 9).map((u) => (
           <div
             key={u.id}
@@ -225,18 +225,10 @@ export function SuggestedStrip({ users, title }: { users: SuggestedUser[]; title
               <span style={{ fontSize: 9, color: '#7b8896', border: '1px solid #c3cdd7', borderRadius: 3, padding: '2px 7px', background: '#f2f6fa' }}>
                 Request Sent
               </span>
-            ) : user ? (
+            ) : (
               <button className="rb-btn rb-btn-green" style={{ fontSize: 9, padding: '2px 8px' }} onClick={() => add(u)}>
                 + Add
               </button>
-            ) : (
-              <Link
-                href="/signup"
-                className="rb-btn rb-btn-green"
-                style={{ fontSize: 9, padding: '2px 8px', textDecoration: 'none', display: 'inline-block' }}
-              >
-                + Add
-              </Link>
             )}
           </div>
         ))}
@@ -373,41 +365,30 @@ function CommunityPulse() {
 /* ---------------- Home ---------------- */
 
 export function HomeView() {
+  const hero = useSiteUi((s) => s.config.hero)
+  const siteName = useSiteUi((s) => s.config.siteName)
   const { user, pendingRequests } = useRetro()
   const [friends, setFriends] = useState<RetroUser[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])
-  const [newcomers, setNewcomers] = useState<SuggestedUser[]>([])
-  const [onlineCount, setOnlineCount] = useState<number | null>(null)
   const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
-    // Independent loads — a 401 on friends (guests) must NEVER kill the games grid
-    const [f, g, s] = await Promise.allSettled([
-      api<{ friends: RetroUser[] }>('/api/friends'),
-      api<{ games: GameSummary[] }>('/api/games?sort=recent&limit=15'),
-      api<{ suggested: SuggestedUser[] }>('/api/friends/suggested'),
-    ])
-    if (f.status === 'fulfilled') setFriends(f.value.friends)
-    if (g.status === 'fulfilled') setGames(g.value.games)
-    if (s.status === 'fulfilled') setSuggested(s.value.suggested || [])
-    // Public fallback: newest active blockheads power the "Meet the Blockheads" strip
-    // (guests always; members only when the personalized suggestions come back empty)
     try {
-      const u = await api<{ users: RetroUser[]; onlineCount: number }>('/api/users?limit=9')
-      setOnlineCount(u.onlineCount)
-      setNewcomers(
-        u.users.map((x) => ({
-          ...x,
-          reason: x.online ? 'Online right now — say hi!' : 'Around lately — say hi!',
-          mutuals: 0,
-        })),
-      )
+      const [f, g, s] = await Promise.all([
+        api<{ friends: RetroUser[] }>('/api/friends'),
+        api<{ games: GameSummary[] }>('/api/games?sort=recent&limit=15'),
+        api<{ suggested: SuggestedUser[] }>('/api/friends/suggested'),
+      ])
+      setFriends(f.friends)
+      setGames(g.games)
+      setSuggested(s.suggested || [])
     } catch {
       /* ignore */
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -418,40 +399,70 @@ export function HomeView() {
 
   return (
     <div>
-      {/* classic old-Roblox "who's online" soul line */}
-      {onlineCount !== null && (
-        <div style={{ textAlign: 'center', fontSize: 11, color: '#5a6b7b', padding: '2px 0 10px' }}>
-          <span
-            style={{
-              display: 'inline-block',
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              background: '#4caf50',
-              boxShadow: '0 0 0 2px rgba(76,175,80,.18)',
-              marginRight: 5,
-              verticalAlign: 1,
-            }}
-          />
-          {onlineCount === 0
-            ? 'Nobody is online right now — be the first blockhead to log in!'
-            : `${onlineCount} blockhead${onlineCount === 1 ? '' : 's'} online now`}
+      {/* 2016-style welcome — a white card, big Source Sans Pro Light
+          "Hello, <name>!" exactly like the old home page, actions on the right.
+          The site owner can hide / rewrite all of it at /site-ui. */}
+      {hero.show && (
+      <section
+        className="rb-box"
+        style={{
+          marginBottom: 12,
+          padding: '20px 22px',
+          background: 'var(--rb-box)',
+          display: 'flex',
+          gap: 16,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          overflow: 'hidden',
+          position: 'relative',
+        }}
+      >
+        <img
+          src="/retro/logo.png"
+          alt=""
+          width={58}
+          height={58}
+          style={{ flexShrink: 0, border: '1px solid var(--rb-border)', borderRadius: 4, background: '#fff' }}
+        />
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div className="rb-page-title">
+            {user
+              ? hero.memberTitle.replace(/\{name\}/g, user.username)
+              : hero.guestTitle.replace(/\{name\}/g, '') || `Welcome to ${siteName}`}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--rb-text-dim)', marginTop: 4 }}>{hero.subtitle}</div>
         </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {hero.ctas.map(
+            (c, i) =>
+              c.show &&
+              c.label && (
+                <Link
+                  key={`${c.href}-${i}`}
+                  className={`rb-btn ${i === 0 ? 'rb-btn-red' : i === 1 ? 'rb-btn-green' : ''}`}
+                  href={c.href || '/games'}
+                  style={{ textDecoration: 'none', fontSize: 11, padding: '6px 14px' }}
+                >
+                  {c.label}
+                </Link>
+              )
+          )}
+        </div>
+      </section>
       )}
 
-      {/* Friends strip — everyone sees it; guests get the "log in to add friends" path */}
-      <section className="rb-box" style={{ marginBottom: 16 }}>
+      {/* Friends strip (members only — guests have no friends list yet) */}
+      {user && (
+      <section className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head">
-          <span>{user ? `Friends (${friends.length})` : 'Friends'}</span>
-          {user && (
-            <Link className="rb-link" style={{ fontSize: 11 }} href="/friends">
-              See All &rarr;
-            </Link>
-          )}
+          <span>Friends ({friends.length})</span>
+          <Link className="rb-link" style={{ fontSize: 11 }} href="/friends">
+            See All &rarr;
+          </Link>
         </div>
         <div style={{ padding: '10px 12px', display: 'flex', gap: 10, overflowX: 'auto' }}>
           <Link
-            href={user ? '/friends' : '/signup'}
+            href="/friends"
             className="rb-clickable"
             style={{
               width: 74,
@@ -531,45 +542,52 @@ export function HomeView() {
 
           {!loading && friends.length === 0 && (
             <div style={{ alignSelf: 'center', color: '#5a6b7b', fontSize: 11, padding: '0 8px' }}>
-              {user
-                ? 'No friends yet — add blockheads you know, or meet similar players below!'
-                : 'Log in to add blockheads as friends — they will show up right here!'}
+              No friends yet — add blockheads you know, or meet similar players below!
             </div>
           )}
         </div>
       </section>
-
-      {/* People strip — members: personalized "People You May Know"; guests: liveliest blockheads */}
-      {!loading && (suggested.length > 0 || newcomers.length > 0) && (
-        <SuggestedStrip
-          users={suggested.length > 0 ? suggested : newcomers}
-          title={suggested.length > 0 ? 'People You May Know' : 'Meet the Blockheads'}
-        />
       )}
 
+      {/* Similar players */}
+      {!loading && suggested.length > 0 && <SuggestedStrip users={suggested} title="People You May Know" />}
+
       {/* Your library — plays and downloads are tracked separately */}
-      <YourGamesRails list="played" title="🎮 Games You've Played" blurb="Every game you hit Play now on — your personal play history."
+      <YourGamesRails list="played" title="Games You've Played" blurb="Every game you hit Play now on — your personal play history."
       />
-      <YourGamesRails list="downloaded" title="⬇ Your Downloaded Games" blurb="Games sitting on your device — re-download them any time."
+      <YourGamesRails list="downloaded" title="Your Downloaded Games" blurb="Games sitting on your device — re-download them any time."
       />
 
+      {/* Get the game — the free desktop player */}
+      <section className="rb-box" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 22 }} aria-hidden="true"></div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontSize: 12, fontWeight: 'bold', color: '#14202c' }}>Play RetroBlox on your PC</div>
+          <div style={{ fontSize: 11, color: '#5a6b7b' }}>
+            Free desktop player for Windows / Mac / Linux — walk, jump and build in every game on here.
+          </div>
+        </div>
+        <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent('/godot/retroblox-godot-player.zip?v=7.0')}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: 12 }}>
+          Download the game
+        </a>
+        <Link className="rb-link" href="/templates" style={{ fontSize: 11 }}>Game templates</Link>
+        <Link className="rb-link" href="/sdk" style={{ fontSize: 11 }}>How to run it</Link>
+      </section>
+
       {/* Games */}
-      <section className="rb-box" style={{ marginTop: 16 }}>
+      <section className="rb-box">
         <div className="rb-panel-head">
           <span>All Games</span>
           <Link className="rb-link" style={{ fontSize: 11 }} href="/games">
             Browse &rarr;
           </Link>
         </div>
-        <div style={{ padding: '9px 14px 0', fontSize: 11, color: '#5a6b7b' }}>
-          Every world the community has built so far — pick one and jump in.
-        </div>
         <div
           style={{
-            padding: 14,
+            padding: 12,
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-            gap: 12,
+            gap: 10,
           }}
         >
           {loading
@@ -610,11 +628,8 @@ export function HomeView() {
 
 /* ---------------- Games browse (/games) ---------------- */
 
-const GENRE_LIST = [
-  'All Genres', 'Adventure', 'Building', 'Fighting', 'FPS', 'Horror',
-  'Obby', 'Puzzle', 'RPG', 'Racing', 'Sci-Fi', 'Simulation', 'Sports',
-  'Town & City', 'Tycoon', 'Western',
-]
+// short v2 genre list (legacy genres fold into these shelves server-side)
+const GENRE_LIST = GENRES
 
 export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: string }) {
   const router = useRouter()
@@ -654,7 +669,7 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
   const title = q
     ? `Search Results for "${q}"`
     : sort === 'gems'
-      ? '💎 Hidden Gems'
+      ? ' Hidden Gems'
       : sort === 'recommended'
         ? 'Recommended For You'
         : sort === 'trending'
@@ -725,7 +740,7 @@ export function GamesView({ q, genre, sort }: { q: string; genre: string; sort: 
               <option value="downloads">Downloads (highest number)</option>
               <option value="recent">Recently Uploaded</option>
               <option value="updated">Recently Updated</option>
-              <option value="gems">💎 Hidden Gems</option>
+              <option value="gems"> Hidden Gems</option>
             </select>
             <span style={{ marginLeft: 'auto', fontSize: 10, color: '#7b8896' }}>
               {loading ? '...' : `${games.length} game${games.length === 1 ? '' : 's'}`}

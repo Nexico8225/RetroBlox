@@ -62,7 +62,8 @@ export async function GET(req: NextRequest) {
       // deletes are HARD deletes now — this filter only screens out rows
       // soft-deleted before that change; nothing new ever lands here
       deletedAt: null,
-      ...(type && UGC_TYPES.includes(type as never) ? { type } : {}),
+      // emotes are retired — hide every legacy emote row unless a valid type is asked for
+      ...(type && UGC_TYPES.includes(type as never) ? { type } : { type: { not: 'emote' } }),
       ...(groupId ? { groupId } : {}),
       ...(onlyLimited ? { isLimited: true } : {}),
       ...(q

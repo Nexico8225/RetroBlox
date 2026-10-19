@@ -112,6 +112,8 @@ export function GameDetailView({ id }: { id: string }) {
   const [updating, setUpdating] = useState(false)
   const updateFileRef = useRef<HTMLInputElement>(null)
   const updateSrcRef = useRef<HTMLInputElement>(null)
+  const iconInputRef = useRef<HTMLInputElement>(null)
+  const thumbInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     try {
@@ -156,7 +158,12 @@ export function GameDetailView({ id }: { id: string }) {
       const res = await api<{ downloads: number; fileUrl: string }>(`/api/games/${game.id}/download`, {
         method: 'POST',
       })
-      triggerFile(res.fileUrl, game.fileName || 'game')
+      // v6: the classic download dance — a bare page opens, the download
+      // starts by itself, the tab closes. Game files carry ?game=<id> so the
+      // desktop player can load the owner's PUBLISHED UI for everyone.
+      const dlUrl = `${res.fileUrl}${res.fileUrl.includes('?') ? '&' : '?'}dl=1&game=${game.id}`
+      const dlName = game.fileName || 'game'
+      window.open(`/download?u=${encodeURIComponent(dlUrl)}&n=${encodeURIComponent(dlName)}`, '_blank')
       localStorage.setItem(`rb_dl_${game.id}`, '1')
       setDownloaded(true)
       setGame({ ...game, downloads: res.downloads })
@@ -176,7 +183,7 @@ export function GameDetailView({ id }: { id: string }) {
     if (user) {
       api(`/api/games/${game.id}/play`, { method: 'POST' }).catch(() => {})
     }
-    window.open(`/api/files/${game.fileId}`, '_blank')
+    window.open(`/download?u=${encodeURIComponent(`/api/files/${game.fileId}?dl=1&game=${game.id}`)}&n=${encodeURIComponent(game.fileName || 'game')}`, '_blank')
   }
 
   function triggerFile(url: string, name: string) {
@@ -321,6 +328,39 @@ export function GameDetailView({ id }: { id: string }) {
 
   /* ---- owner updates ---- */
 
+  // re-skin the game page: swap the icon / thumbnail (owner only — the API
+  // enforces it, the UI simply never shows the controls to anyone else)
+  async function updateArt(kind: 'icon' | 'thumbnail') {
+    if (!game) return
+    const ref = kind === 'icon' ? iconInputRef : thumbInputRef
+    const f = ref.current?.files?.[0]
+    if (!f) {
+      setToast(kind === 'icon' ? 'Pick a new icon image first!' : 'Pick a new thumbnail image first!')
+      setTimeout(() => setToast(null), 2200)
+      return
+    }
+    if (!f.type.startsWith('image/')) {
+      setToast('That file is not an image!')
+      setTimeout(() => setToast(null), 2200)
+      return
+    }
+    setUpdating(true)
+    try {
+      const fd = new FormData()
+      fd.append(kind, f)
+      await api(`/api/games/${game.id}`, { method: 'PATCH', body: fd })
+      setToast(kind === 'icon' ? 'Icon updated!' : 'Thumbnail updated!')
+      setTimeout(() => setToast(null), 2200)
+      if (ref.current) ref.current.value = ''
+      await load()
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Upload failed')
+      setTimeout(() => setToast(null), 2600)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
   async function updateGame(includeBuild: boolean, includeSource: boolean) {
     if (!game) return
     const build = includeBuild ? updateFileRef.current?.files?.[0] : null
@@ -382,7 +422,7 @@ export function GameDetailView({ id }: { id: string }) {
     try {
       const res = await api<{ gem: boolean }>(`/api/games/${game.id}/gem`, { method: 'POST' })
       setGame({ ...game, gem: res.gem })
-      setToast(res.gem ? 'Marked as a Hidden Gem! 💎' : 'Removed from Hidden Gems.')
+      setToast(res.gem ? 'Marked as a Hidden Gem! ' : 'Removed from Hidden Gems.')
       setTimeout(() => setToast(null), 2400)
     } catch (e) {
       setToast(e instanceof Error ? e.message : 'Failed')
@@ -434,6 +474,9 @@ export function GameDetailView({ id }: { id: string }) {
      updates the summary instantly (server stats are the fallback seed) */
   const rated = game.comments.filter((c) => c.rec === 1 || c.rec === 0)
   const starred = game.comments.filter((c) => typeof c.rating === 'number')
+  /* the SDK treatment only when the source zip actually IS the RetroBlox
+     Player SDK (Test #1 ships it) — a game's own source stays "Source" */
+  const isSdkSource = game.engine === 'Godot' && /sdk/i.test(game.sourceFileName || '')
   const rs = {
     avgRating: starred.length > 0 ? Math.round((starred.reduce((s, c) => s + (c.rating || 0), 0) / starred.length) * 10) / 10 : null,
     positivePct: rated.length > 0 ? Math.round((rated.filter((c) => c.rec === 1).length / rated.length) * 100) : null,
@@ -461,7 +504,12 @@ export function GameDetailView({ id }: { id: string }) {
         <span style={{ color: '#24425f' }}><FxText text={game.name} /></span>
         {game.gem && (
           <span title="An admin marked this game as a Hidden Gem" style={{ marginLeft: 8, fontSize: 10, color: '#8a6d1a', background: '#fdf3d7', border: '1px solid #d9c26a', borderRadius: 8, padding: '1px 8px' }}>
-            💎 Hidden Gem
+             Hidden Gem
+          </span>
+        )}
+        {typeof game.seqId === 'number' && (
+          <span title={`Game ID #${game.seqId} — the game's short human ID (publish order)`} style={{ marginLeft: 8, fontSize: 10, fontFamily: 'monospace', color: '#0d69ac', background: '#eef5fb', border: '1px solid #9ec3dd', borderRadius: 8, padding: '1px 8px' }}>
+            Game ID: #{game.seqId}
           </span>
         )}
       </div>
@@ -548,25 +596,32 @@ export function GameDetailView({ id }: { id: string }) {
               <Tag>{`Maturity: ${game.maturity}`}</Tag>
               <Tag>{`Engine: ${game.engine}`}</Tag>
               {game.subgenre && <Tag>{game.subgenre}</Tag>}
+              {typeof game.seqId === 'number' && <Tag>{`Game ID: #${game.seqId}`}</Tag>}
             </div>
           </div>
 
-          {/* source code (GitHub-style) */}
+          {/* source code — when the source IS the RetroBlox SDK, say so loud */}
           {game.sourceFileId && (
             <div className="rb-box" style={{ marginTop: 12 }}>
-              <div className="rb-panel-head"><span>Source Code</span></div>
+              <div className="rb-panel-head"><span>{isSdkSource ? 'Source Code — the RetroBlox SDK' : 'Source Code'}</span></div>
               <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 20 }}>&lt;/&gt;</span>
                 <div style={{ flex: 1, minWidth: 140 }}>
                   <div style={{ font: 'bold 12px Verdana', color: '#24425f' }}>{game.sourceFileName || 'source.zip'}</div>
-                  <div style={{ fontSize: 10, color: '#7b8896' }}>Open-sourced by the creator — fork it, remix it!</div>
+                  <div style={{ fontSize: 10, color: '#7b8896' }}>
+                    {isSdkSource
+                      ? 'THE SDK, not the game file — unzip it, open the RetroBloxPlayer folder in Godot 4.5+, press Play. The STUDIO scenes inside (UI / map / player editors) unlock for game devs.'
+                      : 'Open-sourced by the creator — fork it, remix it!'}
+                  </div>
                 </div>
                 <a
-                  className="rb-btn"
-                  href={`/api/files/${game.sourceFileId}?dl=1`}
-                  download={game.sourceFileName || 'source.zip'}
+                  className={isSdkSource ? 'rb-btn rb-btn-green' : 'rb-btn'}
+                  href={`/download?u=${encodeURIComponent(`/api/files/${game.sourceFileId}?dl=1`)}&n=${encodeURIComponent(game.sourceFileName || 'source.zip')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={isSdkSource ? { fontSize: 13, padding: '9px 16px', textDecoration: 'none' } : undefined}
                 >
-                  Download Source
+                  {isSdkSource ? 'Download the SDK (.zip)' : 'Download Source'}
                 </a>
               </div>
             </div>
@@ -605,8 +660,8 @@ export function GameDetailView({ id }: { id: string }) {
                   <div style={{ width: `${rs.positivePct ?? 0}%` }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#7b8896', marginTop: 3 }}>
-                  <span style={{ color: '#2c6e31' }}>👍 {rs.recCount} recommend</span>
-                  <span style={{ color: '#a03a34' }}>👎 {rs.notRecCount} do not</span>
+                  <span style={{ color: '#2c6e31' }}>{rs.recCount} recommend</span>
+                  <span style={{ color: '#a03a34' }}>{rs.notRecCount} do not</span>
                 </div>
               </div>
             </div>
@@ -780,7 +835,7 @@ export function GameDetailView({ id }: { id: string }) {
                               color: c.rec === 1 ? '#2c6e31' : '#a03a34',
                             }}
                           >
-                            {c.rec === 1 ? '👍 Recommended' : '👎 Not Recommended'}
+                            {c.rec === 1 ? 'Recommended' : 'Not Recommended'}
                           </span>
                         ) : null}
                         {typeof c.rating === 'number' && (
@@ -951,14 +1006,27 @@ export function GameDetailView({ id }: { id: string }) {
 
             {/* PLAY / DOWNLOAD button */}
             <div style={{ marginTop: 14 }}>
-              {downloaded ? (
+              {game.engine === 'Web' ? (
+                <>
+                  <Link
+                    href={`/play/${game.id}`}
+                    className="rb-btn rb-btn-green"
+                    style={{ display: 'block', width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
+                  >
+                    &#9654; Play now — in your browser!
+                  </Link>
+                  <div style={{ textAlign: 'center', fontSize: 10, color: '#7b8896', marginTop: 6 }}>
+                    Web game — no download, it runs right here on RetroBlox.
+                  </div>
+                </>
+              ) : downloaded ? (
                 <>
                   <button
                     className="rb-btn rb-btn-green"
                     onClick={playNow}
                     style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
                   >
-                    ▶ Play now
+                    Play now
                   </button>
                   <button
                     className="rb-link"
@@ -984,12 +1052,14 @@ export function GameDetailView({ id }: { id: string }) {
                   disabled={busy}
                   style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
                 >
-                  {busy ? 'Preparing...' : '⬇ Download'}
+                  {busy ? 'Preparing...' : 'Download Game File'}
                 </button>
               )}
               {game.fileName && (
                 <div style={{ textAlign: 'center', fontSize: 10, color: '#7b8896', marginTop: 6 }}>
-                  {game.fileName} — opens with its own engine ({game.engine})
+                  {game.fileName.endsWith('.retroplace')
+                    ? `${game.fileName} — the GAME FILE. Open it in RetroBlox: STUDIO → OPEN GAME FILE. The SDK is the green Source Code download.`
+                    : `${game.fileName} — opens with its own engine (${game.engine})`}
                 </div>
               )}
             </div>
@@ -1105,6 +1175,20 @@ export function GameDetailView({ id }: { id: string }) {
                 {game.isOwner && (
                   <>
                     <div>
+                      <div style={{ font: '10px Verdana', color: '#24425f', marginBottom: 4 }}>Change the game icon (square, max 2MB):</div>
+                      <input ref={iconInputRef} type="file" accept="image/*" style={{ fontSize: 10, maxWidth: '100%' }} aria-label="New game icon" />
+                      <button className="rb-btn" style={{ marginTop: 5 }} disabled={updating} onClick={() => updateArt('icon')}>
+                        Update Icon
+                      </button>
+                    </div>
+                    <div>
+                      <div style={{ font: '10px Verdana', color: '#24425f', marginBottom: 4 }}>Change the thumbnail / banner (max 3MB):</div>
+                      <input ref={thumbInputRef} type="file" accept="image/*" style={{ fontSize: 10, maxWidth: '100%' }} aria-label="New game thumbnail" />
+                      <button className="rb-btn" style={{ marginTop: 5 }} disabled={updating} onClick={() => updateArt('thumbnail')}>
+                        Update Thumbnail
+                      </button>
+                    </div>
+                    <div>
                       <div style={{ font: '10px Verdana', color: '#24425f', marginBottom: 4 }}>Replace game build:</div>
                       <input ref={updateFileRef} type="file" style={{ fontSize: 10, maxWidth: '100%' }} aria-label="New build file" />
                       <button className="rb-btn" style={{ marginTop: 5 }} disabled={updating} onClick={() => updateGame(true, false)}>
@@ -1131,7 +1215,7 @@ export function GameDetailView({ id }: { id: string }) {
                 )}
                 {isAdmin && (
                   <button className="rb-btn" onClick={toggleGem} type="button" style={{ justifySelf: 'start', borderColor: '#d9c26a' }}>
-                    {game.gem ? '💎 Unmark Hidden Gem' : '💎 Mark as Hidden Gem'}
+                    {game.gem ? ' Unmark Hidden Gem' : ' Mark as Hidden Gem'}
                   </button>
                 )}
                 <button className="rb-btn rb-btn-red" onClick={deleteGame} style={{ justifySelf: 'start' }}>

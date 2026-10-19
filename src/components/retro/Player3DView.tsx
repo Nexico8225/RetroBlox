@@ -11,6 +11,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import {
   applyLook,
   loadClipsRetargeted,
+  loadSelfAnimatedModel,
   prepareRigView,
   stopWornMixers,
   updateWornMixers,
@@ -42,18 +43,46 @@ interface Player3DViewProps {
   className?: string
   /** rigged clips to play ON the body (emote / animation pack) */
   anim?: RigAnim | null
+  /** WYSIWYG mode: the UPLOADED MODEL ITSELF stands in and plays its own
+   *  clips (the body hides) — no retargeting at all. This is EXACTLY how the
+   *  Godot game plays a custom emote (avatar_rig.gd start_custom_emote:
+   *  spawn the GLB, play its AnimationPlayer, hide the body), so what the
+   *  creator previews here is what every player sees in-game. Use it for
+   *  emotes authored on a custom rig; retarget previews stay available for
+   *  clips animated on the official R6 template. */
+  selfAnim?: boolean
+  /** timeline scrubber: a non-null SECONDS freezes the clip at that exact
+   *  moment; null resumes normal playback (the emote studio timeline) */
+  scrub?: number | null
+  /** reports the ACTIVE clip's duration (seconds) whenever a clip starts —
+   *  0 when nothing plays — so a timeline can size its slider */
+  onClipTime?: (duration: number) => void
 }
 
-export default function Player3DView({ look, height = 320, interactive = true, zoom = 1, flat = false, className, anim = null }: Player3DViewProps) {
+export default function Player3DView({ look, height = 320, interactive = true, zoom = 1, flat = false, className, anim = null, scrub = null, onClipTime, selfAnim = false }: Player3DViewProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
+  // bumped once the rig finished loading — the anim effect waits for it,
+  // otherwise the FIRST preview render (rig still loading) silently skipped
+  // its animation and the box stood frozen until the clip picker was touched
+  const [readyTick, setReadyTick] = useState(0)
+  const sceneRef = useRef<THREE.Scene | null>(null)
+  const selfModelRef = useRef<THREE.Group | null>(null)
   const stateRef = useRef<{ view: THREE.Group; rig: LoadedRig } | null>(null)
   const lookRef = useRef<AvatarLook3D>(look)
   // the look object arrives fresh each render — key it by its data
   const lookKey = JSON.stringify(look)
   const animKey = anim ? `${anim.url}|${anim.clips.join(',')}|${anim.single ? 1 : 0}` : ''
+  const selfKey = selfAnim ? '1' : '0'
   // the retargeted clip sequence, shared between the anim effect and the raf loop
   const mixerSeqRef = useRef<{ mixer: THREE.AnimationMixer; seq: THREE.AnimationAction[]; idx: number; timer: number; single: boolean } | null>(null)
+  // timeline scrub + duration callback land in refs so the raf loop reads
+  // fresh values without re-binding the whole scene
+  const scrubRef = useRef<number | null>(scrub)
+  const reportRef = useRef<typeof onClipTime>(onClipTime)
+  const scrubbingRef = useRef(false)
+  useEffect(() => { scrubRef.current = scrub }, [scrub])
+  useEffect(() => { reportRef.current = onClipTime }, [onClipTime])
 
   useEffect(() => {
     const host = hostRef.current
@@ -141,16 +170,31 @@ export default function Player3DView({ look, height = 320, interactive = true, z
       // advance the retargeted clip sequence (emote loop / anim-pack cycle)
       const seq = mixerSeqRef.current
       if (seq) {
-        seq.mixer.update(1 / 60)
-        seq.timer += 1 / 60
-        if (!seq.single && seq.seq.length > 1) {
-          const cur = seq.seq[seq.idx]
-          const dur = Math.min(cur.getClip().duration, 2.6)
-          if (seq.timer >= dur) {
-            seq.timer = 0
-            cur.fadeOut(0.24)
-            seq.idx = (seq.idx + 1) % seq.seq.length
-            seq.seq[seq.idx].reset().fadeIn(0.24).play()
+        // the studio timeline: freeze every action at the scrub moment
+        const at = scrubRef.current
+        if (at != null) {
+          for (const a of seq.seq) {
+            a.paused = true
+            a.time = Math.max(0, Math.min(at, a.getClip().duration))
+          }
+          seq.mixer.update(0)
+          scrubbingRef.current = true
+        } else {
+          if (scrubbingRef.current) {
+            for (const a of seq.seq) a.paused = false
+            scrubbingRef.current = false
+          }
+          seq.mixer.update(1 / 60)
+          seq.timer += 1 / 60
+          if (!seq.single && seq.seq.length > 1) {
+            const cur = seq.seq[seq.idx]
+            const dur = Math.min(cur.getClip().duration, 2.6)
+            if (seq.timer >= dur) {
+              seq.timer = 0
+              cur.fadeOut(0.24)
+              seq.idx = (seq.idx + 1) % seq.seq.length
+              seq.seq[seq.idx].reset().fadeIn(0.24).play()
+            }
           }
         }
       }
@@ -166,7 +210,9 @@ export default function Player3DView({ look, height = 320, interactive = true, z
         if (disposed) return
         stateRef.current = { view, rig }
         scene.add(view)
+        sceneRef.current = scene
         setReady(true)
+        setReadyTick((t) => t + 1)
         return applyLook(view, rig, lookRef.current)
       })
       .catch(() => {
@@ -208,41 +254,101 @@ export default function Player3DView({ look, height = 320, interactive = true, z
   // rigged clips — load, retarget by node name, and hand to the animate loop.
   // single=true loops one clip (an emote); otherwise the mapped clips cycle
   // in order: the realtime idle -> walk -> jump -> climb -> fall takeover.
+  // FALLBACK: when the clip's rig matches NOTHING on the body (a foreign
+  // skeleton — typical for Roblox models exported from Blender), the uploaded
+  // MODEL ITSELF stands in and plays its own clips, so the preview always
+  // shows a moving character instead of a frozen body.
   useEffect(() => {
     if (!anim || anim.clips.length === 0) return
     let cancelled = false
     const stash = stateRef.current
-    if (!stash) return
+    const scene = sceneRef.current
+    if (!stash || !scene) return
     const view = stash.view
-    loadClipsRetargeted(anim.url, view)
-      .then((bound) => {
-        if (cancelled || bound.length === 0) return
-        const ordered: THREE.AnimationClip[] = []
-        for (const name of anim.clips) {
-          const hit = bound.find((c) => c.name === name)
-          if (hit) ordered.push(hit)
-        }
-        if (ordered.length === 0) ordered.push(...bound)
-        const mixer = new THREE.AnimationMixer(view)
-        const actions = ordered.map((c) => mixer.clipAction(c))
-        actions.forEach((a, i) => a.play())
-        // restart the sequence when the component re-animates — a fresh
-        // seq ref keeps the animate loop below from advancing a dead mixer
-        mixerSeqRef.current = { mixer, seq: actions, idx: 0, timer: 0, single: !!anim.single }
-        if (anim.single && actions[0]) {
-          actions.slice(1).forEach((a) => a.stop())
-        }
+
+    const cleanupSelf = () => {
+      if (selfModelRef.current) {
+        scene.remove(selfModelRef.current)
+        selfModelRef.current.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh) return
+          const mat = m.material as THREE.Material | THREE.Material[]
+          if (Array.isArray(mat)) mat.forEach((x) => x.dispose())
+          else mat?.dispose()
+        })
+        selfModelRef.current = null
+      }
+      view.visible = true
+    }
+    cleanupSelf()
+
+    const startSeq = (root: THREE.Object3D, ordered: THREE.AnimationClip[]) => {
+      if (ordered.length === 0) return
+      const mixer = new THREE.AnimationMixer(root)
+      const actions = ordered.map((c) => mixer.clipAction(c))
+      actions.forEach((a) => a.play())
+      mixerSeqRef.current = { mixer, seq: actions, idx: 0, timer: 0, single: !!anim.single }
+      if (anim.single && actions[0]) {
+        actions.slice(1).forEach((a) => a.stop())
+      }
+      reportRef.current?.(actions[0].getClip().duration)
+    }
+
+    // the self stand-in: hide the body, normalize the uploaded model to rig
+    // height and let it play its OWN clips — byte-for-byte what the game does
+    const standIn = async () => {
+      const self = await loadSelfAnimatedModel(anim.url)
+      if (cancelled || !sceneRef.current) return
+      cleanupSelf()
+      self.group.traverse((o) => {
+        const m = o as THREE.Mesh
+        if (m.isMesh) m.castShadow = true
       })
-      .catch(() => {})
+      selfModelRef.current = self.group
+      scene.add(self.group)
+      view.visible = false
+      const wanted = self.clips.filter((c) => anim.clips.includes(c.name))
+      startSeq(self.group, wanted.length > 0 ? wanted : self.clips)
+    }
+
+    if (selfAnim) {
+      // WYSIWYG: never retarget — the creator's own rig is the truth.
+      // Retargeting a custom rig onto the R6 body is an approximation that
+      // breaks the moment rest poses differ (frozen torso, an arm floating
+      // off); the game never retargets custom emotes either.
+      standIn().catch(() => {})
+    } else {
+      loadClipsRetargeted(anim.url, view)
+        .then(async (bound) => {
+          if (cancelled) return
+          if (bound.length > 0) {
+            const ordered: THREE.AnimationClip[] = []
+            for (const name of anim.clips) {
+              const hit = bound.find((c) => c.name === name)
+              if (hit) ordered.push(hit)
+            }
+            if (ordered.length === 0) ordered.push(...bound)
+            startSeq(view, ordered)
+            return
+          }
+          // nothing bound — self-preview fallback so the body never stands frozen
+          await standIn()
+        })
+        .catch(() => {})
+    }
     return () => {
       cancelled = true
+      cleanupSelf()
       const cur = mixerSeqRef.current
       if (cur) {
         cur.mixer.stopAllAction()
         mixerSeqRef.current = null
       }
+      scrubbingRef.current = false
+      reportRef.current?.(0)
     }
-  }, [animKey])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animKey, readyTick, selfKey])
 
   return (
     <div
