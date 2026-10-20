@@ -103,26 +103,48 @@ func _ready() -> void:
         _show_loading()
         await get_tree().process_frame
 
-        var built: Dictionary = WorldBuilderScript.build(place)
-        add_child(built["root"])
-        _spawns = built["spawns"]
-        _built_root = Node3D.new()       # v13.1: bricks the player builds land here
-        _built_root.name = "BuiltBricks"
-        built["root"].add_child(_built_root)
-        if _spawns.is_empty():
-                _spawns.append(Vector3(0.0, 6.0, 0.0) * WorldBuilderScript.STUD)
+        # ---- check for existing scene nodes (editable in Godot Editor) ----
+        var existing_world := get_node_or_null("World") as Node3D
+        if existing_world != null:
+                _spawns.clear()
+                for s in existing_world.find_children("*", "Node3D", true, false):
+                        if (s as Node3D).is_in_group("spawn"):
+                                _spawns.append((s as Node3D).global_position + Vector3(0.0, 0.5 * WorldBuilderScript.STUD, 0.0))
+                if _spawns.is_empty():
+                        _spawns.append(Vector3(0.0, 3.0, 0.0) * WorldBuilderScript.STUD)
+                _built_root = existing_world.get_node_or_null("BuiltBricks") as Node3D
+                if _built_root == null:
+                        _built_root = Node3D.new()
+                        _built_root.name = "BuiltBricks"
+                        existing_world.add_child(_built_root)
+        else:
+                var built: Dictionary = WorldBuilderScript.build(place)
+                add_child(built["root"])
+                _spawns = built["spawns"]
+                _built_root = Node3D.new()       # v13.1: bricks the player builds land here
+                _built_root.name = "BuiltBricks"
+                built["root"].add_child(_built_root)
+                if _spawns.is_empty():
+                        _spawns.append(Vector3(0.0, 6.0, 0.0) * WorldBuilderScript.STUD)
         # a frame between the world and the player splits the spike
         await get_tree().process_frame
 
         # ---- me ----
-        player = LocalPlayerScript.new()
-        add_child(player)
+        var existing_player = get_node_or_null("Player")
+        if existing_player != null:
+                player = existing_player
+        else:
+                player = LocalPlayerScript.new()
+                add_child(player)
         player.global_position = _spawns[0]
         player.spawn_point = Transform3D(Basis(), _spawns[0])
         player.setup(Session.username)
         player.health_changed.connect(_on_health_changed)
         player.health_depleted.connect(_on_health_depleted)
         player.touched_group.connect(_on_touched_group)
+        if player.has_signal("trick_performed"):
+                player.trick_performed.connect(func(_id: String, trick_name: String) -> void:
+                        _notify(trick_name, true))
         _dress_me()
 
         # ---- collectibles + sound bed ----
@@ -149,7 +171,12 @@ func _ready() -> void:
                 camera_rig.set_mode("topdown")
         _apply_nameplates()
 
-        _build_hud()
+        var existing_hud := get_node_or_null("HUD") as CanvasLayer
+        if existing_hud != null:
+                hud = existing_hud
+                _bind_existing_hud()
+        else:
+                _build_hud()
 
         UiEditor.edit_mode_changed.connect(func(on: bool) -> void:
                 if on:
@@ -495,6 +522,81 @@ func _build_hud() -> void:
         _menu.theme = RetroUI.shared
         hud.add_child(_menu)
         # v1.1: honor the saved UI OPACITY the moment the menu exists
+        _apply_ui_opacity()
+
+
+## Bind to an existing editable HUD scene node from scenes/ui/hud.tscn
+func _bind_existing_hud() -> void:
+        chat = hud.get_node_or_null("ChatBox")
+        if chat == null:
+                chat = ChatBoxScript.new()
+                hud.add_child(chat)
+        chat.submitted.connect(_on_chat_submit)
+        chat.opened.connect(func() -> void: camera_rig.set_ui_blocked(true))
+        chat.closed.connect(func() -> void:
+                if not _menu_open:
+                        camera_rig.set_ui_blocked(false))
+
+        var topbar := hud.get_node_or_null("Topbar") as Control
+        if topbar != null:
+                var logo_btn := topbar.get_node_or_null("LogoBtn") as Button
+                if logo_btn != null:
+                        logo_btn.pressed.connect(func() -> void: _toggle_menu())
+                var chat_btn := topbar.get_node_or_null("ChatBtn") as Button
+                if chat_btn != null:
+                        chat_btn.pressed.connect(func() -> void:
+                                if chat.is_open:
+                                        chat.close()
+                                else:
+                                        chat.open())
+                        _chat_badge = chat_btn.get_node_or_null("ChatBadgePanel/ChatBadge") as Label
+                        _chat_badge_panel = chat_btn.get_node_or_null("ChatBadgePanel") as PanelContainer
+                        chat.unread.connect(func(n: int) -> void:
+                                if _chat_badge != null and is_instance_valid(_chat_badge):
+                                        _chat_badge.text = "" if n <= 0 else str(n)
+                                if _chat_badge_panel != null and is_instance_valid(_chat_badge_panel):
+                                        _chat_badge_panel.visible = n > 0)
+                UiEditor.register("topbar", topbar, false)
+
+        var user_pill := hud.get_node_or_null("UserPill") as Control
+        if user_pill != null:
+                var uname := user_pill.get_node_or_null("HBox/UserName") as Label
+                if uname != null:
+                        uname.text = Session.username
+                var gear := user_pill.get_node_or_null("HBox/SettingsBtn") as Button
+                if gear != null:
+                        gear.pressed.connect(func() -> void: _open_menu("settings"))
+                UiEditor.register("user_pill", user_pill, false)
+
+        var health_bar := hud.get_node_or_null("HealthBar") as Panel
+        if health_bar != null:
+                _health_fill = health_bar.get_node_or_null("Fill") as Panel
+                UiEditor.register("health", health_bar, false)
+        var chip_val := hud.get_node_or_null("HealthChip/HealthValue") as Label
+        if chip_val != null:
+                _health_value = chip_val
+
+        var stats_chip := hud.get_node_or_null("StatsChip") as PanelContainer
+        if stats_chip != null:
+                _corner_stats = stats_chip.get_node_or_null("CornerStats") as Label
+                UiEditor.register("stats_chip", stats_chip, false)
+
+        _center_cursor = hud.get_node_or_null("CenterCursor") as TextureRect
+        _toast_box = hud.get_node_or_null("ToastBox") as VBoxContainer
+        if _toast_box != null:
+                UiEditor.register("toasts", _toast_box, false)
+
+        for n in UiWidgetsScript.spawn_all(hud, self):
+                if n.has_meta("custom_health"):
+                        _custom_healthbars.append(n)
+                        (n as ProgressBar).value = _custom_health01 * 100.0
+
+        if Session.server_ui_game != "":
+                _fetch_server_ui()
+
+        _menu = _build_menu()
+        _menu.theme = RetroUI.shared
+        hud.add_child(_menu)
         _apply_ui_opacity()
 
 
@@ -1435,13 +1537,13 @@ func _leave_game() -> void:
                 get_tree().quit()
 
 
-var _menu_switch: Callable = func(_t: String) -> void: pass
+var _menu_switch: Callable
 
 
 func _open_menu(tab: String) -> void:
         if not _menu_open:
                 _toggle_menu()
-        if _menu_open:
+        if _menu_open and _menu_switch.is_valid():
                 _menu_switch.call(tab)
 
 
@@ -2020,13 +2122,15 @@ func _toggle_menu() -> void:
 func _on_health_changed(hp: float, max_hp: float) -> void:
         var ratio := clampf(hp / maxf(max_hp, 1.0), 0.0, 1.0)
         _custom_health01 = ratio
-        _health_value.text = str(int(roundf(hp)))
+        if _health_value != null and is_instance_valid(_health_value):
+                _health_value.text = str(int(roundf(hp)))
         # v12.1: the VERTICAL bar — the fill CLIMBS from the bottom edge and
         # its face lerp green -> red with the health
-        var sb: StyleBoxFlat = _health_fill_style(ratio)
-        _health_fill.add_theme_stylebox_override("panel", sb)
-        var inner := _health_track_h - 6.0
-        _health_fill.offset_top = 3.0 + inner * (1.0 - ratio)
+        if _health_fill != null and is_instance_valid(_health_fill):
+                var sb: StyleBoxFlat = _health_fill_style(ratio)
+                _health_fill.add_theme_stylebox_override("panel", sb)
+                var inner := _health_track_h - 6.0
+                _health_fill.offset_top = 3.0 + inner * (1.0 - ratio)
         # v14.0: the UI Editor's health bar widgets breathe with you too
         for hb in _custom_healthbars:
                 if is_instance_valid(hb):

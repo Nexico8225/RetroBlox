@@ -25,20 +25,33 @@ signal touched_group(group: String, node: Node3D)
 ## v4.0 GAME FEEL: fired on every hard landing with the impact speed —
 ## the camera dips for a beat so a big drop LANDS in your hands.
 signal land_impact(speed: float)
+## Nostalgic speedrun tech & glitches (wall hop, ladder flick, super bounce...)
+signal trick_performed(trick_id: String, trick_name: String)
 
 ## One stud in Godot units — shared by the world
 ## builder, camera and avatar rig. A player is 5 studs tall.
 const STUD := 1.0
 
+const WALK_SPEED := 16.0 * STUD
+const JUMP_SPEED := 50.0 * STUD
+const GRAVITY := 196.2 * STUD
+
 @export_group("Player Physics & Tuning")
-@export var walk_speed: float = 16.0 * STUD   # studs / second (classic WalkSpeed)
-@export var jump_height: float = 50.0 * STUD  # studs / second (classic JumpPower)
-@export var gravity: float = 196.2 * STUD     # studs / s^2 (classic workspace gravity)
+@export var walk_speed: float = WALK_SPEED   # studs / second (classic WalkSpeed)
+@export var jump_height: float = JUMP_SPEED  # studs / second (classic JumpPower)
+@export var gravity: float = GRAVITY         # studs / s^2 (classic workspace gravity)
 @export var coyote_time: float = 0.15         # grace window after walking off a ledge
 @export var max_air_jumps: int = 0            # 0 = normal 1 jump, 1 = double jump, etc.
 @export var momentum_enabled: bool = false    # gain momentum when moving continuously
 @export var momentum_max_multiplier: float = 2.2
 @export var momentum_buildup_rate: float = 0.6
+
+@export_group("Classic Speedrun Tech & Glitches")
+@export var glitches_enabled: bool = true          # Toggle classic speedrun tricks
+@export var wall_hop_enabled: bool = true          # Jump against wall seam/corner to hop up
+@export var ladder_flick_enabled: bool = true      # Boost jump when flicking off ladders
+@export var super_bounce_enabled: bool = true      # Time jump on bounce pad for sky launch
+@export var corner_clip_enabled: bool = true       # Shiftlock squeeze through corner seams
 
 const ACCEL_GROUND := 145.0 * STUD  # reach full speed in ~0.11s: crisp
 const ACCEL_AIR := 62.0 * STUD    # real air control — you can steer mid-jump
@@ -134,6 +147,7 @@ var _input_first_person := false
 var _last_vy := 0.0
 var _momentum := 1.0
 var _air_jumps_left := 0
+var _driven_this_frame := false
 
 
 func _init() -> void:
@@ -142,31 +156,40 @@ func _init() -> void:
         collision_mask = 1
         floor_snap_length = FLOOR_SNAP
         floor_max_angle = deg_to_rad(50.0)
+        _ensure_components()
 
-        # v11.0: THE REAL R6 HITBOX — the classic Roblox character collides
-        # as a 2 x 5 x 1 stud BOX (2 across the shoulders, 5 tall, 1 deep),
-        # riding the body's rotation — not the old fat capsule that let you
-        # stand on air and slide through gaps the avatar clearly couldn't.
-        var col := CollisionShape3D.new()
-        var box := BoxShape3D.new()
-        box.size = Vector3(2.0 * STUD, 5.0 * STUD, 1.0 * STUD)
-        col.shape = box
-        col.position = Vector3(0.0, 2.5 * STUD, 0.0)
-        add_child(col)
 
-        avatar = AvatarRigScript.new()
-        avatar.name = "Avatar"
-        add_child(avatar)
+func _ensure_components() -> void:
+        var col := get_node_or_null("CollisionShape3D") as CollisionShape3D
+        if col == null:
+                col = CollisionShape3D.new()
+                col.name = "CollisionShape3D"
+                var box := BoxShape3D.new()
+                box.size = Vector3(2.0 * STUD, 5.0 * STUD, 1.0 * STUD)
+                col.shape = box
+                col.position = Vector3(0.0, 2.5 * STUD, 0.0)
+                add_child(col)
 
-        bubble = ChatBubbleScript.new()
-        bubble.name = "ChatBubble"
-        add_child(bubble)
+        if avatar == null:
+                avatar = get_node_or_null("Avatar")
+                if avatar == null:
+                        avatar = AvatarRigScript.new()
+                        avatar.name = "Avatar"
+                        add_child(avatar)
+
+        if bubble == null:
+                bubble = get_node_or_null("ChatBubble")
+                if bubble == null:
+                        bubble = ChatBubbleScript.new()
+                        bubble.name = "ChatBubble"
+                        add_child(bubble)
 
         _setup_ladder_sensor()
         _setup_touch_sensor()
 
 
 func _ready() -> void:
+        _ensure_components()
         # autoloads are reachable from _ready — never from _init
         _settings = get_node_or_null("/root/Settings")
         load_tuning()
@@ -248,6 +271,29 @@ func _physics_process(delta: float) -> void:
                 _bounce_cd -= delta
         _update_loops()
 
+        # Standalone / decoupled movement: guarantees the character always moves
+        # on WASD / Arrow keys / Space even if game.gd didn't drive it this frame.
+        if not _driven_this_frame and alive:
+                var dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+                var cam := get_viewport().get_camera_3d() if get_viewport() != null else null
+                var cam_yaw := cam.global_rotation.y if cam != null else global_rotation.y
+                var jump_just := Input.is_action_just_pressed("jump") or Input.is_key_pressed(KEY_SPACE)
+                var jump_held := Input.is_action_pressed("jump") or Input.is_key_pressed(KEY_SPACE)
+                if dir == Vector2.ZERO:
+                        var dx := 0.0
+                        var dy := 0.0
+                        if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+                                dx -= 1.0
+                        if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+                                dx += 1.0
+                        if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+                                dy -= 1.0
+                        if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+                                dy += 1.0
+                        dir = Vector2(dx, dy).normalized()
+                drive(delta, dir, cam_yaw, jump_just, false, false, jump_held)
+        _driven_this_frame = false
+
 
 ## One classic physics step. `direction.y < 0` = forward (W), cam_yaw orients
 ## the input, `just_pressed` is the raw jump press this frame and `jump_held`
@@ -255,6 +301,7 @@ func _physics_process(delta: float) -> void:
 ## hold-to-jump). `first_person` locks the body to the camera yaw like shift
 ## lock, but ladders still climb.
 func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool, use_shiftlock: bool, first_person := false, jump_held := false) -> void:
+        _driven_this_frame = true
         if not alive:
                 return
         _input_shiftlock = use_shiftlock
@@ -428,9 +475,18 @@ func _drive_climb(wish: Vector3, _delta: float) -> void:
         if _jump_buffer_left > 0.0:
                 _jump_buffer_left = 0.0
                 _ladder_dismount = LADDER_DISMOUNT   # fly free, no instant re-grab
-                velocity.y = LADDER_JUMP
-                velocity.x = -_climb_face.x * 8.0 * STUD  # push OFF the surface
-                velocity.z = -_climb_face.z * 8.0 * STUD
+                var is_flick := glitches_enabled and ladder_flick_enabled and (wish.length_squared() > 0.01)
+                if is_flick:
+                        velocity.y = LADDER_JUMP * 1.3
+                        velocity.x = -_climb_face.x * 12.0 * STUD
+                        velocity.z = -_climb_face.z * 12.0 * STUD
+                        _play_jump_sound(1.25)
+                        _dust(1.8)
+                        trick_performed.emit("ladder_flick", "✨ Ladder Flick!")
+                else:
+                        velocity.y = LADDER_JUMP
+                        velocity.x = -_climb_face.x * 8.0 * STUD  # push OFF the surface
+                        velocity.z = -_climb_face.z * 8.0 * STUD
                 _stop_climb()
         elif up_amount > 0.2:
                 velocity.y = CLIMB_SPEED
@@ -549,15 +605,28 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
         elif velocity.y < 0.0:
                 velocity.y = 0.0
 
+        # Classic Corner Clip Tech:
+        if glitches_enabled and corner_clip_enabled and (_input_shiftlock or _input_first_person) and is_on_wall():
+                if wish.length_squared() > 0.7:
+                        var probe_dir := wish.normalized()
+                        if not test_move(Transform3D(global_transform.basis, global_position + probe_dir * 1.4 * STUD), Vector3.ZERO):
+                                global_position += probe_dir * 1.4 * STUD
+                                _play_jump_sound(1.35)
+                                _dust(1.6)
+                                trick_performed.emit("corner_clip", "🌀 Corner Clip!")
+
         # Jump handling: ground / coyote jump, plus mid-air jumps (double/multi jump)
         if _rise_left <= 0.0 and _jump_buffer_left > 0.0:
                 if is_on_floor() or _coyote > 0.0:
+                        var used_coyote := not is_on_floor() and _coyote > 0.0
                         _jump_buffer_left = 0.0
                         _coyote = 0.0
                         _air_jumps_left = max_air_jumps
                         velocity.y = jump_height
                         _play_jump_sound()
-                        _dust()
+                        _dust(1.2 if used_coyote else 1.0)
+                        if used_coyote and glitches_enabled:
+                                trick_performed.emit("coyote_jump", "💨 Ledge Jump!")
                 elif _air_jumps_left > 0:
                         # Mid-air jump!
                         _jump_buffer_left = 0.0
@@ -565,6 +634,17 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
                         velocity.y = jump_height
                         _play_jump_sound()
                         _dust(1.3)
+                elif glitches_enabled and wall_hop_enabled and is_on_wall():
+                        # CLASSIC WALL HOP GLITCH:
+                        # When airborne against a vertical wall, flick jump off the surface!
+                        _jump_buffer_left = 0.0
+                        velocity.y = jump_height * 0.95
+                        var wall_normal := get_wall_normal()
+                        velocity.x += wall_normal.x * 6.0 * STUD
+                        velocity.z += wall_normal.z * 6.0 * STUD
+                        _play_jump_sound(1.2)
+                        _dust(1.5)
+                        trick_performed.emit("wall_hop", "⚡ Wall Hop!")
 
 
 ## A soft dust puff at the feet — takeoffs, hard landings, bounces.
@@ -753,11 +833,18 @@ func _do_bounce() -> void:
         if not alive or _bounce_cd > 0.0:
                 return
         _bounce_cd = BOUNCE_COOLDOWN
-        velocity.y = BOUNCE_POWER
+        var super_bounce := glitches_enabled and super_bounce_enabled and (_jump_buffer_left > 0.0 or Input.is_action_pressed("jump") or Input.is_key_pressed(KEY_SPACE))
+        if super_bounce:
+                velocity.y = BOUNCE_POWER * 1.38
+                _play_jump_sound(1.3)
+                _dust(2.4)
+                trick_performed.emit("super_bounce", "🚀 Super Bounce!")
+        else:
+                velocity.y = BOUNCE_POWER
+                _play_jump_sound(0.9)
+                _dust(1.4)
         _falling = true
         _fall_peak_y = global_position.y
-        _play_jump_sound(0.9)
-        _dust(1.4)
 
 
 # ---------------------------------------------------------------- sounds
@@ -787,7 +874,7 @@ func _update_loops() -> void:
         _steps_loop.playing = walking
         if walking:
                 # Roblox runs the plastic loop at 1.85; scale a little with speed
-                _steps_loop.pitch_scale = clampf(1.85 * (0.9 + hspeed / WALK_SPEED * 0.2), 1.4, 2.2)
+                _steps_loop.pitch_scale = clampf(1.85 * (0.9 + hspeed / maxf(walk_speed, 1.0) * 0.2), 1.4, 2.2)
         _climb_loop.playing = alive and climbing
         if _fall_loop != null and is_instance_valid(_fall_loop):
                 var plummeting := alive and not grounded and not climbing and velocity.y < -FALL_WIND_SPEED
@@ -803,46 +890,66 @@ func _update_loops() -> void:
 ## or a 2-stud step with your LEGS must not put you into the climb grip.
 ## Only when your TORSO reaches the volume does climbing engage (Roblox rule).
 func _setup_ladder_sensor() -> void:
-        var area := Area3D.new()
-        area.name = "LadderSensor"
-        area.collision_layer = 0
-        area.collision_mask = 16
-        area.monitorable = false
-        var shape_node := CollisionShape3D.new()
-        var shape := BoxShape3D.new()
-        shape.size = Vector3(2.2 * STUD, 2.4 * STUD, 1.2 * STUD)
-        shape_node.shape = shape
-        shape_node.position = Vector3(0.0, 2.9 * STUD, 0.0)
-        area.add_child(shape_node)
-        add_child(area)
-        area.area_entered.connect(func(other: Area3D) -> void:
+        var area := get_node_or_null("LadderSensor") as Area3D
+        if area == null:
+                area = Area3D.new()
+                area.name = "LadderSensor"
+                area.collision_layer = 0
+                area.collision_mask = 16
+                area.monitorable = false
+                var shape_node := CollisionShape3D.new()
+                var shape := BoxShape3D.new()
+                shape.size = Vector3(2.2 * STUD, 2.4 * STUD, 1.2 * STUD)
+                shape_node.shape = shape
+                shape_node.position = Vector3(0.0, 2.9 * STUD, 0.0)
+                area.add_child(shape_node)
+                add_child(area)
+
+        var enter_ladder := func(other: Node) -> void:
                 if other.is_in_group("ladder") and not _ladder_areas.has(other):
-                        _ladder_areas.append(other))
-        area.area_exited.connect(func(other: Area3D) -> void:
-                _ladder_areas.erase(other))
+                        _ladder_areas.append(other)
+        var exit_ladder := func(other: Node) -> void:
+                _ladder_areas.erase(other)
+
+        if not area.area_entered.is_connected(enter_ladder):
+                area.area_entered.connect(enter_ladder)
+        if not area.area_exited.is_connected(exit_ladder):
+                area.area_exited.connect(exit_ladder)
+        if not area.body_entered.is_connected(enter_ladder):
+                area.body_entered.connect(enter_ladder)
+        if not area.body_exited.is_connected(exit_ladder):
+                area.body_exited.connect(exit_ladder)
 
 
 ## Touch sensor for special parts: kill bricks, goals, checkpoints, bouncy
-## pads. They are StaticBody3D nodes in the matching group on layer 1.
+## pads. They are StaticBody3D or Area3D nodes in the matching group on layer 1.
 func _setup_touch_sensor() -> void:
-        var area := Area3D.new()
-        area.name = "TouchSensor"
-        area.collision_layer = 0
-        area.collision_mask = 1
-        area.monitorable = false
-        var shape_node := CollisionShape3D.new()
-        var shape := CapsuleShape3D.new()
-        shape.radius = 1.45 * STUD
-        shape.height = 5.4 * STUD
-        shape_node.shape = shape
-        shape_node.position = Vector3(0.0, 2.6 * STUD, 0.0)
-        area.add_child(shape_node)
-        add_child(area)
-        area.body_entered.connect(func(other: Node3D) -> void:
+        var area := get_node_or_null("TouchSensor") as Area3D
+        if area == null:
+                area = Area3D.new()
+                area.name = "TouchSensor"
+                area.collision_layer = 0
+                area.collision_mask = 1
+                area.monitorable = false
+                var shape_node := CollisionShape3D.new()
+                var shape := CapsuleShape3D.new()
+                shape.radius = 1.45 * STUD
+                shape.height = 5.4 * STUD
+                shape_node.shape = shape
+                shape_node.position = Vector3(0.0, 2.6 * STUD, 0.0)
+                area.add_child(shape_node)
+                add_child(area)
+
+        var on_touched := func(other: Node) -> void:
                 for g in ["kill", "goal", "checkpoint", "bounce"]:
                         if other.is_in_group(g):
                                 if g == "bounce":
                                         _do_bounce()
                                         return
-                                touched_group.emit(g, other)
-                                return)
+                                touched_group.emit(g, other as Node3D)
+                                return
+
+        if not area.body_entered.is_connected(on_touched):
+                area.body_entered.connect(on_touched)
+        if not area.area_entered.is_connected(on_touched):
+                area.area_entered.connect(on_touched)

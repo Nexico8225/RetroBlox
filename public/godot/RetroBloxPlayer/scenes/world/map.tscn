@@ -1,0 +1,305 @@
+[gd_scene load_steps=29 format=3]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
+sky_top_color = Color(0.239216, 0.560784, 0.819608, 1)
+sky_horizon_color = Color(0.74902, 0.878431, 0.960784, 1)
+ground_bottom_color = Color(0.164706, 0.364706, 0.219608, 1)
+ground_horizon_color = Color(0.74902, 0.878431, 0.960784, 1)
+sun_angle_max = 30.0
+sun_curve = 0.12
+
+[sub_resource type="Sky" id="Sky_env"]
+sky_material = SubResource("ProceduralSkyMaterial_sky")
+
+[sub_resource type="Environment" id="Environment_world"]
+background_mode = 2
+sky = SubResource("Sky_env")
+ambient_light_source = 3
+ambient_light_color = Color(0.65, 0.75, 0.85, 1)
+ambient_light_energy = 0.74
+ambient_light_sky_contribution = 0.68
+tonemap_mode = 0
+fog_enabled = true
+fog_light_color = Color(0.862745, 0.913725, 0.960784, 1)
+fog_density = 0.0009
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_baseplate"]
+size = Vector3(80, 1, 80)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gray"]
+albedo_color = Color(0.639216, 0.635294, 0.647059, 1)
+roughness = 0.82
+
+[sub_resource type="BoxMesh" id="BoxMesh_baseplate"]
+material = SubResource("StandardMaterial3D_gray")
+size = Vector3(80, 1, 80)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_spawn"]
+size = Vector3(6, 0.6, 6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spawn"]
+albedo_color = Color(0.811765, 0.831373, 0.854902, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="BoxMesh_spawn"]
+material = SubResource("StandardMaterial3D_spawn")
+size = Vector3(6, 0.6, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_step"]
+size = Vector3(10, 1, 3)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brick"]
+albedo_color = Color(0.768627, 0.156863, 0.109804, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="BoxMesh_step"]
+material = SubResource("StandardMaterial3D_brick")
+size = Vector3(10, 1, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_fort"]
+size = Vector3(16, 1, 14)
+
+[sub_resource type="BoxMesh" id="BoxMesh_fort"]
+material = SubResource("StandardMaterial3D_brick")
+size = Vector3(16, 1, 14)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_high_plat"]
+size = Vector3(12, 1, 12)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blue"]
+albedo_color = Color(0.0509804, 0.411765, 0.67451, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="BoxMesh_high_plat"]
+material = SubResource("StandardMaterial3D_blue")
+size = Vector3(12, 1, 12)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ladder"]
+size = Vector3(2.4, 10, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_trampoline"]
+size = Vector3(8, 0.8, 8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_trampoline"]
+albedo_color = Color(0, 0.9, 0.7, 1)
+emission_enabled = true
+emission = Color(0, 0.6, 0.5, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_trampoline"]
+material = SubResource("StandardMaterial3D_trampoline")
+size = Vector3(8, 0.8, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_goal"]
+size = Vector3(4, 0.8, 4)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gold"]
+albedo_color = Color(1, 0.843137, 0, 1)
+metallic = 0.8
+roughness = 0.3
+
+[sub_resource type="BoxMesh" id="BoxMesh_goal"]
+material = SubResource("StandardMaterial3D_gold")
+size = Vector3(4, 0.8, 4)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_lava"]
+size = Vector3(8, 0.4, 8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lava"]
+albedo_color = Color(1, 0.2, 0.05, 1)
+emission_enabled = true
+emission = Color(1, 0.15, 0, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_lava"]
+material = SubResource("StandardMaterial3D_lava")
+size = Vector3(8, 0.4, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_checkpoint"]
+size = Vector3(5, 0.4, 5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_checkpoint"]
+albedo_color = Color(0.1, 0.8, 0.9, 1)
+emission_enabled = true
+emission = Color(0.05, 0.5, 0.7, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_checkpoint"]
+material = SubResource("StandardMaterial3D_checkpoint")
+size = Vector3(5, 0.4, 5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_corner"]
+size = Vector3(1, 10, 6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_corner"]
+material = SubResource("StandardMaterial3D_gray")
+size = Vector3(1, 10, 6)
+
+[node name="World" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_world")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.286788, 0.409576, 0, 0.819152, 0.573576, -0.5, -0.496732, 0.709406, 0, 20, 0)
+light_color = Color(1, 0.952941, 0.839216, 1)
+light_energy = 1.14
+shadow_enabled = true
+directional_shadow_max_distance = 90.0
+
+[node name="Spawns" type="Node3D" parent="."]
+
+[node name="SpawnLocation" type="StaticBody3D" parent="Spawns" groups=["spawn"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 20)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Spawns/SpawnLocation"]
+shape = SubResource("BoxShape3D_spawn")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Spawns/SpawnLocation"]
+mesh = SubResource("BoxMesh_spawn")
+
+[node name="MapParts" type="Node3D" parent="."]
+
+[node name="Baseplate" type="StaticBody3D" parent="MapParts"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/Baseplate"]
+shape = SubResource("BoxShape3D_baseplate")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/Baseplate"]
+mesh = SubResource("BoxMesh_baseplate")
+
+[node name="Stairs" type="Node3D" parent="MapParts"]
+
+[node name="Step1" type="StaticBody3D" parent="MapParts/Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 5)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/Stairs/Step1"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/Stairs/Step1"]
+mesh = SubResource("BoxMesh_step")
+
+[node name="Step2" type="StaticBody3D" parent="MapParts/Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 2)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/Stairs/Step2"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/Stairs/Step2"]
+mesh = SubResource("BoxMesh_step")
+
+[node name="Step3" type="StaticBody3D" parent="MapParts/Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -1)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/Stairs/Step3"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/Stairs/Step3"]
+mesh = SubResource("BoxMesh_step")
+
+[node name="Step4" type="StaticBody3D" parent="MapParts/Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, -4)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/Stairs/Step4"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/Stairs/Step4"]
+mesh = SubResource("BoxMesh_step")
+
+[node name="FortPlatform" type="StaticBody3D" parent="MapParts"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, -12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/FortPlatform"]
+shape = SubResource("BoxShape3D_fort")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/FortPlatform"]
+mesh = SubResource("BoxMesh_fort")
+
+[node name="HighPlatform" type="StaticBody3D" parent="MapParts"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 14.5, -12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/HighPlatform"]
+shape = SubResource("BoxShape3D_high_plat")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/HighPlatform"]
+mesh = SubResource("BoxMesh_high_plat")
+
+[node name="TrussLadder" type="Area3D" parent="MapParts" groups=["ladder"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.5, -5.5)
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/TrussLadder"]
+shape = SubResource("BoxShape3D_ladder")
+
+[node name="Trampoline" type="StaticBody3D" parent="MapParts" groups=["bounce"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0.4, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/Trampoline"]
+shape = SubResource("BoxShape3D_trampoline")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/Trampoline"]
+mesh = SubResource("BoxMesh_trampoline")
+
+[node name="GoalPad" type="StaticBody3D" parent="MapParts" groups=["goal"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15.4, -12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/GoalPad"]
+shape = SubResource("BoxShape3D_goal")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/GoalPad"]
+mesh = SubResource("BoxMesh_goal")
+
+[node name="LavaHazard" type="StaticBody3D" parent="MapParts" groups=["kill"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0.2, 16)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/LavaHazard"]
+shape = SubResource("BoxShape3D_lava")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/LavaHazard"]
+mesh = SubResource("BoxMesh_lava")
+
+[node name="CheckpointPad" type="StaticBody3D" parent="MapParts" groups=["checkpoint"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 0.2, 16)
+collision_layer = 1
+collision_mask = 0
+metadata/spawn = Vector3(-16, 1, 16)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/CheckpointPad"]
+shape = SubResource("BoxShape3D_checkpoint")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/CheckpointPad"]
+mesh = SubResource("BoxMesh_checkpoint")
+
+[node name="WallHopCorner" type="StaticBody3D" parent="MapParts"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 5, -8)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MapParts/WallHopCorner"]
+shape = SubResource("BoxShape3D_wall_corner")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MapParts/WallHopCorner"]
+mesh = SubResource("BoxMesh_wall_corner")

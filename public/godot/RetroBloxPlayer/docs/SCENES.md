@@ -1,47 +1,52 @@
-# Where is everything? (the scenes look "empty" — on purpose)
+# Godot Scene Architecture & Visual Node Editing
 
-Open `scenes/game.tscn` in the Godot editor and you see almost no nodes.
-That is NOT an oversight: **every scene builds its content in code, at
-runtime.** The .tscn files are one root node with a script attached — the
-script IS the scene. That is what makes everything here editable as plain
-GDScript instead of hunting through a node tree.
+RetroBlox Player is organized into modular Godot scenes with real nodes in the Scene Tree so you can visually edit the **Map**, **Player**, and **UI** directly in Godot Engine!
 
-## What you WILL find, and where it really lives
+## Scene Hierarchy
 
-| Scene file | Root script | The actual content |
+| Scene file | Path | What you can edit in Godot |
 |---|---|---|
-| `scenes/game.tscn` | `scripts/game/game.gd` | The whole world: WorldBuilder builds every brick, the HUD, chat, ESC menu, paint bar, your widgets — all constructed in `_build_hud()` + friends |
-| `scenes/studio.tscn` | `scripts/ui/studio.gd` | The four STUDIO doors + role gate, built in `_ready()` |
-| `scenes/ui_editor.tscn` | `scripts/editor/ui_editor_scene.gd` | The widget shelf + drag & drop stage |
-| `scenes/map_editor.tscn` | `scripts/editor/map_editor.gd` | The 3D brick stage, toolbars, color rows |
-| `scenes/player_editor.tscn` | `scripts/editor/player_editor.gd` | The avatar photo stage + color rows |
-| `scenes/login.tscn` | `scripts/ui/login.gd` | The wordmark, the card, the STUDIO door |
+| **Main Game** | `scenes/game.tscn` | The complete running game scene composed of World, Player, and HUD |
+| **Map & World** | `scenes/world/map.tscn` | 3D environment, sky, directional sunlight, spawn pads, baseplate, stairs, truss ladders, trampolines, lava kill bricks, checkpoints, and wall hop obstacles |
+| **Player** | `scenes/player/player.tscn` | CharacterBody3D, Hitbox, visual R6 mesh nodes (Head, Torso, Arms, Legs), Chat bubbles, physics tuning (`walk_speed`, `jump_height`, `gravity`, `coyote_time`) and classic speedrun glitches |
+| **HUD / UI** | `scenes/ui/hud.tscn` | 2D UI canvas: Topbar buttons, Health bar, User pill, Stats chip, Crosshair, and Toasts |
+| **Login** | `scenes/login.tscn` | Sign-in screen, guest play, and studio launcher |
+| **Studio Hub** | `scenes/studio.tscn` | In-game creator studio hub |
 
-## How to actually edit things
+## How to Edit in Godot
 
-**Nodes + scripts, for real:**
-- Everything is plain GDScript — open `scripts/game/game.gd`, find
-  `_build_hud()`, and change anything: colors, sizes, new panels, new keys.
-- Section 6 of the README lists the exact hooks (respawn seconds, paint
-  colors, WalkSpeed…).
-- New behavior = new func + one call site. Press F5, see it live.
+### 1. Edit the Map (`scenes/world/map.tscn`)
+- Open `scenes/world/map.tscn` in Godot.
+- Click on any part in the 3D viewport: move, rotate, scale with gizmos.
+- Duplicate parts (`Ctrl+D`) to build new courses, islands, or structures.
+- Group tags trigger classic behavior:
+  - `spawn`: Player spawn points
+  - `kill`: Lava / kill bricks (triggers oof & respawn)
+  - `checkpoint`: Checkpoint pads that update spawn position
+  - `ladder`: Climbable truss ladders
+  - `bounce`: High-launch trampolines
+  - `goal`: Victory pads
 
-**Map:** STUDIO → MAP EDITOR (brick by brick, groups: spawn/kill/goal…),
-or edit `scripts/world/my_place.gd` directly — it is a parts list.
+### 2. Edit the Player (`scenes/player/player.tscn`)
+- Open `scenes/player/player.tscn` in Godot.
+- Select the `Avatar` node or its child meshes (`Head`, `Torso`, `LeftArm`, `RightArm`, `LeftLeg`, `RightLeg`) to customize colors, textures, materials, and attachments directly in the 3D viewport!
+- In the Inspector panel for the root `Player` node, tune values directly under **Player Physics & Tuning**:
+  - `walk_speed`: Classic WalkSpeed (default 16 studs/s)
+  - `jump_height`: Classic JumpPower (default 50 studs/s)
+  - `gravity`: World gravity (default 196.2 studs/s²)
+  - `coyote_time`: Ledge jump grace window
+  - `max_air_jumps`: Set to 1 for double jump!
+  - `momentum_enabled`: Build speed while sprinting
 
-**UI:** STUDIO → UI EDITOR in-game (drag & drop widgets), or the site's
-**UI Studio** page (retro-blox.vercel.app/ui-studio) to publish a UI that
-every player of your game sees — text, icons, images, link buttons and
-click/hover FX. Widget JSON is plain dictionaries in `ui_config.gd`.
+### 3. Classic Speedrun Glitches & Nostalgia Tech
+Retrobloxians love classic obby skips and tricks! The Player comes with authentic, balanced speedrun tech built-in:
+- **⚡ Wall Hop (`wall_hop_enabled`)**: Flick jump against vertical walls or obby corners in mid-air to hop up ledges.
+- **✨ Ladder Flick (`ladder_flick_enabled`)**: Jump while dismounting a truss ladder to get an explosive speed boost launch.
+- **🚀 Super Bounce (`super_bounce_enabled`)**: Time your Jump right as you hit a bounce pad / trampoline to launch into the stratosphere!
+- **🌀 Corner Clip (`corner_clip_enabled`)**: Squeeze into 90-degree corners with shift lock to slip through thin 1-stud barriers.
+- **💨 Ledge Jump**: Make daring gap skips right at the edge of platforms with coyote time grace.
 
-**Player:** STUDIO → PLAYER EDITOR (colors on your live rig), or
-`scripts/player/avatar_rig.gd` for the rig itself.
-
-## Why not "real" node trees?
-
-A node tree saved in a .tscn is frozen data. A parts list / widget list in
-code is live data you can loop, remix and generate — the same dictionary
-format flows from the Map Editor, the UI Editor, the site's UI Studio and
-the .retroplace game files into one WorldBuilder / UiWidgets factory.
-Edit the factory, and the editors, the game AND the website all change
-together.
+### 4. Edit the UI (`scenes/ui/hud.tscn`)
+- Open `scenes/ui/hud.tscn` in Godot.
+- Switch to the **2D** workspace.
+- Rearrange buttons, adjust health bar dimensions, change colors, or add custom HUD panels and labels!

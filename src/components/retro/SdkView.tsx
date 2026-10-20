@@ -1,215 +1,293 @@
 'use client'
 
-/* ================= RetroBlox SDK page (/sdk) =================
-   v7 — said like a human. Godot icon on the hero, Unity icon on
-   the "coming soon" banner. No UI Studio, no templates: the SDK
-   is the game, the game is the SDK. */
+import { useState } from 'react'
 
-import Link from 'next/link'
-
-const V_TAG = 'v7'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=9.0'
-
-const INK = '#1c3a52'
-const DIM = '#5a6b7b'
-const EDGE = '#b6c0cb'
-
-const FEATURES: [string, string][] = [
-  ['Play real multiplayer places', 'Walk, jump and climb with other players online. Chat, friends, avatars — the works.'],
-  ['Build', 'Press B in game and place bricks on anything. The Map Editor turns your map into your own place.'],
-  ['Paint', 'Press C, pick a color, click a brick. The whole world takes paint.'],
-  ['Your look', 'Your site avatar spawns with you. The Player Editor repaints it right on your device.'],
-  ['Make games', 'Publish what you build to the site with one upload. Game files share as .retroplace.'],
-  ['Free and open', 'The zip is a plain Godot 4.5 project. Read it, change it, ship your own version.'],
-]
-
-const FILES = [
-  ['project.godot', 'The Godot project — open this'],
-  ['scenes/', 'Login, game, studio, editors'],
-  ['scripts/game/', 'The play session: controls, chat, HUD, build + paint'],
-  ['scripts/world/', 'The built-in places and the world builder'],
-  ['scripts/player/', 'The block avatar and its controller'],
-  ['scripts/ui/', 'Login screen, menus, settings'],
-  ['scripts/editor/', 'The UI, map and player editors'],
-  ['scripts/core/', 'The API client, session, settings, sounds'],
-  ['assets/', 'Sounds, icons, fonts'],
-]
-
-const ENDPOINTS = [
-  ['POST /api/platform/signup', 'create an account'],
-  ['POST /api/platform/login', 'get a session token'],
-  ['GET /api/platform/me', 'your player + avatar'],
-  ['GET /api/games', 'browse games'],
-  ['GET /api/users/{id}/avatar', "any player's avatar"],
-  ['GET /api/placechat/{placeId}', 'place chat + who is online'],
-  ['POST /api/placechat/{placeId}', 'chat + presence heartbeat'],
-  ['GET / PUT /api/gamedata/{gameId}/{key}', 'per-player save data'],
-]
-
-const CONTROLS: [string, string][] = [
-  ['W A S D', 'Move'],
-  ['Space', 'Jump (hold to keep bouncing)'],
-  ['Mouse', 'Look — wheel zooms'],
-  ['Shift', 'Shift Lock'],
-  ['Enter', 'Chat'],
-  ['C', 'Paint colors'],
-  ['Left click', 'Paint the brick you aim at'],
-  ['B', 'Build mode — click places a brick'],
-  ['F2', 'Move and re-text the HUD'],
-  ['Esc', 'Menu — people, settings, leave'],
-]
-
-const PRE: React.CSSProperties = {
-  background: '#122b41',
-  color: '#cfe6f7',
-  padding: 12,
-  fontSize: 11,
-  fontFamily: 'Courier New, monospace',
-  overflowX: 'auto',
-  lineHeight: 1.5,
-  border: '1px solid #0d3054',
-  whiteSpace: 'pre',
-}
-
-function GodotIcon({ size = 44 }: { size?: number }) {
-  return (
-    <img src="/icons/godot-icon.svg" alt="Godot" width={size} height={size} style={{ display: 'block' }} draggable={false} />
-  )
-}
-
-function UnityIcon({ size = 34 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="Unity" style={{ display: 'block' }}>
-      <path fill="#ffffff" d="m12.9288 4.2939 3.7997 2.1929c.1366.077.1415.2905 0 .3675l-4.515 2.6076a.4192.4192 0 0 1-.4246 0L7.274 6.8543c-.139-.0745-.1415-.293 0-.3675l3.7972-2.193V0L1.3758 5.5977V16.793l3.7177-2.1456v-4.3858c-.0025-.1565.1813-.2682.318-.1838l4.5148 2.6076a.4252.4252 0 0 1 .2136.3676v5.2127c.0025.1565-.1813.2682-.3179.1838l-3.7996-2.1929-3.7178 2.1457L12 24l9.6954-5.5977-3.7178-2.1457-3.7996 2.1929c-.1341.082-.3229-.0248-.3179-.1838V13.053c0-.1565.087-.2956.2136-.3676l4.5149-2.6076c.134-.082.3228.0224.3179.1838v4.3858l3.7177 2.1456V5.5977L12.9288 0Z" />
-    </svg>
-  )
-}
+const V_TAG = 'v10.0'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=10.0'
 
 export function SdkView() {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyLink = () => {
+    navigator.clipboard?.writeText(window.location.origin + ZIP_URL)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
-    <div>
-      {/* hero */}
-      <div className="rb-box" style={{ marginBottom: 12 }}>
-        <div className="rb-panel-head"><span>The RetroBlox Player — official SDK ({V_TAG})</span></div>
-        <div style={{ padding: 14 }}>
-          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <div style={{ background: '#1c3a52', border: `1px solid ${EDGE}`, borderRadius: 6, padding: 8 }}>
-              <GodotIcon />
-            </div>
-            <div style={{ flex: 1, minWidth: 260 }}>
-              <div style={{ fontSize: 16, color: INK, fontWeight: 700 }}>The whole game, free to run and edit.</div>
-              <div style={{ fontSize: 12, color: DIM, marginTop: 6, maxWidth: 640, lineHeight: 1.55 }}>
-                The SDK is the RetroBlox Player: a Godot project that logs into this site and plays every place
-                with other people online. You spawn with your avatar, you can build and paint the world,
-                and whatever you make can be published back to the site as its own game.
-              </div>
-            </div>
+    <div style={{ maxWidth: 720, margin: '24px auto 60px', padding: '0 16px' }}>
+      {/* Premium Download Container */}
+      <div
+        className="rb-box"
+        style={{
+          background: '#ffffff',
+          borderRadius: 16,
+          border: '1px solid #d2dbe5',
+          boxShadow: '0 12px 36px rgba(18, 38, 63, 0.08), 0 2px 6px rgba(0,0,0,0.04)',
+          overflow: 'hidden',
+          transition: 'box-shadow 0.2s ease',
+        }}
+      >
+        {/* Top Accent Gradient Bar */}
+        <div
+          style={{
+            height: 6,
+            background: 'linear-gradient(90deg, #00A2FF 0%, #00d26a 50%, #0070b6 100%)',
+          }}
+        />
+
+        <div style={{ padding: '44px 32px 36px', textAlign: 'center' }}>
+          {/* Godot App Icon with Ambient Glow */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 88,
+              height: 88,
+              borderRadius: 22,
+              background: 'linear-gradient(135deg, #1f374d 0%, #0e2233 100%)',
+              border: '2px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: '0 10px 24px rgba(0, 112, 182, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+              marginBottom: 20,
+              position: 'relative',
+            }}
+          >
+            <img
+              src="/icons/godot-icon.svg"
+              alt="Godot Engine"
+              width={54}
+              height={54}
+              style={{ display: 'block', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.4))' }}
+              draggable={false}
+            />
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-            <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent(ZIP_URL)}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', fontSize: 14, padding: '10px 18px' }}>
-              Download the player ({V_TAG}) — .zip
+
+          {/* Heading */}
+          <h1
+            style={{
+              fontSize: 32,
+              fontWeight: 800,
+              color: '#13283b',
+              margin: '0 0 10px 0',
+              letterSpacing: '-0.5px',
+              fontFamily: 'var(--rb-display, "Source Sans Pro", -apple-system, sans-serif)',
+            }}
+          >
+            RetroBlox Player &amp; SDK
+          </h1>
+
+          {/* Subtitle */}
+          <p
+            style={{
+              fontSize: 16,
+              color: '#5b6f82',
+              margin: '0 auto 28px',
+              maxWidth: 480,
+              lineHeight: 1.55,
+            }}
+          >
+            The official Godot sandbox client. Play multiplayer places online and visually
+            edit your map, UI, and player avatar directly with Godot scene nodes.
+          </p>
+
+          {/* Feature Badges */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+              marginBottom: 32,
+            }}
+          >
+            {[
+              '✓ Visual Node Scenes',
+              '✓ Editable Map & UI',
+              '✓ R6 Character Rig',
+              '✓ Classic Speedrun Glitches',
+              '✓ Zero Parse Errors',
+            ].map((badge) => (
+              <span
+                key={badge}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#0e527f',
+                  background: '#e8f4fc',
+                  border: '1px solid #c2e0f4',
+                  borderRadius: 20,
+                  padding: '4px 12px',
+                }}
+              >
+                {badge}
+              </span>
+            ))}
+          </div>
+
+          {/* Prominent Primary Download Action */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <a
+              href={ZIP_URL}
+              download="retroblox-godot-player.zip"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 14,
+                textDecoration: 'none',
+                background: 'linear-gradient(180deg, #02b757 0%, #018f43 100%)',
+                color: '#ffffff',
+                border: '1px solid #017a39',
+                borderRadius: 12,
+                padding: '16px 36px',
+                fontSize: 17,
+                fontWeight: 700,
+                boxShadow: '0 4px 0 #016830, 0 10px 24px rgba(2, 183, 87, 0.35)',
+                transition: 'all 0.12s ease',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.filter = 'brightness(1.08)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 6px 0 #016830, 0 14px 28px rgba(2, 183, 87, 0.45)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.filter = 'none'
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 0 #016830, 0 10px 24px rgba(2, 183, 87, 0.35)'
+              }}
+            >
+              <svg
+                width={24}
+                height={24}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Download SDK ({V_TAG}) — .zip</span>
             </a>
-            <a href="https://raw.githubusercontent.com/Nexico8225/RetroBlox/main/public/godot/retroblox-godot-player.zip" download style={{ fontSize: 11, color: DIM, textDecoration: 'underline' }}>
-              direct mirror on GitHub
-            </a>
-            <Link className="rb-btn" href="/avatar" style={{ textDecoration: 'none' }}>Dress your avatar</Link>
-            <Link className="rb-btn" href="/create" style={{ textDecoration: 'none' }}>Publish a game</Link>
-          </div>
-          <div style={{ fontSize: 11, color: DIM, marginTop: 10 }}>
-            Made for <b style={{ fontWeight: 600 }}>Godot 4.5+</b> (free). Unzip, open the RetroBloxPlayer folder in Godot, press Play.
-            Downloading a <b style={{ fontWeight: 600 }}>game</b> on the site gives you that game&apos;s file — this button gives you the player.
           </div>
 
-          {/* the upcoming Unity version */}
-          <div style={{ marginTop: 14, border: '1px solid #005f9c', background: 'linear-gradient(180deg, #0f83c9 0%, #00639e 100%)', color: '#fff', padding: '12px 14px', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ background: 'rgba(0,0,0,.22)', borderRadius: 6, padding: 6 }}>
-              <UnityIcon />
-            </div>
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>A Unity version is coming</div>
-              <div style={{ fontSize: 11, color: '#d7ecfa', marginTop: 2 }}>
-                Same accounts, same avatars, same places — built for Unity. In development.
-              </div>
-            </div>
-            <span style={{ fontSize: 10, border: '1px solid #7cbde0', background: 'rgba(255,255,255,.14)', color: '#fff', padding: '3px 10px', whiteSpace: 'nowrap' }}>COMING SOON</span>
-          </div>
-        </div>
-      </div>
-
-      {/* what it does */}
-      <div className="rb-box" style={{ marginBottom: 12 }}>
-        <div className="rb-panel-head"><span>What it does</span></div>
-        <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8 }}>
-          {FEATURES.map(([t, d]) => (
-            <div key={t} style={{ border: `1px solid ${EDGE}`, padding: '8px 10px', background: '#ffffff' }}>
-              <div style={{ fontSize: 12, color: INK, fontWeight: 600 }}>{t}</div>
-              <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>{d}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, minWidth: 300 }}>
-          {/* quick start */}
-          <div className="rb-box" style={{ marginBottom: 12 }}>
-            <div className="rb-panel-head"><span>Quick Start</span></div>
-            <div style={{ padding: 12 }}>
-              <pre style={PRE}>{`1. Unzip retroblox-godot-player.zip
-2. Open the RetroBloxPlayer folder in Godot 4.5+
-3. Press Play (F5)
-4. Log in on the login card — or play as a guest
-
-Next launch signs you in automatically.`}</pre>
-              <div style={{ fontSize: 11, color: DIM, marginTop: 8 }}>
-                The editors live behind the STUDIO button on the login screen: build a map and it becomes
-                your place, repaint your avatar, rearrange the HUD (F2 works in game too).
-              </div>
-            </div>
-          </div>
-
-          {/* controls */}
-          <div className="rb-box" style={{ marginBottom: 12 }}>
-            <div className="rb-panel-head"><span>Controls</span></div>
-            <div style={{ padding: 10 }}>
-              {CONTROLS.map(([k, d]) => (
-                <div key={k} style={{ display: 'flex', gap: 10, padding: '5px 2px', borderBottom: '1px solid #efefef', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: INK, minWidth: 110 }}>{k}</span>
-                  <span style={{ fontSize: 11, color: DIM }}>{d}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* the API */}
-          <div className="rb-box">
-            <div className="rb-panel-head"><span>How it talks to the site</span></div>
-            <div style={{ padding: 12 }}>
-              <pre style={PRE}>{`login  ->  POST /api/platform/login  ->  session token
-me     ->  GET  /api/platform/me      ->  your avatar
-play   ->  GET  /api/placechat/{id}   ->  chat + who is online
-save   ->  GET/PUT /api/gamedata/...  ->  per-player saves
-
-The player never touches the database — only this API.`}</pre>
-              <div style={{ fontSize: 11, color: DIM, marginTop: 8 }}>
-                Every endpoint is plain HTTP + JSON, so any engine can use it. The full list lives in
-                <code style={{ fontFamily: 'monospace' }}> scripts/core/api.gd</code> inside the zip.
-              </div>
-            </div>
+          {/* Mirror & Copy Actions */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 12,
+              fontSize: 13,
+              color: '#657788',
+            }}
+          >
+            <span>~4.5 MB</span>
+            <span>•</span>
+            <button
+              onClick={handleCopyLink}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: copied ? '#029446' : '#0070b6',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                padding: 0,
+                transition: 'color 0.15s ease',
+              }}
+            >
+              {copied ? '✓ Direct Link Copied!' : 'Copy Direct Link'}
+            </button>
+            <span>•</span>
+            <span>Compatible with Godot 4.5+</span>
           </div>
         </div>
 
-        <div style={{ width: 300, flexShrink: 0 }}>
-          {/* what's in the zip */}
-          <div className="rb-box">
-            <div className="rb-panel-head"><span>What&apos;s in the zip</span></div>
-            <div style={{ padding: 10 }}>
-              {FILES.map(([f, d]) => (
-                <div key={f} style={{ padding: '5px 0', borderBottom: '1px solid #efefef' }}>
-                  <div style={{ fontSize: 11, fontFamily: 'monospace', color: INK, wordBreak: 'break-all' }}>{f}</div>
-                  <div style={{ fontSize: 10, color: DIM }}>{d}</div>
-                </div>
-              ))}
+        {/* 3-Step Quick Start Footer */}
+        <div
+          style={{
+            borderTop: '1px solid #e2e8f0',
+            background: '#f8fafc',
+            padding: '22px 28px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 16,
+          }}
+        >
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#0070b6',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 14,
+                flexShrink: 0,
+              }}
+            >
+              1
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: '#13283b', fontSize: 13 }}>Extract Zip</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Unpack into your projects folder.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#0070b6',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 14,
+                flexShrink: 0,
+              }}
+            >
+              2
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: '#13283b', fontSize: 13 }}>Open in Godot</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Import project.godot in 4.5+.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#029446',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 14,
+                flexShrink: 0,
+              }}
+            >
+              3
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: '#13283b', fontSize: 13 }}>Play &amp; Edit</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Press F5 to play or edit nodes!</div>
             </div>
           </div>
         </div>

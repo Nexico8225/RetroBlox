@@ -216,6 +216,27 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false,
         _animate_boxes(delta, speed, grounded, climbing, climb_speed)
 
 
+var _resolved_anims: Dictionary = {}
+
+
+func _resolve_anim_name(base: StringName) -> StringName:
+        if _anim_player == null:
+                return &""
+        if _resolved_anims.has(base):
+                return _resolved_anims[base]
+        if _anim_player.has_animation(base):
+                _resolved_anims[base] = base
+                return base
+        var base_str := String(base).to_lower()
+        for anim_name in _anim_player.get_animation_list():
+                var s := String(anim_name).to_lower()
+                if s == base_str or s.ends_with("/" + base_str) or s.ends_with("|" + base_str) or s.contains(base_str):
+                        _resolved_anims[base] = anim_name
+                        return anim_name
+        _resolved_anims[base] = &""
+        return &""
+
+
 func _animate_r6ik(delta: float, speed: float, grounded: bool, climbing: bool, climb_speed: float) -> void:
         var next: StringName = ANIM_IDLE
         var rate := 1.0
@@ -231,28 +252,31 @@ func _animate_r6ik(delta: float, speed: float, grounded: bool, climbing: bool, c
                 next = ANIM_WALK
                 rate = clampf(speed / (8.0 * STUD), 0.8, 2.2)
 
-        if _current_anim != next:
-                _current_anim = next
-                _anim_player.play(next, 0.12, 1.0 if not climbing else (rate if is_climb_moving else 0.001))
-                if climbing and not is_climb_moving:
-                        _anim_player.speed_scale = 0.0
-                        _climb_rate = 0.0
-                elif not climbing:
-                        _anim_player.speed_scale = rate
-        elif climbing:
-                # Roblox ladder climb: freeze when stopped, play when moving
-                if is_climb_moving:
-                        _climb_rate = lerpf(_climb_rate, rate, 1.0 - exp(-10.0 * delta))
-                        _anim_player.speed_scale = _climb_rate
+        var anim_to_play := _resolve_anim_name(next)
+        if anim_to_play != &"":
+                if _current_anim != next:
+                        _current_anim = next
+                        _anim_player.play(anim_to_play, 0.12, 1.0 if not climbing else (rate if is_climb_moving else 0.001))
+                        if climbing and not is_climb_moving:
+                                _anim_player.speed_scale = 0.0
+                                _climb_rate = 0.0
+                        elif not climbing:
+                                _anim_player.speed_scale = rate
+                elif climbing:
+                        if is_climb_moving:
+                                _climb_rate = lerpf(_climb_rate, rate, 1.0 - exp(-10.0 * delta))
+                                _anim_player.speed_scale = _climb_rate
+                        else:
+                                _climb_rate = 0.0
+                                _anim_player.speed_scale = 0.0
+                elif next == ANIM_WALK:
+                        var k := 1.0 - exp(-8.0 * delta)
+                        _walk_rate = lerpf(_walk_rate, rate, k)
+                        _anim_player.speed_scale = _walk_rate
                 else:
-                        _climb_rate = 0.0
-                        _anim_player.speed_scale = 0.0
-        elif next == ANIM_WALK:
-                var k := 1.0 - exp(-8.0 * delta)
-                _walk_rate = lerpf(_walk_rate, rate, k)
-                _anim_player.speed_scale = _walk_rate
+                        _anim_player.speed_scale = 1.0
         else:
-                _anim_player.speed_scale = 1.0
+                _animate_boxes(delta, speed, grounded, climbing, climb_speed)
 
 
 ## Settings > Animations: pose the character with a rig clip ("Sit", ...).
@@ -265,9 +289,10 @@ func play_emote(clip: String) -> void:
                 _current_anim = &""
                 return
         var anim_name := StringName(clip)
-        if _anim_player.has_animation(anim_name):
+        var resolved := _resolve_anim_name(anim_name)
+        if resolved != &"" and _anim_player.has_animation(resolved):
                 _current_anim = &"emote_" + anim_name
-                _anim_player.play(anim_name, 0.2)
+                _anim_player.play(resolved, 0.2)
 
 
 func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool, climb_speed: float = 0.0) -> void:
@@ -306,14 +331,18 @@ func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool, 
                 arm_r_x = -2.6
                 leg_l_x = 0.35
                 leg_r_x = -0.35
-        _pivots[ARM_L].rotation.x = lerp_angle(_pivots[ARM_L].rotation.x, arm_l_x, k)
-        _pivots[ARM_R].rotation.x = lerp_angle(_pivots[ARM_R].rotation.x, arm_r_x, k)
-        _pivots[LEG_L].rotation.x = lerp_angle(_pivots[LEG_L].rotation.x, leg_l_x, k)
-        _pivots[LEG_R].rotation.x = lerp_angle(_pivots[LEG_R].rotation.x, leg_r_x, k)
-        _pivots[ARM_L].rotation.z = lerp_angle(_pivots[ARM_L].rotation.z, arm_l_z, k)
-        _pivots[ARM_R].rotation.z = lerp_angle(_pivots[ARM_R].rotation.z, arm_r_z, k)
-        _pivots[HEAD].rotation.x = lerp_angle(_pivots[HEAD].rotation.x, head_x, k)
-        _pivots[TORSO].rotation.x = lerp_angle(_pivots[TORSO].rotation.x, torso_x, k)
+        var set_rot := func(idx: int, rx: float, rz: float = 0.0, use_z: bool = false) -> void:
+                if idx < _pivots.size() and _pivots[idx] != null and is_instance_valid(_pivots[idx]):
+                        _pivots[idx].rotation.x = lerp_angle(_pivots[idx].rotation.x, rx, k)
+                        if use_z:
+                                _pivots[idx].rotation.z = lerp_angle(_pivots[idx].rotation.z, rz, k)
+
+        set_rot.call(ARM_L, arm_l_x, arm_l_z, true)
+        set_rot.call(ARM_R, arm_r_x, arm_r_z, true)
+        set_rot.call(LEG_L, leg_l_x)
+        set_rot.call(LEG_R, leg_r_x)
+        set_rot.call(HEAD, head_x)
+        set_rot.call(TORSO, torso_x)
 
 
 ## Oof! — the classic breakup, used by death and reset.
@@ -357,10 +386,79 @@ func _get_oof_audio() -> AudioStream:
 
 # ---------------------------------------------------------------- building
 
+func _check_existing_scene_nodes() -> bool:
+        var head := get_node_or_null("Head") as MeshInstance3D
+        if head == null:
+                head = get_node_or_null("Part_0") as MeshInstance3D
+        var torso := get_node_or_null("Torso") as MeshInstance3D
+        if torso == null:
+                torso = get_node_or_null("Part_1") as MeshInstance3D
+        var lp := get_node_or_null("LeftArmPivot") as Node3D
+        if lp == null:
+                lp = get_node_or_null("Pivot_2") as Node3D
+        var rp := get_node_or_null("RightArmPivot") as Node3D
+        if rp == null:
+                rp = get_node_or_null("Pivot_3") as Node3D
+        var llp := get_node_or_null("LeftLegPivot") as Node3D
+        if llp == null:
+                llp = get_node_or_null("Pivot_4") as Node3D
+        var rlp := get_node_or_null("RightLegPivot") as Node3D
+        if rlp == null:
+                rlp = get_node_or_null("Pivot_5") as Node3D
+
+        if head == null or torso == null or lp == null or rp == null or llp == null or rlp == null:
+                return false
+
+        var la := lp.get_node_or_null("LeftArm") as MeshInstance3D
+        if la == null:
+                la = lp.get_node_or_null("Part_2") as MeshInstance3D
+        var ra := rp.get_node_or_null("RightArm") as MeshInstance3D
+        if ra == null:
+                ra = rp.get_node_or_null("Part_3") as MeshInstance3D
+        var ll := llp.get_node_or_null("LeftLeg") as MeshInstance3D
+        if ll == null:
+                ll = llp.get_node_or_null("Part_4") as MeshInstance3D
+        var rl := rlp.get_node_or_null("RightLeg") as MeshInstance3D
+        if rl == null:
+                rl = rlp.get_node_or_null("Part_5") as MeshInstance3D
+
+        if la == null or ra == null or ll == null or rl == null:
+                return false
+
+        parts = [head, torso, la, ra, ll, rl]
+        _pivots = [head, torso, lp, rp, llp, rlp]
+        _part_sizes = [BOX_HEAD, BOX_TORSO, BOX_ARM, BOX_ARM, BOX_LEG, BOX_LEG]
+        _part_aabb = [
+                AABB(-BOX_HEAD * 0.5, BOX_HEAD),
+                AABB(-BOX_TORSO * 0.5, BOX_TORSO),
+                AABB(-BOX_ARM * 0.5, BOX_ARM),
+                AABB(-BOX_ARM * 0.5, BOX_ARM),
+                AABB(-BOX_LEG * 0.5, BOX_LEG),
+                AABB(-BOX_LEG * 0.5, BOX_LEG)
+        ]
+        _mounts.clear()
+        for i in range(6):
+                var m := _pivots[i].get_node_or_null("Mount_%d" % i) as Node3D
+                if m == null:
+                        m = Node3D.new()
+                        m.name = "Mount_%d" % i
+                        _pivots[i].add_child(m)
+                _mounts.append(m)
+        HEAD_PIVOT_Y = head.position.y
+        if _nameplate == null:
+                _nameplate = _make_nameplate()
+                _nameplate.position = Vector3(0.0, RIG_HEIGHT + 0.9 * STUD, 0.0)
+                add_child(_nameplate)
+        _built = true
+        return true
+
+
 func _ensure_built(allow_upgrade: bool = false) -> void:
         if _built:
-                if allow_upgrade and not _using_r6ik and is_inside_tree():
+                if allow_upgrade and not _using_r6ik and is_inside_tree() and not _check_existing_scene_nodes():
                         _try_r6ik()
+                return
+        if _check_existing_scene_nodes():
                 return
         _built = true
         if is_inside_tree() and _try_r6ik():
@@ -396,17 +494,19 @@ func _try_r6ik() -> bool:
                 var ap := node as AnimationPlayer
                 ap.autoplay = ""
                 ap.stop()
-                # the FBX exports EVERY clip as play-once — the classic clips
-                # must LOOP (idle/walk/climb/sit) or the character freezes
-                # after one second. Jump keeps its single-shot arc.
-                for clip in [ANIM_IDLE, ANIM_WALK, ANIM_CLIMB, ANIM_SIT]:
-                        var looped := ap.get_animation(clip)
-                        if looped != null:
-                                looped.loop_mode = Animation.LOOP_LINEAR
-                var jump_anim := ap.get_animation(ANIM_JUMP)
-                if jump_anim != null:
-                        jump_anim.loop_mode = Animation.LOOP_NONE
                 _anim_player = ap
+                # Configure loop modes using resolved animation names
+                for clip in [ANIM_IDLE, ANIM_WALK, ANIM_CLIMB, ANIM_SIT]:
+                        var actual := _resolve_anim_name(clip)
+                        if actual != &"":
+                                var looped := ap.get_animation(actual)
+                                if looped != null:
+                                        looped.loop_mode = Animation.LOOP_LINEAR
+                var jump_actual := _resolve_anim_name(ANIM_JUMP)
+                if jump_actual != &"":
+                        var jump_anim := ap.get_animation(jump_actual)
+                        if jump_anim != null:
+                                jump_anim.loop_mode = Animation.LOOP_NONE
 
         # normalize: RIG_HEIGHT tall, feet on y=0, centered on x/z — bounds from
         # REAL vertices (the FBX part nodes carry tilted Blender rotations)
@@ -449,7 +549,7 @@ func _try_r6ik() -> bool:
                 if i == HEAD_INDEX:
                         HEAD_PIVOT_Y = box.get_center().y
         for i in range(6):
-                _pivots.append(null)
+                _pivots.append(found[i])
 
         _nameplate = _make_nameplate()
         _nameplate.position = Vector3(0.0, RIG_HEIGHT + 0.9 * STUD, 0.0)

@@ -53,7 +53,7 @@ func _on_dev_ready(_dev_in: bool) -> void:
                 _role.text = "SDK MODE — all editor scenes unlocked"
                 _role.add_theme_color_override("font_color", Color("7fd18b"))
         if _site_btn != null and is_instance_valid(_site_btn):
-                _site_btn.visible = not dev and not OS.has_feature("web")
+                _site_btn.visible = not _dev and not OS.has_feature("web")
         if _status != null and is_instance_valid(_status):
                 _status.text = ""
 

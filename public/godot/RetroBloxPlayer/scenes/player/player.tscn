@@ -1,0 +1,125 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/local_player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/player/avatar_rig.gd" id="2_avatar"]
+[ext_resource type="Script" path="res://scripts/player/chat_bubble.gd" id="3_bubble"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_hitbox"]
+size = Vector3(2, 5, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_head"]
+albedo_color = Color(0.960784, 0.803922, 0.188235, 1)
+roughness = 0.78
+
+[sub_resource type="BoxMesh" id="BoxMesh_head"]
+material = SubResource("StandardMaterial3D_head")
+size = Vector3(1.15, 1.15, 1.15)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_torso"]
+albedo_color = Color(0.0509804, 0.411765, 0.67451, 1)
+roughness = 0.78
+
+[sub_resource type="BoxMesh" id="BoxMesh_torso"]
+material = SubResource("StandardMaterial3D_torso")
+size = Vector3(2, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_arm"]
+albedo_color = Color(0.960784, 0.803922, 0.188235, 1)
+roughness = 0.78
+
+[sub_resource type="BoxMesh" id="BoxMesh_limb"]
+size = Vector3(1, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_leg"]
+albedo_color = Color(0.478431, 0.709804, 0.243137, 1)
+roughness = 0.78
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ladder"]
+size = Vector3(2.2, 2.4, 1.2)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_touch"]
+radius = 1.45
+height = 5.4
+
+[node name="Player" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 1
+floor_snap_length = 0.5
+script = ExtResource("1_player")
+walk_speed = 16.0
+jump_height = 50.0
+gravity = 196.2
+coyote_time = 0.15
+glitches_enabled = true
+wall_hop_enabled = true
+ladder_flick_enabled = true
+super_bounce_enabled = true
+corner_clip_enabled = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+shape = SubResource("BoxShape3D_hitbox")
+
+[node name="Avatar" type="Node3D" parent="."]
+script = ExtResource("2_avatar")
+
+[node name="Head" type="MeshInstance3D" parent="Avatar"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.525, 0)
+mesh = SubResource("BoxMesh_head")
+
+[node name="Torso" type="MeshInstance3D" parent="Avatar"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+mesh = SubResource("BoxMesh_torso")
+
+[node name="LeftArmPivot" type="Node3D" parent="Avatar"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 4, 0)
+
+[node name="LeftArm" type="MeshInstance3D" parent="Avatar/LeftArmPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+material_override = SubResource("StandardMaterial3D_arm")
+mesh = SubResource("BoxMesh_limb")
+
+[node name="RightArmPivot" type="Node3D" parent="Avatar"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 4, 0)
+
+[node name="RightArm" type="MeshInstance3D" parent="Avatar/RightArmPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+material_override = SubResource("StandardMaterial3D_arm")
+mesh = SubResource("BoxMesh_limb")
+
+[node name="LeftLegPivot" type="Node3D" parent="Avatar"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 2, 0)
+
+[node name="LeftLeg" type="MeshInstance3D" parent="Avatar/LeftLegPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+material_override = SubResource("StandardMaterial3D_leg")
+mesh = SubResource("BoxMesh_limb")
+
+[node name="RightLegPivot" type="Node3D" parent="Avatar"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 2, 0)
+
+[node name="RightLeg" type="MeshInstance3D" parent="Avatar/RightLegPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+material_override = SubResource("StandardMaterial3D_leg")
+mesh = SubResource("BoxMesh_limb")
+
+[node name="ChatBubble" type="Node3D" parent="."]
+script = ExtResource("3_bubble")
+
+[node name="LadderSensor" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 17
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LadderSensor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.9, 0)
+shape = SubResource("BoxShape3D_ladder")
+
+[node name="TouchSensor" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 17
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TouchSensor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
+shape = SubResource("CapsuleShape3D_touch")
