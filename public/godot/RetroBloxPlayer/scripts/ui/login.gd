@@ -156,10 +156,10 @@ func _build() -> void:
         body.add_child(_info)
 
         _offline = Button.new()
-        _offline.text = "Play as Guest (Offline / Test)"
+        _offline.text = "Can't connect — play offline instead"
         _offline.theme_type_variation = "BtnGhost"
-        _offline.custom_minimum_size = Vector2(0, 32)
-        _offline.visible = true
+        _offline.custom_minimum_size = Vector2(0, 30)
+        _offline.visible = false
         _offline.pressed.connect(_on_offline)
         body.add_child(_offline)
 

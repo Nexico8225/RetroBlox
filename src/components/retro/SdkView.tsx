@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 
-const V_TAG = 'v10.0'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=10.0'
+const V_TAG = 'v11.1'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=11.1'
 
 export function SdkView() {
   const [copied, setCopied] = useState(false)
@@ -105,8 +105,6 @@ export function SdkView() {
               '✓ Visual Node Scenes',
               '✓ Editable Map & UI',
               '✓ R6 Character Rig',
-              '✓ Classic Speedrun Glitches',
-              '✓ Zero Parse Errors',
             ].map((badge) => (
               <span
                 key={badge}

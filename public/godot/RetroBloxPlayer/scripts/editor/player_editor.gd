@@ -23,7 +23,6 @@ const W := preload("res://scripts/editor/ui_widgets.gd")
 const RIG := preload("res://scripts/player/avatar_rig.gd")
 
 const SAVE_PATH := "user://avatar_colors.json"
-const CONFIG_PATH := "user://player_config.json"
 
 const NOOB_SKIN := Color("f5cd30")
 const NOOB_SHIRT := Color("0d69ac")
@@ -38,16 +37,6 @@ const ROWS := [
 
 var rig: Node3D
 var colors := {"skin": NOOB_SKIN, "shirt": NOOB_SHIRT, "pants": NOOB_PANTS}
-var tuning := {
-        "walk_speed": 16.0,
-        "jump_height": 50.0,
-        "gravity": 196.2,
-        "coyote_time": 0.15,
-        "max_air_jumps": 0,
-        "momentum_enabled": false,
-        "momentum_max_multiplier": 2.2,
-        "momentum_buildup_rate": 0.6
-}
 var _spin := false
 var _status: Label
 var _status_t := 0.0
@@ -118,24 +107,20 @@ func _build_stage() -> void:
 
 
 func _load_look() -> void:
-        if FileAccess.file_exists(SAVE_PATH):
-                var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-                if f != null:
-                        var parsed: Variant = JSON.parse_string(f.get_as_text())
-                        if typeof(parsed) == TYPE_DICTIONARY:
-                                var d: Dictionary = parsed
-                                for row in ROWS:
-                                        var key := String(row[1])
-                                        var hex := String(d.get(key, "")).trim_prefix("#")
-                                        if hex.length() == 6 and _hex_ok(hex):
-                                                colors[key] = Color(hex)
-        if FileAccess.file_exists(CONFIG_PATH):
-                var cf := FileAccess.open(CONFIG_PATH, FileAccess.READ)
-                if cf != null:
-                        var cp: Variant = JSON.parse_string(cf.get_as_text())
-                        if typeof(cp) == TYPE_DICTIONARY:
-                                for k in cp.keys():
-                                        tuning[k] = cp[k]
+        if not FileAccess.file_exists(SAVE_PATH):
+                return
+        var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+        if f == null:
+                return
+        var parsed: Variant = JSON.parse_string(f.get_as_text())
+        if typeof(parsed) != TYPE_DICTIONARY:
+                return
+        var d: Dictionary = parsed
+        for row in ROWS:
+                var key := String(row[1])
+                var hex := String(d.get(key, "")).trim_prefix("#")
+                if hex.length() == 6 and _hex_ok(hex):
+                        colors[key] = Color(hex)
 
 
 func _hex_ok(hex: String) -> bool:
@@ -164,11 +149,7 @@ func _on_save() -> void:
         if f != null:
                 f.store_string(JSON.stringify(d))
                 f.close()
-        var cf := FileAccess.open(CONFIG_PATH, FileAccess.WRITE)
-        if cf != null:
-                cf.store_string(JSON.stringify(tuning, "\t"))
-                cf.close()
-        _status_flash("SAVED — avatar look & physics variables saved.")
+        _status_flash("SAVED — you wear this look in every game.")
 
 
 ## DEFAULT — the revert button: wipe the saved look, back to the classic
@@ -176,21 +157,9 @@ func _on_save() -> void:
 func _on_default() -> void:
         if FileAccess.file_exists(SAVE_PATH):
                 DirAccess.remove_absolute(SAVE_PATH)
-        if FileAccess.file_exists(CONFIG_PATH):
-                DirAccess.remove_absolute(CONFIG_PATH)
         colors = {"skin": NOOB_SKIN, "shirt": NOOB_SHIRT, "pants": NOOB_PANTS}
-        tuning = {
-                "walk_speed": 16.0,
-                "jump_height": 50.0,
-                "gravity": 196.2,
-                "coyote_time": 0.15,
-                "max_air_jumps": 0,
-                "momentum_enabled": false,
-                "momentum_max_multiplier": 2.2,
-                "momentum_buildup_rate": 0.6
-        }
         _apply_look()
-        _status_flash("DEFAULT — classic avatar look & default physics restored.")
+        _status_flash("DEFAULT — the classic noob look is back.")
 
 
 func _on_test_play() -> void:
@@ -244,80 +213,6 @@ func _build_ui() -> void:
         trow.add_child(_key("DEFAULT", Color("6b327c"), _on_default))
         trow.add_child(_key("SAVE", Color("1f4a2a"), _on_save))
         trow.add_child(_key("TEST PLAY", Color("0d69ac"), _on_test_play))
-
-        # ---- left physics tuning panel ----
-        var tpanel := PanelContainer.new()
-        tpanel.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-        tpanel.grow_horizontal = Control.GROW_DIRECTION_END
-        tpanel.grow_vertical = Control.GROW_DIRECTION_BOTH
-        tpanel.offset_left = 12.0
-        var tpsb: StyleBox = RETRO.raised(4, Color(0.13, 0.14, 0.16))
-        tpsb.content_margin_left = 14.0
-        tpsb.content_margin_right = 14.0
-        tpsb.content_margin_top = 12.0
-        tpsb.content_margin_bottom = 12.0
-        tpanel.add_theme_stylebox_override("panel", tpsb)
-        root.add_child(tpanel)
-        var tcol := VBoxContainer.new()
-        tcol.custom_minimum_size = Vector2(240, 0)
-        tcol.add_theme_constant_override("separation", 8)
-        tpanel.add_child(tcol)
-
-        var thead := Label.new()
-        thead.text = "PHYSICS & TUNING"
-        thead.add_theme_font_override("font", RETRO.gotham(800))
-        thead.add_theme_font_size_override("font_size", 13)
-        thead.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
-        tcol.add_child(thead)
-
-        _add_slider(tcol, "WALK SPEED", 8.0, 64.0, float(tuning.get("walk_speed", 16.0)),
-                func(v: float) -> String: return "%d studs/s" % int(roundf(v)),
-                func(v: float) -> void: tuning["walk_speed"] = v)
-
-        _add_slider(tcol, "JUMP HEIGHT / POWER", 15.0, 100.0, float(tuning.get("jump_height", 50.0)),
-                func(v: float) -> String: return "%d studs" % int(roundf(v)),
-                func(v: float) -> void: tuning["jump_height"] = v)
-
-        _add_slider(tcol, "WORKSPACE GRAVITY", 40.0, 300.0, float(tuning.get("gravity", 196.2)),
-                func(v: float) -> String: return "%d studs/s²" % int(roundf(v)),
-                func(v: float) -> void: tuning["gravity"] = v)
-
-        _add_slider(tcol, "COYOTE JUMP WINDOW", 0.0, 0.40, float(tuning.get("coyote_time", 0.15)),
-                func(v: float) -> String: return "%.2fs" % v,
-                func(v: float) -> void: tuning["coyote_time"] = v)
-
-        _add_slider(tcol, "MAX AIR JUMPS", 0.0, 4.0, float(tuning.get("max_air_jumps", 0)),
-                func(v: float) -> String: return ("Normal (1)" if int(v) == 0 else ("+%d Air Jumps" % int(v))),
-                func(v: float) -> void: tuning["max_air_jumps"] = int(roundf(v)))
-
-        var mrow := HBoxContainer.new()
-        mrow.add_theme_constant_override("separation", 8)
-        tcol.add_child(mrow)
-        var ml := Label.new()
-        ml.text = "MOMENTUM RUNNER"
-        ml.add_theme_font_override("font", RETRO.gotham(700))
-        ml.add_theme_font_size_override("font_size", 11)
-        ml.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
-        ml.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        mrow.add_child(ml)
-        var mbtn := Button.new()
-        mbtn.custom_minimum_size = Vector2(70, 26)
-        mbtn.focus_mode = Control.FOCUS_NONE
-        var cur_m := bool(tuning.get("momentum_enabled", false))
-        mbtn.text = "ON" if cur_m else "OFF"
-        mbtn.pressed.connect(func() -> void:
-                var n := not bool(tuning.get("momentum_enabled", false))
-                tuning["momentum_enabled"] = n
-                mbtn.text = "ON" if n else "OFF"
-                _status_flash("Momentum Runner: %s" % ("ON" if n else "OFF")))
-        mrow.add_child(mbtn)
-
-        var thint := Label.new()
-        thint.text = "Saves to player_config.json"
-        thint.add_theme_font_override("font", RETRO.source(400))
-        thint.add_theme_font_size_override("font_size", 10)
-        thint.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-        tcol.add_child(thint)
 
         # ---- right color panel ----
         var panel := PanelContainer.new()
@@ -392,36 +287,6 @@ func _key(txt: String, face: Color, handler: Callable) -> Button:
         W._key_style(b, face, 13)
         b.pressed.connect(handler)
         return b
-
-
-func _add_slider(parent: VBoxContainer, title: String, min_v: float, max_v: float, cur_v: float, fmt: Callable, on_change: Callable) -> void:
-        var r := VBoxContainer.new()
-        r.add_theme_constant_override("separation", 2)
-        parent.add_child(r)
-        var row := HBoxContainer.new()
-        r.add_child(row)
-        var l := Label.new()
-        l.text = title
-        l.add_theme_font_override("font", RETRO.gotham(700))
-        l.add_theme_font_size_override("font_size", 11)
-        l.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
-        l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        row.add_child(l)
-        var vl := Label.new()
-        vl.text = fmt.call(cur_v)
-        vl.add_theme_font_override("font", RETRO.gotham(600))
-        vl.add_theme_font_size_override("font_size", 11)
-        vl.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
-        row.add_child(vl)
-        var s := HSlider.new()
-        s.min_value = min_v
-        s.max_value = max_v
-        s.value = cur_v
-        s.step = 1.0 if max_v > 10.0 else 0.01
-        s.value_changed.connect(func(v: float) -> void:
-                vl.text = fmt.call(v)
-                on_change.call(v))
-        r.add_child(s)
 
 
 func _status_flash(t: String) -> void:

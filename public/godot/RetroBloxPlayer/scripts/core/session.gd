@@ -16,8 +16,8 @@ var role := ""
 # (any engine counts — a Web game works too). Publishing your first game
 # flips this on; the Studio doors and the F2 UI editor open for devs only.
 signal dev_ready(is_dev: bool)
-var is_dev := true            # unlocked by default for SDK editors
-var _dev_checked := true
+var is_dev := false            # resolved by check_dev() — one GET per session
+var _dev_checked := false
 var avatar: Dictionary = {}        # own /api/platform/me payload ({} for guests)
 var avatar_cache: Dictionary = {}  # userId -> avatar payload (remote players)
 var current_place: Dictionary = {} # legacy hub pick — empty now: login drops you straight into baseplate
@@ -35,8 +35,8 @@ func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role:
         # returns that stored null (not the default), which String() can't take
         avatar = _nullless(payload)
         avatar_cache = { p_user_id: _nullless(payload) }
-        _dev_checked = true
-        is_dev = true
+        _dev_checked = false          # a new account — re-ask what it can edit
+        is_dev = false
 
 
 ## Deep-copy a JSON payload with every null replaced by "" — recursive, so

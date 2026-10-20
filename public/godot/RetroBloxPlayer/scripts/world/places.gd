@@ -223,23 +223,19 @@ static func cloud_kingdom() -> Dictionary:
 static func baseplate() -> Dictionary:
         return {
                 "id": "baseplate",
-                "name": "Classic Baseplate (2016)",
-                "desc": "The iconic 2016 retro baseplate with studs, stairs fort, truss ladder, and trampoline.",
-                "tile": "3a6a38",
+                "name": "Happy Baseplate",
+                "desc": "The classic sandbox. Climb the fort, ride the trampoline, hang out.",
+                "tile": "8f8f8f",
                 "sky_top": "3d8fd1",
                 "sky_horizon": "bfe0f5",
                 "void_y": -40.0,
                 "parts": [
-                        { "p": [0, -0.5, 0], "s": [160, 1, 160], "c": "3a6a38" },
-                        # spawn pads (classic 2016 grey with dark inset)
-                        { "p": [0, 0.5, 0], "s": [6, 1, 6], "c": "cfd4da", "g": "spawn" },
-                        { "p": [0, 1.05, 0], "s": [4, 0.15, 4], "c": "23262b", "no_studs": true },
-                        { "p": [12, 0.5, 0], "s": [6, 1, 6], "c": "cfd4da", "g": "spawn" },
-                        { "p": [12, 1.05, 0], "s": [4, 0.15, 4], "c": "23262b", "no_studs": true },
-                        { "p": [-12, 0.5, 0], "s": [6, 1, 6], "c": "cfd4da", "g": "spawn" },
-                        { "p": [-12, 1.05, 0], "s": [4, 0.15, 4], "c": "23262b", "no_studs": true },
-                        { "p": [0, 0.5, 12], "s": [6, 1, 6], "c": "cfd4da", "g": "spawn" },
-                        { "p": [0, 1.05, 12], "s": [4, 0.15, 4], "c": "23262b", "no_studs": true },
+                        { "p": [0, -0.5, 0], "s": [140, 1, 140], "c": "8f8f8f" },
+                        # spawn pads
+                        { "p": [0, 0.5, 0], "s": [5, 1, 5], "c": "cfd4da", "g": "spawn" },
+                        { "p": [10, 0.5, 0], "s": [5, 1, 5], "c": "cfd4da", "g": "spawn" },
+                        { "p": [-10, 0.5, 0], "s": [5, 1, 5], "c": "cfd4da", "g": "spawn" },
+                        { "p": [0, 0.5, 10], "s": [5, 1, 5], "c": "cfd4da", "g": "spawn" },
                         # the classic brick pile
                         { "p": [14, 1, 6], "s": [4, 2, 2], "c": "c0392b" },
                         { "p": [18, 1.5, 6], "s": [3, 3, 3], "c": "e2b23a" },

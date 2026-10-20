@@ -29,31 +29,36 @@ const SITE_URL := "https://retro-blox.vercel.app"
 
 const CARDS := [
         ["PLAY GAME", "Jump into the world — and every place YOU made.", "3e9c35", "res://scenes/game.tscn", false],
-        ["UI EDITOR", "Drag & drop widgets to customize the client UI.", "0d69ac", "res://scenes/ui_editor.tscn", false],
-        ["MAP EDITOR", "Build maps brick by brick — spawn, lava, bounce.", "e8752a", "res://scenes/map_editor.tscn", false],
-        ["PLAYER EDITOR", "Edit avatar and tweak player physics & momentum.", "6b327c", "res://scenes/player_editor.tscn", false],
+        ["UI EDITOR", "Drag & drop widgets to rebuild the client UI.", "0d69ac", "res://scenes/ui_editor.tscn", true],
+        ["MAP EDITOR", "Build maps brick by brick — spawn, lava, bounce.", "e8752a", "res://scenes/map_editor.tscn", true],
+        ["PLAYER EDITOR", "Paint your avatar's skin, shirt and pants.", "6b327c", "res://scenes/player_editor.tscn", true],
 ]
 
 var _status: Label
 var _file_dialog: FileDialog
-var _dev := true                 # fully unlocked for SDK users
-var _role: Label                  # "ROLE" chip
-var _site_btn: Button
+var _dev := false                 # resolved by Session.check_dev()
+var _role: Label                  # "ROLE: PLAYER / GAME DEV" chip
+var _site_btn: Button             # shown to players: publish a game -> become a dev
 
 
 func _ready() -> void:
         RETRO.apply_cursors()
-        _dev = true
+        Session.dev_ready.connect(_on_dev_ready)
+        Session.check_dev(true)
         _build()
 
 
-func _on_dev_ready(_dev_in: bool) -> void:
-        _dev = true
+func _on_dev_ready(dev: bool) -> void:
+        _dev = dev
         if _role != null and is_instance_valid(_role):
-                _role.text = "SDK MODE — all editor scenes unlocked"
-                _role.add_theme_color_override("font_color", Color("7fd18b"))
+                if dev:
+                        _role.text = "ROLE: GAME DEV — every scene unlocked"
+                        _role.add_theme_color_override("font_color", Color("7fd18b"))
+                else:
+                        _role.text = "ROLE: PLAYER — editors locked (publish a game to become a game dev)"
+                        _role.add_theme_color_override("font_color", Color("f5cd30"))
         if _site_btn != null and is_instance_valid(_site_btn):
-                _site_btn.visible = not _dev and not OS.has_feature("web")
+                _site_btn.visible = not dev and not OS.has_feature("web")
         if _status != null and is_instance_valid(_status):
                 _status.text = ""
 
