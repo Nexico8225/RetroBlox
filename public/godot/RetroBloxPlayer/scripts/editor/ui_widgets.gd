@@ -139,17 +139,17 @@ static func build(w: Dictionary, live := false) -> Control:
                         hsb.bg_color = Color(accent.r, accent.g, accent.b, 0.35)
                         hsb.set_corner_radius_all(6)
                         holder.add_theme_stylebox_override("panel", hsb)
-                        var tr := TextureRect.new()
-                        tr.name = "Tex"
-                        tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-                        tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-                        tr.set_anchors_preset(Control.PRESET_FULL_RECT)
-                        tr.offset_left = 2
-                        tr.offset_top = 2
-                        tr.offset_right = -2
-                        tr.offset_bottom = -2
-                        tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-                        holder.add_child(tr)
+                        var trec := TextureRect.new()
+                        trec.name = "Tex"
+                        trec.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                        trec.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+                        trec.set_anchors_preset(Control.PRESET_FULL_RECT)
+                        trec.offset_left = 2
+                        trec.offset_top = 2
+                        trec.offset_right = -2
+                        trec.offset_bottom = -2
+                        trec.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                        holder.add_child(trec)
                         var cap := Label.new()
                         cap.name = "Cap"
                         cap.text = text if text != "" else "image"
@@ -161,7 +161,7 @@ static func build(w: Dictionary, live := false) -> Control:
                         holder.add_child(cap)
                         holder.set_meta("img_url", String(w.get("url", "")))
                         if live and String(w.get("url", "")) != "":
-                                UiImages.load_into(tr, String(w.get("url")))
+                                UiImages.load_into(trec, String(w.get("url")))
                         node = holder
                 _:
                         var x := Label.new()

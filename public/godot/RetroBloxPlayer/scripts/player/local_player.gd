@@ -489,12 +489,22 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
                 velocity.y -= GRAVITY * delta
         elif velocity.y < 0.0:
                 velocity.y = 0.0
-        if _rise_left <= 0.0 and _jump_buffer_left > 0.0 and (is_on_floor() or _coyote > 0.0):
-                _jump_buffer_left = 0.0
-                _coyote = 0.0
-                velocity.y = JUMP_SPEED
-                _play_jump_sound()
-                _dust()
+        if _rise_left <= 0.0 and _jump_buffer_left > 0.0:
+                if is_on_floor() or _coyote > 0.0:
+                        _jump_buffer_left = 0.0
+                        _coyote = 0.0
+                        velocity.y = JUMP_SPEED
+                        _play_jump_sound()
+                        _dust()
+                elif is_on_wall():
+                        # CLASSIC ROBLOX WALL HOP GLITCH (Flick jump off vertical walls)
+                        _jump_buffer_left = 0.0
+                        velocity.y = JUMP_SPEED * 0.95
+                        var wall_n := get_wall_normal()
+                        velocity.x += wall_n.x * 6.0 * STUD
+                        velocity.z += wall_n.z * 6.0 * STUD
+                        _play_jump_sound(1.15)
+                        _dust(1.3)
 
 
 ## A soft dust puff at the feet — takeoffs, hard landings, bounces.
@@ -683,11 +693,17 @@ func _do_bounce() -> void:
         if not alive or _bounce_cd > 0.0:
                 return
         _bounce_cd = BOUNCE_COOLDOWN
-        velocity.y = BOUNCE_POWER
+        var super_bounce := _jump_buffer_left > 0.0 or Input.is_action_pressed("jump") or Input.is_key_pressed(KEY_SPACE)
+        if super_bounce:
+                velocity.y = BOUNCE_POWER * 1.36
+                _play_jump_sound(1.25)
+                _dust(2.2)
+        else:
+                velocity.y = BOUNCE_POWER
+                _play_jump_sound(0.9)
+                _dust(1.4)
         _falling = true
         _fall_peak_y = global_position.y
-        _play_jump_sound(0.9)
-        _dust(1.4)
 
 
 # ---------------------------------------------------------------- sounds
@@ -763,16 +779,18 @@ func _setup_touch_sensor() -> void:
         var shape_node := CollisionShape3D.new()
         var shape := CapsuleShape3D.new()
         shape.radius = 1.45 * STUD
-        shape.height = 5.4 * STUD
+        shape.height = 5.8 * STUD
         shape_node.shape = shape
-        shape_node.position = Vector3(0.0, 2.6 * STUD, 0.0)
+        shape_node.position = Vector3(0.0, 2.5 * STUD, 0.0)
         area.add_child(shape_node)
         add_child(area)
-        area.body_entered.connect(func(other: Node3D) -> void:
+        var handle_touch := func(other: Node) -> void:
                 for g in ["kill", "goal", "checkpoint", "bounce"]:
                         if other.is_in_group(g):
                                 if g == "bounce":
                                         _do_bounce()
                                         return
                                 touched_group.emit(g, other)
-                                return)
+                                return
+        area.body_entered.connect(func(b: Node3D) -> void: handle_touch.call(b))
+        area.area_entered.connect(func(a: Area3D) -> void: handle_touch.call(a))

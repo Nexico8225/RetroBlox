@@ -239,7 +239,7 @@ func _on_input_gui(event: InputEvent) -> void:
 ## One chat line — the speaker's name in the
 ## classic bright palette, then the message. name_color is a hex string.
 ## v3.11: the "#1" seq chips are GONE (you asked) — a clean line.
-func add_chat(username: String, _seq_id: int, text: String, name_color: String = "", self_style := false, uid := "") -> void:
+func add_chat(username: String, _seq_id: int, text: String, name_color: String = "", self_style := false, _uid := "") -> void:
         var color := _color_for(username, name_color)
         var line := " [b][color=#%s]%s:[/color][/b] %s" % [color, _esc(username), _esc(text)]
         if self_style:

@@ -826,8 +826,8 @@ func _run_all() -> void:
                 "chat names wear the CLASSIC BRIGHT palette (readable on dark glass)")
         check(not chat_src.contains("add_image") and not chat_src.contains("pfp_resolver"),
                 "v12.4: chat lines are NAME + TEXT — no PFP images anywhere")
-        check(game_src.contains('chat_btn.icon = RetroUI.icon_png("chat"'),
-                "the pill's chat key wears the REAL internet chat icon")
+        check(not game_src.contains('chat_btn.icon = RetroUI.icon_png("chat"'),
+                "topbar chat key removed as requested")
         check(bubble_src.contains("SHOW_SECONDS := 12.0") and bubble_src.contains("FADE_SECONDS := 1.4"),
                 "bubbles linger 12s and fade out SLOWLY")
         check(bubble_src.contains("_fade_out"),

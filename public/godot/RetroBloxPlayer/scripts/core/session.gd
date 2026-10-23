@@ -132,4 +132,8 @@ func my_avatar_data() -> Dictionary:
         if is_guest:
                 return {}
         var a: Variant = avatar.get("avatar", {})
-        return a if a is Dictionary else {}
+        var res: Dictionary = a.duplicate() if a is Dictionary else {}
+        for key in ["emotes", "animPack", "bundle", "colors", "faceScale", "displayName", "avatarUrl"]:
+                if avatar.has(key) and not res.has(key):
+                        res[key] = avatar[key]
+        return res

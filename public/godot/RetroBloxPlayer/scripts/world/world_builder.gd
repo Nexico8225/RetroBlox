@@ -70,23 +70,17 @@ static func build(def: Dictionary) -> Dictionary:
         # 2006 Roblox outdoor light was a big bright UNIFORM fill: shadows were
         # soft blue-ish and never muddy, and every brick read LOUD. So: strong
         # ambient + heavy sky bounce (blue shadow tint), sun does the modeling.
-        env.ambient_light_energy = 0.74
-        env.ambient_light_sky_contribution = 0.68
-        # v5.0: LINEAR tonemap — FILMIC lifted every midtone into a blinding
-        # pastel wash (the "everything so bright" report). Linear renders the
-        # authored part colors TRUE: mid-gray baseplate reads mid-gray, red
-        # bricks read red. The classic flat plastic look.
+        # Classic balanced lighting: vibrant colors without overexposed white blowout
+        env.ambient_light_energy = 0.52
+        env.ambient_light_sky_contribution = 0.60
         env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
         # a whisper of distance fog on EVERY sky place — islands and towers
-        # melt into the horizon instead of cutting off hard (v5.0: lighter
-        # than v4.0 so the fog never milk-washes the scene)
+        # melt into the horizon instead of cutting off hard
         if bool(def.get("sky", true)) or bool(def.get("cloud_deck", false)):
                 env.fog_enabled = true
                 env.fog_light_color = Color("dce9f5")
-                # v14.0: fog was milk-washing the saturation out of everything —
-                # halved it so islands melt into the horizon but bricks stay LOUD
-                env.fog_density = 0.0009 if not bool(def.get("cloud_deck", false)) else 0.0018
-                env.fog_sky_affect = 0.06 if not bool(def.get("cloud_deck", false)) else 0.10
+                env.fog_density = 0.0006 if not bool(def.get("cloud_deck", false)) else 0.0014
+                env.fog_sky_affect = 0.05
         var world_env := WorldEnvironment.new()
         world_env.environment = env
         root.add_child(world_env)
@@ -94,8 +88,8 @@ static func build(def: Dictionary) -> Dictionary:
         var sun := DirectionalLight3D.new()
         sun.name = "Sun"
         sun.rotation_degrees = Vector3(-55.0, -30.0, 0.0)
-        sun.light_energy = 1.14            # v14.0: the sun POPS again (was 0.92, dull)
-        sun.light_color = Color("fff3d6")  # warm but near-white — keeps colors honest
+        sun.light_energy = 0.88            # calibrated so white bricks don't blow out
+        sun.light_color = Color("fff5e0")  # warm sunlight
         sun.shadow_enabled = true
         sun.directional_shadow_max_distance = 90.0
         sun.shadow_blur = 1.2
@@ -136,6 +130,9 @@ static func _vivid(c: Color, strength := 1.24) -> Color:
 
 
 static func _build_part(root: Node3D, part: Dictionary, tex: ImageTexture, spawns: Array[Vector3]) -> void:
+        if part.has("type"):
+                _build_prop(root, part, tex)
+                return
         var p: Array = part.get("p", [0, 0, 0])
         var s: Array = part.get("s", [4, 1, 4])
         var group: String = part.get("g", "")
@@ -224,6 +221,20 @@ static func _build_part(root: Node3D, part: Dictionary, tex: ImageTexture, spawn
                 _spawn_pad_visual(root, pos, size)
         if group == "checkpoint":
                 body.set_meta("spawn", pos + Vector3(0.0, size.y * 0.5 + 0.2 * STUD, 0.0))
+                var cp_area := Area3D.new()
+                cp_area.name = "CheckpointTrigger"
+                cp_area.add_to_group("checkpoint")
+                cp_area.collision_layer = 1
+                cp_area.collision_mask = 4
+                cp_area.set_meta("spawn", pos + Vector3(0.0, size.y * 0.5 + 0.2 * STUD, 0.0))
+                var cp_cs := CollisionShape3D.new()
+                var cp_box := BoxShape3D.new()
+                cp_box.size = Vector3(size.x, 1.6 * STUD, size.z)
+                cp_cs.shape = cp_box
+                cp_cs.position = Vector3(0.0, size.y * 0.5 + 0.8 * STUD, 0.0)
+                cp_area.add_child(cp_cs)
+                body.add_child(cp_area)
+                _checkpoint_visual(root, pos, size)
         if group == "goal":
                 _goal_sparkle(root, pos + Vector3(0.0, size.y * 0.5 + 0.6 * STUD, 0.0))
         root.add_child(body)
@@ -285,6 +296,16 @@ static func _build_prop(root: Node3D, prop: Dictionary, tex: ImageTexture) -> vo
                         _house(root, pos)
                 "snow":
                         _snow(root, pos, _s3(prop.get("s", [5, 2, 5]), Vector3(5, 2, 5)))
+                "moving_platform":
+                        var s := _s3(prop.get("s", [6, 1.2, 6]), Vector3(6, 1.2, 6)) * STUD
+                        var dest_arr: Array = prop.get("target_offset", [0, 0, 24])
+                        var dest := Vector3(float(dest_arr[0]), float(dest_arr[1]), float(dest_arr[2])) * STUD
+                        var stand_to_move: bool = bool(prop.get("move_on_player_stand", false))
+                        var ease_str: String = String(prop.get("easing", "sine_in_out"))
+                        var duration: float = float(prop.get("move_duration", 3.5))
+                        var wait_t: float = float(prop.get("wait_time", 1.0))
+                        var color: Color = Color(prop.get("c", "f5cd30"))
+                        _moving_platform(root, pos, s, dest, stand_to_move, ease_str, duration, wait_t, color)
 
 
 ## Prop sizes may arrive as [x,y,z] OR a single number ("s": 2 = a 2-stud
@@ -820,3 +841,39 @@ static func _spawn_pad_visual(root: Node3D, pos: Vector3, size: Vector3) -> void
         rim.material_override = m
         rim.position = pos + Vector3(0.0, size.y * 0.5 + 0.03 * STUD, 0.0)
         root.add_child(rim)
+
+
+## Checkpoint decal rim and cylinder marker
+static func _checkpoint_visual(root: Node3D, pos: Vector3, size: Vector3) -> void:
+        var dec := MeshInstance3D.new()
+        dec.name = "CheckpointDecal"
+        var cy := CylinderMesh.new()
+        cy.top_radius = minf(size.x, size.z) * 0.38
+        cy.bottom_radius = cy.top_radius
+        cy.height = 0.05 * STUD
+        dec.mesh = cy
+        var m := StandardMaterial3D.new()
+        m.albedo_color = Color("f5cd30")
+        m.emission_enabled = true
+        m.emission = Color("f5cd30") * 0.4
+        dec.material_override = m
+        dec.position = pos + Vector3(0.0, size.y * 0.5 + 0.03 * STUD, 0.0)
+        root.add_child(dec)
+
+
+## Moveable block helper
+static func _moving_platform(root: Node3D, pos: Vector3, size: Vector3, target_offset: Vector3, stand_to_move: bool, easing: String, duration: float, wait_t: float, color: Color) -> void:
+        var MoverScript := load("res://scripts/world/moving_platform.gd")
+        if MoverScript == null:
+                return
+        var platform = MoverScript.new()
+        platform.position = pos
+        platform.block_size = size
+        platform.target_offset = target_offset
+        platform.move_on_player_stand = stand_to_move
+        platform.easing = easing
+        platform.move_duration = duration
+        platform.wait_time = wait_t
+        platform.block_color = color
+        root.add_child(platform)
+

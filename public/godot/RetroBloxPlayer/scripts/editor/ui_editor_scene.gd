@@ -220,22 +220,22 @@ func _build() -> void:
         _h_spin.value_changed.connect(func(v: float) -> void: _on_prop("h", v))
         _size_spin.value_changed.connect(func(v: float) -> void: _on_prop("size", int(v)))
 
-        var tr := HBoxContainer.new()
-        tr.add_theme_constant_override("separation", 6)
+        var text_row := HBoxContainer.new()
+        text_row.add_theme_constant_override("separation", 6)
         var tl := Label.new()
         tl.text = "Text"
         tl.custom_minimum_size = Vector2(38, 0)
         tl.add_theme_font_override("font", RETRO.source(600))
         tl.add_theme_font_size_override("font_size", 12)
         tl.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-        tr.add_child(tl)
+        text_row.add_child(tl)
         _text_edit = LineEdit.new()
         _text_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         _text_edit.add_theme_font_size_override("font_size", 12)
         _text_edit.text_submitted.connect(func(t: String) -> void: _on_text(t))
         _text_edit.text_changed.connect(func(_t: String) -> void: _on_text(_text_edit.text))
-        tr.add_child(_text_edit)
-        _props_body.add_child(tr)
+        text_row.add_child(_text_edit)
+        _props_body.add_child(text_row)
 
         var ct := Label.new()
         ct.text = "COLOR"

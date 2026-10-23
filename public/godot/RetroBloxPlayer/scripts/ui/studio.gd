@@ -29,7 +29,6 @@ const SITE_URL := "https://retro-blox.vercel.app"
 
 const CARDS := [
         ["PLAY GAME", "Jump into the world — and every place YOU made.", "3e9c35", "res://scenes/game.tscn", false],
-        ["UI EDITOR", "Drag & drop widgets to rebuild the client UI.", "0d69ac", "res://scenes/ui_editor.tscn", true],
         ["MAP EDITOR", "Build maps brick by brick — spawn, lava, bounce.", "e8752a", "res://scenes/map_editor.tscn", true],
         ["PLAYER EDITOR", "Paint your avatar's skin, shirt and pants.", "6b327c", "res://scenes/player_editor.tscn", true],
 ]

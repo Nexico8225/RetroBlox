@@ -14,6 +14,7 @@ const WorldBuilderScript := preload("res://scripts/world/world_builder.gd")
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
 const AvatarViewerScript := preload("res://scripts/ui/avatar_viewer.gd")
 const MenuIcons := preload("res://scripts/ui/menu_icons.gd")
+const EmoteWheelScript := preload("res://scripts/ui/emote_wheel.gd")
 
 const POLL_SECONDS := 2.5       # chat + presence feed
 const HEARTBEAT_SECONDS := 4.0  # my presence out
@@ -24,6 +25,7 @@ var player            # LocalPlayer — untyped: custom members, dynamic calls
 var camera_rig        # CameraRig
 var chat              # ChatBox
 var hud: CanvasLayer
+var emote_wheel: EmoteWheel
 
 var _health_fill: Panel              # the green fill inside the track
 var _health_value: Label
@@ -64,26 +66,10 @@ var _chat_badge_panel: PanelContainer
 var _toast_box: VBoxContainer
 var _shift_check: Button
 var _center_cursor: TextureRect   # the visible mouse parked mid-screen in first person
+var _shiftlock_icon: Control      # classic Roblox Shift Lock reticle
 var _loading: Control             # the v3.6 loading veil (no more load hitch)
 var _session_start_ms := 0        # the match timer
 var _last_ping_ms := 0            # last platform round-trip, shown as ping
-
-# ---- v13.0 THE PAINT BRUSH: paint the world yourself ----
-# The 12 classic swatches (hex, no #): white is the eraser, black is ink,
-# the rest are the bright plastic colors the old bricks shipped in.
-const PAINT_COLORS := [
-        "f2f3f3", "1b2a34", "c4281c", "e8752a", "f5cd30", "4b974b",
-        "009999", "0d69ac", "6b327c", "e8bac8", "7c5c46", "635f62",
-]
-var _brush := Color("c4281c")    # the picked swatch (bright red ships picked)
-var _paint_bar: PanelContainer  # the bottom-center palette
-var _paint_swatch := {}         # hex -> Button (for the picked highlight)
-var _paint_count: Label         # "12 / 33 painted" (paint-flagged places)
-var _paint_total := 0           # paintable parts in this place
-var _painted := {}              # instance_id -> true (parts I painted)
-var _paint_done := false        # the WORLD COMPLETE banner fires once
-var _build_mode := false        # v13.1 BUILD MODE: click to place bricks
-var _built_root: Node3D         # every brick YOU place lives here
 
 
 func _ready() -> void:
@@ -106,12 +92,9 @@ func _ready() -> void:
         var built: Dictionary = WorldBuilderScript.build(place)
         add_child(built["root"])
         _spawns = built["spawns"]
-        _tag_paintables(built["root"])   # v13.0: every part accepts the brush
-        _built_root = Node3D.new()       # v13.1: bricks the player builds land here
-        _built_root.name = "BuiltBricks"
-        built["root"].add_child(_built_root)
         if _spawns.is_empty():
                 _spawns.append(Vector3(0.0, 6.0, 0.0) * WorldBuilderScript.STUD)
+        # a frame between the world and the player splits the spike
         # a frame between the world and the player splits the spike
         await get_tree().process_frame
 
@@ -309,6 +292,9 @@ func _apply_saved_avatar_colors() -> void:
 
 func _physics_process(delta: float) -> void:
         if _menu_open:
+                if player != null and is_instance_valid(player) and player.avatar != null and is_instance_valid(player.avatar):
+                        player.velocity = Vector3.ZERO
+                        player.avatar.call("animate", delta, 0.0, true, false)
                 return
         # staged loading: _ready awaits across a few frames — the player may
         # not exist yet, sit tight until it does
@@ -329,6 +315,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+        _update_shiftlock_icon()
         _poll_left -= delta
         if _poll_left <= 0.0:
                 _poll_left = POLL_SECONDS
@@ -357,31 +344,12 @@ func _unhandled_input(event: InputEvent) -> void:
                 chat.close()
                 get_viewport().set_input_as_handled()
                 return
-        # ---- v13.1 BUILD MODE: the B key turns the world into your map
-        # editor — click places a brick (in your brush color), CTRL+click
-        # removes one you placed, B again is back to painting ----
+        # ---- EMOTE WHEEL: '.' (period) opens the emote wheel (Roblox style) ----
         if event is InputEventKey and event.is_pressed() and not event.is_echo() \
-                        and (event as InputEventKey).keycode == KEY_B and not _menu_open \
+                        and (event as InputEventKey).keycode == KEY_PERIOD and not _menu_open \
                         and chat != null and is_instance_valid(chat) and not chat.is_open:
-                _toggle_build_mode()
+                _toggle_emote_wheel()
                 get_viewport().set_input_as_handled()
-                return
-        # ---- v16 PAINT COLORS: C shows/hides the palette (no permanent bar) ----
-        if event is InputEventKey and event.is_pressed() and not event.is_echo() \
-                        and (event as InputEventKey).keycode == KEY_C and not _menu_open \
-                        and chat != null and is_instance_valid(chat) and not chat.is_open \
-                        and not chat.is_reading:
-                _toggle_paint_bar()
-                get_viewport().set_input_as_handled()
-                return
-        # ---- v13.0 THE PAINT BRUSH: LEFT CLICK paints the brick under the
-        # cursor with the picked palette color (palette lives bottom-center;
-        # buttons eat their own clicks so painting never fires on UI) ----
-        if event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
-                        and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT \
-                        and not _menu_open and chat != null and is_instance_valid(chat) \
-                        and not chat.is_open and not chat.is_reading:
-                _brush_click(event)
                 return
         # ---- ESC menu keyboard shortcuts (classic and fast) ----
         if _menu_open and event is InputEventKey and event.is_pressed() and not event.is_echo() \
@@ -399,8 +367,9 @@ func _unhandled_input(event: InputEvent) -> void:
                         get_viewport().set_input_as_handled()
                         return
         if event.is_action_pressed("ui_cancel"):
-                # v3.11: ESC closes READ MODE first — the menu toggle comes after
-                if chat.is_reading:
+                if emote_wheel != null and is_instance_valid(emote_wheel) and emote_wheel.is_wheel_open():
+                        emote_wheel.close()
+                elif chat.is_reading:
                         chat.close_read()
                 else:
                         _toggle_menu()
@@ -440,6 +409,7 @@ func _unhandled_input(event: InputEvent) -> void:
                                 st.call("set_key", "shift_lock", camera_rig.shift_locked)
                         if _shift_check != null and is_instance_valid(_shift_check):
                                 _shift_check.set_pressed_no_signal(camera_rig.shift_locked)
+                        _update_shiftlock_icon()
                         get_viewport().set_input_as_handled()
         # NOTE: no click-to-capture — the cursor is ALWAYS usable in third
         # person now; the camera orbits with the RIGHT mouse button instead.
@@ -486,6 +456,7 @@ func _build_hud() -> void:
         _build_health()
         _build_stats_chip()
         _build_center_cursor()
+        _build_shiftlock_icon()
 
         # ---- top-center: join toasts ----
         _toast_box = VBoxContainer.new()
@@ -497,8 +468,8 @@ func _build_hud() -> void:
         hud.add_child(_toast_box)
         UiEditor.register("toasts", _toast_box, false)
 
-        # ---- v13.0: the paint palette — paint the world yourself ----
-        _build_paint_bar()
+        # ---- Emote Wheel: '.' (period) opens the 8-slot wheel ----
+        _build_emote_wheel()
 
         # ---- v14.0: YOUR widgets — whatever the UI Editor scene holds ----
         for n in UiWidgetsScript.spawn_all(hud, self):
@@ -562,49 +533,12 @@ func _build_topbar() -> void:
         logo_btn.pressed.connect(func() -> void: _toggle_menu())
         cluster.add_child(logo_btn)
 
-        # the chat key — THE OLD BLUE ONE: the white bubble on the site's
-        # blue gloss square, exactly the v12.0 topbar the owner wants back
-        var chat_btn := _topbar_key()
-        chat_btn.tooltip_text = "Chat (ENTER)"
-        chat_btn.icon = RetroUI.icon_png("chat", Color.WHITE)
-        chat_btn.pressed.connect(func() -> void:
-                if chat.is_open:
-                        chat.close()
-                else:
-                        chat.open())
-        chat.unread.connect(func(n: int) -> void:
-                _chat_badge.text = "" if n <= 0 else str(n)
-                if _chat_badge_panel != null and is_instance_valid(_chat_badge_panel):
-                        _chat_badge_panel.visible = n > 0)
-        var badge_holder := Control.new()
-        badge_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        badge_holder.set_anchors_preset(Control.PRESET_FULL_RECT)
-        chat_btn.add_child(badge_holder)
-        _chat_badge = Label.new()
-        _chat_badge.name = "ChatBadge"
-        _chat_badge.text = ""
-        _chat_badge.add_theme_font_size_override("font_size", 12)
-        _chat_badge.add_theme_color_override("font_color", Color.WHITE)
-        var badge_panel := PanelContainer.new()
-        badge_panel.add_theme_stylebox_override("panel", _badge_style())
-        badge_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        badge_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-        badge_panel.offset_left = -6.0
-        badge_panel.offset_right = 10.0
-        badge_panel.offset_top = -8.0
-        badge_panel.offset_bottom = 8.0
-        badge_panel.add_child(_chat_badge)
-        badge_holder.add_child(badge_panel)
-        _chat_badge_panel = badge_panel
-        badge_panel.visible = false   # no unread yet — no red dot
-        cluster.add_child(chat_btn)
-
-        # v16: the paint bucket key — shows/hides the color palette (C does it too)
-        var paint_btn := _topbar_key()
-        paint_btn.tooltip_text = "Paint colors (C)"
-        paint_btn.icon = RetroUI.icon_png("brush", Color.WHITE)
-        paint_btn.pressed.connect(_toggle_paint_bar)
-        cluster.add_child(paint_btn)
+        # Emotes button: opens the 8-slot wheel (. does it too)
+        var emotes_btn := _topbar_key()
+        emotes_btn.tooltip_text = "Emotes (.)"
+        emotes_btn.icon = RetroUI.icon_png("person", Color.WHITE)
+        emotes_btn.pressed.connect(_toggle_emote_wheel)
+        cluster.add_child(emotes_btn)
 
         UiEditor.register("topbar", cluster, false)
 
@@ -806,6 +740,46 @@ func _build_center_cursor() -> void:
         hud.add_child(_center_cursor)
 
 
+## Authentic classic Shift Lock crosshair reticle parked in the center of the screen
+func _build_shiftlock_icon() -> void:
+        var icon := Control.new()
+        icon.name = "ShiftLockIcon"
+        icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        icon.custom_minimum_size = Vector2(36, 36)
+        icon.size = Vector2(36, 36)
+        icon.set_anchors_preset(Control.PRESET_CENTER)
+        icon.offset_left = -18.0
+        icon.offset_right = 18.0
+        icon.offset_top = -18.0
+        icon.offset_bottom = 18.0
+        icon.visible = false
+        icon.draw.connect(func() -> void:
+                var c := icon.size * 0.5
+                var r := 7.0
+                # Outer shadow
+                icon.draw_arc(c, r, 0.0, TAU, 32, Color(0, 0, 0, 0.7), 3.0, true)
+                # Outer white ring
+                icon.draw_arc(c, r, 0.0, TAU, 32, Color.WHITE, 1.8, true)
+                # Center white dot with dark outline
+                icon.draw_circle(c, 2.2, Color(0, 0, 0, 0.7))
+                icon.draw_circle(c, 1.2, Color.WHITE)
+                # 4 crosshair notch ticks extending outwards
+                var ticks := [Vector2(0, -1), Vector2(0, 1), Vector2(-1, 0), Vector2(1, 0)]
+                for t in ticks:
+                        icon.draw_line(c + t * (r + 2.0), c + t * (r + 6.0), Color(0, 0, 0, 0.7), 2.8)
+                        icon.draw_line(c + t * (r + 2.0), c + t * (r + 6.0), Color.WHITE, 1.6))
+        hud.add_child(icon)
+        _shiftlock_icon = icon
+
+
+func _update_shiftlock_icon() -> void:
+        if _shiftlock_icon != null and is_instance_valid(_shiftlock_icon):
+                var show := false
+                if camera_rig != null and is_instance_valid(camera_rig):
+                        show = camera_rig.shift_locked and not camera_rig.first_person and not _menu_open
+                _shiftlock_icon.visible = show
+
+
 # ---- toasts (top-center black pills) ------------------------------------
 
 func _notify(text: String, with_sound := false) -> void:
@@ -875,218 +849,21 @@ func _custom_widget_action(txt: String) -> void:
 # ---------------------------------------------------------------- paint brush
 # v13.0 PAINT THE WORLD. Every part of every place accepts
 # the brush: LEFT CLICK paints the brick under the cursor with the picked
-# palette color. Paint is your own view of the world (client-side) — the
-# classic feeling of coloring a baseplate, now built into the client.
+# ---------------------------------------------------------------- emote wheel
 
-## Tag every paintable part after the world builds. A part = a StaticBody3D
-## with a MeshInstance3D child (exactly what WorldBuilder._build_part makes).
-func _tag_paintables(world_root: Node) -> void:
-        var stack: Array[Node] = [world_root]
-        while not stack.is_empty():
-                var n: Node = stack.pop_back()
-                for c in n.get_children():
-                        stack.append(c)
-                if n is StaticBody3D:
-                        for c in n.get_children():
-                                if c is MeshInstance3D:
-                                        n.add_to_group("paintable")
-                                        _paint_total += 1
-                                        break
+func _build_emote_wheel() -> void:
+        emote_wheel = EmoteWheelScript.new()
+        emote_wheel.emote_selected.connect(func(clip: String) -> void:
+                if player != null and is_instance_valid(player):
+                        var rig: Node = player.get("avatar")
+                        if rig != null and is_instance_valid(rig):
+                                rig.call("play_emote", clip))
+        hud.add_child(emote_wheel)
 
 
-## The bottom-center palette: PAINT + the 12 swatches (+ the painted counter
-## in places flagged "paint": true). Swatch buttons eat their own clicks.
-func _build_paint_bar() -> void:
-        _paint_bar = PanelContainer.new()
-        _paint_bar.name = "PaintBar"
-        _paint_bar.add_theme_stylebox_override("panel", _toast_style())
-        _paint_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-        _paint_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
-        _paint_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
-        _paint_bar.offset_bottom = -12.0
-        var row := HBoxContainer.new()
-        row.add_theme_constant_override("separation", 5)
-        _paint_bar.add_child(row)
-
-        var title := Label.new()
-        title.text = "PAINT"
-        _text(title, 12, Color(1, 1, 1, 0.85))
-        row.add_child(title)
-
-        for hex in PAINT_COLORS:
-                var hx := String(hex)
-                var swatch := Button.new()
-                swatch.custom_minimum_size = Vector2(24, 24)
-                swatch.focus_mode = Control.FOCUS_NONE
-                swatch.tooltip_text = "#" + hx
-                swatch.add_theme_stylebox_override("normal", _paint_swatch_face(hx, false))
-                swatch.add_theme_stylebox_override("hover", _paint_swatch_face(hx, false))
-                swatch.add_theme_stylebox_override("pressed", _paint_swatch_face(hx, false))
-                swatch.pressed.connect(_pick_paint.bind(hx))
-                row.add_child(swatch)
-                _paint_swatch[hx] = swatch
-        _pick_paint("c4281c")   # bright red ships picked
-
-        if bool(place.get("paint", false)):
-                _paint_count = Label.new()
-                _text(_paint_count, 12, Color("ffd400"))
-                _paint_count.text = "0 / %d painted" % _paint_total
-                row.add_child(_paint_count)
-                _notify("Born WHITE — press C for colors, click a brick to paint it!", true)
-
-        hud.add_child(_paint_bar)
-        _paint_bar.visible = false   # v16: hidden until C or the bucket key — no permanent palette
-        UiEditor.register("paint_bar", _paint_bar, false)
-
-
-## A swatch face: the color itself, yellow-rimmed when it is the picked brush.
-func _paint_swatch_face(hex: String, picked: bool) -> StyleBoxFlat:
-        var sb := StyleBoxFlat.new()
-        sb.bg_color = Color(hex)
-        sb.set_corner_radius_all(5)
-        sb.set_border_width_all(3 if picked else 2)
-        sb.border_color = Color("ffd400") if picked else Color(1, 1, 1, 0.22)
-        return sb
-
-
-func _pick_paint(hex: String) -> void:
-        _brush = Color(hex)
-        for key in _paint_swatch:
-                var hx := String(key)
-                var on := hx == hex
-                var b: Button = _paint_swatch[key]
-                b.add_theme_stylebox_override("normal", _paint_swatch_face(hx, on))
-                b.add_theme_stylebox_override("hover", _paint_swatch_face(hx, on))
-                b.add_theme_stylebox_override("pressed", _paint_swatch_face(hx, on))
-
-
-## v16: the palette hides until asked — C or the topbar bucket key.
-func _toggle_paint_bar() -> void:
-        if _paint_bar == null or not is_instance_valid(_paint_bar):
-                return
-        _paint_bar.visible = not _paint_bar.visible
-        if _paint_bar.visible:
-                _notify("Pick a color, then click a brick to paint it. C hides this.", false)
-
-
-## LEFT CLICK: in build mode you place / remove bricks, otherwise you paint.
-func _brush_click(event: InputEvent) -> void:
-        if _build_mode:
-                _build_click(event as InputEventMouseButton)
-        else:
-                _paint_brick()
-
-
-func _toggle_build_mode() -> void:
-        _build_mode = not _build_mode
-        if _build_mode:
-                _notify("BUILD MODE — click places a brick in your brush color · CTRL+click removes one you built · B = back to painting", false)
-        else:
-                _notify("Back to the brush — click paints again.", false)
-
-
-## BUILD MODE placement: ray out of the camera, sit a 4x1x4 stud brick flush
-## on the face you aim at (grid-snapped), wearing the current brush color.
-## CTRL+click removes a brick YOU placed (the map itself stays untouchable).
-func _build_click(mb: InputEventMouseButton) -> void:
-        var cam: Camera3D = get_viewport().get_camera_3d()
-        if cam == null:
-                return
-        var mp := get_viewport().get_mouse_position()
-        if camera_rig != null and is_instance_valid(camera_rig) and camera_rig.is_first_person():
-                mp = get_viewport().get_visible_rect().size * 0.5
-        var from := cam.project_ray_origin(mp)
-        var query := PhysicsRayQueryParameters3D.create(
-                from, from + cam.project_ray_normal(mp) * 300.0, 1)
-        var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
-        if hit.is_empty():
-                return
-        var body: Object = hit.get("collider")
-        if body == null or not (body is StaticBody3D):
-                return
-        if mb.ctrl_pressed or mb.meta_pressed:
-                # demolish — only bricks the player built, never the authored map
-                if (body as Node).has_meta("built"):
-                        (body as Node).queue_free()
-                        _notify("Brick removed.", false)
-                return
-        # place: offset the brick half its size along the face normal so it
-        # sits EXACTLY on the surface, then grid-snap the footprint
-        var n: Vector3 = hit.get("normal", Vector3.UP)
-        var half := Vector3(absf(n.x) * 2.0, absf(n.y) * 0.5, absf(n.z) * 2.0)
-        var center: Vector3 = (hit.get("position", Vector3.ZERO) as Vector3) + Vector3(n.x * half.x, n.y * half.y, n.z * half.z)
-        center.x = roundf(center.x)
-        center.z = roundf(center.z)
-        var brick := StaticBody3D.new()
-        brick.collision_layer = 1
-        brick.collision_mask = 0
-        var cs := CollisionShape3D.new()
-        var sh := BoxShape3D.new()
-        sh.size = Vector3(4, 1, 4)
-        cs.shape = sh
-        brick.add_child(cs)
-        var mi := MeshInstance3D.new()
-        var bm := BoxMesh.new()
-        bm.size = Vector3(4, 1, 4)
-        mi.mesh = bm
-        var m := StandardMaterial3D.new()
-        m.albedo_color = _brush
-        m.roughness = 0.78
-        m.albedo_texture = WorldBuilderScript.stud_texture()
-        m.uv1_triplanar = true
-        m.uv1_world_triplanar = true
-        m.uv1_scale = Vector3.ONE / WorldBuilderScript.STUD
-        mi.material_override = m
-        brick.add_child(mi)
-        brick.position = center
-        brick.add_to_group("paintable")   # the brush works on it too
-        brick.set_meta("built", true)     # ...but it never counts as world progress
-        _built_root.add_child(brick)
-
-
-func _paint_brick() -> void:
-        var cam: Camera3D = get_viewport().get_camera_3d()
-        if cam == null:
-                return
-        var mp := get_viewport().get_mouse_position()
-        if camera_rig != null and is_instance_valid(camera_rig) and camera_rig.is_first_person():
-                mp = get_viewport().get_visible_rect().size * 0.5
-        var from := cam.project_ray_origin(mp)
-        var query := PhysicsRayQueryParameters3D.create(
-                from, from + cam.project_ray_normal(mp) * 300.0, 1)
-        var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
-        if hit.is_empty():
-                return
-        var body: Object = hit.get("collider")
-        if body == null or not (body is StaticBody3D) or not (body as Node).is_in_group("paintable"):
-                return
-        var mesh_node: MeshInstance3D = null
-        for c in (body as Node).get_children():
-                if c is MeshInstance3D:
-                        mesh_node = c
-                        break
-        if mesh_node == null or mesh_node.material_override == null:
-                return
-        var mat := mesh_node.material_override as StandardMaterial3D
-        if mat == null:
-                return
-        mat.albedo_color = _brush
-        if mat.emission_enabled:
-                mat.emission = _brush   # neon parts keep glowing in the NEW color
-        if not _painted.has((body as Node).get_instance_id()) \
-                        and not (body as Node).has_meta("built"):
-                _painted[(body as Node).get_instance_id()] = true
-                _update_paint_count()
-
-
-func _update_paint_count() -> void:
-        if _paint_count == null or not is_instance_valid(_paint_count):
-                return
-        _paint_count.text = "%d / %d painted" % [_painted.size(), _paint_total]
-        if not _paint_done and _paint_total > 0 and _painted.size() >= _paint_total:
-                _paint_done = true
-                _notify("WORLD COMPLETE — you painted every brick!", true)
-                _paint_count.text = "ALL PAINTED!"
+func _toggle_emote_wheel() -> void:
+        if emote_wheel != null and is_instance_valid(emote_wheel):
+                emote_wheel.toggle()
 
 
 # ---------------------------------------------------------------- audio bed
@@ -1784,7 +1561,7 @@ func _build_settings_tab() -> VBoxContainer:
                 [["Sit", "Sit"], ["Climb", "Climb"], ["Walk", "Walk"],
                 ["Jump", "Jump"], ["Idle", "Idle"], ["Stop", ""]],
                 0,
-                func(v: int) -> void: pass,
+                func(_v: int) -> void: pass,
                 func(txt: String) -> void:
                         if player != null and is_instance_valid(player):
                                 player.avatar.call("play_emote", txt))
@@ -2141,6 +1918,11 @@ func _toggle_menu() -> void:
         _menu_open = not _menu_open
         _menu.visible = _menu_open
         if _menu_open:
+                # Force switch character animation to idle when ESC menu opens
+                if player != null and is_instance_valid(player):
+                        player.velocity = Vector3.ZERO
+                        if player.avatar != null and is_instance_valid(player.avatar):
+                                player.avatar.call("animate", 0.0, 0.0, true, false)
                 # v3.11: the window breathes in — a quick smooth fade
                 _menu.modulate.a = 0.0
                 create_tween().tween_property(_menu, "modulate:a", 1.0, 0.14)
@@ -2153,6 +1935,7 @@ func _toggle_menu() -> void:
         else:
                 _menu.modulate.a = 1.0
                 camera_rig.set_ui_blocked(false)
+        _update_shiftlock_icon()
 
 
 # ---------------------------------------------------------------- events
@@ -2185,9 +1968,24 @@ func _on_touched_group(group: String, node: Node3D) -> void:
                 _start_respawn()
         elif group == "checkpoint":
                 var pos: Variant = node.get_meta("spawn", null)
+                if pos == null and node.get_parent() != null:
+                        pos = node.get_parent().get_meta("spawn", null)
                 if pos is Vector3:
                         player.spawn_point = Transform3D(Basis(), pos)
                         chat.add_system("Checkpoint reached!")
+                        _notify("Checkpoint saved!", true)
+                        var sfx: Node = get_node_or_null("/root/Sfx")
+                        if sfx != null:
+                                sfx.call("play_click")
+                        var body_node: Node = node if node is StaticBody3D else node.get_parent()
+                        if body_node != null:
+                                for c in body_node.get_children():
+                                        if c is MeshInstance3D and c.material_override is StandardMaterial3D:
+                                                var sm := (c.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
+                                                sm.albedo_color = Color("2ecc71")
+                                                sm.emission_enabled = true
+                                                sm.emission = Color("2ecc71") * 0.8
+                                                c.material_override = sm
         elif group == "goal" and not _finished:
                 _finished = true
                 chat.add_system("*** You reached the goal — classic victory! ***")
@@ -2228,22 +2026,46 @@ func _handle_command(command: String) -> void:
         var parts := command.split(" ", false)
         var cmd := String(parts[0]).to_lower()
         if cmd == "/help":
-                chat.add_system("Commands: /e sit · /e stop · /help")
-                chat.add_system("SHIFT = shift lock · SPACE jumps off ladders · P = players")
+                chat.add_system("Commands: /e dance · /e dance2 · /e dance3 · /e wave · /e point · /e cheer · /e laugh · /e sit · /e stop")
+                chat.add_system("Press '.' (period) to open Emote Wheel · SHIFT = shift lock · SPACE jumps off ladders · P = players")
         elif cmd == "/e":
                 var emote := String(parts[1]).to_lower() if parts.size() > 1 else ""
                 match emote:
                         "sit":
                                 if player != null and is_instance_valid(player):
-                                        player.avatar.call("play_emote", "Sit")
+                                        player.avatar.call("play_emote", "sit")
                                 chat.add_system("You sit down. (move to stand up)")
                         "stop", "stand":
                                 if player != null and is_instance_valid(player):
                                         player.avatar.call("play_emote", "")
-                        "dance", "wave", "point":
-                                chat.add_system("The classic rig knows Sit — try /e sit")
+                        "dance", "dance1":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "dance")
+                        "dance2":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "dance2")
+                        "dance3":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "dance3")
+                        "wave":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "wave")
+                        "point":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "point")
+                        "cheer":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "cheer")
+                        "laugh":
+                                if player != null and is_instance_valid(player):
+                                        player.avatar.call("play_emote", "laugh")
                         _:
-                                chat.add_system("Unknown emote — try /e sit or /e stop")
+                                # Check if custom clip or play directly
+                                if emote != "":
+                                        if player != null and is_instance_valid(player):
+                                                player.avatar.call("play_emote", emote)
+                                else:
+                                        chat.add_system("Type /e dance, /e wave, /e point, /e cheer, /e laugh, /e sit, or press '.' for Emote Wheel")
         else:
                 chat.add_system("Unknown command — try /help")
 

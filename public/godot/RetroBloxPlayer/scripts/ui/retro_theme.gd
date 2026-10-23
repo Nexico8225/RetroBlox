@@ -143,7 +143,7 @@ static func _bake_bevel(face: Color, inverted: bool) -> ImageTexture:
 
 
 ## A raised bevel box in `face` — the chunky gray chrome of the old client.
-static func raised(radius := 4, face := PANEL, shadow := 0, shadow_a := 0.5) -> StyleBoxTexture:
+static func raised(_radius := 4, face := PANEL, _shadow := 0, _shadow_a := 0.5) -> StyleBoxTexture:
         var key := "r|%s" % face.to_html()
         if _bevel_cache.has(key):
                 return _bevel_cache[key]
@@ -158,7 +158,7 @@ static func raised(radius := 4, face := PANEL, shadow := 0, shadow_a := 0.5) -> 
 
 
 ## A sunken bevel box — rims swapped so the face reads INSET (wells, cards).
-static func sunken(radius := 4, face := WELL, border_px := 0, border_col := EDGE) -> StyleBox:
+static func sunken(_radius := 4, face := WELL, border_px := 0, border_col := EDGE) -> StyleBox:
         var key := "s|%s" % face.to_html()
         if _bevel_cache.has(key):
                 return _bevel_cache[key]
@@ -333,8 +333,8 @@ static func letter_avatar(p_name: String) -> ImageTexture:
         # the initial, drawn chunky from the pixel glyphs (2px cells, 10x14)
         var glyph: Array = _PIXEL_GLYPHS.get(letter, _PIXEL_GLYPHS["?"])
         var cell := 12
-        var gx := (side - 5 * cell) / 2
-        var gy := (side - 7 * cell) / 2
+        var gx := int(roundf(float(side - 5 * cell) / 2.0))
+        var gy := int(roundf(float(side - 7 * cell) / 2.0))
         for row in range(7):
                 var bits := int(glyph[row])
                 for col in range(5):

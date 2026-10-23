@@ -39,6 +39,7 @@ var _working := false
 
 
 func _ready() -> void:
+        print("\u001b[2J\u001b[H")
         theme = RetroUI.shared
         RetroUI.apply_cursors()
         _build()
@@ -171,9 +172,9 @@ func _build() -> void:
         footer.add_theme_color_override("font_color", INK_HEAD)
         body.add_child(footer)
 
-        # ---- v14.0: THE STUDIO DOOR — the organized edit scenes live here ----
+        # ---- THE STUDIO DOOR — the organized edit scenes live here ----
         var studio := Button.new()
-        studio.text = "STUDIO  ·  game devs edit the UI, map and player"
+        studio.text = "STUDIO  ·  game devs edit the map and player"
         studio.theme_type_variation = "BtnGhost"
         studio.custom_minimum_size = Vector2(0, 34)
         studio.focus_mode = Control.FOCUS_NONE

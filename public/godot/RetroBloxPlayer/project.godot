@@ -24,6 +24,10 @@ Sfx="*res://scripts/core/sfx.gd"
 UiConfig="*res://scripts/core/ui_config.gd"
 UiEditor="*res://scripts/ui/ui_editor.gd"
 
+[editor]
+
+run/output/always_clear_output_on_play=true
+
 [display]
 
 window/size/viewport_width=1280

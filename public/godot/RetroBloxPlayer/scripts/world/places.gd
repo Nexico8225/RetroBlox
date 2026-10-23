@@ -246,6 +246,8 @@ static func baseplate() -> Dictionary:
                         { "p": [-18, 5, 12], "s": [6, 2, 6], "c": "a3a2a5" },
                         { "p": [-18, 7, 18], "s": [6, 2, 6], "c": "a3a2a5" },
                         { "p": [-18, 7.5, 30], "s": [10, 1, 14], "c": "98a1a8" },
+                        # checkpoint at the top of the fort
+                        { "p": [-18, 8.2, 30], "s": [5, 0.6, 5], "c": "f5cd30", "g": "checkpoint" },
                         # truss tower
                         { "p": [24, 9.5, 10], "s": [8, 1, 8], "c": "98a1a8" },
                         { "p": [24, 5, 14.3], "s": [1.5, 10, 0.6], "c": "6b6f74", "g": "ladder" },
@@ -254,6 +256,8 @@ static func baseplate() -> Dictionary:
                         # metal shed (shiny!)
                         { "p": [8, 2, -20], "s": [6, 4, 6], "c": "aab4bd", "m": "metal" },
                         { "p": [8, 4.6, -20], "s": [7, 0.6, 7], "c": "8fa0ac", "m": "metal" },
+                        # Moveable block / moving platform (moves when player stands on it, with easing)
+                        { "type": "moving_platform", "p": [0, 0.8, -25], "s": [6, 1.2, 6], "target_offset": [0, 8, -25], "move_on_player_stand": true, "easing": "sine_in_out", "move_duration": 3.0, "wait_time": 1.5, "c": "e8752a" },
                 ],
                 "props": [
                         # ---- collectible Tix ----

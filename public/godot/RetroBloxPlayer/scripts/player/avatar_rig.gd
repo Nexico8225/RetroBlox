@@ -77,6 +77,9 @@ var _current_anim := &""
 var _walk_rate := 1.0     # v11.0: eased playback speeds (no more rate snaps)
 var _climb_rate := 1.0
 var _oof_audio: AudioStream
+var _active_emote := ""
+var _emote_time := 0.0
+var _climb_time := 0.0
 
 
 func _ready() -> void:
@@ -210,6 +213,21 @@ func set_face(tex: Texture2D, face_scale: float) -> void:
 func animate(delta: float, speed: float, grounded: bool, climbing: bool = false) -> void:
         _ensure_built()
         _time += delta
+
+        # If an emote is active, check if player started moving/jumping/climbing to cancel it
+        if _active_emote != "":
+                if climbing or not grounded or speed > 1.2 * STUD:
+                        _active_emote = ""
+                        _current_anim = &""
+                else:
+                        _emote_time += delta
+                        if _using_r6ik and _anim_player != null and _anim_player.has_animation(_active_emote):
+                                # Animate via AnimationPlayer clip
+                                return
+                        # Animate via procedural emote pose
+                        _animate_procedural_emote(delta)
+                        return
+
         if _using_r6ik and _anim_player != null:
                 _animate_r6ik(delta, speed, grounded, climbing)
                 return
@@ -219,15 +237,16 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false)
 func _animate_r6ik(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var next: StringName = ANIM_IDLE
         var rate := 1.0
-        var climb_moving := climbing and speed > 0.5 * STUD
+        var climb_moving := climbing and speed > 0.4 * STUD
         if climbing:
                 next = ANIM_CLIMB
-                rate = clampf(speed / (9.0 * STUD), 0.6, 1.4) if climb_moving else 0.0
+                rate = clampf(speed / (8.0 * STUD), 0.7, 1.3) if climb_moving else 0.0
         elif not grounded:
                 next = ANIM_JUMP
         elif speed > 1.2 * STUD:
                 next = ANIM_WALK
                 rate = clampf(speed / (8.0 * STUD), 0.8, 2.2)
+
         if _current_anim != next:
                 _current_anim = next
                 _anim_player.play(next, 0.16)
@@ -244,35 +263,134 @@ func _animate_r6ik(delta: float, speed: float, grounded: bool, climbing: bool) -
                         _walk_rate = lerpf(_walk_rate, rate, k)
                         _anim_player.speed_scale = _walk_rate
                 else:
-                        # Roblox: the climb pose FREEZES on the rung when you stop
+                        # Roblox: when stationary on ladder, climb pose freezes cleanly
                         _climb_rate = lerpf(_climb_rate, rate, k) if climb_moving else 0.0
                         _anim_player.speed_scale = _climb_rate
 
 
-## Settings > Animations: pose the character with a rig clip ("Sit", ...).
-## Movement calls animate() every frame, which cancels the pose naturally.
+## Play an emote ("wave", "point", "cheer", "laugh", "dance", "dance2", "dance3", "sit" or custom clip).
 func play_emote(clip: String) -> void:
         _ensure_built()
-        if not _using_r6ik or _anim_player == null:
-                return
-        if clip == "":
+        var clean := clip.strip_edges().to_lower()
+        if clean == "" or clean == "none":
+                _active_emote = ""
                 _current_anim = &""
                 return
-        var anim_name := StringName(clip)
-        if _anim_player.has_animation(anim_name):
-                _current_anim = &"emote_" + anim_name
-                _anim_player.play(anim_name, 0.2)
+
+        _active_emote = clean
+        _emote_time = 0.0
+
+        if _using_r6ik and _anim_player != null:
+                # Check for direct or capitalized animation clip
+                var anim_name := StringName(clip)
+                var cap_name := StringName(clip.capitalize())
+                var target_clip := StringName("")
+                if _anim_player.has_animation(anim_name):
+                        target_clip = anim_name
+                elif _anim_player.has_animation(cap_name):
+                        target_clip = cap_name
+
+                if target_clip != StringName(""):
+                        _active_emote = target_clip
+                        _current_anim = target_clip
+                        _anim_player.play(target_clip, 0.2)
+                        return
+
+
+## Procedural R6 emote animation (works in both Box mode and as R6IK fallback).
+func _animate_procedural_emote(delta: float) -> void:
+        var arm_l_x := 0.0
+        var arm_r_x := 0.0
+        var arm_l_z := 0.0
+        var arm_r_z := 0.0
+        var leg_l_x := 0.0
+        var leg_r_x := 0.0
+        var head_x := 0.0
+        var torso_x := 0.0
+        var e := _active_emote.to_lower()
+
+        match e:
+                "wave":
+                        arm_r_x = -2.7
+                        arm_r_z = sin(_emote_time * 8.0) * 0.45
+                        head_x = 0.05
+                "point":
+                        arm_r_x = -1.57
+                        arm_r_z = 0.05
+                        head_x = -0.1
+                "cheer":
+                        var bounce := sin(_emote_time * 7.0) * 0.15
+                        arm_l_x = -2.8 + bounce
+                        arm_r_x = -2.8 - bounce
+                        arm_l_z = 0.35
+                        arm_r_z = -0.35
+                        head_x = -0.2
+                "laugh":
+                        var laugh_bob := sin(_emote_time * 14.0)
+                        arm_l_x = -0.4
+                        arm_r_x = -0.4
+                        arm_l_z = 0.2
+                        arm_r_z = -0.2
+                        head_x = -0.25 + laugh_bob * 0.15
+                        torso_x = laugh_bob * 0.08
+                "dance":
+                        var sw := sin(_emote_time * 5.0)
+                        arm_l_x = sw * 1.1
+                        arm_r_x = -sw * 1.1
+                        leg_l_x = -sw * 0.35
+                        leg_r_x = sw * 0.35
+                        torso_x = sin(_emote_time * 10.0) * 0.05
+                "dance2":
+                        var sw2 := sin(_emote_time * 6.0)
+                        arm_l_x = -1.5 + sw2 * 0.5
+                        arm_r_x = -1.5 - sw2 * 0.5
+                        arm_l_z = 0.4 + cos(_emote_time * 6.0) * 0.3
+                        arm_r_z = -0.4 - cos(_emote_time * 6.0) * 0.3
+                        leg_l_x = sin(_emote_time * 6.0) * 0.4
+                        leg_r_x = -sin(_emote_time * 6.0) * 0.4
+                "dance3":
+                        var sw3 := sin(_emote_time * 6.5)
+                        arm_r_x = -2.4 if sw3 > 0.0 else -0.5
+                        arm_r_z = -0.4 if sw3 > 0.0 else 0.2
+                        arm_l_x = -0.5 if sw3 > 0.0 else -2.4
+                        arm_l_z = 0.2 if sw3 > 0.0 else 0.4
+                        head_x = sin(_emote_time * 6.5) * 0.1
+                "sit":
+                        leg_l_x = -1.57
+                        leg_r_x = -1.57
+                        arm_l_x = -0.2
+                        arm_r_x = -0.2
+                        torso_x = 0.05
+                _:
+                        # Default gentle idle breathing if unknown
+                        arm_l_z = sin(_emote_time * 2.0) * 0.03
+                        arm_r_z = -arm_l_z
+
+        var k := 1.0 - exp(-12.0 * delta)
+        if _pivots.size() >= 6 and _pivots[0] != null:
+                _pivots[ARM_L].rotation.x = lerpf(_pivots[ARM_L].rotation.x, arm_l_x, k)
+                _pivots[ARM_R].rotation.x = lerpf(_pivots[ARM_R].rotation.x, arm_r_x, k)
+                _pivots[LEG_L].rotation.x = lerpf(_pivots[LEG_L].rotation.x, leg_l_x, k)
+                _pivots[LEG_R].rotation.x = lerpf(_pivots[LEG_R].rotation.x, leg_r_x, k)
+                _pivots[ARM_L].rotation.z = lerpf(_pivots[ARM_L].rotation.z, arm_l_z, k)
+                _pivots[ARM_R].rotation.z = lerpf(_pivots[ARM_R].rotation.z, arm_r_z, k)
+                _pivots[HEAD].rotation.x = lerpf(_pivots[HEAD].rotation.x, head_x, k)
+                _pivots[TORSO].rotation.x = lerpf(_pivots[TORSO].rotation.x, torso_x, k)
+                _pivots[ARM_L].rotation.y = 0.0
+                _pivots[ARM_R].rotation.y = 0.0
+        elif parts.size() >= 6:
+                # Apply directly to mesh instances if pivots aren't used
+                parts[ARM_L].rotation.x = lerpf(parts[ARM_L].rotation.x, arm_l_x, k)
+                parts[ARM_R].rotation.x = lerpf(parts[ARM_R].rotation.x, arm_r_x, k)
+                parts[LEG_L].rotation.x = lerpf(parts[LEG_L].rotation.x, leg_l_x, k)
+                parts[LEG_R].rotation.x = lerpf(parts[LEG_R].rotation.x, leg_r_x, k)
 
 
 func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
         var movement := clampf(absf(speed) / (5.0 * STUD), 0.0, 1.0)
         var walk_rate := 4.8 + movement * 2.0
         var swing := sin(_time * walk_rate) * movement
-        # v11.0: every state computes a TARGET pose and the rig EASES toward
-        # it (1-exp blend) — the old direct assignments teleported the arms
-        # between walk / climb / jump poses every time the state flipped, and
-        # that teleport WAS the twitch / out-of-place arms you felt climbing.
-        var k := 1.0 - exp(-12.0 * delta)
+        var k := 1.0 - exp(-14.0 * delta)
         var arm_l_x := 0.0
         var arm_r_x := 0.0
         var leg_l_x := 0.0
@@ -282,11 +400,14 @@ func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) 
         var arm_l_z := 0.0
         var arm_r_z := 0.0
         if climbing:
-                var alt := sin(_time * 6.5) * 0.9
-                arm_l_x = -2.4 + alt * 0.4
-                arm_r_x = -2.4 - alt * 0.4
-                leg_l_x = alt * 0.5
-                leg_r_x = -alt * 0.5
+                # Roblox ladder climbing: alternating arm/leg grip when moving, freeze when stopped
+                if speed > 0.4 * STUD:
+                        _climb_time += delta * clampf(speed / (4.0 * STUD), 0.6, 2.0)
+                var alt := sin(_climb_time * 7.5) * 0.75
+                arm_l_x = -2.4 + alt * 0.35
+                arm_r_x = -2.4 - alt * 0.35
+                leg_l_x = alt * 0.4
+                leg_r_x = -alt * 0.4
         elif grounded:
                 arm_l_x = swing * 0.7
                 arm_r_x = -swing * 0.7
@@ -297,18 +418,25 @@ func _animate_boxes(delta: float, speed: float, grounded: bool, climbing: bool) 
                 arm_l_z = sin(_time * 2.1) * 0.025 * (1.0 - movement)
                 arm_r_z = -arm_l_z
         else:
+                # Jump / falling pose — arms raised cleanly up
                 arm_l_x = -2.6
                 arm_r_x = -2.6
                 leg_l_x = 0.35
                 leg_r_x = -0.35
-        _pivots[ARM_L].rotation.x = lerp_angle(_pivots[ARM_L].rotation.x, arm_l_x, k)
-        _pivots[ARM_R].rotation.x = lerp_angle(_pivots[ARM_R].rotation.x, arm_r_x, k)
-        _pivots[LEG_L].rotation.x = lerp_angle(_pivots[LEG_L].rotation.x, leg_l_x, k)
-        _pivots[LEG_R].rotation.x = lerp_angle(_pivots[LEG_R].rotation.x, leg_r_x, k)
-        _pivots[ARM_L].rotation.z = lerp_angle(_pivots[ARM_L].rotation.z, arm_l_z, k)
-        _pivots[ARM_R].rotation.z = lerp_angle(_pivots[ARM_R].rotation.z, arm_r_z, k)
-        _pivots[HEAD].rotation.x = lerp_angle(_pivots[HEAD].rotation.x, head_x, k)
-        _pivots[TORSO].rotation.x = lerp_angle(_pivots[TORSO].rotation.x, torso_x, k)
+
+        # Use lerpf for limb pitch and roll so arms NEVER 360-degree flip or dislocate across +/-PI
+        _pivots[ARM_L].rotation.x = lerpf(_pivots[ARM_L].rotation.x, arm_l_x, k)
+        _pivots[ARM_R].rotation.x = lerpf(_pivots[ARM_R].rotation.x, arm_r_x, k)
+        _pivots[LEG_L].rotation.x = lerpf(_pivots[LEG_L].rotation.x, leg_l_x, k)
+        _pivots[LEG_R].rotation.x = lerpf(_pivots[LEG_R].rotation.x, leg_r_x, k)
+        _pivots[ARM_L].rotation.z = lerpf(_pivots[ARM_L].rotation.z, arm_l_z, k)
+        _pivots[ARM_R].rotation.z = lerpf(_pivots[ARM_R].rotation.z, arm_r_z, k)
+        _pivots[HEAD].rotation.x = lerpf(_pivots[HEAD].rotation.x, head_x, k)
+        _pivots[TORSO].rotation.x = lerpf(_pivots[TORSO].rotation.x, torso_x, k)
+        _pivots[ARM_L].rotation.y = 0.0
+        _pivots[ARM_R].rotation.y = 0.0
+        _pivots[LEG_L].rotation.y = 0.0
+        _pivots[LEG_R].rotation.y = 0.0
 
 
 ## Oof! — the classic breakup, used by death and reset.
