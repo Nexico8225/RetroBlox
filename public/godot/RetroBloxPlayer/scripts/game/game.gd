@@ -182,9 +182,6 @@ func _ready() -> void:
 	_sync_shiftlock_ui()
 	_sync_mobile_ui()
 
-	chat.add_system("Welcome to %s!" % String(place.get("name", "the place")))
-	chat.add_system("Press \"/\" to chat · Shift for Shift Lock · Click overhead Mic or press V for Voice · F11 Fullscreen")
-
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	_hide_loading()
@@ -355,12 +352,16 @@ func _process(delta: float) -> void:
 	if _poll_left <= 0.0:
 		_poll_left = POLL_SECONDS
 		_poll_feed()
+	var vc_beat: Node = get_node_or_null("/root/VoiceChat")
+	var is_sp := false if vc_beat == null else bool(vc_beat.call("is_speaking"))
 	_beat_left -= delta
-	if _beat_left <= 0.0:
-		_beat_left = HEARTBEAT_SECONDS
+	if _beat_left <= 0.0 or (is_sp and _beat_left > 0.9):
+		_beat_left = 0.9 if is_sp else HEARTBEAT_SECONDS
 		if not Session.is_guest and player != null and is_instance_valid(player):
+			var v_lvl := 0.0 if vc_beat == null else float(vc_beat.call("get_level"))
+			var v_b64 := "" if vc_beat == null else String(vc_beat.call("pop_network_voice_packet"))
 			Api.place_presence(String(place["id"]), player.global_position, player.heading,
-				_last_ping_ms, int(Engine.get_frames_per_second()))
+				_last_ping_ms, int(Engine.get_frames_per_second()), is_sp, v_lvl, v_b64)
 	_stats_tick -= delta
 	if _stats_tick <= 0.0:
 		_stats_tick = 0.25
@@ -606,6 +607,13 @@ func _bind_or_build_topbar() -> void:
 			vc_node.connect("mute_changed", _on_voice_mute_changed)
 		if not vc_node.is_connected("device_changed", _on_voice_device_changed):
 			vc_node.connect("device_changed", _on_voice_device_changed)
+		if vc_node.has_signal("remote_voice_packet") and not vc_node.is_connected("remote_voice_packet", _on_remote_voice_packet):
+			vc_node.connect("remote_voice_packet", _on_remote_voice_packet)
+
+
+func _on_remote_voice_packet(uid: String, pcm: PackedVector2Array, level: float) -> void:
+	if _remotes.has(uid) and is_instance_valid(_remotes[uid]):
+		_remotes[uid].call("push_voice_audio", pcm, level)
 
 
 func _on_voice_mute_changed(_muted: bool) -> void:
@@ -916,10 +924,11 @@ func _style_topbar_btn(b: Button) -> void:
 
 func _dark_key_style(hover: bool) -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("17629e") if hover else Color("162230")
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("72a8d8") if hover else Color("4a637c")
+	sb.bg_color = Color(0.10, 0.125, 0.16, 0.92) if hover else Color(0.045, 0.058, 0.078, 0.86)
+	sb.set_corner_radius_all(8)
+	sb.anti_aliasing = true
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.26) if hover else Color(1, 1, 1, 0.14)
 	sb.content_margin_left = 7.0
 	sb.content_margin_right = 7.0
 	sb.content_margin_top = 5.0
@@ -929,10 +938,11 @@ func _dark_key_style(hover: bool) -> StyleBox:
 
 func _retro_hud_style() -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.12, 0.17, 0.88)
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("4a637c")
+	sb.bg_color = Color(0.045, 0.058, 0.078, 0.86)
+	sb.set_corner_radius_all(8)
+	sb.anti_aliasing = true
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.14)
 	sb.content_margin_left = 10.0
 	sb.content_margin_right = 10.0
 	sb.content_margin_top = 5.0
@@ -943,9 +953,8 @@ func _retro_hud_style() -> StyleBox:
 func _badge_style() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = RetroUI.MENU_RED
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(1)
-	sb.border_color = Color.WHITE
+	sb.set_corner_radius_all(8)
+	sb.anti_aliasing = true
 	sb.content_margin_left = 5.0
 	sb.content_margin_right = 5.0
 	sb.content_margin_top = 1.0
@@ -1013,10 +1022,11 @@ func _bind_or_build_health() -> void:
 
 func _health_track_style() -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("141d26")
-	sb.set_corner_radius_all(0)
+	sb.bg_color = Color("17242f")
+	sb.set_corner_radius_all(6)
+	sb.anti_aliasing = true
 	sb.set_border_width_all(2)
-	sb.border_color = Color("4a637c")
+	sb.border_color = Color(0, 0, 0, 0.55)
 	sb.content_margin_left = 3.0
 	sb.content_margin_right = 3.0
 	sb.content_margin_top = 3.0
@@ -1026,8 +1036,9 @@ func _health_track_style() -> StyleBox:
 
 func _health_fill_style(ratio: float) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("e2231a").lerp(Color("00b83a"), ratio)
-	sb.set_corner_radius_all(0)
+	sb.bg_color = Color("f44250").lerp(Color("00b06f"), ratio)
+	sb.set_corner_radius_all(4)
+	sb.anti_aliasing = true
 	return sb
 
 
@@ -1039,14 +1050,14 @@ func _bind_or_build_center_cursor() -> void:
 		hud.add_child(_center_cursor)
 	_center_cursor.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_center_cursor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_center_cursor.custom_minimum_size = Vector2(22, 22)
-	_center_cursor.size = Vector2(22, 22)
+	_center_cursor.custom_minimum_size = Vector2(38, 38)
+	_center_cursor.size = Vector2(38, 38)
 	_center_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_center_cursor.set_anchors_preset(Control.PRESET_CENTER)
-	_center_cursor.offset_left = -11.0
-	_center_cursor.offset_right = 11.0
-	_center_cursor.offset_top = -11.0
-	_center_cursor.offset_bottom = 11.0
+	_center_cursor.offset_left = -19.0
+	_center_cursor.offset_right = 19.0
+	_center_cursor.offset_top = -19.0
+	_center_cursor.offset_bottom = 19.0
 	_center_cursor.visible = false
 
 
@@ -1075,10 +1086,11 @@ func _notify(text: String, with_sound := false) -> void:
 
 func _toast_style() -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.12, 0.17, 0.92)
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("4a637c")
+	sb.bg_color = Color(0.02, 0.035, 0.055, 0.78)
+	sb.set_corner_radius_all(8)
+	sb.anti_aliasing = true
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.14)
 	sb.content_margin_left = 14.0
 	sb.content_margin_right = 14.0
 	sb.content_margin_top = 6.0
@@ -1219,26 +1231,15 @@ func _build_menu() -> Control:
 
 
 func _menu_panel_size() -> Vector2:
-	var vp := Vector2(1920.0, 1080.0)
+	var vp := Vector2(1280.0, 720.0)
 	var viewport := get_viewport()
 	if viewport != null:
 		vp = viewport.get_visible_rect().size
-	return Vector2(minf(vp.x * 0.80, 1040.0), minf(vp.y * 0.84, 760.0))
+	return Vector2(minf(vp.x * 0.84, 980.0), minf(vp.y * 0.86, 680.0))
 
 
 func _menu_panel_style() -> StyleBox:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("16202b")
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(3)
-	sb.border_color = Color("527294")
-	sb.shadow_color = Color(0, 0, 0, 0.55)
-	sb.shadow_size = 16
-	sb.content_margin_left = 14.0
-	sb.content_margin_right = 14.0
-	sb.content_margin_top = 12.0
-	sb.content_margin_bottom = 12.0
-	return sb
+	return RetroUI.menu_casing()
 
 
 func _tab_button(label: String, icon_kind: String) -> Button:
@@ -1271,18 +1272,18 @@ func _tab_button(label: String, icon_kind: String) -> Button:
 
 func _style_tab(b: Button, on: bool) -> void:
 	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(0)
-	sb.bg_color = Color("0d69ac") if on else Color("1f2c3b")
-	sb.set_border_width_all(2)
-	sb.border_color = Color("7bc0f5") if on else Color("364a60")
+	sb.set_corner_radius_all(12)
+	sb.bg_color = Color(0.84, 0.92, 1.0, 0.24) if on else Color(1, 1, 1, 0.03)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(0.75, 0.89, 1.0, 0.55) if on else Color(1, 1, 1, 0.08)
 	b.add_theme_stylebox_override("normal", sb)
 	var hb := sb.duplicate() as StyleBoxFlat
-	hb.bg_color = Color("167ac4") if on else Color("28384a")
+	hb.bg_color = Color(0.84, 0.92, 1.0, 0.30) if on else Color(1, 1, 1, 0.10)
 	b.add_theme_stylebox_override("hover", hb)
 	b.add_theme_stylebox_override("pressed", sb)
 	b.add_theme_stylebox_override("hover_pressed", sb)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	var ink := Color.WHITE if on else Color(0.75, 0.82, 0.90)
+	var ink := Color.WHITE if on else Color(0.68, 0.72, 0.78)
 	var glyph: Control = b.get_node_or_null("VBoxContainer/Glyph")
 	if glyph == null:
 		glyph = b.find_child("Glyph", true, false) as Control
@@ -1340,7 +1341,7 @@ func _footer_key(key: String, _label: String, _primary: bool, handler: Callable)
 	b.add_theme_stylebox_override("hover", face_hover)
 	b.add_theme_stylebox_override("pressed", face)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	var ink := Color.WHITE
+	var ink := Color("0a0d12") if key == "ESC" else Color.WHITE
 	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(st, ink)
 	if RetroUI.gotham(700) != null:
@@ -1352,18 +1353,18 @@ func _footer_key(key: String, _label: String, _primary: bool, handler: Callable)
 
 func _flat_key_face(key: String, hover: bool) -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(9)
+	sb.set_border_width_all(1)
 	match key:
 		"L":
-			sb.bg_color = Color("d82b20") if hover else Color("b82018")
-			sb.border_color = Color("ff7a70") if hover else Color("7a120d")
+			sb.bg_color = Color("ef4444") if hover else Color("dc2626")
+			sb.border_color = Color(1.0, 0.72, 0.72, 0.45)
 		"ESC":
-			sb.bg_color = Color("06b850") if hover else Color("029c42")
-			sb.border_color = Color("72f2a2") if hover else Color("02662a")
+			sb.bg_color = Color("ffffff") if hover else Color("f3f4f6")
+			sb.border_color = Color(1, 1, 1, 0.9)
 		_:
-			sb.bg_color = Color("1978c2") if hover else Color("0d60a0")
-			sb.border_color = Color("7bc4fa") if hover else Color("083d68")
+			sb.bg_color = Color(1, 1, 1, 0.15) if hover else Color(1, 1, 1, 0.08)
+			sb.border_color = Color(1, 1, 1, 0.28) if hover else Color(1, 1, 1, 0.16)
 	sb.content_margin_left = 10.0
 	sb.content_margin_right = 10.0
 	sb.content_margin_top = 8.0
@@ -1409,10 +1410,10 @@ func _player_card(uid: String, uname: String, is_me: bool) -> PanelContainer:
 
 func _card_casing(is_me: bool) -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("1f2c3b")
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("ffd400") if is_me else Color("4a637c")
+	sb.bg_color = Color(1, 1, 1, 0.05)
+	sb.set_corner_radius_all(12)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(0.84, 0.92, 1.0, 0.55) if is_me else Color(1, 1, 1, 0.12)
 	sb.content_margin_left = 8.0
 	sb.content_margin_right = 8.0
 	sb.content_margin_top = 8.0
@@ -1422,10 +1423,10 @@ func _card_casing(is_me: bool) -> StyleBox:
 
 func _well_texture_style() -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("0f1720")
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("364a60")
+	sb.bg_color = Color(0.03, 0.04, 0.06, 0.85)
+	sb.set_corner_radius_all(9)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.08)
 	sb.content_margin_left = 4.0
 	sb.content_margin_right = 4.0
 	sb.content_margin_top = 4.0
@@ -1981,10 +1982,10 @@ func _section(page: VBoxContainer, kind: String, text: String) -> void:
 func _row(parent: VBoxContainer, kind: String, label_text: String) -> HBoxContainer:
 	var card := PanelContainer.new()
 	var card_sb := StyleBoxFlat.new()
-	card_sb.bg_color = Color("1f2c3b")
-	card_sb.border_color = Color("3d536b")
-	card_sb.set_border_width_all(2)
-	card_sb.set_corner_radius_all(0)
+	card_sb.bg_color = Color(1, 1, 1, 0.04)
+	card_sb.border_color = Color(1, 1, 1, 0.09)
+	card_sb.set_border_width_all(1)
+	card_sb.set_corner_radius_all(10)
 	card_sb.content_margin_left = 14.0
 	card_sb.content_margin_right = 14.0
 	card_sb.content_margin_top = 8.0
@@ -2028,21 +2029,21 @@ func _row_toggle(parent: VBoxContainer, kind: String, label_text: String, value:
 
 func _style_switch(sw: Button, on: bool) -> void:
 	var face := StyleBoxFlat.new()
-	face.set_corner_radius_all(0)
-	face.set_border_width_all(2)
+	face.set_corner_radius_all(8)
+	face.set_border_width_all(1)
 	face.content_margin_left = 12.0
 	face.content_margin_right = 12.0
 	face.content_margin_top = 3.0
 	face.content_margin_bottom = 3.0
 	if on:
-		face.bg_color = Color("029c42")
-		face.border_color = Color("6ce89e")
+		face.bg_color = Color("22c55e")
+		face.border_color = Color("86efac")
 	else:
-		face.bg_color = Color("141d26")
-		face.border_color = Color("4a637c")
+		face.bg_color = Color(1, 1, 1, 0.08)
+		face.border_color = Color(1, 1, 1, 0.16)
 	sw.add_theme_stylebox_override("normal", face)
 	var hv := face.duplicate() as StyleBoxFlat
-	hv.bg_color = Color("06b850") if on else Color("1d2a38")
+	hv.bg_color = Color("34d399") if on else Color(1, 1, 1, 0.14)
 	sw.add_theme_stylebox_override("hover", hv)
 	sw.add_theme_stylebox_override("pressed", face)
 	sw.text = "ON" if on else "OFF"
@@ -2116,7 +2117,7 @@ func _style_chips(btns: Array[Button], value: int) -> void:
 		b.add_theme_stylebox_override("normal", _chip_face(on))
 		b.add_theme_stylebox_override("hover", _chip_face(on, true))
 		b.add_theme_stylebox_override("pressed", _chip_face(on))
-		var ink := Color.WHITE if on else RetroUI.NIGHT_INK_MUTED
+		var ink := Color("0a0d12") if on else RetroUI.NIGHT_INK_MUTED
 		for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 			b.add_theme_color_override(st, ink)
 
@@ -2134,27 +2135,27 @@ func _style_chips_textless(btns: Array[Button]) -> void:
 
 func _chip_face(on: bool, hover := false) -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(8)
+	sb.set_border_width_all(1)
 	sb.content_margin_left = 9.0
 	sb.content_margin_right = 9.0
 	sb.content_margin_top = 3.0
 	sb.content_margin_bottom = 3.0
 	if on:
-		sb.bg_color = Color("167ac4") if hover else Color("0d69ac")
-		sb.border_color = Color("7bc0f5")
+		sb.bg_color = Color("ffffff") if hover else Color("f3f4f6")
+		sb.border_color = Color(1, 1, 1, 0.9)
 	else:
-		sb.bg_color = Color("1d2a38") if hover else Color("141d26")
-		sb.border_color = Color("4a637c")
+		sb.bg_color = Color(1, 1, 1, 0.14) if hover else Color(1, 1, 1, 0.06)
+		sb.border_color = Color(1, 1, 1, 0.18)
 	return sb
 
 
 func _white_btn_face(hover: bool) -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
-	sb.bg_color = Color("e8edf2") if hover else Color.WHITE
-	sb.border_color = Color("6e8ca8")
+	sb.set_corner_radius_all(8)
+	sb.set_border_width_all(1)
+	sb.bg_color = Color("ffffff") if hover else Color("f3f4f6")
+	sb.border_color = Color(1, 1, 1, 0.85)
 	sb.content_margin_left = 14.0
 	sb.content_margin_right = 14.0
 	sb.content_margin_top = 5.0
@@ -2164,10 +2165,10 @@ func _white_btn_face(hover: bool) -> StyleBox:
 
 func _hairline_btn_face(hover: bool) -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(0)
-	sb.bg_color = Color("28384a") if hover else Color("182430")
-	sb.set_border_width_all(2)
-	sb.border_color = Color("6e8ca8") if hover else Color("4a637c")
+	sb.set_corner_radius_all(8)
+	sb.bg_color = Color(1, 1, 1, 0.14) if hover else Color(1, 1, 1, 0.07)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.28) if hover else Color(1, 1, 1, 0.16)
 	sb.content_margin_left = 14.0
 	sb.content_margin_right = 14.0
 	sb.content_margin_top = 5.0
@@ -2215,15 +2216,13 @@ func _apply_nameplates() -> void:
 
 func _paper_slider(s: HSlider) -> void:
 	var groove := StyleBoxFlat.new()
-	groove.bg_color = Color("111922")
-	groove.set_corner_radius_all(0)
-	groove.set_border_width_all(1)
-	groove.border_color = Color("3d536b")
+	groove.bg_color = Color(1, 1, 1, 0.14)
+	groove.set_corner_radius_all(4)
 	groove.content_margin_top = 4.0
 	groove.content_margin_bottom = 4.0
 	s.add_theme_stylebox_override("slider", groove)
-	s.add_theme_stylebox_override("grabber_area", RetroUI.flat(0, Color("0d69ac")))
-	s.add_theme_stylebox_override("grabber_area_highlight", RetroUI.flat(0, Color("2090d6")))
+	s.add_theme_stylebox_override("grabber_area", RetroUI.flat(4, Color("38bdf8")))
+	s.add_theme_stylebox_override("grabber_area_highlight", RetroUI.flat(4, Color("7dd3fc")))
 
 
 func _toggle_menu() -> void:
@@ -2341,11 +2340,11 @@ func _build_fun_playground_additions(world_root: Node3D) -> void:
 	if world_root.get_node_or_null("SpeedCoilPad") == null:
 		var sp_pad := StaticBody3D.new()
 		sp_pad.name = "SpeedCoilPad"
-		sp_pad.position = Vector3(8.0, 0.25, -8.0)
+		sp_pad.position = Vector3(15.0, 0.3, -8.0)
 		sp_pad.add_to_group("speed_pad")
 		var sp_col := CollisionShape3D.new()
 		var sp_sh := BoxShape3D.new()
-		sp_sh.size = Vector3(4.0, 0.5, 4.0)
+		sp_sh.size = Vector3(4.0, 0.6, 4.0)
 		sp_col.shape = sp_sh
 		sp_pad.add_child(sp_col)
 		var sp_mi := MeshInstance3D.new()
@@ -2354,16 +2353,16 @@ func _build_fun_playground_additions(world_root: Node3D) -> void:
 		sp_mi.mesh = sp_m
 		sp_mi.material_override = WorldBuilderScript._part_material(Color("00d2ff"), "neon", tex, true)
 		sp_pad.add_child(sp_mi)
-		_add_3d_label(sp_pad, "SPEED PAD", Vector3(0, 1.4, 0), Color("72e8ff"))
+		_add_3d_label(sp_pad, "SPEED PAD (1.65x)", Vector3(0, 1.5, 0), Color("72e8ff"))
 		world_root.add_child(sp_pad)
 
 		var gr_pad := StaticBody3D.new()
 		gr_pad.name = "GravityCoilPad"
-		gr_pad.position = Vector3(14.0, 0.25, -8.0)
+		gr_pad.position = Vector3(21.0, 0.3, -8.0)
 		gr_pad.add_to_group("gravity_pad")
 		var gr_col := CollisionShape3D.new()
 		var gr_sh := BoxShape3D.new()
-		gr_sh.size = Vector3(4.0, 0.5, 4.0)
+		gr_sh.size = Vector3(4.0, 0.6, 4.0)
 		gr_col.shape = gr_sh
 		gr_pad.add_child(gr_col)
 		var gr_mi := MeshInstance3D.new()
@@ -2372,43 +2371,48 @@ func _build_fun_playground_additions(world_root: Node3D) -> void:
 		gr_mi.mesh = gr_m
 		gr_mi.material_override = WorldBuilderScript._part_material(Color("9c36b5"), "neon", tex, true)
 		gr_pad.add_child(gr_mi)
-		_add_3d_label(gr_pad, "GRAVITY PAD", Vector3(0, 1.4, 0), Color("e599f7"))
+		_add_3d_label(gr_pad, "GRAVITY PAD (LOW GRAV)", Vector3(0, 1.5, 0), Color("e599f7"))
 		world_root.add_child(gr_pad)
 
 	# 3. Interactive Bricks Row: Damage Brick, Kill Brick, Heal Brick, Insta-Heal Brick
-	if world_root.get_node_or_null("DamageBrick") == null:
-		var brick_defs := [
-			{ "name": "DamageBrick", "group": "damage", "pos": Vector3(8.0, 0.3, 2.0), "col": Color("f76707"), "label": "DAMAGE BRICK (-20 HP)", "meta_k": "damage", "meta_v": 20.0 },
-			{ "name": "KillBrick", "group": "kill", "pos": Vector3(14.0, 0.3, 2.0), "col": Color("e03131"), "label": "KILL BRICK (INSTA-KILL)", "meta_k": "", "meta_v": 0.0 },
-			{ "name": "HealBrick", "group": "heal", "pos": Vector3(8.0, 0.3, 8.0), "col": Color("37b24d"), "label": "HEAL BRICK (+15 HP)", "meta_k": "heal", "meta_v": 15.0 },
-			{ "name": "InstaHealBrick", "group": "insta_heal", "pos": Vector3(14.0, 0.3, 8.0), "col": Color("0ca678"), "label": "INSTA-HEAL (100% HP)", "meta_k": "", "meta_v": 0.0 },
-		]
-		for bd in brick_defs:
-			var b := StaticBody3D.new()
-			b.name = String(bd["name"])
-			b.position = bd["pos"]
-			b.add_to_group(String(bd["group"]))
-			if String(bd["meta_k"]) != "":
-				b.set_meta(String(bd["meta_k"]), float(bd["meta_v"]))
-			var bc := CollisionShape3D.new()
-			var bs := BoxShape3D.new()
-			bs.size = Vector3(4.0, 0.6, 4.0)
-			bc.shape = bs
-			b.add_child(bc)
-			var bmi := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = bs.size
-			bmi.mesh = bm
-			bmi.material_override = WorldBuilderScript._part_material(bd["col"], "plastic", tex, false)
-			b.add_child(bmi)
-			_add_3d_label(b, String(bd["label"]), Vector3(0, 1.5, 0), (bd["col"] as Color).lightened(0.35))
-			world_root.add_child(b)
+	var brick_defs := [
+		{ "name": "DamageBrick", "group": "damage", "pos": Vector3(-9.0, 0.3, -8.0), "col": Color("f76707"), "label": "DAMAGE BRICK (-20 HP)", "meta_k": "damage", "meta_v": 20.0 },
+		{ "name": "KillBrick", "group": "kill", "pos": Vector3(-3.0, 0.3, -8.0), "col": Color("e03131"), "label": "KILL BRICK (INSTA-KILL)", "meta_k": "", "meta_v": 0.0 },
+		{ "name": "HealBrick", "group": "heal", "pos": Vector3(3.0, 0.3, -8.0), "col": Color("37b24d"), "label": "HEAL BRICK (+15 HP)", "meta_k": "heal", "meta_v": 15.0 },
+		{ "name": "InstaHealBrick", "group": "insta_heal", "pos": Vector3(9.0, 0.3, -8.0), "col": Color("0ca678"), "label": "INSTA-HEAL (100% HP)", "meta_k": "", "meta_v": 0.0 },
+	]
+	for bd in brick_defs:
+		var existing := world_root.get_node_or_null(String(bd["name"])) as Node3D
+		if existing != null:
+			var emi := existing.get_node_or_null("MeshInstance3D") as MeshInstance3D
+			if emi != null:
+				emi.material_override = WorldBuilderScript._part_material(bd["col"], "plastic", tex, false)
+			continue
+		var b := StaticBody3D.new()
+		b.name = String(bd["name"])
+		b.position = bd["pos"]
+		b.add_to_group(String(bd["group"]))
+		if String(bd["meta_k"]) != "":
+			b.set_meta(String(bd["meta_k"]), float(bd["meta_v"]))
+		var bc := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = Vector3(4.0, 0.6, 4.0)
+		bc.shape = bs
+		b.add_child(bc)
+		var bmi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = bs.size
+		bmi.mesh = bm
+		bmi.material_override = WorldBuilderScript._part_material(bd["col"], "plastic", tex, false)
+		b.add_child(bmi)
+		_add_3d_label(b, String(bd["label"]), Vector3(0, 1.5, 0), (bd["col"] as Color).lightened(0.35))
+		world_root.add_child(b)
 
 	# 4. Climbable Ladder & Platform (Torso-touch climb -> smooth top dismount onto platform)
 	if world_root.get_node_or_null("LadderTowerPlatform") == null:
 		var plat := StaticBody3D.new()
 		plat.name = "LadderTowerPlatform"
-		plat.position = Vector3(-16.0, 8.0, 4.0)
+		plat.position = Vector3(0.0, 8.0, -19.0)
 		var pc := CollisionShape3D.new()
 		var ps := BoxShape3D.new()
 		ps.size = Vector3(7.0, 1.0, 7.0)
@@ -2424,7 +2428,7 @@ func _build_fun_playground_additions(world_root: Node3D) -> void:
 
 		var lad := StaticBody3D.new()
 		lad.name = "ClimbLadder"
-		lad.position = Vector3(-16.0, 4.25, 0.1)
+		lad.position = Vector3(0.0, 4.25, -15.1)
 		lad.collision_layer = 1 | 16
 		lad.add_to_group("ladder")
 		var lc := CollisionShape3D.new()
@@ -2630,8 +2634,12 @@ func _reconcile_players(players: Array) -> void:
 		_names_by_uid[uid] = String(p.get("username", ""))
 		var pos_arr: Array = p.get("pos", [0, 0, 0])
 		var pos := Vector3(float(pos_arr[0]), float(pos_arr[1]), float(pos_arr[2]))
+		var speaking := bool(p.get("speaking", false))
+		var v_level := float(p.get("voiceLevel", 0.0))
+		var v_b64 := String(p.get("voice", ""))
+		var v_seq := int(p.get("voiceSeq", 0))
 		if _remotes.has(uid):
-			_remotes[uid].update_state(pos, float(p.get("heading", 0.0)))
+			_remotes[uid].update_state(pos, float(p.get("heading", 0.0)), speaking, v_level, v_b64, v_seq)
 		else:
 			var rp := RemotePlayerScript.new()
 			add_child(rp)
@@ -2639,7 +2647,7 @@ func _reconcile_players(players: Array) -> void:
 			var setg: Node = get_node_or_null("/root/Settings")
 			if setg != null and not bool(setg.get("player_names")):
 				rp.get("avatar").call("set_display_name", "")
-			rp.update_state(pos, float(p.get("heading", 0.0)))
+			rp.update_state(pos, float(p.get("heading", 0.0)), speaking, v_level, v_b64, v_seq)
 			_remotes[uid] = rp
 			var uname := String(p.get("username", "Someone"))
 			chat.add_system("%s is here" % uname)

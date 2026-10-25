@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 
-const V_TAG = 'v16.0'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=16.0'
+const V_TAG = 'v15.0'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=15.0'
 
 export function SdkView() {
   const [copied, setCopied] = useState(false)
@@ -15,337 +15,278 @@ export function SdkView() {
   }
 
   return (
-    <div style={{ maxWidth: 880, margin: '14px auto 48px', padding: '0 8px' }}>
-      {/* Classic 2008-2011 RetroBlox Banner Box */}
-      <div className="rb-box" style={{ marginBottom: 14 }}>
-        <div className="rb-panel-head">
-          <span>RETROBLOX PLAYER &amp; STUDIO SDK — OFFICIAL CLIENT DOWNLOAD ({V_TAG})</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#ffea79' }}>
-            GODOT 4.5 / 4.6 / 4.7 COMPATIBLE
-          </span>
-        </div>
-
+    <div style={{ maxWidth: 720, margin: '24px auto 60px', padding: '0 16px' }}>
+      {/* Premium Download Container */}
+      <div
+        className="rb-box"
+        style={{
+          background: '#ffffff',
+          borderRadius: 16,
+          border: '1px solid #d2dbe5',
+          boxShadow: '0 12px 36px rgba(18, 38, 63, 0.08), 0 2px 6px rgba(0,0,0,0.04)',
+          overflow: 'hidden',
+          transition: 'box-shadow 0.2s ease',
+        }}
+      >
+        {/* Top Accent Gradient Bar */}
         <div
           style={{
-            padding: '20px 22px',
-            background: '#ffffff',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: 20,
-            alignItems: 'center',
+            height: 6,
+            background: 'linear-gradient(90deg, #00A2FF 0%, #00d26a 50%, #0070b6 100%)',
           }}
-        >
-          {/* Left Column: Classic Emblem + Description */}
-          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-            <div
-              style={{
-                width: 84,
-                height: 84,
-                background: 'linear-gradient(180deg, #1b354f 0%, #0f2030 100%)',
-                border: '2px solid #4a6b8a',
-                boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.25), 2px 2px 0 rgba(0,0,0,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <img
-                src="/icons/godot-icon.svg"
-                alt="RetroBlox Godot SDK"
-                width={54}
-                height={54}
-                style={{ display: 'block' }}
-                draggable={false}
-              />
-            </div>
+        />
 
-            <div>
-              <h1
-                style={{
-                  margin: '0 0 6px 0',
-                  fontSize: 22,
-                  fontWeight: 800,
-                  color: '#0b2540',
-                  fontFamily: 'Verdana, Tahoma, Arial, sans-serif',
-                  letterSpacing: '-0.2px',
-                }}
-              >
-                RetroBlox Player ({V_TAG})
-              </h1>
-              <p
-                style={{
-                  margin: '0 0 10px 0',
-                  fontSize: 12,
-                  color: '#2c3e50',
-                  lineHeight: 1.5,
-                  fontFamily: 'Verdana, Tahoma, Arial, sans-serif',
-                }}
-              >
-                Download the complete standalone <b>RetrobloxPlayer</b> client &amp; map kit. Play
-                online multiplayer places, chat with <b>/</b>, climb ladders, and build your own
-                classic places in Godot&apos;s 3D editor.
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {[
-                  'R6 Character Rig',
-                  'Torso-Touch Ladders',
-                  'Realistic Ultra Mode',
-                  'Moving Platforms & Bricks',
-                ].map((tag) => (
-                  <span
-                    key={tag}
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: '#093966',
-                      background: '#dbeaf7',
-                      border: '1px solid #7ea6cc',
-                      padding: '2px 7px',
-                      fontFamily: 'Verdana, Tahoma, sans-serif',
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Classic Beveled Download Box */}
+        <div style={{ padding: '44px 32px 36px', textAlign: 'center' }}>
+          {/* Godot App Icon with Ambient Glow */}
           <div
             style={{
-              background: '#eef4fa',
-              border: '2px solid #8ba7c2',
-              boxShadow: 'inset 1px 1px 0 #ffffff',
-              padding: '16px 18px',
-              textAlign: 'center',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 88,
+              height: 88,
+              borderRadius: 22,
+              background: 'linear-gradient(135deg, #1f374d 0%, #0e2233 100%)',
+              border: '2px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: '0 10px 24px rgba(0, 112, 182, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+              marginBottom: 20,
+              position: 'relative',
             }}
           >
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: '#1b3f63',
-                textTransform: 'uppercase',
-                marginBottom: 8,
-                fontFamily: 'Verdana, Tahoma, sans-serif',
-              }}
-            >
-              Full Client &amp; Editable SDK Package
-            </div>
+            <img
+              src="/icons/godot-icon.svg"
+              alt="Godot Engine"
+              width={54}
+              height={54}
+              style={{ display: 'block', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.4))' }}
+              draggable={false}
+            />
+          </div>
 
+          {/* Heading */}
+          <h1
+            style={{
+              fontSize: 32,
+              fontWeight: 800,
+              color: '#13283b',
+              margin: '0 0 10px 0',
+              letterSpacing: '-0.5px',
+              fontFamily: 'var(--rb-display, "Source Sans Pro", -apple-system, sans-serif)',
+            }}
+          >
+            RetroBlox Player &amp; SDK
+          </h1>
+
+          {/* Subtitle */}
+          <p
+            style={{
+              fontSize: 16,
+              color: '#5b6f82',
+              margin: '0 auto 28px',
+              maxWidth: 480,
+              lineHeight: 1.55,
+            }}
+          >
+            The official Godot sandbox client. Play multiplayer places online and visually
+            edit your map, UI, and player avatar directly with Godot scene nodes.
+          </p>
+
+          {/* Feature Badges */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+              marginBottom: 32,
+            }}
+          >
+            {[
+              '✓ Visual Node Scenes',
+              '✓ Editable Map & UI',
+              '✓ R6 Character Rig',
+            ].map((badge) => (
+              <span
+                key={badge}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#0e527f',
+                  background: '#e8f4fc',
+                  border: '1px solid #c2e0f4',
+                  borderRadius: 20,
+                  padding: '4px 12px',
+                }}
+              >
+                {badge}
+              </span>
+            ))}
+          </div>
+
+          {/* Prominent Primary Download Action */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
             <a
               href={ZIP_URL}
               download="retroblox-godot-player.zip"
-              className="rb-btn rb-btn-green"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                width: '100%',
-                padding: '11px 16px',
-                fontSize: 14,
-                fontWeight: 800,
+                gap: 14,
                 textDecoration: 'none',
-                border: '2px solid #005216',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 0 #003b0f',
+                background: 'linear-gradient(180deg, #02b757 0%, #018f43 100%)',
+                color: '#ffffff',
+                border: '1px solid #017a39',
+                borderRadius: 12,
+                padding: '16px 36px',
+                fontSize: 17,
+                fontWeight: 700,
+                boxShadow: '0 4px 0 #016830, 0 10px 24px rgba(2, 183, 87, 0.35)',
+                transition: 'all 0.12s ease',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.filter = 'brightness(1.08)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 6px 0 #016830, 0 14px 28px rgba(2, 183, 87, 0.45)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.filter = 'none'
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 0 #016830, 0 10px 24px rgba(2, 183, 87, 0.35)'
               }}
             >
-              <span>▼ DOWNLOAD SDK ({V_TAG}) — .ZIP</span>
+              <svg
+                width={24}
+                height={24}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Download SDK ({V_TAG}) — .zip</span>
             </a>
+          </div>
 
+          {/* Mirror & Copy Actions */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 12,
+              fontSize: 13,
+              color: '#657788',
+            }}
+          >
+            <span>~4.5 MB</span>
+            <span>•</span>
+            <button
+              onClick={handleCopyLink}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: copied ? '#029446' : '#0070b6',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                padding: 0,
+                transition: 'color 0.15s ease',
+              }}
+            >
+              {copied ? '✓ Direct Link Copied!' : 'Copy Direct Link'}
+            </button>
+            <span>•</span>
+            <span>Compatible with Godot 4.5+</span>
+          </div>
+        </div>
+
+        {/* 3-Step Quick Start Footer */}
+        <div
+          style={{
+            borderTop: '1px solid #e2e8f0',
+            background: '#f8fafc',
+            padding: '22px 28px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 16,
+          }}
+        >
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <div
               style={{
-                marginTop: 10,
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#0070b6',
+                color: '#fff',
                 display: 'flex',
-                justifyContent: 'center',
                 alignItems: 'center',
-                gap: 8,
-                fontSize: 11,
-                color: '#3f566d',
-                fontFamily: 'Verdana, Tahoma, sans-serif',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 14,
+                flexShrink: 0,
               }}
             >
-              <span>Archive: retroblox-godot-player.zip</span>
-              <span>|</span>
-              <button
-                onClick={handleCopyLink}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: copied ? '#007a28' : '#0055b3',
-                  fontWeight: 700,
-                  fontSize: 11,
-                  textDecoration: 'underline',
-                  padding: 0,
-                }}
-              >
-                {copied ? 'Link Copied!' : 'Copy Direct Link'}
-              </button>
+              1
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: '#13283b', fontSize: 13 }}>Extract Zip</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Unpack into your projects folder.</div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Two-Column Classic Info Grid: Quick Start + Built-in Kit Parts */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: 14,
-        }}
-      >
-        {/* Left Box: 3-Step Installation */}
-        <div className="rb-box">
-          <div className="rb-panel-head">
-            <span>HOW TO INSTALL &amp; PLAY (3 STEPS)</span>
-          </div>
-          <div style={{ padding: 14, background: '#ffffff' }}>
-            {[
-              {
-                num: '1',
-                title: 'Extract retroblox-godot-player.zip',
-                desc: 'Unzip the downloaded folder anywhere on your computer.',
-              },
-              {
-                num: '2',
-                title: 'Import project.godot in Godot 4.5+',
-                desc: 'Open Godot Engine, click Import, and select project.godot inside the folder.',
-              },
-              {
-                num: '3',
-                title: 'Press F5 to Play or Open scenes/game.tscn',
-                desc: 'Log in with your RetroBlox account or edit scenes/game.tscn to build your own map!',
-              },
-            ].map((step, i) => (
-              <div
-                key={step.num}
-                style={{
-                  display: 'flex',
-                  gap: 12,
-                  alignItems: 'flex-start',
-                  padding: '9px 10px',
-                  background: i % 2 === 0 ? '#f3f7fb' : '#ffffff',
-                  border: '1px solid #c5d5e5',
-                  marginBottom: i < 2 ? 8 : 0,
-                }}
-              >
-                <div
-                  style={{
-                    width: 24,
-                    height: 24,
-                    background: '#0d69ac',
-                    border: '2px solid #073e68',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    fontFamily: 'Verdana, sans-serif',
-                  }}
-                >
-                  {step.num}
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 12,
-                      color: '#0b2540',
-                      fontFamily: 'Verdana, sans-serif',
-                    }}
-                  >
-                    {step.title}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: '#465c70',
-                      marginTop: 2,
-                      fontFamily: 'Verdana, sans-serif',
-                    }}
-                  >
-                    {step.desc}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right Box: Interactive Bricks & Mechanics Reference */}
-        <div className="rb-box">
-          <div className="rb-panel-head">
-            <span>INCLUDED KIT BRICKS &amp; CONTROLS</span>
-          </div>
-          <div style={{ padding: 14, background: '#ffffff' }}>
-            <table
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div
               style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: 11,
-                fontFamily: 'Verdana, Tahoma, sans-serif',
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#0070b6',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 14,
+                flexShrink: 0,
               }}
             >
-              <thead>
-                <tr style={{ background: '#dfe9f3', color: '#0b2540', textAlign: 'left' }}>
-                  <th style={{ padding: '6px 8px', border: '1px solid #9ab4cd' }}>Brick / Node</th>
-                  <th style={{ padding: '6px 8px', border: '1px solid #9ab4cd' }}>
-                    Group / Inspector Setup
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5', fontWeight: 700 }}>
-                    Moveable Platform
-                  </td>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5' }}>
-                    <code>moving_platform.gd</code> — Point A to Point B, Always Move or Move on
-                    Stand, editable Easing
-                  </td>
-                </tr>
-                <tr style={{ background: '#f5f9fc' }}>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5', fontWeight: 700 }}>
-                    Damage &amp; Kill Bricks
-                  </td>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5' }}>
-                    Group <code>&quot;damage&quot;</code> (-20 HP) or <code>&quot;kill&quot;</code>{' '}
-                    (Insta-Kill)
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5', fontWeight: 700 }}>
-                    Heal &amp; Insta-Heal
-                  </td>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5' }}>
-                    Group <code>&quot;heal&quot;</code> (+15 HP) or{' '}
-                    <code>&quot;insta_heal&quot;</code> (100% HP)
-                  </td>
-                </tr>
-                <tr style={{ background: '#f5f9fc' }}>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5', fontWeight: 700 }}>
-                    Climbable Ladder
-                  </td>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5' }}>
-                    Group <code>&quot;ladder&quot;</code> — Climbs when Torso touches, smooth top
-                    step-off
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5', fontWeight: 700 }}>
-                    In-Game Controls
-                  </td>
-                  <td style={{ padding: '6px 8px', border: '1px solid #c5d5e5' }}>
-                    <b>/</b> Open Chat · <b>Shift</b> Shift Lock · <b>ESC</b> Menu · <b>V</b> Voice
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+              2
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: '#13283b', fontSize: 13 }}>Open in Godot</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Import project.godot in 4.5+.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#029446',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 14,
+                flexShrink: 0,
+              }}
+            >
+              3
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: '#13283b', fontSize: 13 }}>Play &amp; Edit</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Press F5 to play or edit nodes!</div>
+            </div>
           </div>
         </div>
       </div>

@@ -22,6 +22,8 @@ var _time := 0.0
 var _anim_accum := 0.0
 var _anim_clock := 0.0
 var _voice_speak_timer := 0.0
+var _voice_level := 0.0
+var _last_voice_seq := 0
 var _tex_voice_levels: Array[Texture2D] = []
 
 
@@ -75,12 +77,32 @@ func dress(api, payload: Dictionary) -> void:
 	await AvatarDresserScript.apply(api, avatar, payload)
 
 
-func update_state(pos: Vector3, heading: float, is_speaking := false) -> void:
+func push_voice_audio(pcm: PackedVector2Array, level: float) -> void:
+	_voice_speak_timer = 0.65
+	_voice_level = clampf(level, 0.08, 1.0)
+	var settings: Node = get_node_or_null("/root/Settings")
+	var vc_enabled := true if settings == null else bool(settings.get("voice_enabled"))
+	if not vc_enabled or not voice_active or pcm.is_empty():
+		return
+	var vc: Node = get_node_or_null("/root/VoiceChat")
+	if vc != null and vc.has_method("play_voice_packet") and voice_player != null:
+		vc.call("play_voice_packet", voice_player, pcm)
+
+
+func update_state(pos: Vector3, heading: float, is_speaking := false, voice_level := 0.0, voice_b64 := "", voice_seq := 0) -> void:
 	_prev_pos = global_position if _has_target else pos
 	_target_pos = pos
 	_target_heading = heading
 	if is_speaking:
-		_voice_speak_timer = 1.5
+		_voice_speak_timer = maxf(_voice_speak_timer, 1.5)
+		_voice_level = maxf(_voice_level, clampf(voice_level, 0.15, 1.0))
+	if voice_b64 != "" and (voice_seq == 0 or voice_seq != _last_voice_seq):
+		_last_voice_seq = voice_seq
+		var vc: Node = get_node_or_null("/root/VoiceChat")
+		if vc != null and vc.has_method("decode_network_voice_packet"):
+			var pcm: PackedVector2Array = vc.call("decode_network_voice_packet", voice_b64)
+			if not pcm.is_empty():
+				push_voice_audio(pcm, maxf(voice_level, 0.35))
 	if not _has_target:
 		global_position = pos
 		_has_target = true
@@ -90,6 +112,8 @@ func _process(delta: float) -> void:
 	_time += delta
 	if _voice_speak_timer > 0.0:
 		_voice_speak_timer -= delta
+	else:
+		_voice_level = move_toward(_voice_level, 0.0, delta * 3.0)
 	if not _has_target:
 		return
 	var k := 1.0 - exp(-6.0 * delta)
@@ -115,7 +139,7 @@ func _process(delta: float) -> void:
 		voice_indicator.visible = vc_enabled and voice_active and dist_fade > 0.02 and is_speaking
 		voice_indicator.modulate = Color(1.0, 1.0, 1.0, dist_fade * 0.96)
 		if is_speaking:
-			var wave := absf(sin(_time * 10.0))
+			var wave := maxf(_voice_level, absf(sin(_time * 10.0)) * 0.75)
 			var lvl_idx := clampi(int(round(wave * 10.0)), 1, 10)
 			if lvl_idx < _tex_voice_levels.size():
 				voice_indicator.texture = _tex_voice_levels[lvl_idx]
@@ -135,7 +159,6 @@ func _process(delta: float) -> void:
 
 
 func show_bubble(message: String) -> void:
-	_voice_speak_timer = 2.0
 	bubble.show_text(message)
 
 

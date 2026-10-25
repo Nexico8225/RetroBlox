@@ -272,7 +272,7 @@ material_override = SubResource("ShaderMaterial_grey")
 mesh = SubResource("BoxMesh_fort_top")
 
 [node name="Trampoline" type="StaticBody3D" parent="." groups=["bounce"]]
-position = Vector3(-8, 0.5, -14)
+position = Vector3(-10, 0.5, -16)
 metadata/color = "2f9e44"
 metadata/mat = "neon"
 
@@ -284,7 +284,7 @@ material_override = SubResource("StandardMaterial3D_bounce")
 mesh = SubResource("BoxMesh_trampoline")
 
 [node name="DamageBrick" type="StaticBody3D" parent="." groups=["damage"]]
-position = Vector3(8, 0.3, 2)
+position = Vector3(-9, 0.3, -8)
 metadata/color = "f76707"
 metadata/mat = "plastic"
 metadata/damage = 20.0
@@ -296,8 +296,17 @@ shape = SubResource("BoxShape3D_pad4")
 material_override = SubResource("ShaderMaterial_red")
 mesh = SubResource("BoxMesh_pad4")
 
+[node name="Label3D" type="Label3D" parent="DamageBrick"]
+position = Vector3(0, 1.5, 0)
+pixel_size = 0.0045
+billboard = 1
+modulate = Color(1, 0.65, 0.3, 1)
+text = "DAMAGE BRICK (-20 HP)"
+font_size = 64
+outline_size = 10
+
 [node name="KillBrick" type="StaticBody3D" parent="." groups=["kill"]]
-position = Vector3(14, 0.3, 2)
+position = Vector3(-3, 0.3, -8)
 metadata/color = "e03131"
 metadata/mat = "plastic"
 
@@ -308,8 +317,17 @@ shape = SubResource("BoxShape3D_pad4")
 material_override = SubResource("ShaderMaterial_red")
 mesh = SubResource("BoxMesh_pad4")
 
+[node name="Label3D" type="Label3D" parent="KillBrick"]
+position = Vector3(0, 1.5, 0)
+pixel_size = 0.0045
+billboard = 1
+modulate = Color(1, 0.4, 0.4, 1)
+text = "KILL BRICK (INSTA-KILL)"
+font_size = 64
+outline_size = 10
+
 [node name="HealBrick" type="StaticBody3D" parent="." groups=["heal"]]
-position = Vector3(8, 0.3, 12)
+position = Vector3(3, 0.3, -8)
 metadata/color = "37b24d"
 metadata/mat = "plastic"
 metadata/heal = 15.0
@@ -321,8 +339,17 @@ shape = SubResource("BoxShape3D_pad4")
 material_override = SubResource("StandardMaterial3D_bounce")
 mesh = SubResource("BoxMesh_pad4")
 
+[node name="Label3D" type="Label3D" parent="HealBrick"]
+position = Vector3(0, 1.5, 0)
+pixel_size = 0.0045
+billboard = 1
+modulate = Color(0.45, 0.95, 0.55, 1)
+text = "HEAL BRICK (+15 HP)"
+font_size = 64
+outline_size = 10
+
 [node name="InstaHealBrick" type="StaticBody3D" parent="." groups=["insta_heal"]]
-position = Vector3(14, 0.3, 12)
+position = Vector3(9, 0.3, -8)
 metadata/color = "0ca678"
 metadata/mat = "plastic"
 
@@ -333,8 +360,17 @@ shape = SubResource("BoxShape3D_pad4")
 material_override = SubResource("StandardMaterial3D_bounce")
 mesh = SubResource("BoxMesh_pad4")
 
+[node name="Label3D" type="Label3D" parent="InstaHealBrick"]
+position = Vector3(0, 1.5, 0)
+pixel_size = 0.0045
+billboard = 1
+modulate = Color(0.35, 0.98, 0.82, 1)
+text = "INSTA-HEAL (100% HP)"
+font_size = 64
+outline_size = 10
+
 [node name="LadderTowerPlatform" type="StaticBody3D" parent="."]
-position = Vector3(-16, 8, 4)
+position = Vector3(0, 8, -19)
 metadata/color = "495057"
 metadata/mat = "plastic"
 
@@ -346,7 +382,7 @@ material_override = SubResource("ShaderMaterial_grey")
 mesh = SubResource("BoxMesh_ladplat")
 
 [node name="ClimbLadder" type="StaticBody3D" parent="." groups=["ladder"]]
-position = Vector3(-16, 4.25, 0.1)
+position = Vector3(0, 4.25, -15.1)
 collision_layer = 17
 metadata/color = "f59f00"
 metadata/mat = "plastic"
@@ -357,6 +393,15 @@ shape = SubResource("BoxShape3D_ladder")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="ClimbLadder"]
 material_override = SubResource("ShaderMaterial_yellow")
 mesh = SubResource("BoxMesh_ladder")
+
+[node name="Label3D" type="Label3D" parent="ClimbLadder"]
+position = Vector3(0, 5.2, 0)
+pixel_size = 0.0045
+billboard = 1
+modulate = Color(1, 0.85, 0.25, 1)
+text = "CLIMB LADDER"
+font_size = 64
+outline_size = 10
 
 [node name="MovingPlatformAlways" type="AnimatableBody3D" parent="." groups=["moving_platform"]]
 position = Vector3(22, 0.6, -2)
@@ -371,6 +416,15 @@ move_duration = 3.0
 wait_time = 0.7
 easing = "SineInOut"
 
+[node name="Label3D" type="Label3D" parent="MovingPlatformAlways"]
+position = Vector3(0, 1.8, 0)
+pixel_size = 0.0045
+billboard = 1
+modulate = Color(1, 0.88, 0.4, 1)
+text = "MOVING PLATFORM (ALWAYS)"
+font_size = 64
+outline_size = 10
+
 [node name="MovingPlatformOnStand" type="AnimatableBody3D" parent="." groups=["moving_platform"]]
 position = Vector3(29, 0.6, -2)
 script = ExtResource("3_moveplat")
@@ -383,3 +437,12 @@ point_b = Vector3(0, 5, 14)
 move_duration = 2.8
 wait_time = 0.5
 easing = "CubicInOut"
+
+[node name="Label3D" type="Label3D" parent="MovingPlatformOnStand"]
+position = Vector3(0, 1.8, 0)
+pixel_size = 0.0045
+billboard = 1
+modulate = Color(0.45, 0.78, 1, 1)
+text = "MOVING PLATFORM (ON STAND)"
+font_size = 64
+outline_size = 10

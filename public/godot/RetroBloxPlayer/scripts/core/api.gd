@@ -165,11 +165,15 @@ func place_chat_send(place_id: String, text: String) -> Dictionary:
 	return await post_json("/api/placechat/%s" % place_id, { "text": text })
 
 
-func place_presence(place_id: String, pos: Vector3, heading: float, ping_ms := 0, fps := 0) -> Dictionary:
-	return await post_json("/api/placechat/%s" % place_id, {
+func place_presence(place_id: String, pos: Vector3, heading: float, ping_ms := 0, fps := 0, speaking := false, voice_level := 0.0, voice_b64 := "") -> Dictionary:
+	var payload := {
 		"x": pos.x, "y": pos.y, "z": pos.z, "heading": heading,
 		"ping": ping_ms, "fps": fps,
-	})
+		"speaking": speaking, "voiceLevel": voice_level,
+	}
+	if voice_b64 != "":
+		payload["voice"] = voice_b64
+	return await post_json("/api/placechat/%s" % place_id, payload)
 
 
 func get_bytes(url_path: String) -> PackedByteArray:

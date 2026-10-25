@@ -95,6 +95,11 @@ func _build_fallback() -> void:
 	word.add_theme_constant_override("shadow_offset_y", 4)
 	col.add_child(word)
 
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 10)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(gap)
+
 	var card := PanelContainer.new()
 	card.name = "LoginCard"
 	card.custom_minimum_size = Vector2(400, 0)
@@ -146,29 +151,72 @@ func _build_fallback() -> void:
 	_go.custom_minimum_size = Vector2(0, 46)
 	_go.focus_mode = Control.FOCUS_NONE
 	_go.add_theme_stylebox_override("normal", _red_key())
+	var red_hover := _red_key()
+	red_hover.modulate_color = Color(1.06, 1.06, 1.06)
+	_go.add_theme_stylebox_override("hover", red_hover)
+	_go.add_theme_stylebox_override("pressed", _red_key())
+	_go.add_theme_stylebox_override("hover_pressed", _red_key())
+	_go.add_theme_font_override("font", RetroUI.gotham(700))
+	_go.add_theme_font_size_override("font_size", 15)
+	_go.add_theme_color_override("font_color", Color.WHITE)
+	_go.add_theme_color_override("font_hover_color", Color.WHITE)
+	_go.add_theme_color_override("font_pressed_color", Color.WHITE)
 	_go.pressed.connect(_on_action)
 	body.add_child(_go)
 
 	_info = Label.new()
+	_info.text = ""
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info.add_theme_font_override("font", RetroUI.gotham(400))
+	_info.add_theme_font_size_override("font_size", 12)
+	_info.add_theme_color_override("font_color", Color("5a6b7b"))
 	body.add_child(_info)
 
 	_offline = Button.new()
 	_offline.text = "Can't connect — play offline instead"
+	_offline.theme_type_variation = "BtnGhost"
+	_offline.custom_minimum_size = Vector2(0, 30)
 	_offline.visible = false
 	_offline.pressed.connect(_on_offline)
 	body.add_child(_offline)
+
+	var footer := Label.new()
+	footer.text = "Accounts live on retro-blox.vercel.app  ·  your avatar loads from your account"
+	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	footer.add_theme_font_override("font", RetroUI.gotham(400))
+	footer.add_theme_font_size_override("font_size", 11)
+	footer.add_theme_color_override("font_color", INK_HEAD)
+	body.add_child(footer)
+
+	var legal := Label.new()
+	legal.text = "RetroBlox Player v%s  ·  ©2006-2013 RetroBlox — not affiliated with Roblox" % VERSION
+	legal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	legal.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	legal.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	legal.offset_top = -30.0
+	legal.offset_bottom = -14.0
+	legal.offset_left = -420.0
+	legal.offset_right = 420.0
+	legal.add_theme_font_override("font", RetroUI.gotham(400))
+	legal.add_theme_font_size_override("font_size", 11)
+	legal.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+	add_child(legal)
+
+	_user.text_submitted.connect(func(_t: String) -> void: _pass.grab_focus())
+	_pass.text_submitted.connect(func(_t: String) -> void: _on_action())
 
 
 func _card_style() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = CARD_TOP
-	sb.set_corner_radius_all(0)
+	sb.set_corner_radius_all(12)
+	sb.anti_aliasing = true
 	sb.set_border_width_all(3)
 	sb.border_color = CARD_FRAME
-	sb.shadow_color = Color(0.04, 0.14, 0.24, 0.45)
-	sb.shadow_size = 12
-	sb.shadow_offset = Vector2(0, 6)
+	sb.shadow_color = Color(0.06, 0.2, 0.34, 0.4)
+	sb.shadow_size = 24
+	sb.shadow_offset = Vector2(0, 10)
 	sb.content_margin_left = 30.0
 	sb.content_margin_right = 30.0
 	sb.content_margin_top = 24.0
@@ -187,10 +235,11 @@ func _field_label(txt: String) -> Label:
 
 func _style_well(w: LineEdit) -> void:
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color("f4f6f9")
-	normal.set_corner_radius_all(0)
+	normal.bg_color = Color.WHITE
+	normal.set_corner_radius_all(8)
+	normal.anti_aliasing = true
 	normal.set_border_width_all(2)
-	normal.border_color = Color("6e8ca8")
+	normal.border_color = WELL_EDGE
 	normal.content_margin_left = 12.0
 	normal.content_margin_right = 12.0
 	normal.content_margin_top = 8.0
@@ -210,14 +259,15 @@ func _style_well(w: LineEdit) -> void:
 
 
 func _red_key() -> StyleBoxTexture:
-	return RetroUI.gloss(RED_TOP, RED_BOT, RED_BOT.darkened(0.3), 0)
+	return RetroUI.gloss(RED_TOP, RED_BOT, RED_BOT.darkened(0.3), 8)
 
 
 func _error_style() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("2a0f0d")
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(8)
+	sb.anti_aliasing = true
+	sb.set_border_width_all(1)
 	sb.border_color = Color("ff6259")
 	sb.content_margin_left = 12.0
 	sb.content_margin_right = 12.0

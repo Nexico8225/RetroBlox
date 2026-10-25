@@ -59,20 +59,12 @@ static func configure_lighting(env: Environment, sun: DirectionalLight3D, def: D
 static func _apply_sun_quality(sun: DirectionalLight3D, env: Environment, settings: Node) -> void:
 	var q := int(settings.get("graphics_quality"))
 	var want_shadows := bool(settings.get("shadows"))
-	sun.light_energy = 0.82
-	sun.light_color = Color("fff9ed")
-	sun.light_specular = 0.55
+	sun.light_energy = 0.78
+	sun.light_color = Color("fff8eb")
+	sun.light_specular = 0.50
 	var fill_light := sun.get_node_or_null("UltraSkyFill") as DirectionalLight3D
-	if fill_light == null:
-		fill_light = DirectionalLight3D.new()
-		fill_light.name = "UltraSkyFill"
-		fill_light.shadow_enabled = false
-		fill_light.light_color = Color(0.64, 0.80, 1.0)
-		fill_light.light_energy = 0.28
-		fill_light.light_specular = 0.25
-		fill_light.rotation_degrees = Vector3(35.0, 145.0, 0.0)
-		sun.add_child(fill_light)
-	fill_light.visible = (q == 3)
+	if fill_light != null:
+		fill_light.visible = false
 
 	if env != null:
 		env.glow_enabled = false
@@ -82,13 +74,13 @@ static func _apply_sun_quality(sun: DirectionalLight3D, env: Environment, settin
 		env.adjustment_enabled = false
 		env.fog_aerial_perspective = 0.0
 		env.fog_sun_scatter = 0.0
-		env.ambient_light_sky_contribution = 0.45
-		env.ambient_light_energy = 0.42
+		env.ambient_light_sky_contribution = 0.42
+		env.ambient_light_energy = 0.38
 		if env.sky != null and env.sky.sky_material is ProceduralSkyMaterial:
 			var sm := env.sky.sky_material as ProceduralSkyMaterial
 			sm.sun_angle_max = 18.0 if q == 3 else 24.0
-			sm.sun_curve = 0.055 if q == 3 else 0.10
-			sm.sky_energy_multiplier = 1.12 if q == 3 else 1.0
+			sm.sun_curve = 0.06 if q == 3 else 0.10
+			sm.sky_energy_multiplier = 0.92 if q == 3 else 1.0
 
 	match q:
 		0: # Low — Most optimized (no shadows, no fog, fast rendering)
@@ -96,64 +88,64 @@ static func _apply_sun_quality(sun: DirectionalLight3D, env: Environment, settin
 			if env != null:
 				env.fog_enabled = false
 				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-				env.tonemap_exposure = 0.90
-		1: # Medium — Balanced shadow range (65m) and 2x MSAA
+				env.tonemap_exposure = 0.88
+		1: # Medium — Balanced shadow range (65m)
 			sun.shadow_enabled = want_shadows
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+			sun.directional_shadow_blend_splits = false
 			sun.directional_shadow_max_distance = 65.0
 			sun.shadow_blur = 1.0
 			sun.shadow_bias = 0.035
+			sun.shadow_opacity = 0.80
 			if env != null:
 				env.fog_enabled = true
 				env.fog_density = 0.0005
 				env.fog_sky_affect = 0.04
 				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-				env.tonemap_exposure = 0.90
-		2: # High — Crisp shadows (135m), 4x MSAA
+				env.tonemap_exposure = 0.88
+		2: # High — Crisp shadows (135m)
 			sun.shadow_enabled = want_shadows
-			sun.directional_shadow_max_distance = 135.0
-			sun.shadow_blur = 0.85
-			sun.shadow_bias = 0.03
-			if env != null:
-				env.fog_enabled = true
-				env.fog_density = 0.0005
-				env.fog_sky_affect = 0.04
-				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-				env.tonemap_exposure = 0.90
-		3: # Ultra — Realistic PBR lighting, ACES Filmic tonemapping, bloom, sky fill, soft 4-split shadows, atmospheric scatter
-			sun.shadow_enabled = want_shadows
-			sun.light_energy = 1.24
-			sun.light_color = Color(1.0, 0.95, 0.86)
-			sun.light_specular = 1.0
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-			sun.directional_shadow_max_distance = 260.0
-			sun.shadow_blur = 1.35
-			sun.shadow_bias = 0.02
+			sun.directional_shadow_blend_splits = true
+			sun.directional_shadow_max_distance = 135.0
+			sun.shadow_blur = 0.80
+			sun.shadow_bias = 0.025
+			sun.shadow_opacity = 0.84
 			if env != null:
-				env.tonemap_mode = Environment.TONE_MAPPER_ACES
-				env.tonemap_exposure = 1.04
-				env.tonemap_white = 6.0
-				env.ambient_light_sky_contribution = 0.72
-				env.ambient_light_energy = 0.62
-				env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-				env.glow_enabled = true
-				env.glow_intensity = 0.42
-				env.glow_bloom = 0.08
-				env.glow_hdr_threshold = 0.92
-				env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
-				env.ssao_enabled = true
-				env.ssao_radius = 1.4
-				env.ssao_intensity = 1.75
-				env.ssil_enabled = true
-				env.ssr_enabled = true
 				env.fog_enabled = true
-				env.fog_light_color = Color(0.76, 0.86, 0.98)
-				env.fog_density = 0.0008
-				env.fog_sky_affect = 0.18
-				env.fog_aerial_perspective = 0.52
-				env.fog_sun_scatter = 0.28
+				env.fog_density = 0.0005
+				env.fog_sky_affect = 0.04
+				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+				env.tonemap_exposure = 0.86
+		3: # Ultra — Less bright, rich natural contrast, high-precision 4-split blended shadows & realistic surface depth
+			sun.shadow_enabled = want_shadows
+			sun.light_energy = 0.72
+			sun.light_color = Color(0.99, 0.95, 0.89)
+			sun.light_specular = 0.65
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			sun.directional_shadow_blend_splits = true
+			sun.directional_shadow_split_1 = 0.07
+			sun.directional_shadow_split_2 = 0.20
+			sun.directional_shadow_split_3 = 0.45
+			sun.directional_shadow_max_distance = 175.0
+			sun.shadow_blur = 0.55
+			sun.shadow_bias = 0.015
+			sun.shadow_normal_bias = 1.2
+			sun.shadow_opacity = 0.88
+			if env != null:
+				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+				env.tonemap_exposure = 0.78
+				env.ambient_light_sky_contribution = 0.36
+				env.ambient_light_energy = 0.32
+				env.fog_enabled = true
+				env.fog_light_color = Color(0.68, 0.79, 0.90)
+				env.fog_density = 0.00045
+				env.fog_sky_affect = 0.08
+				env.fog_aerial_perspective = 0.22
 				env.adjustment_enabled = true
-				env.adjustment_contrast = 1.07
-				env.adjustment_saturation = 1.12
+				env.adjustment_brightness = 0.95
+				env.adjustment_contrast = 1.08
+				env.adjustment_saturation = 1.06
 
 
 static func make_studded_material(color: Color) -> Material:

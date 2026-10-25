@@ -79,7 +79,7 @@ body {
 /* ---------- Custom retro cursors (user assets, outlined) ---------- */
 body,
 body * {
-  cursor: url('/retro/cursor.png') 3 2, auto;
+  cursor: url('/retro/cursor.png') 2 2, auto;
 }
 body a,
 body button,
@@ -88,16 +88,24 @@ body label,
 body [role='button'],
 body .rb-clickable,
 body summary {
-  cursor: url('/retro/pointer.png') 5 2, pointer;
+  cursor: url('/retro/pointer.png') 12 2, pointer;
 }
 body input[type='text'],
 body input[type='password'],
 body input[type='search'],
 body input:not([type]),
 body textarea {
-  cursor: url('/retro/pointer.png') 5 2, text;
+  cursor: url('/retro/pointer.png') 12 2, text;
 }
 
+/* ---------- Typography: regular weight everywhere (no bold text) ----------
+   ...EXCEPT the display layer (buttons, nav, chips) — 2016 used semibold
+   there, and the site reads flat without it. Class selectors beat the
+   body * blanket, so these re-enable weight without touching body text. */
+body,
+body * {
+  font-weight: normal !important;
+}
 .rb-btn,
 .rb-nav-item,
 .rb-side-item,
@@ -107,7 +115,7 @@ body textarea {
 .rb-drawer-item,
 .rb-mobile-tab,
 .rb-vote-btn {
-  font-weight: 700 !important;
+  font-weight: 600 !important;
 }
 
 /* keyboard focus ring — same blue outline as other webs */
@@ -121,49 +129,53 @@ a:focus-visible,
 
 /* ---------- Retro building blocks ---------- */
 .rb-box {
-  background: #ffffff;
-  border: 2px solid #6e8ca8;
-  border-radius: 0px;
-  box-shadow: inset 1px 1px 0 #ffffff, 0 2px 0 rgba(12, 34, 56, 0.14);
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdfe 100%);
+  border: 1px solid #99aab8;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), inset 0 1px 0 #fff;
 }
 /* match the panel head to the card's top */
 .rb-box > .rb-panel-head:first-child {
-  border-radius: 0px;
+  border-radius: 3px 3px 0 0;
 }
 
 /* catalog / game cards: a gentle lift on hover so the grid feels alive */
 .rb-card {
-  transition: transform 90ms ease, box-shadow 90ms ease;
-  border-radius: 0px;
+  transition: transform 110ms ease, box-shadow 110ms ease;
+  border-radius: 4px;
 }
 .rb-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 0 rgba(12, 34, 56, 0.22);
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
 }
 
 .rb-panel-head {
-  background: linear-gradient(180deg, #1e7fd6 0%, #0d65b5 52%, #094f91 100%);
-  border-bottom: 2px solid #063868;
-  color: #ffffff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
-  font-family: Verdana, Tahoma, 'Source Sans Pro', sans-serif;
-  font-weight: 700 !important;
-  font-size: 13px;
-  letter-spacing: 0.3px;
-  padding: 7px 12px;
+  background: linear-gradient(180deg, #e7edf3 0%, #d4e0ec 100%);
+  border-bottom: 1px solid #b2c4d6;
+  color: #173b5c;
+  font-family: var(--rb-display);
+  font-weight: 600 !important;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+  padding: 8px 14px 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 1px 0 #fff;
 }
 .rb-panel-head::before {
-  display: none;
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--rb-nav);
 }
 
 .rb-link {
-  color: #0055b3;
-  font-weight: 600;
+  color: var(--rb-blue);
   text-decoration: none;
 }
 .rb-link:hover {
@@ -171,25 +183,25 @@ a:focus-visible,
   color: var(--rb-blue-dark);
 }
 
-/* Classic retro buttons — crisp 2008 bevels, inner gloss, 0px radius */
+/* Classic retro buttons — crisp bevels, inner gloss, 3px radius */
 .rb-btn {
-  font-family: Verdana, Tahoma, 'Source Sans Pro', sans-serif;
+  font-family: inherit;
   font-size: 12px;
-  padding: 6px 14px;
-  border: 2px solid #5c7893;
-  border-radius: 0px;
-  background: linear-gradient(180deg, #ffffff 0%, #edf3f8 50%, #d2e0ed 100%);
-  color: #10263b;
-  box-shadow: inset 1px 1px 0 #fff, 0 1px 0 rgba(0, 0, 0, 0.18);
-  transition: filter 80ms;
+  padding: 6px 15px;
+  border: 1px solid #7c93a8;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ffffff 0%, #f0f4f8 50%, #dbe5ee 100%);
+  color: #192c3d;
+  box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: filter 100ms;
 }
 .rb-btn:hover {
-  background: linear-gradient(180deg, #ffffff 0%, #e4f1fc 50%, #c4ddf2 100%);
-  border-color: #2c6596;
+  background: linear-gradient(180deg, #ffffff 0%, #eaf4fb 50%, #cfe3f3 100%);
+  border-color: #5587af;
 }
 .rb-btn:active {
-  background: linear-gradient(180deg, #c5d6e6 0%, #e2ecf5 100%);
-  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(180deg, #cbdae7 0%, #e2ecf5 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.22);
 }
 .rb-btn:disabled {
   opacity: 0.55;
@@ -198,71 +210,69 @@ a:focus-visible,
 /* Classic blue action button */
 .rb-btn-blue {
   background: linear-gradient(180deg, #278ad6 0%, #1562a1 50%, #0d4e82 100%);
-  border: 2px solid #083358;
+  border: 1px solid #0a3d66;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.38), 0 1px 0 rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .rb-btn-blue:hover {
   background: linear-gradient(180deg, #379ce8 0%, #1970b5 50%, #105994 100%);
-  border-color: #062845;
+  border-color: #0d4e82;
 }
 .rb-btn-blue:active {
   background: linear-gradient(180deg, #0c436f 0%, #165b94 100%);
-  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .rb-btn-red {
   background: linear-gradient(180deg, #f0544a 0%, #d8231a 50%, #b01912 100%);
-  border: 2px solid #6e0e09;
+  border: 1px solid #85120c;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.38), 0 1px 0 rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .rb-btn-red:hover {
   background: linear-gradient(180deg, #ff655b 0%, #e6281e 50%, #bf1b13 100%);
 }
 .rb-btn-red:active {
   background: linear-gradient(180deg, #9a130d 0%, #c41e15 100%);
-  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .rb-btn-green {
-  background: linear-gradient(180deg, #19c653 0%, #069b3a 52%, #037c2d 100%);
-  border: 2px solid #024d1b;
+  background: linear-gradient(180deg, #2ecc71 0%, #219653 50%, #1a7842 100%);
+  border: 1px solid #145e34;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.42), 0 1px 0 rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .rb-btn-green:hover {
-  background: linear-gradient(180deg, #28db63 0%, #09b043 52%, #048f34 100%);
+  background: linear-gradient(180deg, #38e07f 0%, #27ab5f 50%, #1f8a4c 100%);
 }
 .rb-btn-green:active {
-  background: linear-gradient(180deg, #036b26 0%, #069136 100%);
-  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(180deg, #13522e 0%, #1d7e45 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
-/* retro inputs — classic sunken 2px border, 0px radius */
+/* retro inputs — soft squares, 2016 style */
 .rb-input,
 .rb-select,
 .rb-textarea {
-  font-family: Verdana, Tahoma, 'Source Sans Pro', sans-serif;
+  font-family: inherit;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--rb-text);
-  background: #f8fafc;
-  border: 2px solid #7c95ad;
-  border-radius: 0px;
-  padding: 6px 10px;
-  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.08);
+  background: #fff;
+  border: 1px solid #c9d0d8;
+  border-radius: 5px;
+  padding: 7px 12px;
   outline: none;
 }
 .rb-input:focus,
 .rb-select:focus,
 .rb-textarea:focus {
-  background: #ffffff;
-  border-color: #0d69ac;
-  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.06);
+  border-color: var(--rb-blue);
+  box-shadow: 0 0 3px rgba(0, 162, 255, 0.45);
 }
 
 /* Online dot */
@@ -328,13 +338,15 @@ a:focus-visible,
   background: linear-gradient(180deg, #7ec95c, #4c9e34);
 }
 
+/* 2016 page titles — big Source Sans Pro LIGHT, the signature of the old
+   site ("Hello, <name>!" / page headings). The no-bold rule stays intact:
+   this is a lighter weight, not a bolder one. */
 .rb-page-title {
-  font-family: Verdana, Tahoma, 'Source Sans Pro', sans-serif;
-  font-weight: 700 !important;
-  font-size: 22px;
-  line-height: 1.2;
-  color: #0b2540;
-  letter-spacing: 0px;
+  font-weight: 300 !important;
+  font-size: 25px;
+  line-height: 1.15;
+  color: #191919;
+  letter-spacing: 0.2px;
 }
 
 /* classic BrickColor swatch grid — the palette every old Roblox color
@@ -348,7 +360,7 @@ a:focus-visible,
   width: 22px;
   height: 22px;
   border: 1px solid rgba(0, 0, 0, 0.35);
-  border-radius: 0px;
+  border-radius: 2px;
   padding: 0;
   box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.4);
 }
@@ -362,13 +374,15 @@ a:focus-visible,
 
 /* ---------- header / sidebar / footer ---------- */
 .rb-header {
-  background: linear-gradient(180deg, #1b7ad1 0%, #0d62b0 50%, #084885 100%);
-  border-bottom: 2px solid #052f59;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(180deg, var(--rb-nav-light) 0%, var(--rb-nav) 45%, var(--rb-nav-dark) 100%);
+  border-bottom: 1px solid var(--rb-nav-dark);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
   position: sticky;
   top: 0;
   z-index: 50;
 }
+/* faint CRT scanlines over the blue bar — you only notice them sideways,
+   and that is exactly the point */
 .rb-header::after {
   content: '';
   position: absolute;
@@ -377,10 +391,10 @@ a:focus-visible,
   background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
 }
 .rb-nav-item {
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 
-/* header search — white box with the blue Go button */
+/* the 2016 header search — white box with the blue Go button */
 .rb-header-search .rb-btn {
   background: linear-gradient(180deg, var(--rb-accent) 0%, var(--rb-accent-dark) 100%);
   border-color: var(--rb-nav-dark);
@@ -403,22 +417,22 @@ a:focus-visible,
 .rb-nav-item {
   color: #fff;
   font-size: 13px;
-  padding: 6px 14px;
-  border-radius: 0px;
+  padding: 7px 15px;
+  border-radius: 4px;
   text-decoration: none;
   white-space: nowrap;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 .rb-nav-item:hover {
-  background: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
   border-color: transparent !important;
 }
 
-/* the classic steel-white nav strip — the old site's second header row */
+/* the classic white nav strip — the old site's second header row */
 .rb-navbar {
-  background: linear-gradient(180deg, #f4f8fc 0%, #dce7f3 100%);
-  border-bottom: 2px solid #8ba7c2;
-  box-shadow: inset 0 1px 0 #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f0f5fa 100%);
+  border-bottom: 1px solid #c9d6e2;
+  box-shadow: 0 2px 6px rgba(23, 74, 120, 0.1);
 }
 .rb-navbar-inner {
   max-width: 1200px;
@@ -432,27 +446,27 @@ a:focus-visible,
   scrollbar-width: thin;
 }
 .rb-navbar-item {
-  padding: 5px 13px;
+  padding: 6px 14px;
   font-size: 12px;
   font-weight: 700;
-  color: #0e3860;
+  color: #194670;
   text-decoration: none;
   white-space: nowrap;
-  border-radius: 0px;
+  border-radius: 3px;
   border: 1px solid transparent;
   flex-shrink: 0;
   transition: all 80ms ease;
 }
 .rb-navbar-item:hover {
-  background: #ffffff;
-  color: #072847;
-  border-color: #7ea0c0;
+  background: #e6eff7;
+  color: #0b3c63;
+  border-color: #b9d0e5;
 }
 .rb-navbar-item.rb-navbar-active {
-  background: #0d62b0;
-  color: #ffffff;
-  border: 1px solid #063868;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background: #ffffff;
+  color: #005f9c;
+  border: 1px solid #a8c1d9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 /* sidebar group headers ("Play", "Create", "Avatar & Shop"...) */

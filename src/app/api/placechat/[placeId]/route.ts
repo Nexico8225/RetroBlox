@@ -30,6 +30,17 @@ const ONLINE_WINDOW_MS = 30_000
 const CHAT_COOLDOWN_MS = 800
 const MAX_LEN = 240
 
+type VoiceState = {
+  speaking: boolean
+  voiceLevel: number
+  voice: string
+  voiceSeq: number
+  at: number
+}
+
+const voiceStates = new Map<string, VoiceState>()
+let nextVoiceSeq = 1
+
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: PLATFORM_CORS })
 }
@@ -78,16 +89,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pla
   return json({
     ok: true,
     messages,
-    players: presence.map((p) => ({
-      userId: p.userId,
-      username: p.user.username,
-      seqId: p.user.seqId,
-      pos: [p.x, p.y, p.z],
-      heading: p.heading,
-      ping: p.pingMs,
-      fps: p.fps,
-      at: p.updatedAt.toISOString(),
-    })),
+    players: presence.map((p) => {
+      const vs = voiceStates.get(p.userId)
+      const freshVoice = vs && Date.now() - vs.at < 4500 ? vs : null
+      return {
+        userId: p.userId,
+        username: p.user.username,
+        seqId: p.user.seqId,
+        pos: [p.x, p.y, p.z],
+        heading: p.heading,
+        ping: p.pingMs,
+        fps: p.fps,
+        speaking: freshVoice ? freshVoice.speaking : false,
+        voiceLevel: freshVoice ? freshVoice.voiceLevel : 0,
+        voice: freshVoice ? freshVoice.voice : '',
+        voiceSeq: freshVoice ? freshVoice.voiceSeq : 0,
+        at: p.updatedAt.toISOString(),
+      }
+    }),
   })
 }
 
@@ -97,7 +116,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pla
   if (!user) return json({ error: 'Sign in to use place chat' }, 401)
 
   const body = (await req.json().catch(() => null)) as
-    | { text?: unknown; x?: unknown; y?: unknown; z?: unknown; heading?: unknown; ping?: unknown; fps?: unknown }
+    | {
+        text?: unknown
+        x?: unknown
+        y?: unknown
+        z?: unknown
+        heading?: unknown
+        ping?: unknown
+        fps?: unknown
+        speaking?: unknown
+        voiceLevel?: unknown
+        voice?: unknown
+      }
     | null
   if (!body) return json({ error: 'Bad request' }, 400)
 
@@ -137,6 +167,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pla
     const px = Math.max(-100000, Math.min(100000, x))
     const py = Math.max(-100000, Math.min(100000, y))
     const pz = Math.max(-100000, Math.min(100000, z))
+    const speaking = Boolean(body.speaking)
+    const voiceLevel = Number.isFinite(Number(body.voiceLevel))
+      ? Math.max(0, Math.min(1, Number(body.voiceLevel)))
+      : 0
+    const voiceStr = typeof body.voice === 'string' && body.voice.length <= 24000 ? body.voice : ''
+    if (speaking || voiceStr) {
+      const prev = voiceStates.get(user.id)
+      voiceStates.set(user.id, {
+        speaking,
+        voiceLevel,
+        voice: voiceStr || (prev && Date.now() - prev.at < 2000 ? prev.voice : ''),
+        voiceSeq: voiceStr ? nextVoiceSeq++ : prev?.voiceSeq ?? 0,
+        at: Date.now(),
+      })
+    } else {
+      voiceStates.delete(user.id)
+    }
     await db.placePresence
       .upsert({
         where: { userId: user.id },

@@ -83,6 +83,7 @@ var _falling := false
 var _fall_peak_y := 0.0
 var _ladder_areas: Array[Node3D] = []
 var _ladder_sensor: Area3D = null
+var _touch_sensor: Area3D = null
 var _climb_kind: int = ClimbKind.NONE
 var _climb_face := Vector3.ZERO
 var _coyote := 0.0
@@ -316,6 +317,7 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 		_gravity_boost_timer -= delta
 
 	var auto_rot_ladder := true if _settings == null else bool(_settings.get("ladder_auto_rotate"))
+	_update_climb(wish, delta, auto_rot_ladder)
 	if _climb_kind != ClimbKind.NONE and auto_rot_ladder:
 		heading = lerp_angle(heading, atan2(-_climb_face.x, -_climb_face.z), 1.0 - exp(-22.0 * delta))
 	elif use_shiftlock or first_person:
@@ -323,17 +325,20 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 	elif wish.length_squared() > 0.005:
 		heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
 
-	_update_climb(wish, delta, auto_rot_ladder)
 	if _climb_kind != ClimbKind.NONE:
 		_drive_climb(wish, delta)
-		var forward := Vector3(-sin(heading), 0.0, -cos(heading))
-		if forward.dot(_climb_face) < CLIMB_FACE_STAY:
-			_stop_climb()
-			velocity.y -= GRAVITY * delta
 	else:
 		_drive_ground_air(wish, delta)
 
 	move_and_slide()
+	for i in range(get_slide_collision_count()):
+		var sc := get_slide_collision(i)
+		if sc != null and sc.get_collider() is Node3D:
+			_on_touch_entered(sc.get_collider() as Node3D)
+	if _touch_sensor != null and is_instance_valid(_touch_sensor):
+		for b in _touch_sensor.get_overlapping_bodies():
+			if b is Node3D:
+				_on_touch_entered(b as Node3D)
 	var was_grounded := grounded
 	grounded = is_on_floor() or _rise_left > 0.0
 	if grounded and not was_grounded and _last_vy < -LAND_SOUND_FALL:
@@ -389,14 +394,22 @@ func _update_brick_ticks(delta: float) -> void:
 
 
 func _prune_ladder_contacts() -> void:
-	for i in range(_ladder_areas.size() - 1, -1, -1):
-		if not is_instance_valid(_ladder_areas[i]):
-			_ladder_areas.remove_at(i)
+	_ladder_areas.clear()
+	if _ladder_sensor == null or not is_instance_valid(_ladder_sensor):
+		return
+	for b in _ladder_sensor.get_overlapping_bodies():
+		if b is Node3D and b != self and _is_climbable_node(b as Node3D):
+			if not _ladder_areas.has(b):
+				_ladder_areas.append(b as Node3D)
+	for a in _ladder_sensor.get_overlapping_areas():
+		if a is Node3D and a != self and _is_climbable_node(a as Node3D):
+			if not _ladder_areas.has(a):
+				_ladder_areas.append(a as Node3D)
 
 
 func _update_climb(wish: Vector3, _delta: float, auto_rot_ladder: bool) -> void:
 	_prune_ladder_contacts()
-	# If the torso is NOT touching any climbable part, immediately unclimb!
+	# If the torso (y = 2.0..4.0) is NOT touching any climbable part, immediately unclimb!
 	if _ladder_areas.is_empty():
 		if _climb_kind != ClimbKind.NONE:
 			var was_climbing_up := velocity.y > 0.5 * STUD
@@ -407,8 +420,8 @@ func _update_climb(wish: Vector3, _delta: float, auto_rot_ladder: bool) -> void:
 				velocity.y = 0.0
 				_jump_buffer_left = 0.0
 				_coyote = 0.0
-				velocity.x = face.x * walk_speed * 0.65
-				velocity.z = face.z * walk_speed * 0.65
+				velocity.x = face.x * walk_speed * 0.72
+				velocity.z = face.z * walk_speed * 0.72
 		return
 
 	if _climb_kind != ClimbKind.NONE and grounded and wish.dot(_climb_face) < -0.15:
@@ -428,8 +441,8 @@ func _update_climb(wish: Vector3, _delta: float, auto_rot_ladder: bool) -> void:
 
 	if face_to_lad != Vector3.ZERO:
 		var forward := Vector3(-sin(heading), 0.0, -cos(heading))
-		var moving_into := wish.dot(face_to_lad) > 0.25 or (not grounded and forward.dot(face_to_lad) >= CLIMB_FACE_START)
-		if moving_into and (auto_rot_ladder or forward.dot(face_to_lad) >= CLIMB_FACE_START):
+		var moving_into := wish.dot(face_to_lad) > 0.12 or (not grounded and forward.dot(face_to_lad) >= 0.15)
+		if moving_into and (auto_rot_ladder or forward.dot(face_to_lad) >= 0.15):
 			_climb_kind = ClimbKind.LADDER
 			_climb_face = face_to_lad
 
@@ -732,11 +745,12 @@ func _setup_ladder_sensor() -> void:
 	area.name = "LadderSensor"
 	area.collision_layer = 0
 	area.collision_mask = 16 | 1
+	area.monitoring = true
 	area.monitorable = false
 	var shape_node := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	# Strictly sized to the R6 Torso (width 2.0, height 2.0 from y=2.0..4.0, depth + reach 1.65)
-	shape.size = Vector3(2.15 * STUD, 2.0 * STUD, 1.65 * STUD)
+	# Strictly sized to the R6 Torso height (y = 2.0..4.0) while extending 0.35 studs outside the 1.0 capsule radius horizontally
+	shape.size = Vector3(2.7 * STUD, 2.0 * STUD, 2.7 * STUD)
 	shape_node.shape = shape
 	shape_node.position = Vector3(0.0, 3.0 * STUD, 0.0)
 	area.add_child(shape_node)
@@ -812,15 +826,17 @@ func _setup_touch_sensor() -> void:
 	area.name = "TouchSensor"
 	area.collision_layer = 0
 	area.collision_mask = 1 | 16
+	area.monitoring = true
 	area.monitorable = false
 	var shape_node := CollisionShape3D.new()
-	var shape := CapsuleShape3D.new()
-	shape.radius = 1.45 * STUD
-	shape.height = 5.4 * STUD
+	var shape := CylinderShape3D.new()
+	shape.radius = 1.35 * STUD
+	shape.height = 5.6 * STUD
 	shape_node.shape = shape
-	shape_node.position = Vector3(0.0, 2.6 * STUD, 0.0)
+	shape_node.position = Vector3(0.0, 2.4 * STUD, 0.0)
 	area.add_child(shape_node)
 	add_child(area)
+	_touch_sensor = area
 	area.body_entered.connect(_on_touch_entered)
 	area.body_exited.connect(_on_touch_exited)
 	area.area_entered.connect(_on_touch_entered)
