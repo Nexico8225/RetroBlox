@@ -208,19 +208,19 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
 		if speed < 0.2:
 			rate = 0.0
 		else:
-			rate = clampf(speed / (8.0 * STUD), 0.6, 1.4)
+			rate = clampf(speed / (8.0 * STUD), 0.7, 1.6)
 	elif not grounded:
 		next = ANIM_JUMP
-		rate = 1.0
+		rate = 2.4
 	elif speed > 0.8 * STUD:
 		next = ANIM_WALK
-		rate = clampf(speed / (16.0 * STUD), 0.6, 1.4)
+		rate = clampf(speed / (11.0 * STUD), 0.75, 1.8)
 	if _current_anim != next:
 		_current_anim = next
 		if _anim_player.has_animation(next):
 			var blend := 0.0 if (next == ANIM_JUMP or _current_anim == ANIM_JUMP) else 0.14
 			_anim_player.play(next, blend, rate)
-	if next == ANIM_WALK or next == ANIM_CLIMB:
+	if next == ANIM_WALK or next == ANIM_CLIMB or next == ANIM_JUMP:
 		_anim_player.speed_scale = rate
 
 
@@ -228,7 +228,8 @@ func on_jump() -> void:
 	if _using_r6ik and _anim_player != null and is_instance_valid(_anim_player):
 		_current_anim = ANIM_JUMP
 		if _anim_player.has_animation(ANIM_JUMP):
-			_anim_player.play(ANIM_JUMP, 0.0, 1.0)
+			_anim_player.play(ANIM_JUMP, 0.0, 2.4)
+			_anim_player.speed_scale = 2.4
 
 
 static func _ensure_classic_climb_anim(ap: AnimationPlayer) -> void:
@@ -236,35 +237,88 @@ static func _ensure_classic_climb_anim(ap: AnimationPlayer) -> void:
 	anim.length = 0.8
 	anim.loop_mode = Animation.LOOP_LINEAR
 
-	var t_la := anim.add_track(Animation.TYPE_ROTATION_3D)
-	anim.track_set_path(t_la, "Left Arm")
-	var t_ra := anim.add_track(Animation.TYPE_ROTATION_3D)
-	anim.track_set_path(t_ra, "Right Arm")
-	var t_ll := anim.add_track(Animation.TYPE_ROTATION_3D)
-	anim.track_set_path(t_ll, "Left Leg")
-	var t_rl := anim.add_track(Animation.TYPE_ROTATION_3D)
-	anim.track_set_path(t_rl, "Right Leg")
+	var C_arm := Vector3(0.0, 3.4669, 0.0)
+	var p_rest_arm_l := Vector3(0.000161, 0.00279, 0.0)
+	var p_rest_arm_r := Vector3(-0.000161, 0.002789, 0.0)
+	var q_rest_arm := Quaternion(0.707107, 0.0, 0.0, 0.707107)
 
-	var steps := 8
+	var C_leg := Vector3(0.0, 1.91, 0.0)
+	var p_rest_leg_l := Vector3(0.004095, -0.000052, -0.025472)
+	var p_rest_leg_r := Vector3(-0.004096, -0.000051, -0.025472)
+	var q_rest_leg := Quaternion(0.713007, 0.0, 0.0, 0.701157)
+
+	var t_armature := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_armature, "Armature")
+	anim.rotation_track_insert_key(t_armature, 0.0, Quaternion(0.0, -0.707107, -0.707107, 0.0))
+
+	var t_torso_p := anim.add_track(Animation.TYPE_POSITION_3D)
+	anim.track_set_path(t_torso_p, "Torso2")
+	anim.position_track_insert_key(t_torso_p, 0.0, Vector3.ZERO)
+	var t_torso_r := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_torso_r, "Torso2")
+	anim.rotation_track_insert_key(t_torso_r, 0.0, Quaternion(0.707107, 0.0, 0.0, 0.707107))
+
+	var t_head_p := anim.add_track(Animation.TYPE_POSITION_3D)
+	anim.track_set_path(t_head_p, "Head2")
+	anim.position_track_insert_key(t_head_p, 0.0, Vector3(-0.003039, 0.016698, -0.016685))
+	var t_head_r := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_head_r, "Head2")
+	anim.rotation_track_insert_key(t_head_r, 0.0, Quaternion(0.703623, 0.082837, -0.08369, 0.700749))
+
+	var t_la_p := anim.add_track(Animation.TYPE_POSITION_3D)
+	anim.track_set_path(t_la_p, "Left Arm")
+	var t_la_r := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_la_r, "Left Arm")
+
+	var t_ra_p := anim.add_track(Animation.TYPE_POSITION_3D)
+	anim.track_set_path(t_ra_p, "Right Arm")
+	var t_ra_r := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_ra_r, "Right Arm")
+
+	var t_ll_p := anim.add_track(Animation.TYPE_POSITION_3D)
+	anim.track_set_path(t_ll_p, "Left Leg")
+	var t_ll_r := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_ll_r, "Left Leg")
+
+	var t_rl_p := anim.add_track(Animation.TYPE_POSITION_3D)
+	anim.track_set_path(t_rl_p, "Right Leg")
+	var t_rl_r := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_rl_r, "Right Leg")
+
+	var steps := 16
 	for i in range(steps + 1):
 		var time := float(i) * (anim.length / float(steps))
 		var phase := float(i) / float(steps) * TAU
 		var alt := sin(phase)
 
-		var pitch_l := deg_to_rad(90.0 - 135.0 + alt * 25.0)
-		var pitch_r := deg_to_rad(90.0 - 135.0 - alt * 25.0)
-		var q_la := Quaternion(Vector3.RIGHT, pitch_l)
-		var q_ra := Quaternion(Vector3.RIGHT, pitch_r)
+		var angle_la := deg_to_rad(130.0 + alt * 24.0)
+		var dq_la := Quaternion(Vector3.RIGHT, angle_la)
+		var q_la := dq_la * q_rest_arm
+		var p_la := p_rest_arm_l + C_arm - dq_la * C_arm
 
-		var pitch_ll := deg_to_rad(90.0 + alt * 28.0)
-		var pitch_rl := deg_to_rad(90.0 - alt * 28.0)
-		var q_ll := Quaternion(Vector3.RIGHT, pitch_ll)
-		var q_rl := Quaternion(Vector3.RIGHT, pitch_rl)
+		var angle_ra := deg_to_rad(130.0 - alt * 24.0)
+		var dq_ra := Quaternion(Vector3.RIGHT, angle_ra)
+		var q_ra := dq_ra * q_rest_arm
+		var p_ra := p_rest_arm_r + C_arm - dq_ra * C_arm
 
-		anim.rotation_track_insert_key(t_la, time, q_la)
-		anim.rotation_track_insert_key(t_ra, time, q_ra)
-		anim.rotation_track_insert_key(t_ll, time, q_ll)
-		anim.rotation_track_insert_key(t_rl, time, q_rl)
+		var angle_ll := deg_to_rad(-alt * 20.0)
+		var dq_ll := Quaternion(Vector3.RIGHT, angle_ll)
+		var q_ll := dq_ll * q_rest_leg
+		var p_ll := p_rest_leg_l + C_leg - dq_ll * C_leg
+
+		var angle_rl := deg_to_rad(alt * 20.0)
+		var dq_rl := Quaternion(Vector3.RIGHT, angle_rl)
+		var q_rl := dq_rl * q_rest_leg
+		var p_rl := p_rest_leg_r + C_leg - dq_rl * C_leg
+
+		anim.position_track_insert_key(t_la_p, time, p_la)
+		anim.rotation_track_insert_key(t_la_r, time, q_la)
+		anim.position_track_insert_key(t_ra_p, time, p_ra)
+		anim.rotation_track_insert_key(t_ra_r, time, q_ra)
+		anim.position_track_insert_key(t_ll_p, time, p_ll)
+		anim.rotation_track_insert_key(t_ll_r, time, q_ll)
+		anim.position_track_insert_key(t_rl_p, time, p_rl)
+		anim.rotation_track_insert_key(t_rl_r, time, q_rl)
 
 	var lib: AnimationLibrary = ap.get_animation_library("")
 	if lib == null:
@@ -292,10 +346,10 @@ func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool)
 	if _pivots.size() < 6:
 		return
 	var movement := clampf(absf(speed) / (5.0 * STUD), 0.0, 1.0)
-	var walk_rate := 4.8 + movement * 2.0
+	var walk_rate := 7.0 + movement * 3.0
 	var swing := sin(_time * walk_rate) * movement
 	if climbing:
-		var alt := sin(_time * 6.5) * 0.9
+		var alt := sin(_time * 6.5) * 0.9 if speed >= 0.2 else 0.0
 		_pivots[ARM_L].rotation.x = -2.4 + alt * 0.4
 		_pivots[ARM_R].rotation.x = -2.4 - alt * 0.4
 		_pivots[LEG_L].rotation.x = alt * 0.5
@@ -321,7 +375,7 @@ func _animate_boxes(_delta: float, speed: float, grounded: bool, climbing: bool)
 		_pivots[TORSO].rotation.x = 0.0
 
 
-func burst(world: Node3D, impulse_seed: int) -> void:
+func burst(world: Node3D, impulse_seed: int, is_first_person: bool = false) -> void:
 	_ensure_built()
 	if world == null:
 		return
@@ -333,20 +387,25 @@ func burst(world: Node3D, impulse_seed: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = abs(impulse_seed) * 104729 + 13
 	for i in range(parts.size()):
+		if is_first_person and i == HEAD:
+			continue
 		var piece := _make_debris_piece(debris, i)
 		piece.linear_velocity = Vector3(
 			rng.randf_range(-4.8, 4.8), rng.randf_range(4.0, 7.5), rng.randf_range(-4.8, 4.8)) * STUD
 		piece.angular_velocity = Vector3(
 			rng.randf_range(-5.5, 5.5), rng.randf_range(-5.5, 5.5), rng.randf_range(-5.5, 5.5))
-	var audio := AudioStreamPlayer3D.new()
-	audio.name = "OriginalOof"
-	audio.stream = _get_oof_audio()
-	audio.max_distance = 40.0 * STUD
-	audio.unit_size = 10.0 * STUD
-	debris.add_child(audio)
-	audio.play()
-	var cleanup := world.get_tree().create_timer(5.0)
-	cleanup.timeout.connect(debris.queue_free)
+	if debris.is_inside_tree():
+		var audio := AudioStreamPlayer3D.new()
+		audio.name = "OriginalOof"
+		audio.stream = _get_oof_audio()
+		audio.max_distance = 40.0 * STUD
+		audio.unit_size = 10.0 * STUD
+		debris.add_child(audio)
+		audio.play()
+	var tree := world.get_tree() if (world != null and world.is_inside_tree()) else (get_tree() if is_inside_tree() else null)
+	if tree != null:
+		var cleanup := tree.create_timer(5.0)
+		cleanup.timeout.connect(debris.queue_free)
 
 
 func _get_oof_audio() -> AudioStream:

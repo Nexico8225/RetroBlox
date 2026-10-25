@@ -541,7 +541,7 @@ func _wall_hit_along(dir: Vector3, min_h := 0.0) -> Vector3:
 		var col_obj: Variant = hit.get("collider", null)
 		if col_obj is Node3D:
 			var cn := col_obj as Node3D
-			if _is_climbable_node(cn) or cn.name.begins_with("Stair") or cn.name.begins_with("StepTest") or raw_h <= 2.2:
+			if _is_climbable_node(cn):
 				var normal: Vector3 = hit["normal"]
 				if absf(normal.y) < 0.4:
 					return normal
@@ -755,7 +755,7 @@ func die(world: Node3D) -> void:
 	_stop_climb()
 	if voice_indicator != null and is_instance_valid(voice_indicator):
 		voice_indicator.visible = false
-	avatar.call("burst", world, randi())
+	avatar.call("burst", world, randi(), _input_first_person)
 
 
 func respawn_at(pos: Vector3) -> void:
@@ -825,6 +825,9 @@ static func _is_climbable_node(other: Node3D) -> bool:
 	if other == null or not is_instance_valid(other):
 		return false
 	if other.is_in_group("ladder") or other.is_in_group("climb"):
+		return true
+	var n := other.name.to_lower()
+	if "ladder" in n or "truss" in n or "climb" in n:
 		return true
 	if other is CollisionObject3D and (((other as CollisionObject3D).collision_layer & 16) != 0):
 		return true
