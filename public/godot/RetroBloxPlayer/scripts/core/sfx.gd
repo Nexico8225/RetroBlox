@@ -1,20 +1,5 @@
 extends Node
-## Sfx — every sound the UI and character make, from ONE place.
-## Autoload "Sfx".
-##
-## CHARACTER SOUNDS = the authentic Roblox client files (2018 client dump,
-## the same files the official RbxCharacterSounds script plays):
-##   jump      = action_jump.mp3            (the classic whoosh)
-##   land      = action_jump_land.mp3       (landing thud)
-##   footsteps = action_footsteps_plastic.mp3 @ ~1.85 (Roblox Running spec)
-##   climb     = action_footsteps_plastic.mp3 looped, higher pitch
-##   falling   = action_falling.mp3         (wind loop, Roblox FreeFalling)
-##   oof       = uuhhh.mp3                  (THE original death sound)
-## UI: the classic button CLICK and a soft HOVER tick play on every Button in
-## the whole client (login, HUD, loading veil) — wired automatically via node_added.
-## NOTE: the music box is GONE (removed by popular demand) — only the sky
-## wind ambience remains of the screen loops.
-
+# Plays classic 2D UI sounds and 3D character audio loops.
 const CLICK := "res://assets/sfx_click.mp3"
 const HOVER := "res://assets/ui_hover.wav"
 const JOIN := "res://assets/ui_join.wav"
@@ -87,8 +72,6 @@ func _load_first(paths: Array[String]) -> AudioStream:
         return null
 
 
-## Click on EVERY button press, hover tick on mouse-over — the whole client
-## gets the classic UI sounds without each screen remembering to ask.
 func _on_node_added(node: Node) -> void:
         if node is BaseButton:
                 var b := node as BaseButton
@@ -129,22 +112,18 @@ func play_join() -> void:
                 p.play()
 
 
-## One-shot 3D jump sound, parented at the jumping player.
 func play_jump_3d(at: Node3D) -> void:
         _play_one_shot_3d(_jump, "JumpSfx", at, -2.0)
 
 
-## One-shot 3D landing thud (Roblox plays this after air time).
 func play_land_3d(at: Node3D) -> void:
         _play_one_shot_3d(_land, "LandSfx", at, -6.0)
 
 
-## The original oof, positioned at the broken avatar.
 func play_oof_3d(at: Node3D) -> void:
         _play_one_shot_3d(_oof, "OofSfx", at, -1.0)
 
 
-## Victory fanfare — non positional, it is YOUR win.
 func play_goal() -> void:
         if _goal != null:
                 var p := _grab()
@@ -168,8 +147,6 @@ func _play_one_shot_3d(stream: AudioStream, kind: String, at: Node3D, db: float)
         p.finished.connect(p.queue_free)
 
 
-## A looped 3D loop (footsteps / climb / falling wind). Caller keeps the node
-## and sets playing on/off — pitch and volume stay under the caller's control.
 func make_loop_3d(kind: String, at: Node3D) -> AudioStreamPlayer3D:
         var p := AudioStreamPlayer3D.new()
         p.name = kind
@@ -189,9 +166,6 @@ func make_loop_3d(kind: String, at: Node3D) -> AudioStreamPlayer3D:
         return p
 
 
-## A NON-positional looped player for the whole-screen ambience: the sky
-## wind ("SFX" bus). The "Music" kind intentionally returns null now — the
-## music box was removed. Loop points are set on the stream itself.
 func make_screen_loop(kind: String) -> AudioStreamPlayer:
         if kind != "Wind":
                 return null
@@ -203,8 +177,6 @@ func make_screen_loop(kind: String) -> AudioStreamPlayer:
         return p
 
 
-## Force WAV loop points in code so the ambience/music loop no matter what the
-## import defaults say.
 func _looped(stream: AudioStream) -> AudioStream:
         if stream is AudioStreamWAV:
                 var wav := stream as AudioStreamWAV

@@ -1,0 +1,381 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/game/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/player/local_player.gd" id="2_player"]
+[ext_resource type="Script" path="res://scripts/game/camera_rig.gd" id="3_camrig"]
+[ext_resource type="Script" path="res://scripts/game/chat_box.gd" id="4_chatbox"]
+[ext_resource type="Texture2D" path="res://assets/icons/logo.png" id="7_logo"]
+[ext_resource type="Texture2D" path="res://assets/icons/chat.png" id="8_chat"]
+[ext_resource type="PackedScene" path="res://scenes/game.tscn" id="9_world"]
+[ext_resource type="FontFile" path="res://assets/fonts/LiberationSans-Bold.ttf" id="11_font_bold"]
+[ext_resource type="FontFile" path="res://assets/fonts/LiberationSans-Regular.ttf" id="12_font_reg"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
+sky_top_color = Color(0.231373, 0.509804, 0.768627, 1)
+sky_horizon_color = Color(0.619608, 0.784314, 0.909804, 1)
+ground_bottom_color = Color(0.227451, 0.305882, 0.235294, 1)
+ground_horizon_color = Color(0.619608, 0.784314, 0.909804, 1)
+sun_angle_max = 24.0
+sun_curve = 0.1
+
+[sub_resource type="Sky" id="Sky_main"]
+sky_material = SubResource("ProceduralSkyMaterial_sky")
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 2
+sky = SubResource("Sky_main")
+ambient_light_source = 3
+ambient_light_color = Color(0.545098, 0.643137, 0.741176, 1)
+ambient_light_sky_contribution = 0.45
+ambient_light_energy = 0.42
+tonemap_mode = 0
+tonemap_exposure = 0.92
+fog_enabled = true
+fog_light_color = Color(0.772549, 0.866667, 0.941176, 1)
+fog_density = 0.0005
+fog_sky_affect = 0.04
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 1.0
+height = 5.0
+
+[node name="RetroBlox" type="Node3D"]
+script = ExtResource("1_game")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+position = Vector3(0, 28, 0)
+rotation = Vector3(-0.837758, -0.610865, 0)
+light_color = Color(1, 0.976471, 0.929412, 1)
+light_energy = 0.8
+shadow_enabled = true
+shadow_bias = 0.03
+shadow_blur = 0.85
+directional_shadow_max_distance = 110.0
+
+[node name="World" parent="." instance=ExtResource("9_world")]
+
+[node name="LocalPlayer" type="CharacterBody3D" parent="."]
+position = Vector3(0, 1.2, 0)
+collision_layer = 4
+script = ExtResource("2_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LocalPlayer"]
+position = Vector3(0, 2.5, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="VoiceIndicator" type="Sprite3D" parent="LocalPlayer"]
+position = Vector3(0, 6.55, 0)
+pixel_size = 0.0075
+billboard = 1
+shaded = false
+no_depth_test = true
+
+[node name="CameraRig" type="Node3D" parent="."]
+position = Vector3(0, 5.8, 0)
+script = ExtResource("3_camrig")
+
+[node name="Pivot" type="Node3D" parent="CameraRig"]
+rotation = Vector3(-0.18, 0, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraRig/Pivot"]
+spring_length = 14.0
+margin = 0.4
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig/Pivot/SpringArm3D"]
+current = true
+fov = 70.0
+near = 0.1
+far = 1200.0
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="ChatBox" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 10.0
+offset_top = 54.0
+offset_right = 404.0
+offset_bottom = 288.0
+script = ExtResource("4_chatbox")
+
+[node name="LogPanel" type="PanelContainer" parent="HUD/ChatBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -42.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LogScroll" type="ScrollContainer" parent="HUD/ChatBox/LogPanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="LogList" type="VBoxContainer" parent="HUD/ChatBox/LogPanel/LogScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="InputPanel" type="PanelContainer" parent="HUD/ChatBox"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -36.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="ChatInput" type="LineEdit" parent="HUD/ChatBox/InputPanel"]
+layout_mode = 2
+placeholder_text = "To chat click here or press \"/\" key"
+max_length = 240
+
+[node name="Topbar" type="HBoxContainer" parent="HUD"]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 156.0
+offset_bottom = 46.0
+theme_override_constants/separation = 6
+
+[node name="MenuButton" type="Button" parent="HUD/Topbar"]
+custom_minimum_size = Vector2(42, 34)
+layout_mode = 2
+tooltip_text = "Menu (ESC)"
+focus_mode = 0
+icon = ExtResource("7_logo")
+icon_alignment = 1
+expand_icon = true
+
+[node name="ChatButton" type="Button" parent="HUD/Topbar"]
+custom_minimum_size = Vector2(42, 34)
+layout_mode = 2
+tooltip_text = "Chat (/)"
+focus_mode = 0
+icon = ExtResource("8_chat")
+icon_alignment = 1
+expand_icon = true
+
+[node name="BadgeHolder" type="Control" parent="HUD/Topbar/ChatButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ChatBadgePanel" type="PanelContainer" parent="HUD/Topbar/ChatButton/BadgeHolder"]
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -6.0
+offset_top = -8.0
+offset_right = 10.0
+offset_bottom = 8.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="ChatBadge" type="Label" parent="HUD/Topbar/ChatButton/BadgeHolder/ChatBadgePanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="VoiceMicButton" type="Button" parent="HUD/Topbar"]
+custom_minimum_size = Vector2(42, 34)
+layout_mode = 2
+tooltip_text = "Voice Chat (V)"
+focus_mode = 0
+icon_alignment = 1
+expand_icon = true
+
+[node name="FpsChip" type="PanelContainer" parent="HUD"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -110.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = 40.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="CornerStats" type="Label" parent="HUD/FpsChip"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("11_font_bold")
+theme_override_font_sizes/font_size = 12
+text = "FPS 60"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HealthBarContainer" type="Control" parent="HUD"]
+visible = false
+layout_mode = 3
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -40.0
+offset_top = -140.0
+offset_right = -10.0
+offset_bottom = 120.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HealthBar" type="Panel" parent="HUD/HealthBarContainer"]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -24.0
+offset_top = -95.0
+offset_right = -4.0
+offset_bottom = 125.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Fill" type="Panel" parent="HUD/HealthBarContainer/HealthBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 3.0
+offset_top = 3.0
+offset_right = -3.0
+offset_bottom = -3.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HealthChip" type="PanelContainer" parent="HUD/HealthBarContainer"]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -28.0
+offset_top = -125.0
+offset_bottom = -101.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HealthValue" type="Label" parent="HUD/HealthBarContainer/HealthChip"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("11_font_bold")
+theme_override_font_sizes/font_size = 12
+text = "100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MobileControls" type="Control" parent="HUD"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ThumbstickPad" type="Panel" parent="HUD/MobileControls"]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -168.0
+offset_right = 168.0
+offset_bottom = -28.0
+grow_vertical = 0
+
+[node name="ThumbstickKnob" type="Panel" parent="HUD/MobileControls/ThumbstickPad"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -28.0
+offset_top = -28.0
+offset_right = 28.0
+offset_bottom = 28.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TouchJumpButton" type="Button" parent="HUD/MobileControls"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -148.0
+offset_top = -136.0
+offset_right = -64.0
+offset_bottom = -52.0
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+icon_alignment = 1
+expand_icon = true
+
+[node name="ShiftLockButton" type="Button" parent="HUD"]
+custom_minimum_size = Vector2(40, 40)
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -52.0
+offset_top = -52.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 0
+grow_vertical = 0
+tooltip_text = "Shift Lock (Shift)"
+focus_mode = 0
+icon_alignment = 1
+expand_icon = true
+
+[node name="CenterCursor" type="TextureRect" parent="HUD"]
+visible = false
+custom_minimum_size = Vector2(22, 22)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -11.0
+offset_top = -11.0
+offset_right = 11.0
+offset_bottom = 11.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ToastBox" type="VBoxContainer" parent="HUD"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_top = 14.0
+grow_horizontal = 2
+theme_override_constants/separation = 6
+alignment = 0

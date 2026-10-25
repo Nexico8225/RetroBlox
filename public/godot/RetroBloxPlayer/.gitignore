@@ -1,0 +1,11 @@
+# Godot 4+ cache and imported binaries
+.godot/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# User exports & crash logs
+exports/
+*.log

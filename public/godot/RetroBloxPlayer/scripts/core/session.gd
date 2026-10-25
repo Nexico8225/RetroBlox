@@ -1,17 +1,10 @@
 extends Node
-## Session — who is playing right now (autoload "Session").
-##
-## Three ways to be in the player:
-##   1. signed in  — a real RetroBlox account, avatar loads from the platform
-##   2. guest      — classic noob colors, a random Guest number, read-only chat
-##   3. (nobody)   — before login, never after boot (auto-login handles it)
-
+# Stores current logged-in player session, user ID, and cached avatar data.
 var is_guest := true
 var user_id := ""
 var username := "Guest"
 var seq_id := 0
 var role := ""
-# ---- v15.0 ROLES: players play, GAME DEVS edit ---------------------------
 # A GAME DEV = a signed-in user who owns at least one game on the platform
 # (any engine counts — a Web game works too). Publishing your first game
 # flips this on; the Studio doors and the F2 UI editor open for devs only.
@@ -39,8 +32,6 @@ func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role:
         is_dev = false
 
 
-## Deep-copy a JSON payload with every null replaced by "" — recursive, so
-## nested dicts (the "avatar" blob) are covered too.
 func _nullless(src: Dictionary) -> Dictionary:
         var out: Dictionary = {}
         for k in src.keys():
@@ -80,16 +71,10 @@ func reset() -> void:
         avatar_cache = {}
 
 
-## Cache another player's avatar payload so re-entering places is instant.
-## v12.3: callers now store the INNER avatar data (colors/body/shirt/...)
-## — the shape the dresser and the portrait renderer read directly.
 func cache_avatar(p_user_id: String, payload: Dictionary) -> void:
         avatar_cache[p_user_id] = _nullless(payload)
 
 
-## v10.0: set MY avatar payload (null-sanitized) — used by game.gd when the
-## /me payload refreshes mid-session. v12.3: the per-user cache holds the
-## INNER avatar data too, so cached_avatar(uid) always dresses directly.
 func set_avatar(payload: Dictionary) -> void:
         avatar = _nullless(payload)
         if user_id != "":
@@ -102,9 +87,6 @@ func cached_avatar(p_user_id: String) -> Dictionary:
         return hit if hit is Dictionary else {}
 
 
-## Ask the platform whether this account is a GAME DEV (owns >= 1 game).
-## One GET per session — every later caller gets the cached answer instantly.
-## Connect dev_ready BEFORE calling: it always answers, cached or fetched.
 func check_dev(force := false) -> void:
         if _dev_checked and not force:
                 dev_ready.emit(is_dev)
@@ -120,20 +102,14 @@ func check_dev(force := false) -> void:
         dev_ready.emit(is_dev)
 
 
-## The name chip shown in the player list: "Nexico8225 #1".
 func display_tag() -> String:
         if is_guest or seq_id <= 0:
                 return username
         return "%s #%d" % [username, seq_id]
 
 
-## The avatar data blob this client should render for ME.
 func my_avatar_data() -> Dictionary:
         if is_guest:
                 return {}
         var a: Variant = avatar.get("avatar", {})
-        var res: Dictionary = a.duplicate() if a is Dictionary else {}
-        for key in ["emotes", "animPack", "bundle", "colors", "faceScale", "displayName", "avatarUrl"]:
-                if avatar.has(key) and not res.has(key):
-                        res[key] = avatar[key]
-        return res
+        return a if a is Dictionary else {}

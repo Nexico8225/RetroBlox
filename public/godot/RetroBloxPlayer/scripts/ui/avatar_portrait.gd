@@ -1,17 +1,6 @@
 class_name AvatarPortrait
 extends RefCounted
-## v5.0 MIDNIGHT CLIENT — the ESC menu player cards wear a REAL, SHARP
-## picture of each player's avatar. We build the player's actual rig inside
-## an offscreen SubViewport with its own camera + lights and render ONE
-## frame at HIGH resolution (320x448 with 4x MSAA) — the card shows a clean
-## portrait, not a chunky upscaled sprite. The old v3.9 look rendered at
-## 64x84 and every card read as pixel mush; that's dead now.
-##
-## Everything is disposable: the viewport, rig, camera and lights are freed
-## before return, and the host node is only used to park the viewport for
-## the couple of frames a render needs. Headless (smoke tests, CI) returns
-## null — callers fall back to the classic head icon.
-
+# Renders 2D headshot portraits for player cards.
 const AvatarRigScript := preload("res://scripts/player/avatar_rig.gd")
 const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
 
@@ -20,12 +9,6 @@ const HEADSHOT_SIZE := Vector2i(320, 320) # v11.0: the square PFP framing (head 
 const RIG_CENTER_Y := 2.5               # the rig is 5 studs tall, origin at the feet
 
 
-## Render one avatar portrait. Awaitable (network dressing + a drawn frame).
-## `payload` = the /api/users/{id}/avatar shape; {} paints classic noob.
-## `headshot` (v11.0) frames the HEAD + shoulders square — the profile
-## picture framing every seat in the UI wears. Full body stays the default.
-## Returns null when rendering is impossible (headless) or the frame came
-## back empty — never a broken texture.
 static func render(host: Node, api, payload: Dictionary, headshot := false) -> Texture2D:
         if host == null or not is_instance_valid(host):
                 return null
@@ -50,7 +33,6 @@ static func render(host: Node, api, payload: Dictionary, headshot := false) -> T
         vp.mesh_lod_threshold = 0.0
         host.add_child(vp)
 
-        # ---- the stage: rig + framing camera + two flat lights ----
         var rig: Node3D = AvatarRigScript.new()
         vp.add_child(rig)
         rig.call("setup", "")
@@ -107,7 +89,6 @@ static func render(host: Node, api, payload: Dictionary, headshot := false) -> T
                 cam.look_at_from_position(cam.position, Vector3(0.0, RIG_CENTER_Y, 0.0), Vector3.UP)
         cam.current = true
 
-        # ---- one drawn frame, then snatch the pixels ----
         # v3.11: let every child actually ENTER the tree first, THEN arm the
         # one-shot render and wait for a full drawn frame. A retry covers
         # drivers that need one extra beat — the card always ends up with a
@@ -136,9 +117,6 @@ static func render(host: Node, api, payload: Dictionary, headshot := false) -> T
         return ImageTexture.create_from_image(img)
 
 
-## Composite the square render onto the retro-blox.vercel.app paper: the
-## light blue-gray vertical wash the site's cards sit on — profile pictures
-## that read clean at 26px AND at 320px, on any surface, dark or light.
 static func _paper_backdrop(shot: Image) -> Image:
         var w := shot.get_width()
         var h := shot.get_height()

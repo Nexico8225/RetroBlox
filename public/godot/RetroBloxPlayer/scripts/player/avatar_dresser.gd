@@ -1,20 +1,6 @@
 class_name AvatarDresser
 extends RefCounted
-## Dresses an AvatarRig with a RetroBlox account avatar, fetched from the
-## platform API. The rules are the SAME ones the website renderer follows:
-##   - head + arms take the BODY color (skin), torso takes the SHIRT color,
-##     legs take the PANTS color
-##   - avatar.colors overrides any part exactly (the site's Body Colors panel)
-##   - shirt texture: 300x190 template -> zone-cropped onto torso + arms
-##   - pants texture: 220x190 template -> zone-cropped onto both legs
-##   - face: decal quad on the FRONT of the head (62% of the head at scale 1)
-##   - 3D UGC: GLB, normalized to 1.6, placed EXACTLY where its creator left
-##     it, creator texture / tint / roughness / metallic applied like the site
-##
-## Pass api = null for a colors-only dry run (no network) — used by tests
-## and by the guest path (which paints classic noob colors instead).
-
-# official clothing template zones (300x190 shirt / 220x190 pants)
+# Applies body colors, shirts, pants, t-shirts, faces, and hats to an AvatarRig.
 const SHIRT_W := 300
 const SHIRT_H := 190
 const SHIRT_TORSO := Rect2(80, 30, 120, 120)
@@ -38,23 +24,6 @@ const SHIRT_FALLBACK := Color("2e7dc4")
 const PANTS_FALLBACK := Color("39516b")
 
 
-## Dress an AvatarRig node from a payload like:
-## { body, head, shirt, pants, accessories: [], colors: {...}|null, faceScale }
-## Every network await can outlive the rig (respawn, scene change, remote
-## player leaving) — so after EVERY await we re-check the node and quietly
-## bail instead of crashing on a previously freed instance.
-##
-## FAST AVATAR: the four slot JSONs resolve first and the body colors paint
-## immediately; then EVERY texture / face / GLB accessory streams in its own
-## PARALLEL task — the whole dress takes as long as the slowest single
-## download instead of the sum of all of them. Together with the Api caches
-## a rejoin or respawn dresses from memory instantly.
-##
-## await_all (v4.0): the gameplay path keeps the fire-and-forget streaming,
-## but the PORTRAIT path must pass true — the ESC menu photographs the rig
-## ONCE, and that one shot has to wait until the face, shirt, t-shirt and
-## every accessory actually landed (they used to race the snapshot and the
-## cards showed a half-dressed noob).
 static func apply(api, avatar_node, avatar_data: Dictionary, await_all := false) -> void:
         if not _alive(avatar_node):
                 return
@@ -70,7 +39,6 @@ static func apply(api, avatar_node, avatar_data: Dictionary, await_all := false)
                 _paint_colors(avatar_node, colors, SKIN_FALLBACK, SHIRT_FALLBACK, PANTS_FALLBACK)
                 return
 
-        # ---- 1) resolve the four slot assets (small JSON round trips) ----
         var body_asset: Dictionary = await api.get_asset(String(avatar_data.get("body", "body_01")))
         var head_asset: Dictionary = await api.get_asset(String(avatar_data.get("head", "head_01")))
         var shirt_asset: Dictionary = await api.get_asset(String(avatar_data.get("shirt", "shirt_01")))
@@ -78,13 +46,11 @@ static func apply(api, avatar_node, avatar_data: Dictionary, await_all := false)
         if not _alive(avatar_node):
                 return
 
-        # ---- 2) paint the body colors RIGHT NOW (identity before textures) ----
         _paint_colors(avatar_node, colors,
                 _asset_color(body_asset, SKIN_FALLBACK),
                 _asset_color(shirt_asset, SHIRT_FALLBACK),
                 _asset_color(pants_asset, PANTS_FALLBACK))
 
-        # ---- 3) stream every surface / face / model ----
         # GAMEPLAY path (default): every stream fires in PARALLEL — the whole
         # dress takes as long as the slowest single download.
         # PORTRAIT path (await_all): the one-shot snapshot must wait, so each
@@ -106,8 +72,6 @@ static func apply(api, avatar_node, avatar_data: Dictionary, await_all := false)
                         _apply_accessory(api, avatar_node, String(acc_id))
 
 
-## The body colors: head + arms = skin, torso = shirt, legs = pants; the
-## site's Body Colors panel wins per part.
 static func _paint_colors(avatar_node, colors: Dictionary, skin: Color, shirt_color: Color, pants_color: Color) -> void:
         avatar_node.call("set_part_color", avatar_node.get("HEAD"), _pick(colors, "head", skin))
         avatar_node.call("set_part_color", avatar_node.get("TORSO"), _pick(colors, "torso", shirt_color))
@@ -117,7 +81,6 @@ static func _paint_colors(avatar_node, colors: Dictionary, skin: Color, shirt_co
         avatar_node.call("set_part_color", avatar_node.get("LEG_R"), _pick(colors, "legR", pants_color))
 
 
-## Shirt texture — zone-crop the 300x190 template onto torso + arms.
 static func _paint_shirt(api, avatar_node, shirt_asset: Dictionary) -> void:
         var shirt_url := _asset_image(shirt_asset)
         if shirt_url == "":
@@ -137,7 +100,6 @@ static func _paint_shirt(api, avatar_node, shirt_asset: Dictionary) -> void:
                         SHIRT_ARM_L if template else Rect2(), SHIRT_W, SHIRT_H)
 
 
-## Pants texture — zone-crop the 220x190 template onto both legs.
 static func _paint_pants(api, avatar_node, pants_asset: Dictionary) -> void:
         var pants_url := _asset_image(pants_asset)
         if pants_url == "":
@@ -155,7 +117,6 @@ static func _paint_pants(api, avatar_node, pants_asset: Dictionary) -> void:
                         PANTS_LEG_L if template else Rect2(), PANTS_W, PANTS_H)
 
 
-## Face decal on the FRONT of the head.
 static func _paint_face(api, avatar_node, head_asset: Dictionary, face_scale: float) -> void:
         var face_url := _asset_image(head_asset)
         if face_url == "":
@@ -167,10 +128,6 @@ static func _paint_face(api, avatar_node, head_asset: Dictionary, face_scale: fl
                 avatar_node.call("set_face", ImageTexture.create_from_image(face_img), face_scale)
 
 
-## One UGC accessory. 3D items ride the GLB path; 2D items (T-SHIRTS — an
-## image with no model, exactly like the site's decal) paint onto the torso
-## here, which is why your equipped t-shirt was MISSING in-game before v4.0.
-## Runs as its own parallel task.
 static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
         var asset: Dictionary = await api.get_asset(acc_id)
         if not _alive(avatar_node):
@@ -181,7 +138,6 @@ static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
         var kind := String(surface_asset.get("kind", ""))
         var model_url := String(surface_asset.get("modelUrl", ""))
         if model_url == "":
-                # ---- 2D accessory: the T-SHIRT decal (site rule: an image
                 # decal on the FRONT of the torso, 92% of the torso face) ----
                 if kind == "tshirt":
                         var decal_url := String(surface_asset.get("imageUrl", ""))
@@ -224,6 +180,9 @@ static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
         # wrapper (the same trick loadRig() uses on the site) maps the
         # whole placement — position AND rotation — into this rig's
         # space, so items appear forwards here exactly like the site.
+        var existing_ugc := (avatar_node as Node).get_node_or_null("UGCYaw_" + acc_id)
+        if existing_ugc != null:
+                existing_ugc.queue_free()
         var yaw := Node3D.new()
         yaw.name = "UGCYaw_" + acc_id
         yaw.rotation.y = PI
@@ -249,10 +208,6 @@ static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
                 _surface_finish(scene, rough_v, metal_v)
 
 
-# ---------------------------------------------------------------- helpers
-
-## True only when the node still exists — the dressing coroutine can resume
-## after its target was freed (respawn / leave / remote despawn).
 static func _alive(n: Variant) -> bool:
         # validity FIRST — Godot 4.7 throws "Left operand of 'is' is a
         # previously freed instance" when `is` touches a freed object
@@ -266,8 +221,6 @@ static func _textured_part(avatar_node, part_index: int, tex: Texture2D, zone: R
         avatar_node.call("set_part_textured", part_index, mesh, tex)
 
 
-## Build a box mesh whose every face samples `zone` out of a tw x th texture.
-## An empty zone means the FULL texture wraps each face.
 static func zone_box(size: Vector3, zone: Rect2, tw: int, th: int) -> ArrayMesh:
         var rect := zone
         if rect.size.x <= 0.0 or rect.size.y <= 0.0:
@@ -346,7 +299,6 @@ static func _pick(colors: Dictionary, key: String, fallback: Color) -> Color:
         return fallback
 
 
-## Normalize a node to max_dimension = size (the same import rule the site uses).
 static func _normalize(root: Node3D, size: float) -> void:
         var aabb := _combined_aabb(root)
         if aabb.size.length() < 0.0001:
@@ -394,8 +346,6 @@ static func _relative_xform(root: Node3D, node: Node3D) -> Transform3D:
         return t
 
 
-## The creator's placement: p = position, r = degrees, s = scale — applied
-## VERBATIM. The platform NEVER auto-fits or repositions UGC.
 static func _apply_placement(holder: Node3D, placement: Variant) -> void:
         if placement == null or not (placement is Dictionary):
                 return
@@ -410,7 +360,6 @@ static func _apply_placement(holder: Node3D, placement: Variant) -> void:
                 holder.scale = Vector3(float(s[0]), float(s[1]), float(s[2]))
 
 
-## FACE-CORNER DATA: make sure per-vertex colors (Blender vertex paint) show.
 static func _enable_vertex_colors(root: Node) -> void:
         for mi in _all_mesh_instances(root):
                 if mi.mesh == null:
@@ -426,7 +375,6 @@ static func _enable_vertex_colors(root: Node) -> void:
                                         bm.vertex_color_use_as_albedo = true
 
 
-## Creator paint with THE ROBLOX RULE — DATA WINS (like SurfaceAppearance).
 static func _surface_texture(root: Node, tex: Texture2D, tint := Color.TRANSPARENT) -> void:
         for mi in _all_mesh_instances(root):
                 if mi.mesh == null:
@@ -455,9 +403,6 @@ static func _surface_texture(root: Node, tex: Texture2D, tint := Color.TRANSPARE
                         mi.set_surface_override_material(surface, m)
 
 
-## Creator surface finish (Metallic / Roughness sliders, 0..1) — an explicit
-## override beats whatever the GLB carries, on every surface, exactly like
-## the website and ItemThumb3D render the same item.
 static func _surface_finish(root: Node, roughness_v: Variant, metallic_v: Variant) -> void:
         for mi in _all_mesh_instances(root):
                 if mi.mesh == null:

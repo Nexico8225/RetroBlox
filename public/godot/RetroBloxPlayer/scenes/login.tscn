@@ -1,6 +1,91 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=9 format=3]
 
-[ext_resource type="Script" path="res://scripts/ui/login.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/login.gd" id="1_login"]
+[ext_resource type="FontFile" path="res://assets/fonts/LiberationSans-Bold.ttf" id="2_font_bold"]
+[ext_resource type="FontFile" path="res://assets/fonts/LiberationSans-Regular.ttf" id="3_font_reg"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+content_margin_left = 30.0
+content_margin_top = 24.0
+content_margin_right = 30.0
+content_margin_bottom = 26.0
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.0509804, 0.411765, 0.67451, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+shadow_color = Color(0.04, 0.14, 0.24, 0.45)
+shadow_size = 12
+shadow_offset = Vector2(0, 6)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_well"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.96, 0.97, 0.98, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.43, 0.55, 0.66, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_err"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.164706, 0.0588235, 0.0509804, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.384314, 0.34902, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 16.0
+content_margin_bottom = 10.0
+bg_color = Color(0.886275, 0.137255, 0.101961, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.58, 0.08, 0.05, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_guest"]
+content_margin_left = 12.0
+content_margin_top = 6.0
+content_margin_right = 12.0
+content_margin_bottom = 6.0
+bg_color = Color(0.92, 0.95, 0.98, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.43, 0.55, 0.66, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
 
 [node name="Login" type="Control"]
 layout_mode = 3
@@ -9,4 +94,167 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1")
+script = ExtResource("1_login")
+
+[node name="SkyBg" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.388235, 0.701961, 0.92549, 1)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainColumn" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="Wordmark" type="Label" parent="CenterContainer/MainColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.658824, 0.137255, 0.109804, 1)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 4
+theme_override_fonts/font = ExtResource("2_font_bold")
+theme_override_font_sizes/font_size = 44
+text = "RETROBLOX"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="CenterContainer/MainColumn"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="LoginCard" type="PanelContainer" parent="CenterContainer/MainColumn"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="CardBody" type="VBoxContainer" parent="CenterContainer/MainColumn/LoginCard"]
+layout_mode = 2
+theme_override_constants/separation = 13
+
+[node name="HeaderLabel" type="Label" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.109804, 0.227451, 0.321569, 1)
+theme_override_fonts/font = ExtResource("2_font_bold")
+theme_override_font_sizes/font_size = 19
+text = "Login and start having fun"
+
+[node name="UsernameLabel" type="Label" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.262745, 0.313726, 0.360784, 1)
+theme_override_fonts/font = ExtResource("2_font_bold")
+theme_override_font_sizes/font_size = 11
+text = "USERNAME"
+
+[node name="UsernameInput" type="LineEdit" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.109804, 0.152941, 0.2, 1)
+theme_override_colors/font_placeholder_color = Color(0.262745, 0.313726, 0.360784, 0.6)
+theme_override_fonts/font = ExtResource("3_font_reg")
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBoxFlat_well")
+placeholder_text = "e.g. Nexico8225"
+max_length = 20
+
+[node name="PasswordLabel" type="Label" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.262745, 0.313726, 0.360784, 1)
+theme_override_fonts/font = ExtResource("2_font_bold")
+theme_override_font_sizes/font_size = 11
+text = "PASSWORD"
+
+[node name="PasswordInput" type="LineEdit" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.109804, 0.152941, 0.2, 1)
+theme_override_colors/font_placeholder_color = Color(0.262745, 0.313726, 0.360784, 0.6)
+theme_override_fonts/font = ExtResource("3_font_reg")
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBoxFlat_well")
+placeholder_text = "Password"
+secret = true
+
+[node name="ErrorBanner" type="PanelContainer" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_err")
+
+[node name="ErrorLabel" type="Label" parent="CenterContainer/MainColumn/LoginCard/CardBody/ErrorBanner"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85098, 0.839216, 1)
+theme_override_fonts/font = ExtResource("2_font_bold")
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
+
+[node name="LoginButton" type="Button" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_font_bold")
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "Log In"
+
+[node name="GuestButton" type="Button" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.109804, 0.227451, 0.321569, 1)
+theme_override_fonts/font = ExtResource("2_font_bold")
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBoxFlat_guest")
+text = "Play Offline / Guest Mode"
+
+[node name="InfoLabel" type="Label" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.352941, 0.419608, 0.482353, 1)
+theme_override_fonts/font = ExtResource("3_font_reg")
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="OfflineButton" type="Button" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+visible = false
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+text = "Can't connect — play offline instead"
+
+[node name="FooterLabel" type="Label" parent="CenterContainer/MainColumn/LoginCard/CardBody"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.109804, 0.227451, 0.321569, 1)
+theme_override_fonts/font = ExtResource("3_font_reg")
+theme_override_font_sizes/font_size = 11
+text = "Accounts live on retro-blox.vercel.app  ·  your avatar loads from your account"
+horizontal_alignment = 1
+
+[node name="LegalLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -420.0
+offset_top = -30.0
+offset_right = 420.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.7)
+theme_override_fonts/font = ExtResource("3_font_reg")
+theme_override_font_sizes/font_size = 11
+text = "RetroBlox Player  ·  ©2006-2013 RetroBlox — not affiliated with Roblox"
+horizontal_alignment = 1

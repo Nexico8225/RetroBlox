@@ -8,12 +8,20 @@
 
 config_version=5
 
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
 [application]
 
 config/name="RetroBlox Player"
 run/main_scene="res://scenes/login.tscn"
-config/features=PackedStringArray("4.5", "GL Compatibility")
+config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/icon.svg"
+
+[audio]
+
+driver/enable_input=true
 
 [autoload]
 
@@ -21,22 +29,16 @@ Api="*res://scripts/core/api.gd"
 Session="*res://scripts/core/session.gd"
 Settings="*res://scripts/core/settings.gd"
 Sfx="*res://scripts/core/sfx.gd"
-UiConfig="*res://scripts/core/ui_config.gd"
-UiEditor="*res://scripts/ui/ui_editor.gd"
-
-[editor]
-
-run/output/always_clear_output_on_play=true
+VoiceChat="*res://scripts/core/voice_chat.gd"
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
-; v10.0: the window opens COMPACT (960x600) like the old client did — never
-; the whole screen. The UI stretches with it (canvas_items), so nothing moves.
-window/size/window_width_override=960
-window/size/window_height_override=600
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [input]
 
@@ -76,7 +78,11 @@ shift_lock={
 }
 toggle_players={
 "deadzone": 0.2,
-"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":80,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+"events": []
+}
+open_chat={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":47,"key_label":0,"unicode":47,"location":0,"echo":false,"script":null)
 ]
 }
 
@@ -92,9 +98,6 @@ toggle_players={
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/anisotropic_filtering_level=4
-; v12.3 PERF: OCCLUSION CULLING — whole blocks hidden behind walls/floors
-; are skipped entirely (every solid world part ships a matching occluder)
-occlusion_culling/use_occlusion_culling=true
-; v12.3 PERF: 2x MSAA (was 4x) — nearly half the AA cost, edges still clean
 anti_aliasing/quality/msaa_3d=1
 environment/defaults/default_clear_color=Color(0.623529, 0.843137, 1, 1)
+occlusion_culling/use_occlusion_culling=true
