@@ -29,16 +29,26 @@ const STUDS_SHADER_PATH := "res://assets/studs/part_studs.gdshader"
 @export_enum("Always Move:0", "Move When Player Stands On It:1") var move_mode: int = 0:
 	set(v):
 		move_mode = v
-		move_on_player_stand = (v == 1)
+		move_on_stand = (v == 1)
 
-## Toggle alias: if true, platform moves to Point B when player stands on it and returns to Point A when they step off.
-@export var move_on_player_stand := false:
+## Toggle: if true, platform moves when player stands on it and returns when they step off.
+@export var move_on_stand := false:
 	set(v):
-		move_on_player_stand = v
+		if move_on_stand == v:
+			return
+		move_on_stand = v
 		if v and move_mode == 0:
 			move_mode = 1
 		elif not v and move_mode == 1:
 			move_mode = 0
+
+## Alias for backwards compatibility
+@export var move_on_player_stand := false:
+	set(v):
+		if move_on_player_stand == v:
+			return
+		move_on_player_stand = v
+		move_on_stand = v
 
 ## If false (default), Point A is the platform's starting position + point_a, and Point B is starting position + point_b (or target_offset). If true, point_a and point_b are exact world coordinates.
 @export var use_world_coordinates := false
@@ -147,15 +157,15 @@ func _setup_stand_sensor() -> void:
 	_stand_area = Area3D.new()
 	_stand_area.name = "StandSensor"
 	_stand_area.collision_layer = 0
-	_stand_area.collision_mask = 2 | 1
+	_stand_area.collision_mask = 0xFFFFFFFF
 	_stand_area.monitoring = true
 	_stand_area.monitorable = false
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	var world_sz := block_size * STUD
-	box.size = Vector3(world_sz.x + 0.4 * STUD, 1.2 * STUD, world_sz.z + 0.4 * STUD)
+	box.size = Vector3(world_sz.x + 0.6 * STUD, 1.8 * STUD, world_sz.z + 0.6 * STUD)
 	cs.shape = box
-	cs.position = Vector3(0.0, world_sz.y * 0.5 + 0.55 * STUD, 0.0)
+	cs.position = Vector3(0.0, world_sz.y * 0.5 + 0.9 * STUD, 0.0)
 	_stand_area.add_child(cs)
 	_stand_area.body_entered.connect(_on_stand_entered)
 	_stand_area.body_exited.connect(_on_stand_exited)
@@ -185,7 +195,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_recompute_endpoints()
 	var dur := maxf(move_duration, 0.05)
-	var stand_only := (move_mode == 1) or move_on_player_stand
+	var stand_only := (move_mode == 1) or move_on_player_stand or move_on_stand
 
 	if stand_only:
 		var has_rider := _is_player_standing()

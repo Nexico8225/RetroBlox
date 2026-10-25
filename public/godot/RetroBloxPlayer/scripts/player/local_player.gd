@@ -330,6 +330,9 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 	else:
 		_drive_ground_air(wish, delta)
 
+	if _climb_kind == ClimbKind.NONE:
+		_perform_step_up(wish, delta)
+
 	move_and_slide()
 	for i in range(get_slide_collision_count()):
 		var sc := get_slide_collision(i)
@@ -340,14 +343,11 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 			if b is Node3D:
 				_on_touch_entered(b as Node3D)
 	var was_grounded := grounded
-	grounded = is_on_floor() or _rise_left > 0.0
+	grounded = is_on_floor()
 	if grounded and not was_grounded and _last_vy < -LAND_SOUND_FALL:
 		_play_land_sound()
 		_dust(clampf(-_last_vy / (40.0 * STUD), 1.0, 1.8))
 		land_impact.emit(-_last_vy)
-	_update_step_rise(delta)
-	if grounded and is_on_wall() and _climb_kind == ClimbKind.NONE and _rise_left <= 0.0:
-		_attempt_step_up()
 
 	_update_fall_damage()
 	_update_brick_ticks(delta)
@@ -509,18 +509,41 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 	else:
 		velocity.x = move_toward(velocity.x, target.x, accel * delta)
 		velocity.z = move_toward(velocity.z, target.z, accel * delta)
-	if _rise_left > 0.0:
-		velocity.y = 0.0
-	elif not is_on_floor():
+	if not is_on_floor():
 		velocity.y -= GRAVITY * grav_mult * delta
 	elif velocity.y < 0.0:
 		velocity.y = 0.0
-	if _rise_left <= 0.0 and _jump_buffer_left > 0.0 and (is_on_floor() or _coyote > 0.0):
+	var can_jump: bool = is_on_floor() or _coyote > 0.0 or is_on_wall()
+	if _jump_buffer_left > 0.0 and can_jump:
 		_jump_buffer_left = 0.0
 		_coyote = 0.0
 		velocity.y = jump_power * (1.22 if _gravity_boost_timer > 0.0 else 1.0)
 		_play_jump_sound()
 		_dust()
+
+
+func _perform_step_up(wish: Vector3, delta: float) -> void:
+	if not is_on_floor() or wish.length_squared() < 0.005:
+		return
+	var step_h := max_step_studs * STUD
+	var horiz_vel := Vector3(velocity.x, 0.0, velocity.z) * delta
+	if horiz_vel.length_squared() < 0.0001:
+		horiz_vel = wish.normalized() * (walk_speed * delta)
+	if not test_move(global_transform, horiz_vel):
+		return
+	if test_move(global_transform, Vector3.UP * step_h):
+		return
+	var up_xform := global_transform.translated(Vector3.UP * step_h)
+	if test_move(up_xform, horiz_vel):
+		return
+	var forward_xform := up_xform.translated(horiz_vel)
+	var down_res := KinematicCollision3D.new()
+	if test_move(forward_xform, Vector3.DOWN * step_h, down_res):
+		var actual_step := step_h - down_res.get_travel().length()
+		if actual_step >= 0.05 * STUD and actual_step <= step_h + 0.05:
+			global_transform = forward_xform.translated(Vector3.DOWN * down_res.get_travel().length())
+	else:
+		global_transform = forward_xform
 
 
 func _dust(strength := 1.0) -> void:
@@ -556,70 +579,6 @@ func _dust(strength := 1.0) -> void:
 	puff.global_position = global_position + Vector3(0.0, 0.25 * STUD, 0.0)
 	var timer := get_tree().create_timer(1.0)
 	timer.timeout.connect(puff.queue_free)
-
-
-func _attempt_step_up() -> void:
-	var hvel := Vector3(velocity.x, 0.0, velocity.z)
-	var wish := _step_dir if _step_dir.length_squared() >= 0.5 else Vector3.ZERO
-	var slid := hvel.normalized() if hvel.length_squared() >= 1.0 else Vector3.ZERO
-	if wish == Vector3.ZERO and slid == Vector3.ZERO:
-		return
-	if wish != Vector3.ZERO and _step_along(wish):
-		return
-	if slid != Vector3.ZERO and slid.distance_to(wish) > 0.05 and _step_along(slid):
-		return
-
-
-func _step_along(dir: Vector3) -> bool:
-	var step_h := max_step_studs * STUD
-	var space := get_world_3d().direct_space_state
-	if space == null:
-		return false
-	var feet := global_position.y
-	var touched := false
-	for probe_h in [MIN_STEP + 0.15 * STUD, 0.9 * STUD, 1.85 * STUD]:
-		if probe_h > step_h:
-			continue
-		var from := global_position + Vector3(0.0, probe_h, 0.0)
-		var probe := PhysicsRayQueryParameters3D.create(
-			from, from + dir * 1.9 * STUD, collision_mask)
-		if not space.intersect_ray(probe).is_empty():
-			touched = true
-			break
-	if not touched:
-		return false
-	if test_move(global_transform, Vector3.UP * step_h):
-		return false
-	var over := global_position + Vector3.UP * step_h + dir * STEP_PROBE_AHEAD
-	var down_ray := PhysicsRayQueryParameters3D.create(
-		over, over + Vector3.DOWN * (step_h + 0.4 * STUD), collision_mask)
-	var hit := space.intersect_ray(down_ray)
-	if hit.is_empty():
-		return false
-	var lip: float = float(hit["position"].y) - feet
-	if lip < MIN_STEP or lip > step_h + 0.01:
-		return false
-	_rise_left = lip + 0.06
-	_rise_lip = lip
-	_rise_dir = dir
-	return true
-
-
-func _update_step_rise(delta: float) -> void:
-	if _rise_left <= 0.0:
-		floor_snap_length = FLOOR_SNAP
-		return
-	floor_snap_length = 0.0
-	var step_up := minf(_rise_left, STEP_RISE_SPEED * delta)
-	move_and_collide(Vector3.UP * step_up)
-	_rise_left -= step_up
-	velocity.y = maxf(velocity.y, 0.0)
-	if _rise_left <= 0.0:
-		move_and_collide(_rise_dir * STEP_FORWARD)
-		var settle := move_and_collide(Vector3.DOWN * (_rise_lip + 0.2 * STUD))
-		if settle != null and velocity.y < 0.0:
-			velocity.y = 0.0
-		floor_snap_length = FLOOR_SNAP
 
 
 func _update_fall_damage() -> void:
@@ -749,10 +708,10 @@ func _setup_ladder_sensor() -> void:
 	area.monitorable = false
 	var shape_node := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	# Strictly sized to the R6 Torso height (y = 2.0..4.0) while extending 0.35 studs outside the 1.0 capsule radius horizontally
-	shape.size = Vector3(2.7 * STUD, 2.0 * STUD, 2.7 * STUD)
+	# Covers torso and body height (y = 0.5..4.5) while extending outside capsule radius horizontally
+	shape.size = Vector3(2.8 * STUD, 3.8 * STUD, 2.8 * STUD)
 	shape_node.shape = shape
-	shape_node.position = Vector3(0.0, 3.0 * STUD, 0.0)
+	shape_node.position = Vector3(0.0, 2.4 * STUD, 0.0)
 	area.add_child(shape_node)
 	add_child(area)
 	_ladder_sensor = area

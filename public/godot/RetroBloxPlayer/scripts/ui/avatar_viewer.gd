@@ -97,5 +97,9 @@ func _update_camera() -> void:
 		return
 	var cp := cos(_pitch)
 	var offset := Vector3(sin(_yaw) * cp, sin(_pitch), -cos(_yaw) * cp) * _dist
-	_cam.position = RIG_CENTER + offset
-	_cam.look_at(RIG_CENTER, Vector3.UP)
+	var cam_pos := RIG_CENTER + offset
+	if _cam.is_inside_tree():
+		_cam.position = cam_pos
+		_cam.look_at(RIG_CENTER, Vector3.UP)
+	else:
+		_cam.look_at_from_position(cam_pos, RIG_CENTER, Vector3.UP)

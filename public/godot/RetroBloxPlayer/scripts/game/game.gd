@@ -118,13 +118,6 @@ func _ready() -> void:
 		if existing_env != null and existing_env.environment != null:
 			WorldBuilderScript.configure_lighting(existing_env.environment, existing_sun, place)
 		_spawns = WorldBuilderScript.prepare_scene_world(existing_world)
-		if existing_world.get_node_or_null("TowerPlatform") == null:
-			var tex := WorldBuilderScript.stud_texture()
-			WorldBuilderScript._build_part(existing_world, { "p": [24, 9.5, 10], "s": [8, 1, 8], "c": "98a1a8" }, tex, _spawns)
-			WorldBuilderScript._build_part(existing_world, { "p": [24, 5, 14.3], "s": [1.5, 10, 0.6], "c": "6b6f74", "g": "ladder" }, tex, _spawns)
-			WorldBuilderScript._build_part(existing_world, { "p": [8, 2, -20], "s": [6, 4, 6], "c": "aab4bd", "m": "metal" }, tex, _spawns)
-			WorldBuilderScript._build_part(existing_world, { "p": [8, 4.6, -20], "s": [7, 0.6, 7], "c": "8fa0ac", "m": "metal" }, tex, _spawns)
-		_build_fun_playground_additions(existing_world)
 	else:
 		if existing_world != null:
 			existing_world.queue_free()
@@ -341,7 +334,7 @@ func _process(delta: float) -> void:
 			for i in range(_disco_mats.size()):
 				var sm := _disco_mats[i]
 				if sm != null:
-					var c_idx := (i + int(Time.get_ticks_msec() / 420)) % disco_colors.size()
+					var c_idx := (i + int(floorf(float(Time.get_ticks_msec()) / 420.0))) % disco_colors.size()
 					sm.set_shader_parameter("albedo", disco_colors[c_idx])
 	_dup_check_left -= delta
 	if _dup_check_left <= 0.0:
@@ -967,11 +960,11 @@ func _bind_or_build_health() -> void:
 	if _health_container == null:
 		_health_container = Control.new()
 		_health_container.name = "HealthBarContainer"
-		_health_container.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-		_health_container.offset_left = -40.0
-		_health_container.offset_right = -10.0
-		_health_container.offset_top = -140.0
-		_health_container.offset_bottom = 120.0
+		_health_container.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_health_container.offset_left = -216.0
+		_health_container.offset_right = -14.0
+		_health_container.offset_top = 12.0
+		_health_container.offset_bottom = 38.0
 		_health_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hud.add_child(_health_container)
 
@@ -980,11 +973,11 @@ func _bind_or_build_health() -> void:
 		track = Panel.new()
 		track.name = "HealthBar"
 		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		track.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-		track.offset_left = -24.0
-		track.offset_right = -4.0
-		track.offset_top = -95.0
-		track.offset_bottom = 125.0
+		track.set_anchors_preset(Control.PRESET_FULL_RECT)
+		track.offset_left = 0.0
+		track.offset_right = 0.0
+		track.offset_top = 0.0
+		track.offset_bottom = 0.0
 		_health_container.add_child(track)
 	track.add_theme_stylebox_override("panel", _health_track_style())
 
@@ -1001,32 +994,31 @@ func _bind_or_build_health() -> void:
 		track.add_child(_health_fill)
 	_health_fill.add_theme_stylebox_override("panel", _health_fill_style(1.0))
 
-	var chip := _health_container.get_node_or_null("HealthChip") as PanelContainer
-	if chip == null:
-		chip = PanelContainer.new()
-		chip.name = "HealthChip"
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_health_container.add_child(chip)
-	chip.add_theme_stylebox_override("panel", _retro_hud_style())
-
-	_health_value = chip.get_node_or_null("HealthValue") as Label
+	_health_value = track.get_node_or_null("HealthValue") as Label
 	if _health_value == null:
 		_health_value = Label.new()
 		_health_value.name = "HealthValue"
-		_health_value.text = "100"
-		chip.add_child(_health_value)
+		_health_value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_health_value.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_health_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_health_value.text = "HP: 100 / 100"
+		track.add_child(_health_value)
 	_title(_health_value, 12, Color.WHITE, 700)
+	_health_value.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	_health_value.add_theme_constant_override("shadow_offset_x", 1)
+	_health_value.add_theme_constant_override("shadow_offset_y", 1)
 
-	_health_container.visible = false
+	_health_container.visible = true
 
 
 func _health_track_style() -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("17242f")
+	sb.bg_color = Color(0.08, 0.12, 0.16, 0.78)
 	sb.set_corner_radius_all(6)
 	sb.anti_aliasing = true
 	sb.set_border_width_all(2)
-	sb.border_color = Color(0, 0, 0, 0.55)
+	sb.border_color = Color(0.24, 0.34, 0.44, 0.95)
 	sb.content_margin_left = 3.0
 	sb.content_margin_right = 3.0
 	sb.content_margin_top = 3.0
@@ -1036,8 +1028,9 @@ func _health_track_style() -> StyleBox:
 
 func _health_fill_style(ratio: float) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("f44250").lerp(Color("00b06f"), ratio)
+	sb.bg_color = Color("ef4444").lerp(Color("22c55e"), ratio)
 	sb.set_corner_radius_all(4)
+	return sb
 	sb.anti_aliasing = true
 	return sb
 
@@ -2256,18 +2249,13 @@ func _toggle_menu() -> void:
 func _on_health_changed(hp: float, max_hp: float) -> void:
 	var ratio := clampf(hp / maxf(max_hp, 1.0), 0.0, 1.0)
 	if _health_value != null:
-		_health_value.text = str(int(roundf(hp)))
+		_health_value.text = "HP: %d / %d" % [int(roundf(hp)), int(roundf(max_hp))]
 	if _health_fill != null:
 		var sb: StyleBoxFlat = _health_fill_style(ratio)
 		_health_fill.add_theme_stylebox_override("panel", sb)
-		var inner := _health_track_h - 6.0
-		_health_fill.offset_top = 3.0 + inner * (1.0 - ratio)
+		_health_fill.anchor_right = ratio
 	if _health_container != null and is_instance_valid(_health_container):
-		if ratio < 0.999:
-			_health_container.visible = true
-			_health_hide_timer = 0.0
-		elif _health_container.visible:
-			_health_hide_timer = 1.2
+		_health_container.visible = true
 
 
 func _on_health_depleted() -> void:
@@ -2280,18 +2268,6 @@ func _on_touched_group(group: String, node: Node3D) -> void:
 		player.die(self)
 		chat.add_system("Oof! Touched Kill Brick!")
 		_start_respawn()
-	elif group == "damage":
-		if _pad_notify_cooldown <= 0.0:
-			_pad_notify_cooldown = 1.2
-			_notify("Ouch! Damage Brick (-20 HP)", false)
-	elif group == "heal":
-		if _pad_notify_cooldown <= 0.0:
-			_pad_notify_cooldown = 1.2
-			_notify("Healing Brick (+15 HP)", false)
-	elif group == "insta_heal":
-		if _pad_notify_cooldown <= 0.0:
-			_pad_notify_cooldown = 1.2
-			_notify("Insta-Heal Brick! Restored to 100 HP!", false)
 	elif group == "checkpoint":
 		var pos: Variant = node.get_meta("spawn", null)
 		if pos is Vector3:
@@ -2300,12 +2276,6 @@ func _on_touched_group(group: String, node: Node3D) -> void:
 	elif group == "goal" and not _finished:
 		_finished = true
 		chat.add_system("*** You reached the goal — classic victory! ***")
-	elif group == "speed_pad" and _pad_notify_cooldown <= 0.0:
-		_pad_notify_cooldown = 3.0
-		_notify("Speed Coil Boost Active! (1.65x Walk Speed for 10s)", false)
-	elif group == "gravity_pad" and _pad_notify_cooldown <= 0.0:
-		_pad_notify_cooldown = 3.0
-		_notify("Gravity Coil Active! (Low-Gravity Moon Jumps for 10s)", false)
 
 
 static func _add_3d_label(parent: Node3D, text_str: String, offset: Vector3, col := Color.WHITE) -> void:
