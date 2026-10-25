@@ -78,9 +78,14 @@ static func _apply_sun_quality(sun: DirectionalLight3D, env: Environment, settin
 		env.ambient_light_energy = 0.38
 		if env.sky != null and env.sky.sky_material is ProceduralSkyMaterial:
 			var sm := env.sky.sky_material as ProceduralSkyMaterial
-			sm.sun_angle_max = 18.0 if q == 3 else 24.0
-			sm.sun_curve = 0.06 if q == 3 else 0.10
-			sm.sky_energy_multiplier = 0.92 if q == 3 else 1.0
+			sm.sun_angle_max = 16.0 if q == 3 else 24.0
+			sm.sun_curve = 0.05 if q == 3 else 0.10
+			sm.sky_energy_multiplier = 1.06 if q == 3 else 1.0
+			if q == 3:
+				sm.sky_top_color = Color("1f68c4")
+				sm.sky_horizon_color = Color("8fc7f0")
+				sm.ground_horizon_color = Color("85bde6")
+				sm.ground_bottom_color = Color("2e4438")
 
 	match q:
 		0: # Low — Most optimized (no shadows, no fog, fast rendering)
@@ -117,35 +122,51 @@ static func _apply_sun_quality(sun: DirectionalLight3D, env: Environment, settin
 				env.fog_sky_affect = 0.04
 				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 				env.tonemap_exposure = 0.86
-		3: # Ultra — Less bright, rich natural contrast, high-precision 4-split blended shadows & realistic surface depth
+		3: # Ultra — Vibrant ACES color depth, crisp 4-split shadows, sky fill bounce light & soft neon sheen
 			sun.shadow_enabled = want_shadows
-			sun.light_energy = 0.72
-			sun.light_color = Color(0.99, 0.95, 0.89)
-			sun.light_specular = 0.65
+			sun.light_energy = 1.02
+			sun.light_color = Color(1.0, 0.97, 0.91)
+			sun.light_specular = 0.82
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 			sun.directional_shadow_blend_splits = true
 			sun.directional_shadow_split_1 = 0.07
 			sun.directional_shadow_split_2 = 0.20
 			sun.directional_shadow_split_3 = 0.45
-			sun.directional_shadow_max_distance = 175.0
-			sun.shadow_blur = 0.55
+			sun.directional_shadow_max_distance = 180.0
+			sun.shadow_blur = 0.45
 			sun.shadow_bias = 0.015
-			sun.shadow_normal_bias = 1.2
+			sun.shadow_normal_bias = 1.15
 			sun.shadow_opacity = 0.88
+			if fill_light == null:
+				fill_light = DirectionalLight3D.new()
+				fill_light.name = "UltraSkyFill"
+				sun.add_child(fill_light)
+			fill_light.visible = true
+			fill_light.shadow_enabled = false
+			fill_light.global_rotation_degrees = Vector3(-38.0, 145.0, 0.0)
+			fill_light.light_color = Color(0.68, 0.84, 1.0)
+			fill_light.light_energy = 0.20
+			fill_light.light_specular = 0.25
 			if env != null:
-				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-				env.tonemap_exposure = 0.78
-				env.ambient_light_sky_contribution = 0.36
-				env.ambient_light_energy = 0.32
+				env.tonemap_mode = Environment.TONE_MAPPER_ACES
+				env.tonemap_exposure = 1.0
+				env.tonemap_white = 1.15
+				env.ambient_light_sky_contribution = 0.52
+				env.ambient_light_energy = 0.46
 				env.fog_enabled = true
-				env.fog_light_color = Color(0.68, 0.79, 0.90)
-				env.fog_density = 0.00045
-				env.fog_sky_affect = 0.08
-				env.fog_aerial_perspective = 0.22
+				env.fog_light_color = Color(0.76, 0.87, 0.97)
+				env.fog_density = 0.00035
+				env.fog_sky_affect = 0.06
+				env.fog_aerial_perspective = 0.18
+				env.glow_enabled = true
+				env.glow_intensity = 0.30
+				env.glow_strength = 0.85
+				env.glow_hdr_threshold = 1.10
+				env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 				env.adjustment_enabled = true
-				env.adjustment_brightness = 0.95
-				env.adjustment_contrast = 1.08
-				env.adjustment_saturation = 1.06
+				env.adjustment_brightness = 1.02
+				env.adjustment_contrast = 1.14
+				env.adjustment_saturation = 1.22
 
 
 static func make_studded_material(color: Color) -> Material:
@@ -155,15 +176,23 @@ static func make_studded_material(color: Color) -> Material:
 static func prepare_scene_world(world_root: Node3D) -> Array[Vector3]:
 	var spawns: Array[Vector3] = []
 	var tex := stud_texture()
-	for child in world_root.get_children():
+	_prepare_world_children(world_root, tex, spawns, false)
+	return spawns
+
+
+static func _prepare_world_children(parent_node: Node3D, tex: Texture2D, spawns: Array[Vector3], parent_is_ladder: bool) -> void:
+	for child in parent_node.get_children():
 		if child is StaticBody3D:
 			var sb := child as StaticBody3D
-			if sb.is_in_group("ladder") or sb.is_in_group("climb"):
+			var is_lad := parent_is_ladder or sb.is_in_group("ladder") or sb.is_in_group("climb") or sb.name.to_lower().contains("ladder")
+			if is_lad:
 				sb.collision_layer |= 16
+				if not sb.is_in_group("ladder"):
+					sb.add_to_group("ladder")
 			if sb.has_method("_rebuild_visuals"):
 				sb.call("_rebuild_visuals")
 				if sb.is_in_group("spawn"):
-					spawns.append(sb.position + Vector3(0.0, 0.7 * STUD, 0.0))
+					spawns.append(sb.global_position + Vector3(0.0, 0.7 * STUD, 0.0))
 				continue
 			var col_size := Vector3(4, 1, 4)
 			for c in sb.get_children():
@@ -182,10 +211,14 @@ static func prepare_scene_world(world_root: Node3D) -> Array[Vector3]:
 							var p_col: Variant = (mi.material_override as ShaderMaterial).get_shader_parameter("albedo")
 							if p_col is Color:
 								col = p_col
+						elif mi.mesh != null and mi.mesh.surface_get_material(0) is StandardMaterial3D:
+							col = (mi.mesh.surface_get_material(0) as StandardMaterial3D).albedo_color
 					mi.material_override = _part_material(col, mat_kind, tex, no_studs)
 			if sb.is_in_group("spawn"):
-				spawns.append(sb.position + Vector3(0.0, col_size.y * 0.5 + 0.2 * STUD, 0.0))
-	return spawns
+				spawns.append(sb.global_position + Vector3(0.0, col_size.y * 0.5 + 0.2 * STUD, 0.0))
+		elif child is Node3D and not (child is AnimatableBody3D):
+			var folder_is_ladder := parent_is_ladder or child.is_in_group("ladder") or child.is_in_group("climb") or child.name.to_lower().contains("ladder")
+			_prepare_world_children(child as Node3D, tex, spawns, folder_is_ladder)
 
 
 static func build(def: Dictionary) -> Dictionary:

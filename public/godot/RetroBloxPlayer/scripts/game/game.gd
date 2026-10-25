@@ -876,12 +876,15 @@ func _bind_or_build_fps_chip() -> void:
 	if _fps_chip == null:
 		_fps_chip = PanelContainer.new()
 		_fps_chip.name = "FpsChip"
-		_fps_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_fps_chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		_fps_chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		_fps_chip.offset_right = -12.0
-		_fps_chip.offset_top = 12.0
 		hud.add_child(_fps_chip)
+	_fps_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fps_chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_fps_chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_fps_chip.offset_left = -114.0
+	_fps_chip.offset_right = -14.0
+	_fps_chip.offset_top = 44.0
+	_fps_chip.offset_bottom = 70.0
+	_fps_chip.visible = true
 	_fps_chip.add_theme_stylebox_override("panel", _retro_hud_style())
 	_corner_stats = _fps_chip.get_node_or_null("CornerStats") as Label
 	if _corner_stats == null:

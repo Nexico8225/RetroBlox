@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 
-const V_TAG = 'v15.0'
-const ZIP_URL = '/godot/retroblox-godot-player.zip?v=15.0'
+const V_TAG = 'v16.0'
+const ZIP_URL = '/godot/retroblox-godot-player.zip?v=16.0'
 
 export function SdkView() {
   const [copied, setCopied] = useState(false)

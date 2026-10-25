@@ -42,15 +42,15 @@ radius = 1.0
 height = 5.0
 
 [sub_resource type="StandardMaterial3D" id="Mat_Baseplate"]
-albedo_color = Color(0.298039, 0.623529, 0.278431, 1)
-roughness = 0.7
+albedo_color = Color(0.560784, 0.560784, 0.560784, 1)
+roughness = 0.65
 
 [sub_resource type="BoxMesh" id="Mesh_Baseplate"]
 material = SubResource("Mat_Baseplate")
-size = Vector3(512, 2, 512)
+size = Vector3(240, 1, 240)
 
 [sub_resource type="BoxShape3D" id="Shape_Baseplate"]
-size = Vector3(512, 2, 512)
+size = Vector3(240, 1, 240)
 
 [sub_resource type="StandardMaterial3D" id="Mat_Spawn"]
 albedo_color = Color(0.847059, 0.870588, 0.898039, 1)
@@ -232,7 +232,9 @@ directional_shadow_max_distance = 110.0
 [node name="World" type="Node3D" parent="."]
 
 [node name="Baseplate" type="StaticBody3D" parent="World"]
-position = Vector3(0, -1, 0)
+position = Vector3(0, -0.5, 0)
+metadata/color = "8f8f8f"
+metadata/mat = "plastic"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/Baseplate"]
 mesh = SubResource("Mesh_Baseplate")
@@ -242,6 +244,8 @@ shape = SubResource("Shape_Baseplate")
 
 [node name="SpawnPad" type="StaticBody3D" parent="World" groups=["spawn"]]
 position = Vector3(0, 0.5, 0)
+metadata/color = "d9e0ea"
+metadata/mat = "plastic"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/SpawnPad"]
 mesh = SubResource("Mesh_Spawn")
@@ -249,38 +253,9 @@ mesh = SubResource("Mesh_Spawn")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/SpawnPad"]
 shape = SubResource("Shape_Spawn")
 
-[node name="BrickRed" type="StaticBody3D" parent="World"]
-position = Vector3(-16, 1, -12)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/BrickRed"]
-material_override = SubResource("Mat_Red")
-mesh = SubResource("Mesh_Brick4x2")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/BrickRed"]
-shape = SubResource("Shape_Brick4x2")
-
-[node name="BrickYellow" type="StaticBody3D" parent="World"]
-position = Vector3(-16, 3, -12)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/BrickYellow"]
-material_override = SubResource("Mat_Yellow")
-mesh = SubResource("Mesh_Brick4x2")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/BrickYellow"]
-shape = SubResource("Shape_Brick4x2")
-
-[node name="BrickBlue" type="StaticBody3D" parent="World"]
-position = Vector3(-16, 5, -12)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/BrickBlue"]
-material_override = SubResource("Mat_Blue")
-mesh = SubResource("Mesh_Brick4x2")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/BrickBlue"]
-shape = SubResource("Shape_Brick4x2")
-
 [node name="StepTest05" type="StaticBody3D" parent="World"]
-position = Vector3(-14, 0.25, 2)
+position = Vector3(-14, 0.25, 10)
+metadata/color = "1f85e0"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/StepTest05"]
 mesh = SubResource("Mesh_Step05")
@@ -289,7 +264,8 @@ mesh = SubResource("Mesh_Step05")
 shape = SubResource("Shape_Step05")
 
 [node name="StepTest10" type="StaticBody3D" parent="World"]
-position = Vector3(-18, 0.5, 2)
+position = Vector3(-9, 0.5, 10)
+metadata/color = "1f85e0"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/StepTest10"]
 mesh = SubResource("Mesh_Step10")
@@ -298,7 +274,8 @@ mesh = SubResource("Mesh_Step10")
 shape = SubResource("Shape_Step10")
 
 [node name="StepTest15" type="StaticBody3D" parent="World"]
-position = Vector3(-22, 0.75, 2)
+position = Vector3(-4, 0.75, 10)
+metadata/color = "1f85e0"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/StepTest15"]
 mesh = SubResource("Mesh_Step15")
@@ -307,7 +284,8 @@ mesh = SubResource("Mesh_Step15")
 shape = SubResource("Shape_Step15")
 
 [node name="StepTest20" type="StaticBody3D" parent="World"]
-position = Vector3(-26, 1.0, 2)
+position = Vector3(1, 1.0, 10)
+metadata/color = "1f85e0"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/StepTest20"]
 mesh = SubResource("Mesh_Step20")
@@ -315,58 +293,79 @@ mesh = SubResource("Mesh_Step20")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/StepTest20"]
 shape = SubResource("Shape_Step20")
 
-[node name="Stair1" type="StaticBody3D" parent="World"]
-position = Vector3(14, 1, -6)
+[node name="Ladder" type="Node3D" parent="World" groups=["climb", "ladder"]]
+position = Vector3(14, 0, 9)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Stair1"]
-material_override = SubResource("Mat_Blue")
-mesh = SubResource("Mesh_Stair")
+[node name="StepTest22" type="StaticBody3D" parent="World/Ladder" groups=["climb", "ladder"]]
+position = Vector3(1, 1, 0)
+collision_layer = 17
+metadata/color = "1f85e0"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Stair1"]
-shape = SubResource("Shape_Stair")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Ladder/StepTest22"]
+mesh = SubResource("Mesh_Step10")
 
-[node name="Stair2" type="StaticBody3D" parent="World"]
-position = Vector3(14, 3, -10)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Ladder/StepTest22"]
+shape = SubResource("Shape_Step10")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Stair2"]
-material_override = SubResource("Mat_Yellow")
-mesh = SubResource("Mesh_Stair")
+[node name="StepTest23" type="StaticBody3D" parent="World/Ladder" groups=["climb", "ladder"]]
+position = Vector3(1, 3, 0)
+collision_layer = 17
+metadata/color = "1f85e0"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Stair2"]
-shape = SubResource("Shape_Stair")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Ladder/StepTest23"]
+mesh = SubResource("Mesh_Step10")
 
-[node name="Stair3" type="StaticBody3D" parent="World"]
-position = Vector3(14, 5, -14)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Ladder/StepTest23"]
+shape = SubResource("Shape_Step10")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Stair3"]
-material_override = SubResource("Mat_Red")
-mesh = SubResource("Mesh_Stair")
+[node name="StepTest24" type="StaticBody3D" parent="World/Ladder" groups=["climb", "ladder"]]
+position = Vector3(1, 5, 0)
+collision_layer = 17
+metadata/color = "1f85e0"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Stair3"]
-shape = SubResource("Shape_Stair")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Ladder/StepTest24"]
+mesh = SubResource("Mesh_Step10")
 
-[node name="Stair4" type="StaticBody3D" parent="World"]
-position = Vector3(14, 7, -18)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Ladder/StepTest24"]
+shape = SubResource("Shape_Step10")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Stair4"]
-material_override = SubResource("Mat_Blue")
-mesh = SubResource("Mesh_Stair")
+[node name="StepTest25" type="StaticBody3D" parent="World/Ladder" groups=["climb", "ladder"]]
+position = Vector3(1, 7, 0)
+collision_layer = 17
+metadata/color = "1f85e0"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Stair4"]
-shape = SubResource("Shape_Stair")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Ladder/StepTest25"]
+mesh = SubResource("Mesh_Step10")
 
-[node name="FortTop" type="StaticBody3D" parent="World"]
-position = Vector3(14, 8.5, -26)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Ladder/StepTest25"]
+shape = SubResource("Shape_Step10")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/FortTop"]
-mesh = SubResource("Mesh_FortTop")
+[node name="StepTest26" type="StaticBody3D" parent="World/Ladder" groups=["climb", "ladder"]]
+position = Vector3(1, 9, 0)
+collision_layer = 17
+metadata/color = "1f85e0"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/FortTop"]
-shape = SubResource("Shape_FortTop")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Ladder/StepTest26"]
+mesh = SubResource("Mesh_Step10")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Ladder/StepTest26"]
+shape = SubResource("Shape_Step10")
+
+[node name="StepTest27" type="StaticBody3D" parent="World/Ladder" groups=["climb", "ladder"]]
+position = Vector3(1, 11, 0)
+collision_layer = 17
+metadata/color = "1f85e0"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Ladder/StepTest27"]
+mesh = SubResource("Mesh_Step10")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Ladder/StepTest27"]
+shape = SubResource("Shape_Step10")
 
 [node name="SlopeRamp" type="StaticBody3D" parent="World"]
-position = Vector3(24, 4, -14)
-rotation = Vector3(0.383972, 0, 0)
+position = Vector3(-24, 2.2, 0)
+rotation = Vector3(0.436332, 0, 0)
+metadata/color = "737a82"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/SlopeRamp"]
 mesh = SubResource("Mesh_Ramp")
@@ -375,12 +374,13 @@ mesh = SubResource("Mesh_Ramp")
 shape = SubResource("Shape_Ramp")
 
 [node name="ClimbLadder" type="StaticBody3D" parent="World" groups=["climb", "ladder"]]
-position = Vector3(0, 7, -20)
+position = Vector3(0, 4.75, -18.5)
+collision_layer = 17
 script = ExtResource("10_ladder")
-ladder_size = Vector3(3, 14, 0.8)
-ladder_color = Color(0.55, 0.36, 0.2, 1)
+ladder_size = Vector3(2.6, 9.5, 0.8)
+ladder_color = Color(0.960784, 0.623529, 0, 1)
 climb_speed = 15.4
-label_text = "LADDER"
+label_text = "CLIMB LADDER"
 show_label = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/ClimbLadder"]
@@ -390,7 +390,8 @@ mesh = SubResource("Mesh_Ladder")
 shape = SubResource("Shape_Ladder")
 
 [node name="LadderTowerPlatform" type="StaticBody3D" parent="World"]
-position = Vector3(0, 14, -27.2)
+position = Vector3(0, 9, -25.9)
+metadata/color = "495057"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/LadderTowerPlatform"]
 mesh = SubResource("Mesh_FortTop")
@@ -398,30 +399,13 @@ mesh = SubResource("Mesh_FortTop")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/LadderTowerPlatform"]
 shape = SubResource("Shape_FortTop")
 
-[node name="Trampoline" type="StaticBody3D" parent="World" groups=["bounce", "trampoline"]]
-position = Vector3(0, 0.5, -18)
-script = ExtResource("9_pad")
-pad_type = 6
-brick_size = Vector3(6, 1, 6)
-brick_color = Color(0.117647, 0.835294, 0.47451, 1)
-is_neon = true
-label_text = "BOUNCE PAD"
-show_label = true
-bounce_power = 96.0
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Trampoline"]
-mesh = SubResource("Mesh_Trampoline")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Trampoline"]
-shape = SubResource("Shape_Trampoline")
-
-[node name="DamageBrick" type="StaticBody3D" parent="World" groups=["damage_brick"]]
-position = Vector3(-16, 0.5, 14)
+[node name="DamageBrick" type="StaticBody3D" parent="World" groups=["damage", "damage_brick"]]
+position = Vector3(-15, 0.3, -10)
 script = ExtResource("9_pad")
 pad_type = 0
-brick_size = Vector3(6, 1, 6)
-brick_color = Color(0.96, 0.42, 0.1, 1)
-is_neon = true
+brick_size = Vector3(4, 0.6, 4)
+brick_color = Color(0.968627, 0.403922, 0.027451, 1)
+is_neon = false
 label_text = "DAMAGE BRICK (-20 HP)"
 show_label = true
 damage_amount = 20.0
@@ -434,13 +418,13 @@ mesh = SubResource("Mesh_SpecialBrick")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/DamageBrick"]
 shape = SubResource("Shape_SpecialBrick")
 
-[node name="KillBrick" type="StaticBody3D" parent="World" groups=["kill_brick", "lava"]]
-position = Vector3(-6, 0.5, 14)
+[node name="KillBrick" type="StaticBody3D" parent="World" groups=["kill", "kill_brick", "lava"]]
+position = Vector3(-9, 0.3, -10)
 script = ExtResource("9_pad")
 pad_type = 1
-brick_size = Vector3(6, 1, 6)
-brick_color = Color(0.92, 0.1, 0.14, 1)
-is_neon = true
+brick_size = Vector3(4, 0.6, 4)
+brick_color = Color(0.878431, 0.192157, 0.192157, 1)
+is_neon = false
 label_text = "KILL BRICK (INSTA-KILL)"
 show_label = true
 insta_kill = true
@@ -452,16 +436,16 @@ mesh = SubResource("Mesh_SpecialBrick")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/KillBrick"]
 shape = SubResource("Shape_SpecialBrick")
 
-[node name="HealBrick" type="StaticBody3D" parent="World" groups=["heal_brick"]]
-position = Vector3(6, 0.5, 14)
+[node name="HealBrick" type="StaticBody3D" parent="World" groups=["heal", "heal_brick"]]
+position = Vector3(-3, 0.3, -10)
 script = ExtResource("9_pad")
 pad_type = 2
-brick_size = Vector3(6, 1, 6)
-brick_color = Color(0.22, 0.86, 0.36, 1)
-is_neon = true
-label_text = "HEAL BRICK (+20 HP)"
+brick_size = Vector3(4, 0.6, 4)
+brick_color = Color(0.215686, 0.698039, 0.301961, 1)
+is_neon = false
+label_text = "HEAL BRICK (+15 HP)"
 show_label = true
-heal_amount = 20.0
+heal_amount = 15.0
 heal_cooldown = 0.5
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/HealBrick"]
@@ -471,13 +455,13 @@ mesh = SubResource("Mesh_SpecialBrick")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/HealBrick"]
 shape = SubResource("Shape_SpecialBrick")
 
-[node name="InstaHealBrick" type="StaticBody3D" parent="World" groups=["insta_heal_brick"]]
-position = Vector3(16, 0.5, 14)
+[node name="InstaHealBrick" type="StaticBody3D" parent="World" groups=["insta_heal", "insta_heal_brick"]]
+position = Vector3(3, 0.3, -10)
 script = ExtResource("9_pad")
 pad_type = 3
-brick_size = Vector3(6, 1, 6)
-brick_color = Color(0.15, 0.92, 0.85, 1)
-is_neon = true
+brick_size = Vector3(4, 0.6, 4)
+brick_color = Color(0.0470588, 0.65098, 0.470588, 1)
+is_neon = false
 label_text = "INSTA-HEAL (100% HP)"
 show_label = true
 insta_heal = true
@@ -490,16 +474,16 @@ mesh = SubResource("Mesh_SpecialBrick")
 shape = SubResource("Shape_SpecialBrick")
 
 [node name="SpeedCoilPad" type="StaticBody3D" parent="World" groups=["speed_pad"]]
-position = Vector3(-16, 0.5, 24)
+position = Vector3(9, 0.3, -10)
 script = ExtResource("9_pad")
 pad_type = 4
-brick_size = Vector3(6, 1, 6)
-brick_color = Color(0.15, 0.62, 0.98, 1)
+brick_size = Vector3(4, 0.6, 4)
+brick_color = Color(0, 0.823529, 1, 1)
 is_neon = true
-label_text = "SPEED PAD (2X SPEED)"
+label_text = "SPEED COIL (1.65x)"
 show_label = true
-speed_multiplier = 2.0
-speed_duration = 12.0
+speed_multiplier = 1.65
+speed_duration = 10.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/SpeedCoilPad"]
 material_override = SubResource("Mat_SpeedPad")
@@ -509,17 +493,17 @@ mesh = SubResource("Mesh_SpecialBrick")
 shape = SubResource("Shape_SpecialBrick")
 
 [node name="GravityCoilPad" type="StaticBody3D" parent="World" groups=["gravity_pad"]]
-position = Vector3(16, 0.5, 24)
+position = Vector3(15, 0.3, -10)
 script = ExtResource("9_pad")
 pad_type = 5
-brick_size = Vector3(6, 1, 6)
-brick_color = Color(0.65, 0.25, 0.96, 1)
+brick_size = Vector3(4, 0.6, 4)
+brick_color = Color(0.611765, 0.211765, 0.709804, 1)
 is_neon = true
-label_text = "GRAVITY PAD (LOW GRAV)"
+label_text = "GRAVITY COIL (LOW GRAV)"
 show_label = true
-gravity_multiplier = 0.38
-jump_boost_multiplier = 1.65
-gravity_duration = 12.0
+gravity_multiplier = 0.42
+jump_boost_multiplier = 1.25
+gravity_duration = 10.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/GravityCoilPad"]
 material_override = SubResource("Mat_GravityPad")
@@ -528,30 +512,53 @@ mesh = SubResource("Mesh_SpecialBrick")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/GravityCoilPad"]
 shape = SubResource("Shape_SpecialBrick")
 
-[node name="MovingPlatformAlways" type="AnimatableBody3D" parent="World"]
-position = Vector3(-28, 1.5, -6)
+[node name="Trampoline" type="StaticBody3D" parent="World" groups=["bounce", "trampoline"]]
+position = Vector3(22, 0.3, -10)
+script = ExtResource("9_pad")
+pad_type = 6
+brick_size = Vector3(5, 0.6, 5)
+brick_color = Color(0.184314, 0.75, 0.32, 1)
+is_neon = true
+label_text = "TRAMPOLINE (BOUNCE)"
+show_label = true
+bounce_power = 96.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Trampoline"]
+mesh = SubResource("Mesh_Trampoline")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Trampoline"]
+shape = SubResource("Shape_Trampoline")
+
+[node name="MovingPlatformAlways" type="AnimatableBody3D" parent="World" groups=["moving_platform"]]
+position = Vector3(26, 0.8, -2)
 script = ExtResource("13_movplat")
-point_a = Vector3(-28, 1.5, -6)
-point_b = Vector3(-28, 12.5, -24)
-move_duration = 3.5
-pause_duration = 0.6
+block_size = Vector3(5, 0.8, 5)
+block_color = Color(0.960784, 0.803922, 0.188235, 1)
+move_mode = 0
 move_on_stand = false
 move_on_player_stand = false
-platform_size = Vector3(8, 1.2, 8)
-platform_color = Color(0.25, 0.65, 0.95, 1)
-
-[node name="MovingPlatformOnStand" type="AnimatableBody3D" parent="World"]
-position = Vector3(28, 1.5, 4)
-script = ExtResource("13_movplat")
-point_a = Vector3(28, 1.5, 4)
-point_b = Vector3(28, 14, -22)
+keep_player_on_jump = true
+point_a = Vector3(0, 0, 0)
+point_b = Vector3(0, 0, 20)
+target_offset = Vector3(0, 0, 20)
 move_duration = 3.2
-pause_duration = 0.8
+wait_time = 0.6
+
+[node name="MovingPlatformOnStand" type="AnimatableBody3D" parent="World" groups=["moving_platform"]]
+position = Vector3(34, 0.8, -2)
+script = ExtResource("13_movplat")
+block_size = Vector3(5, 0.8, 5)
+block_color = Color(0.0509804, 0.411765, 0.67451, 1)
+move_mode = 1
 move_on_stand = true
 move_on_player_stand = true
-return_when_stepped_off = true
-platform_size = Vector3(8, 1.2, 8)
-platform_color = Color(0.95, 0.58, 0.18, 1)
+keep_player_on_jump = true
+point_a = Vector3(0, 0, 0)
+point_b = Vector3(0, 6, 20)
+target_offset = Vector3(0, 6, 20)
+move_duration = 3.0
+wait_time = 0.5
+easing = "CubicInOut"
 
 [node name="DiscoFloor" type="Node3D" parent="World"]
 position = Vector3(-22, 0.2, -24)

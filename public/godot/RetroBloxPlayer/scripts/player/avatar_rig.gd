@@ -424,10 +424,8 @@ func _reapply_saved_appearance() -> void:
 		set_tshirt(_applied_tshirt_tex)
 
 
-func _ensure_built(allow_upgrade: bool = false) -> void:
+func _ensure_built(_allow_upgrade: bool = false) -> void:
 	if _built:
-		if allow_upgrade and not _using_r6ik:
-			_try_r6ik()
 		return
 	_built = true
 	if _try_r6ik():
@@ -436,6 +434,8 @@ func _ensure_built(allow_upgrade: bool = false) -> void:
 
 
 func _try_r6ik() -> bool:
+	if not ResourceLoader.exists(RIG_SCENE_PATH):
+		return false
 	var packed: PackedScene = load(RIG_SCENE_PATH)
 	if packed == null:
 		return false

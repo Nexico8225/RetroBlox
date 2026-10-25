@@ -517,7 +517,7 @@ func _wall_hit_along(dir: Vector3, min_h := 0.0) -> Vector3:
 	var space := get_world_3d().direct_space_state
 	if space == null:
 		return Vector3.ZERO
-	for raw_h: float in [2.15, 2.7, 3.3, 4.0]:
+	for raw_h: float in [1.1, 1.65, 2.2, 2.75, 3.3, 3.85]:
 		if raw_h < min_h:
 			continue
 		var from := global_position + Vector3.UP * (raw_h * STUD)
@@ -526,10 +526,12 @@ func _wall_hit_along(dir: Vector3, min_h := 0.0) -> Vector3:
 		if hit.is_empty():
 			continue
 		var col_obj: Variant = hit.get("collider", null)
-		if col_obj is Node3D and ((col_obj as Node3D).is_in_group("ladder") or (col_obj as Node3D).is_in_group("climb") or (col_obj as Node3D).name.begins_with("Stair")):
-			var normal: Vector3 = hit["normal"]
-			if absf(normal.y) < 0.4:
-				return normal
+		if col_obj is Node3D:
+			var cn := col_obj as Node3D
+			if _is_climbable_node(cn) or cn.name.begins_with("Stair"):
+				var normal: Vector3 = hit["normal"]
+				if absf(normal.y) < 0.4:
+					return normal
 	return Vector3.ZERO
 
 
@@ -540,24 +542,24 @@ func _try_mantle() -> bool:
 	var space := get_world_3d().direct_space_state
 	if space == null:
 		return false
-	var over := global_position + f * (1.2 * STUD) + Vector3.UP * (2.5 * STUD)
-	var down := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (3.0 * STUD), collision_mask)
+	var over := global_position + f * (1.35 * STUD) + Vector3.UP * (2.6 * STUD)
+	var down := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (3.2 * STUD), collision_mask)
 	var hit := space.intersect_ray(down)
 	if hit.is_empty():
 		return false
 	var lip: float = float(hit["position"].y) - global_position.y
-	if lip < -0.5 * STUD or lip > 2.5 * STUD:
+	if lip < -0.5 * STUD or lip > 2.6 * STUD:
 		return false
 	if lip > 0.0:
 		move_and_collide(Vector3.UP * (lip + 0.08))
-	move_and_collide(f * (1.3 * STUD))
+	move_and_collide(f * (1.35 * STUD))
 	velocity = Vector3.ZERO
 	_stop_climb()
 	grounded = true
 	return true
 
 
-func _drive_climb(wish: Vector3, _delta: float) -> void:
+func _drive_climb(wish: Vector3, delta: float) -> void:
 	var up_amount := wish.dot(_climb_face)
 	if _jump_buffer_left > 0.0:
 		_jump_buffer_left = 0.0
@@ -577,8 +579,21 @@ func _drive_climb(wish: Vector3, _delta: float) -> void:
 	else:
 		velocity.y = 0.0
 		climbing = true
-	velocity.x = _climb_face.x * HUG_PRESSURE
-	velocity.z = _climb_face.z * HUG_PRESSURE
+	# Do not push deep into gaps between ladder rungs; if capsule catches on an overhead rung lip, nudge outward
+	if velocity.y > 0.0:
+		var up_step := Vector3.UP * (velocity.y * delta + 0.10 * STUD)
+		if test_move(global_transform, up_step):
+			var back_dir := -Vector3(_climb_face.x, 0.0, _climb_face.z).normalized()
+			for push_out: float in [0.12, 0.25, 0.40, 0.58]:
+				var shift := back_dir * (push_out * STUD)
+				if not test_move(global_transform, shift):
+					var cand := global_transform.translated(shift)
+					if not test_move(cand, up_step):
+						global_transform = cand
+						break
+	var hug := 0.0 if is_on_wall() else 1.4 * STUD
+	velocity.x = _climb_face.x * hug
+	velocity.z = _climb_face.z * hug
 
 
 func _stop_climb() -> void:
@@ -805,6 +820,14 @@ static func _is_climbable_node(other: Node3D) -> bool:
 		return false
 	if other.is_in_group("ladder") or other.is_in_group("climb"):
 		return true
+	var nm := other.name.to_lower()
+	if nm.contains("ladder") or nm.contains("climb") or nm.contains("truss"):
+		return true
+	var par := other.get_parent()
+	if par is Node3D:
+		var pn := (par as Node3D).name.to_lower()
+		if par.is_in_group("ladder") or par.is_in_group("climb") or pn.contains("ladder") or pn.contains("climb") or pn.contains("truss"):
+			return true
 	if other is CollisionObject3D and (((other as CollisionObject3D).collision_layer & 16) != 0):
 		return true
 	return false
