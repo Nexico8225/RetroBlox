@@ -56,6 +56,18 @@ enum ClimbKind { NONE, LADDER, WALL }
 @export var max_step_studs := 2.0
 @export var climb_speed := CLIMB_SPEED
 
+@export_group("Custom Walk Animation")
+## Drag-and-drop a custom Animation resource here to override the default walk
+@export var custom_walk_anim: Animation = null:
+	set(v):
+		custom_walk_anim = v
+		if avatar != null and avatar.has_method("set_custom_walk"):
+			avatar.call("set_custom_walk", v)
+## Set to true to drive animations via Godot AnimationPlayer
+@export var use_animation_player := false
+## Clip name in AnimationPlayer to play when walking
+@export var walk_clip_name: StringName = &"Walk"
+
 @export_group("Editable Animations")
 @export var walk_arm_swing := 0.82
 @export var walk_leg_swing := 0.78
@@ -197,6 +209,15 @@ func _sync_avatar_anim_exports() -> void:
 	avatar.set("jump_arm_angle", jump_arm_angle)
 	avatar.set("jump_leg_spread", jump_leg_spread)
 	avatar.set("climb_swing", climb_swing)
+	avatar.set("custom_walk_anim", custom_walk_anim)
+	avatar.set("use_animation_player", use_animation_player)
+	avatar.set("walk_clip_name", walk_clip_name)
+
+
+func set_custom_walk(anim: Animation) -> void:
+	custom_walk_anim = anim
+	if avatar != null and avatar.has_method("set_custom_walk"):
+		avatar.call("set_custom_walk", anim)
 
 
 func _ready() -> void:
