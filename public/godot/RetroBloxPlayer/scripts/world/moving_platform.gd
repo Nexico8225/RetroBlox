@@ -31,7 +31,7 @@ const STUDS_SHADER_PATH := "res://assets/studs/part_studs.gdshader"
 		move_mode = v
 		move_on_stand = (v == 1)
 
-## Toggle: if true, platform moves when player stands on it and returns when they step off.
+## Toggle: if true, platform moves to Point B when player stands on it and returns to Point A when they step off.
 @export var move_on_stand := false:
 	set(v):
 		if move_on_stand == v:
@@ -42,7 +42,7 @@ const STUDS_SHADER_PATH := "res://assets/studs/part_studs.gdshader"
 		elif not v and move_mode == 1:
 			move_mode = 0
 
-## Alias for backwards compatibility
+## Toggle alias for backwards compatibility.
 @export var move_on_player_stand := false:
 	set(v):
 		if move_on_player_stand == v:
@@ -163,7 +163,7 @@ func _setup_stand_sensor() -> void:
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	var world_sz := block_size * STUD
-	box.size = Vector3(world_sz.x + 0.6 * STUD, 1.8 * STUD, world_sz.z + 0.6 * STUD)
+	box.size = Vector3(world_sz.x + 0.6 * STUD, 2.0 * STUD, world_sz.z + 0.6 * STUD)
 	cs.shape = box
 	cs.position = Vector3(0.0, world_sz.y * 0.5 + 0.9 * STUD, 0.0)
 	_stand_area.add_child(cs)
@@ -182,6 +182,10 @@ func _on_stand_exited(body: Node3D) -> void:
 
 
 func _is_player_standing() -> bool:
+	if _stand_area != null and is_instance_valid(_stand_area):
+		for b in _stand_area.get_overlapping_bodies():
+			if b is CharacterBody3D:
+				return true
 	for i in range(_players_on_top.size() - 1, -1, -1):
 		if not is_instance_valid(_players_on_top[i]):
 			_players_on_top.remove_at(i)
@@ -195,7 +199,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_recompute_endpoints()
 	var dur := maxf(move_duration, 0.05)
-	var stand_only := (move_mode == 1) or move_on_player_stand or move_on_stand
+	var stand_only := (move_mode == 1) or move_on_stand or move_on_player_stand
 
 	if stand_only:
 		var has_rider := _is_player_standing()

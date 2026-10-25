@@ -107,7 +107,7 @@ func _ready() -> void:
 	_show_loading()
 	await get_tree().process_frame
 
-	# Use the editable 3D World nodes inside scenes/game.tscn if present for baseplate,
+	# Use the editable 3D World nodes inside scenes/retroblox.tscn if present for baseplate,
 	# or build procedurally if switching to another place id.
 	var existing_world := get_node_or_null("World") as Node3D
 	var existing_env := get_node_or_null("WorldEnvironment") as WorldEnvironment
@@ -118,6 +118,25 @@ func _ready() -> void:
 		if existing_env != null and existing_env.environment != null:
 			WorldBuilderScript.configure_lighting(existing_env.environment, existing_sun, place)
 		_spawns = WorldBuilderScript.prepare_scene_world(existing_world)
+		var disco_node := existing_world.get_node_or_null("DiscoFloor") as Node3D
+		if disco_node != null:
+			_disco_mats.clear()
+			var tex := WorldBuilderScript.stud_texture()
+			var palette: Array[Color] = [
+				Color("e03131"), Color("f59f00"), Color("2f9e44"),
+				Color("1971c2"), Color("9c36b5"), Color("0ca678"),
+			]
+			var idx := 0
+			for tile in disco_node.get_children():
+				if tile is Node3D:
+					for tc in tile.get_children():
+						if tc is MeshInstance3D:
+							var tmi := tc as MeshInstance3D
+							var mat := WorldBuilderScript._part_material(palette[idx % palette.size()], "plastic", tex, false)
+							tmi.material_override = mat
+							if mat is ShaderMaterial:
+								_disco_mats.append(mat as ShaderMaterial)
+							idx += 1
 	else:
 		if existing_world != null:
 			existing_world.queue_free()
@@ -359,12 +378,6 @@ func _process(delta: float) -> void:
 	if _stats_tick <= 0.0:
 		_stats_tick = 0.25
 		_update_live_stats()
-
-	if _health_hide_timer > 0.0:
-		_health_hide_timer -= delta
-		if _health_hide_timer <= 0.0 and _health_container != null and is_instance_valid(_health_container):
-			if player != null and is_instance_valid(player) and player.health >= player.MAX_HEALTH - 0.01:
-				_health_container.visible = false
 
 
 func _try_click_overhead_voice_bubble(screen_pos: Vector2) -> bool:
@@ -960,65 +973,76 @@ func _bind_or_build_health() -> void:
 	if _health_container == null:
 		_health_container = Control.new()
 		_health_container.name = "HealthBarContainer"
-		_health_container.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		_health_container.offset_left = -216.0
-		_health_container.offset_right = -14.0
-		_health_container.offset_top = 12.0
-		_health_container.offset_bottom = 38.0
-		_health_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hud.add_child(_health_container)
+	_health_container.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_health_container.offset_left = -216.0
+	_health_container.offset_right = -14.0
+	_health_container.offset_top = 12.0
+	_health_container.offset_bottom = 38.0
+	_health_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_health_container.visible = true
+
+	var old_chip := _health_container.get_node_or_null("HealthChip")
+	if old_chip != null:
+		old_chip.queue_free()
 
 	var track := _health_container.get_node_or_null("HealthBar") as Panel
 	if track == null:
 		track = Panel.new()
 		track.name = "HealthBar"
-		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		track.set_anchors_preset(Control.PRESET_FULL_RECT)
-		track.offset_left = 0.0
-		track.offset_right = 0.0
-		track.offset_top = 0.0
-		track.offset_bottom = 0.0
 		_health_container.add_child(track)
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.set_anchors_preset(Control.PRESET_FULL_RECT)
+	track.offset_left = 0.0
+	track.offset_right = 0.0
+	track.offset_top = 0.0
+	track.offset_bottom = 0.0
 	track.add_theme_stylebox_override("panel", _health_track_style())
 
 	_health_fill = track.get_node_or_null("Fill") as Panel
 	if _health_fill == null:
 		_health_fill = Panel.new()
 		_health_fill.name = "Fill"
-		_health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_health_fill.set_anchors_preset(Control.PRESET_FULL_RECT)
-		_health_fill.offset_left = 3.0
-		_health_fill.offset_top = 3.0
-		_health_fill.offset_bottom = -3.0
-		_health_fill.offset_right = -3.0
 		track.add_child(_health_fill)
+	_health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_health_fill.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_health_fill.anchor_left = 0.0
+	_health_fill.anchor_top = 0.0
+	_health_fill.anchor_bottom = 1.0
+	_health_fill.anchor_right = 1.0
+	_health_fill.offset_left = 3.0
+	_health_fill.offset_top = 3.0
+	_health_fill.offset_bottom = -3.0
+	_health_fill.offset_right = -3.0
 	_health_fill.add_theme_stylebox_override("panel", _health_fill_style(1.0))
 
 	_health_value = track.get_node_or_null("HealthValue") as Label
 	if _health_value == null:
 		_health_value = Label.new()
 		_health_value.name = "HealthValue"
-		_health_value.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_health_value.set_anchors_preset(Control.PRESET_FULL_RECT)
-		_health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_health_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_health_value.text = "HP: 100 / 100"
 		track.add_child(_health_value)
+	_health_value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_health_value.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_health_value.offset_left = 0.0
+	_health_value.offset_top = 0.0
+	_health_value.offset_right = 0.0
+	_health_value.offset_bottom = 0.0
+	_health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_health_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_health_value.text = "HP: 100 / 100"
 	_title(_health_value, 12, Color.WHITE, 700)
 	_health_value.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
 	_health_value.add_theme_constant_override("shadow_offset_x", 1)
 	_health_value.add_theme_constant_override("shadow_offset_y", 1)
 
-	_health_container.visible = true
-
 
 func _health_track_style() -> StyleBox:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.12, 0.16, 0.78)
+	sb.bg_color = Color(0.08, 0.12, 0.16, 0.82)
 	sb.set_corner_radius_all(6)
 	sb.anti_aliasing = true
 	sb.set_border_width_all(2)
-	sb.border_color = Color(0.24, 0.34, 0.44, 0.95)
+	sb.border_color = Color(0.28, 0.38, 0.48, 0.95)
 	sb.content_margin_left = 3.0
 	sb.content_margin_right = 3.0
 	sb.content_margin_top = 3.0
@@ -1030,7 +1054,6 @@ func _health_fill_style(ratio: float) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("ef4444").lerp(Color("22c55e"), ratio)
 	sb.set_corner_radius_all(4)
-	return sb
 	sb.anti_aliasing = true
 	return sb
 
@@ -2253,7 +2276,15 @@ func _on_health_changed(hp: float, max_hp: float) -> void:
 	if _health_fill != null:
 		var sb: StyleBoxFlat = _health_fill_style(ratio)
 		_health_fill.add_theme_stylebox_override("panel", sb)
+		_health_fill.anchor_left = 0.0
+		_health_fill.anchor_top = 0.0
+		_health_fill.anchor_bottom = 1.0
 		_health_fill.anchor_right = ratio
+		_health_fill.offset_left = 3.0
+		_health_fill.offset_top = 3.0
+		_health_fill.offset_bottom = -3.0
+		_health_fill.offset_right = -3.0 if ratio > 0.02 else 3.0
+		_health_fill.visible = ratio > 0.005
 	if _health_container != null and is_instance_valid(_health_container):
 		_health_container.visible = true
 

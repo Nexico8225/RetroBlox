@@ -160,6 +160,11 @@ static func prepare_scene_world(world_root: Node3D) -> Array[Vector3]:
 			var sb := child as StaticBody3D
 			if sb.is_in_group("ladder") or sb.is_in_group("climb"):
 				sb.collision_layer |= 16
+			if sb.has_method("_rebuild_visuals"):
+				sb.call("_rebuild_visuals")
+				if sb.is_in_group("spawn"):
+					spawns.append(sb.position + Vector3(0.0, 0.7 * STUD, 0.0))
+				continue
 			var col_size := Vector3(4, 1, 4)
 			for c in sb.get_children():
 				if c is CollisionShape3D and (c as CollisionShape3D).shape is BoxShape3D:
@@ -170,8 +175,13 @@ static func prepare_scene_world(world_root: Node3D) -> Array[Vector3]:
 					var no_studs := bool(sb.get_meta("no_studs", false))
 					var col_hex := String(sb.get_meta("color", ""))
 					var col := Color(col_hex) if col_hex != "" else Color("8f8f8f")
-					if mi.material_override is StandardMaterial3D and col_hex == "":
-						col = (mi.material_override as StandardMaterial3D).albedo_color
+					if col_hex == "":
+						if mi.material_override is StandardMaterial3D:
+							col = (mi.material_override as StandardMaterial3D).albedo_color
+						elif mi.material_override is ShaderMaterial:
+							var p_col: Variant = (mi.material_override as ShaderMaterial).get_shader_parameter("albedo")
+							if p_col is Color:
+								col = p_col
 					mi.material_override = _part_material(col, mat_kind, tex, no_studs)
 			if sb.is_in_group("spawn"):
 				spawns.append(sb.position + Vector3(0.0, col_size.y * 0.5 + 0.2 * STUD, 0.0))

@@ -36,6 +36,8 @@ func _run_all() -> void:
 		"res://scripts/player/chat_bubble.gd",
 		"res://scripts/player/avatar_rig.gd", "res://scripts/player/avatar_dresser.gd",
 		"res://scripts/world/world_builder.gd", "res://scripts/world/places.gd",
+		"res://scripts/world/moving_platform.gd", "res://scripts/world/interactive_pad.gd",
+		"res://scripts/world/climb_ladder.gd",
 		"res://scripts/ui/login.gd",
 		"res://scripts/ui/retro_theme.gd",
 		"res://scripts/ui/ui_studio.gd",
@@ -67,13 +69,11 @@ func _run_all() -> void:
 	check(login_inst.get_node_or_null("CenterContainer/MainColumn/LoginCard") != null, "login.tscn has editable LoginCard node")
 	login_inst.free()
 
-	var world_packed: PackedScene = load("res://scenes/game.tscn")
-	var world_inst := world_packed.instantiate()
-	check(world_inst.get_node_or_null("Baseplate") != null, "game.tscn has editable 3D Baseplate node")
-	world_inst.free()
-
 	var rbx_packed: PackedScene = load("res://scenes/retroblox.tscn")
 	var rbx_inst := rbx_packed.instantiate()
-	check(rbx_inst.get_node_or_null("World/Baseplate") != null, "retroblox.tscn instances World/Baseplate")
+	check(rbx_inst.get_node_or_null("World/Baseplate") != null, "retroblox.tscn has editable 3D World/Baseplate node")
+	check(rbx_inst.get_node_or_null("World/DamageBrick") != null, "retroblox.tscn has editable 3D World/DamageBrick node")
+	check(rbx_inst.get_node_or_null("World/ClimbLadder") != null, "retroblox.tscn has editable 3D World/ClimbLadder node")
 	check(rbx_inst.get_node_or_null("HUD/Topbar") != null, "retroblox.tscn has editable 2D HUD/Topbar node")
+	check(rbx_inst.get_node_or_null("HUD/HealthBarContainer") != null, "retroblox.tscn has top-right HUD/HealthBarContainer node")
 	rbx_inst.free()

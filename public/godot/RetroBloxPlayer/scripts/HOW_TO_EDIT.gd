@@ -2,13 +2,19 @@ extends Node
 # Developer guide for customizing worlds, animations, and UI in the RetroBlox SDK.
 
 # ============================================================================
-# 1. BUILDING YOUR 3D GAME / WORLD (scenes/game.tscn)
+# 1. BUILDING YOUR 3D GAME / WORLD (scenes/retroblox.tscn)
 # ============================================================================
-# - Open `res://scenes/game.tscn` in Godot's 3D tab to build your map.
-# - The engine client lives in `res://scenes/retroblox.tscn` and automatically
-#   loads your `res://scenes/game.tscn` world inside it.
-# - 1 stud = 1 meter in Godot. Characters can step up 1-stud and 2-stud blocks
+# - Open `res://scenes/retroblox.tscn` in Godot's 3D tab to build your map
+#   under the `World` node. Everything you see under `World` in `retroblox.tscn`
+#   is the exact map played in the game!
+# - 1 stud = 1 meter in Godot. Characters can step up 0.1–2.0 stud blocks
 #   automatically, and use a Roblox-style CapsuleShape3D collision body.
+# - Select any special brick or pad (`DamageBrick`, `KillBrick`, `HealBrick`,
+#   `InstaHealBrick`, `SpeedCoilPad`, `GravityCoilPad`, `Trampoline`, `ClimbLadder`,
+#   `MovingPlatformAlways`, `MovingPlatformOnStand`) in `retroblox.tscn` and look
+#   at the Inspector panel on the right to edit its `@export` variables (`pad_type`,
+#   `damage_amount`, `heal_amount`, `speed_multiplier`, `gravity_multiplier`,
+#   `bounce_power`, `climb_speed`, `move_on_stand`, etc.).
 # - Add any StaticBody3D to group:
 #     * `"spawn"`       -> Spawn pad
 #     * `"ladder"`      -> Climbable part (climbs while the player's Torso touches it, and smoothly steps onto the platform at the top)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=64 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/game.gd" id="1_game"]
 [ext_resource type="Script" path="res://scripts/player/local_player.gd" id="2_player"]
@@ -6,9 +6,11 @@
 [ext_resource type="Script" path="res://scripts/game/chat_box.gd" id="4_chatbox"]
 [ext_resource type="Texture2D" path="res://assets/icons/logo.png" id="7_logo"]
 [ext_resource type="Texture2D" path="res://assets/icons/chat.png" id="8_chat"]
-[ext_resource type="PackedScene" path="res://scenes/game.tscn" id="9_world"]
+[ext_resource type="Script" path="res://scripts/world/interactive_pad.gd" id="9_pad"]
+[ext_resource type="Script" path="res://scripts/world/climb_ladder.gd" id="10_ladder"]
 [ext_resource type="FontFile" path="res://assets/fonts/LiberationSans-Bold.ttf" id="11_font_bold"]
 [ext_resource type="FontFile" path="res://assets/fonts/LiberationSans-Regular.ttf" id="12_font_reg"]
+[ext_resource type="Script" path="res://scripts/world/moving_platform.gd" id="13_movplat"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.231373, 0.509804, 0.768627, 1)
@@ -39,6 +41,178 @@ fog_sky_affect = 0.04
 radius = 1.0
 height = 5.0
 
+[sub_resource type="StandardMaterial3D" id="Mat_Baseplate"]
+albedo_color = Color(0.298039, 0.623529, 0.278431, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="Mesh_Baseplate"]
+material = SubResource("Mat_Baseplate")
+size = Vector3(512, 2, 512)
+
+[sub_resource type="BoxShape3D" id="Shape_Baseplate"]
+size = Vector3(512, 2, 512)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Spawn"]
+albedo_color = Color(0.847059, 0.870588, 0.898039, 1)
+roughness = 0.45
+
+[sub_resource type="BoxMesh" id="Mesh_Spawn"]
+material = SubResource("Mat_Spawn")
+size = Vector3(12, 1, 12)
+
+[sub_resource type="BoxShape3D" id="Shape_Spawn"]
+size = Vector3(12, 1, 12)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Red"]
+albedo_color = Color(0.878431, 0.219608, 0.192157, 1)
+roughness = 0.45
+
+[sub_resource type="BoxMesh" id="Mesh_Brick4x2"]
+size = Vector3(4, 2, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Brick4x2"]
+size = Vector3(4, 2, 4)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Yellow"]
+albedo_color = Color(0.960784, 0.768627, 0.145098, 1)
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="Mat_Blue"]
+albedo_color = Color(0.14902, 0.490196, 0.858824, 1)
+roughness = 0.45
+
+[sub_resource type="BoxMesh" id="Mesh_Stair"]
+size = Vector3(6, 2, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Stair"]
+size = Vector3(6, 2, 4)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Gold"]
+albedo_color = Color(0.956863, 0.690196, 0.145098, 1)
+roughness = 0.35
+
+[sub_resource type="BoxMesh" id="Mesh_FortTop"]
+material = SubResource("Mat_Gold")
+size = Vector3(14, 1, 14)
+
+[sub_resource type="BoxShape3D" id="Shape_FortTop"]
+size = Vector3(14, 1, 14)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Trampoline"]
+albedo_color = Color(0.117647, 0.835294, 0.47451, 1)
+emission_enabled = true
+emission = Color(0.117647, 0.835294, 0.47451, 1)
+emission_energy_multiplier = 0.45
+
+[sub_resource type="BoxMesh" id="Mesh_Trampoline"]
+material = SubResource("Mat_Trampoline")
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="Shape_Trampoline"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Damage"]
+albedo_color = Color(0.96, 0.42, 0.1, 1)
+emission_enabled = true
+emission = Color(0.96, 0.42, 0.1, 1)
+emission_energy_multiplier = 0.55
+
+[sub_resource type="BoxMesh" id="Mesh_SpecialBrick"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="Shape_SpecialBrick"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Kill"]
+albedo_color = Color(0.92, 0.1, 0.14, 1)
+emission_enabled = true
+emission = Color(0.92, 0.1, 0.14, 1)
+emission_energy_multiplier = 0.75
+
+[sub_resource type="StandardMaterial3D" id="Mat_Heal"]
+albedo_color = Color(0.22, 0.86, 0.36, 1)
+emission_enabled = true
+emission = Color(0.22, 0.86, 0.36, 1)
+emission_energy_multiplier = 0.55
+
+[sub_resource type="StandardMaterial3D" id="Mat_InstaHeal"]
+albedo_color = Color(0.15, 0.92, 0.85, 1)
+emission_enabled = true
+emission = Color(0.15, 0.92, 0.85, 1)
+emission_energy_multiplier = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Mat_SpeedPad"]
+albedo_color = Color(0.15, 0.62, 0.98, 1)
+emission_enabled = true
+emission = Color(0.15, 0.62, 0.98, 1)
+emission_energy_multiplier = 0.65
+
+[sub_resource type="StandardMaterial3D" id="Mat_GravityPad"]
+albedo_color = Color(0.65, 0.25, 0.96, 1)
+emission_enabled = true
+emission = Color(0.65, 0.25, 0.96, 1)
+emission_energy_multiplier = 0.65
+
+[sub_resource type="StandardMaterial3D" id="Mat_Ladder"]
+albedo_color = Color(0.55, 0.36, 0.2, 1)
+roughness = 0.55
+
+[sub_resource type="BoxMesh" id="Mesh_Ladder"]
+material = SubResource("Mat_Ladder")
+size = Vector3(3, 14, 0.8)
+
+[sub_resource type="BoxShape3D" id="Shape_Ladder"]
+size = Vector3(3, 14, 0.8)
+
+[sub_resource type="StandardMaterial3D" id="Mat_StepTest"]
+albedo_color = Color(0.35, 0.72, 0.92, 1)
+roughness = 0.45
+
+[sub_resource type="BoxMesh" id="Mesh_Step05"]
+material = SubResource("Mat_StepTest")
+size = Vector3(4, 0.5, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Step05"]
+size = Vector3(4, 0.5, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_Step10"]
+material = SubResource("Mat_StepTest")
+size = Vector3(4, 1.0, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Step10"]
+size = Vector3(4, 1.0, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_Step15"]
+material = SubResource("Mat_StepTest")
+size = Vector3(4, 1.5, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Step15"]
+size = Vector3(4, 1.5, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_Step20"]
+material = SubResource("Mat_StepTest")
+size = Vector3(4, 2.0, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Step20"]
+size = Vector3(4, 2.0, 4)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Ramp"]
+albedo_color = Color(0.454902, 0.560784, 0.988235, 1)
+roughness = 0.45
+
+[sub_resource type="BoxMesh" id="Mesh_Ramp"]
+material = SubResource("Mat_Ramp")
+size = Vector3(6, 1, 20)
+
+[sub_resource type="BoxShape3D" id="Shape_Ramp"]
+size = Vector3(6, 1, 20)
+
+[sub_resource type="BoxMesh" id="Mesh_DiscoTile"]
+size = Vector3(4, 0.4, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_DiscoTile"]
+size = Vector3(4, 0.4, 4)
+
 [node name="RetroBlox" type="Node3D"]
 script = ExtResource("1_game")
 
@@ -55,7 +229,476 @@ shadow_bias = 0.03
 shadow_blur = 0.85
 directional_shadow_max_distance = 110.0
 
-[node name="World" parent="." instance=ExtResource("9_world")]
+[node name="World" type="Node3D" parent="."]
+
+[node name="Baseplate" type="StaticBody3D" parent="World"]
+position = Vector3(0, -1, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Baseplate"]
+mesh = SubResource("Mesh_Baseplate")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Baseplate"]
+shape = SubResource("Shape_Baseplate")
+
+[node name="SpawnPad" type="StaticBody3D" parent="World" groups=["spawn"]]
+position = Vector3(0, 0.5, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SpawnPad"]
+mesh = SubResource("Mesh_Spawn")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SpawnPad"]
+shape = SubResource("Shape_Spawn")
+
+[node name="BrickRed" type="StaticBody3D" parent="World"]
+position = Vector3(-16, 1, -12)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/BrickRed"]
+material_override = SubResource("Mat_Red")
+mesh = SubResource("Mesh_Brick4x2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/BrickRed"]
+shape = SubResource("Shape_Brick4x2")
+
+[node name="BrickYellow" type="StaticBody3D" parent="World"]
+position = Vector3(-16, 3, -12)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/BrickYellow"]
+material_override = SubResource("Mat_Yellow")
+mesh = SubResource("Mesh_Brick4x2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/BrickYellow"]
+shape = SubResource("Shape_Brick4x2")
+
+[node name="BrickBlue" type="StaticBody3D" parent="World"]
+position = Vector3(-16, 5, -12)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/BrickBlue"]
+material_override = SubResource("Mat_Blue")
+mesh = SubResource("Mesh_Brick4x2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/BrickBlue"]
+shape = SubResource("Shape_Brick4x2")
+
+[node name="StepTest05" type="StaticBody3D" parent="World"]
+position = Vector3(-14, 0.25, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/StepTest05"]
+mesh = SubResource("Mesh_Step05")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/StepTest05"]
+shape = SubResource("Shape_Step05")
+
+[node name="StepTest10" type="StaticBody3D" parent="World"]
+position = Vector3(-18, 0.5, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/StepTest10"]
+mesh = SubResource("Mesh_Step10")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/StepTest10"]
+shape = SubResource("Shape_Step10")
+
+[node name="StepTest15" type="StaticBody3D" parent="World"]
+position = Vector3(-22, 0.75, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/StepTest15"]
+mesh = SubResource("Mesh_Step15")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/StepTest15"]
+shape = SubResource("Shape_Step15")
+
+[node name="StepTest20" type="StaticBody3D" parent="World"]
+position = Vector3(-26, 1.0, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/StepTest20"]
+mesh = SubResource("Mesh_Step20")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/StepTest20"]
+shape = SubResource("Shape_Step20")
+
+[node name="Stair1" type="StaticBody3D" parent="World"]
+position = Vector3(14, 1, -6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Stair1"]
+material_override = SubResource("Mat_Blue")
+mesh = SubResource("Mesh_Stair")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Stair1"]
+shape = SubResource("Shape_Stair")
+
+[node name="Stair2" type="StaticBody3D" parent="World"]
+position = Vector3(14, 3, -10)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Stair2"]
+material_override = SubResource("Mat_Yellow")
+mesh = SubResource("Mesh_Stair")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Stair2"]
+shape = SubResource("Shape_Stair")
+
+[node name="Stair3" type="StaticBody3D" parent="World"]
+position = Vector3(14, 5, -14)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Stair3"]
+material_override = SubResource("Mat_Red")
+mesh = SubResource("Mesh_Stair")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Stair3"]
+shape = SubResource("Shape_Stair")
+
+[node name="Stair4" type="StaticBody3D" parent="World"]
+position = Vector3(14, 7, -18)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Stair4"]
+material_override = SubResource("Mat_Blue")
+mesh = SubResource("Mesh_Stair")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Stair4"]
+shape = SubResource("Shape_Stair")
+
+[node name="FortTop" type="StaticBody3D" parent="World"]
+position = Vector3(14, 8.5, -26)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/FortTop"]
+mesh = SubResource("Mesh_FortTop")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/FortTop"]
+shape = SubResource("Shape_FortTop")
+
+[node name="SlopeRamp" type="StaticBody3D" parent="World"]
+position = Vector3(24, 4, -14)
+rotation = Vector3(0.383972, 0, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SlopeRamp"]
+mesh = SubResource("Mesh_Ramp")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SlopeRamp"]
+shape = SubResource("Shape_Ramp")
+
+[node name="ClimbLadder" type="StaticBody3D" parent="World" groups=["climb", "ladder"]]
+position = Vector3(0, 7, -20)
+script = ExtResource("10_ladder")
+ladder_size = Vector3(3, 14, 0.8)
+ladder_color = Color(0.55, 0.36, 0.2, 1)
+climb_speed = 15.4
+label_text = "LADDER"
+show_label = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/ClimbLadder"]
+mesh = SubResource("Mesh_Ladder")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/ClimbLadder"]
+shape = SubResource("Shape_Ladder")
+
+[node name="LadderTowerPlatform" type="StaticBody3D" parent="World"]
+position = Vector3(0, 14, -27.2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/LadderTowerPlatform"]
+mesh = SubResource("Mesh_FortTop")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/LadderTowerPlatform"]
+shape = SubResource("Shape_FortTop")
+
+[node name="Trampoline" type="StaticBody3D" parent="World" groups=["bounce", "trampoline"]]
+position = Vector3(0, 0.5, -18)
+script = ExtResource("9_pad")
+pad_type = 6
+brick_size = Vector3(6, 1, 6)
+brick_color = Color(0.117647, 0.835294, 0.47451, 1)
+is_neon = true
+label_text = "BOUNCE PAD"
+show_label = true
+bounce_power = 96.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Trampoline"]
+mesh = SubResource("Mesh_Trampoline")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Trampoline"]
+shape = SubResource("Shape_Trampoline")
+
+[node name="DamageBrick" type="StaticBody3D" parent="World" groups=["damage_brick"]]
+position = Vector3(-16, 0.5, 14)
+script = ExtResource("9_pad")
+pad_type = 0
+brick_size = Vector3(6, 1, 6)
+brick_color = Color(0.96, 0.42, 0.1, 1)
+is_neon = true
+label_text = "DAMAGE BRICK (-20 HP)"
+show_label = true
+damage_amount = 20.0
+damage_cooldown = 0.65
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DamageBrick"]
+material_override = SubResource("Mat_Damage")
+mesh = SubResource("Mesh_SpecialBrick")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DamageBrick"]
+shape = SubResource("Shape_SpecialBrick")
+
+[node name="KillBrick" type="StaticBody3D" parent="World" groups=["kill_brick", "lava"]]
+position = Vector3(-6, 0.5, 14)
+script = ExtResource("9_pad")
+pad_type = 1
+brick_size = Vector3(6, 1, 6)
+brick_color = Color(0.92, 0.1, 0.14, 1)
+is_neon = true
+label_text = "KILL BRICK (INSTA-KILL)"
+show_label = true
+insta_kill = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/KillBrick"]
+material_override = SubResource("Mat_Kill")
+mesh = SubResource("Mesh_SpecialBrick")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/KillBrick"]
+shape = SubResource("Shape_SpecialBrick")
+
+[node name="HealBrick" type="StaticBody3D" parent="World" groups=["heal_brick"]]
+position = Vector3(6, 0.5, 14)
+script = ExtResource("9_pad")
+pad_type = 2
+brick_size = Vector3(6, 1, 6)
+brick_color = Color(0.22, 0.86, 0.36, 1)
+is_neon = true
+label_text = "HEAL BRICK (+20 HP)"
+show_label = true
+heal_amount = 20.0
+heal_cooldown = 0.5
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/HealBrick"]
+material_override = SubResource("Mat_Heal")
+mesh = SubResource("Mesh_SpecialBrick")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/HealBrick"]
+shape = SubResource("Shape_SpecialBrick")
+
+[node name="InstaHealBrick" type="StaticBody3D" parent="World" groups=["insta_heal_brick"]]
+position = Vector3(16, 0.5, 14)
+script = ExtResource("9_pad")
+pad_type = 3
+brick_size = Vector3(6, 1, 6)
+brick_color = Color(0.15, 0.92, 0.85, 1)
+is_neon = true
+label_text = "INSTA-HEAL (100% HP)"
+show_label = true
+insta_heal = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/InstaHealBrick"]
+material_override = SubResource("Mat_InstaHeal")
+mesh = SubResource("Mesh_SpecialBrick")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/InstaHealBrick"]
+shape = SubResource("Shape_SpecialBrick")
+
+[node name="SpeedCoilPad" type="StaticBody3D" parent="World" groups=["speed_pad"]]
+position = Vector3(-16, 0.5, 24)
+script = ExtResource("9_pad")
+pad_type = 4
+brick_size = Vector3(6, 1, 6)
+brick_color = Color(0.15, 0.62, 0.98, 1)
+is_neon = true
+label_text = "SPEED PAD (2X SPEED)"
+show_label = true
+speed_multiplier = 2.0
+speed_duration = 12.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SpeedCoilPad"]
+material_override = SubResource("Mat_SpeedPad")
+mesh = SubResource("Mesh_SpecialBrick")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SpeedCoilPad"]
+shape = SubResource("Shape_SpecialBrick")
+
+[node name="GravityCoilPad" type="StaticBody3D" parent="World" groups=["gravity_pad"]]
+position = Vector3(16, 0.5, 24)
+script = ExtResource("9_pad")
+pad_type = 5
+brick_size = Vector3(6, 1, 6)
+brick_color = Color(0.65, 0.25, 0.96, 1)
+is_neon = true
+label_text = "GRAVITY PAD (LOW GRAV)"
+show_label = true
+gravity_multiplier = 0.38
+jump_boost_multiplier = 1.65
+gravity_duration = 12.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/GravityCoilPad"]
+material_override = SubResource("Mat_GravityPad")
+mesh = SubResource("Mesh_SpecialBrick")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/GravityCoilPad"]
+shape = SubResource("Shape_SpecialBrick")
+
+[node name="MovingPlatformAlways" type="AnimatableBody3D" parent="World"]
+position = Vector3(-28, 1.5, -6)
+script = ExtResource("13_movplat")
+point_a = Vector3(-28, 1.5, -6)
+point_b = Vector3(-28, 12.5, -24)
+move_duration = 3.5
+pause_duration = 0.6
+move_on_stand = false
+move_on_player_stand = false
+platform_size = Vector3(8, 1.2, 8)
+platform_color = Color(0.25, 0.65, 0.95, 1)
+
+[node name="MovingPlatformOnStand" type="AnimatableBody3D" parent="World"]
+position = Vector3(28, 1.5, 4)
+script = ExtResource("13_movplat")
+point_a = Vector3(28, 1.5, 4)
+point_b = Vector3(28, 14, -22)
+move_duration = 3.2
+pause_duration = 0.8
+move_on_stand = true
+move_on_player_stand = true
+return_when_stepped_off = true
+platform_size = Vector3(8, 1.2, 8)
+platform_color = Color(0.95, 0.58, 0.18, 1)
+
+[node name="DiscoFloor" type="Node3D" parent="World"]
+position = Vector3(-22, 0.2, -24)
+
+[node name="Tile_0_0" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(-6, 0, -6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_0_0"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_0_0"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_0_1" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(-2, 0, -6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_0_1"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_0_1"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_0_2" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(2, 0, -6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_0_2"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_0_2"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_0_3" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(6, 0, -6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_0_3"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_0_3"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_1_0" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(-6, 0, -2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_1_0"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_1_0"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_1_1" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(-2, 0, -2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_1_1"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_1_1"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_1_2" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(2, 0, -2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_1_2"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_1_2"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_1_3" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(6, 0, -2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_1_3"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_1_3"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_2_0" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(-6, 0, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_2_0"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_2_0"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_2_1" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(-2, 0, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_2_1"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_2_1"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_2_2" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(2, 0, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_2_2"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_2_2"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_2_3" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(6, 0, 2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_2_3"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_2_3"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_3_0" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(-6, 0, 6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_3_0"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_3_0"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_3_1" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(-2, 0, 6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_3_1"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_3_1"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_3_2" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(2, 0, 6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_3_2"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_3_2"]
+shape = SubResource("Shape_DiscoTile")
+
+[node name="Tile_3_3" type="StaticBody3D" parent="World/DiscoFloor"]
+position = Vector3(6, 0, 6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/DiscoFloor/Tile_3_3"]
+mesh = SubResource("Mesh_DiscoTile")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_3_3"]
+shape = SubResource("Shape_DiscoTile")
 
 [node name="LocalPlayer" type="CharacterBody3D" parent="."]
 position = Vector3(0, 1.2, 0)
@@ -194,54 +837,25 @@ focus_mode = 0
 icon_alignment = 1
 expand_icon = true
 
-[node name="FpsChip" type="PanelContainer" parent="HUD"]
+[node name="HealthBarContainer" type="Control" parent="HUD"]
+visible = true
+layout_mode = 3
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -110.0
+offset_left = -216.0
 offset_top = 12.0
-offset_right = -12.0
-offset_bottom = 40.0
+offset_right = -14.0
+offset_bottom = 38.0
 grow_horizontal = 0
-mouse_filter = 2
-
-[node name="CornerStats" type="Label" parent="HUD/FpsChip"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("11_font_bold")
-theme_override_font_sizes/font_size = 12
-text = "FPS 60"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HealthBarContainer" type="Control" parent="HUD"]
-visible = false
-layout_mode = 3
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -40.0
-offset_top = -140.0
-offset_right = -10.0
-offset_bottom = 120.0
-grow_horizontal = 0
-grow_vertical = 2
 mouse_filter = 2
 
 [node name="HealthBar" type="Panel" parent="HUD/HealthBarContainer"]
 layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
+anchors_preset = 15
 anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -24.0
-offset_top = -95.0
-offset_right = -4.0
-offset_bottom = 125.0
-grow_horizontal = 0
+anchor_bottom = 1.0
+grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
@@ -258,26 +872,37 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="HealthChip" type="PanelContainer" parent="HUD/HealthBarContainer"]
+[node name="HealthValue" type="Label" parent="HUD/HealthBarContainer/HealthBar"]
 layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
+anchors_preset = 15
 anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -28.0
-offset_top = -125.0
-offset_bottom = -101.0
-grow_horizontal = 0
+anchor_bottom = 1.0
+grow_horizontal = 2
 grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("11_font_bold")
+theme_override_font_sizes/font_size = 12
+text = "HP: 100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FpsChip" type="PanelContainer" parent="HUD"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -114.0
+offset_top = 44.0
+offset_right = -14.0
+offset_bottom = 70.0
+grow_horizontal = 0
 mouse_filter = 2
 
-[node name="HealthValue" type="Label" parent="HUD/HealthBarContainer/HealthChip"]
+[node name="CornerStats" type="Label" parent="HUD/FpsChip"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_fonts/font = ExtResource("11_font_bold")
 theme_override_font_sizes/font_size = 12
-text = "100"
+text = "FPS 60"
 horizontal_alignment = 1
 vertical_alignment = 1
 
