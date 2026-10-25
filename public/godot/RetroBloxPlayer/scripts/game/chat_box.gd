@@ -283,11 +283,18 @@ func _on_input_gui(event: InputEvent) -> void:
 		if not is_open:
 			open()
 			get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.is_pressed() and not event.is_echo():
+	elif event is InputEventKey:
 		var key := event as InputEventKey
-		if key.keycode == KEY_ESCAPE:
+		if key.pressed and not key.echo and key.keycode == KEY_ESCAPE:
 			unfocus()
 			get_viewport().set_input_as_handled()
+		elif key.keycode == KEY_SHIFT:
+			# Shift pressed or released while typing in chat — consume it so it never triggers shift lock
+			get_viewport().set_input_as_handled()
+
+
+func is_typing() -> bool:
+	return is_open or (_input_box != null and is_instance_valid(_input_box) and _input_box.has_focus())
 
 
 func add_chat(username: String, _seq_id: int, text: String, name_color: String = "", _self_style := false, _uid := "") -> void:

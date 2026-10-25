@@ -4,7 +4,7 @@ extends Control
 
 signal studio_closed(reopen_esc_menu: bool)
 
-const SAVE_PATH := "user://ui_studio_layout_v3.cfg"
+const SAVE_PATH := "user://ui_studio_layout.cfg"
 const SNAP_GRID := 16.0
 const SNAP_THRESHOLD := 14.0
 const HANDLE_HALF := 6.0
@@ -1028,18 +1028,12 @@ func load_layout() -> void:
 			add_custom_image(p, pos, sc, rot, al)
 		elif targets.has(sec) and is_instance_valid(targets[sec]):
 			var c: Control = targets[sec]
-			var vp_sz := Vector2(1280.0, 720.0)
-			if get_viewport() != null:
-				vp_sz = get_viewport().get_visible_rect().size
 			var is_tl := bool(cf.get_value(sec, "top_level", false))
 			c.top_level = is_tl
 			if is_tl and cf.has_section_key(sec, "global_pos"):
-				var gp: Vector2 = cf.get_value(sec, "global_pos", c.global_position)
-				c.global_position = Vector2(clampf(gp.x, 0.0, maxf(vp_sz.x - 40.0, 0.0)), clampf(gp.y, 0.0, maxf(vp_sz.y - 28.0, 0.0)))
+				c.global_position = cf.get_value(sec, "global_pos", c.global_position)
 			else:
-				var lp: Vector2 = cf.get_value(sec, "pos", c.position)
-				if lp.x >= 0.0 and lp.x <= vp_sz.x - 36.0 and lp.y >= 0.0 and lp.y <= vp_sz.y - 24.0:
-					c.position = lp
+				c.position = cf.get_value(sec, "pos", c.position)
 			c.scale = cf.get_value(sec, "scale", c.scale)
 			c.rotation_degrees = float(cf.get_value(sec, "rot", c.rotation_degrees))
 			var al := float(cf.get_value(sec, "alpha", 1.0))
@@ -1051,7 +1045,5 @@ func load_layout() -> void:
 				c.modulate.a = al
 			if sec in ["Joystick", "JumpButton"] and not _is_mobile_active():
 				c.visible = false
-			elif sec in ["HealthBar", "FpsChip"]:
-				c.visible = true
 			else:
 				c.visible = not hid

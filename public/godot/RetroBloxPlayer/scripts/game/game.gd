@@ -452,12 +452,23 @@ func _unhandled_input(event: InputEvent) -> void:
 			_notify("Microphone Muted" if muted else "Microphone Unmuted — Voice Chat Active", false)
 			get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("shift_lock"):
-		_toggle_shiftlock()
+		var focus_owner := get_viewport().gui_get_focus_owner()
+		var in_text := (focus_owner is LineEdit or focus_owner is TextEdit)
+		var chat_busy: bool = (chat != null and is_instance_valid(chat) and (bool(chat.is_open) or (chat.has_method("is_typing") and bool(chat.call("is_typing")))))
+		if not _menu_open and not in_text and not chat_busy:
+			_toggle_shiftlock()
 		get_viewport().set_input_as_handled()
 
 
 func _toggle_shiftlock() -> void:
 	if camera_rig == null or not is_instance_valid(camera_rig):
+		return
+	if _menu_open:
+		return
+	if chat != null and is_instance_valid(chat) and (chat.is_open or (chat.has_method("is_typing") and bool(chat.call("is_typing")))):
+		return
+	var focus_owner := get_viewport().gui_get_focus_owner()
+	if focus_owner is LineEdit or focus_owner is TextEdit:
 		return
 	camera_rig.set_shift_locked(not camera_rig.shift_locked)
 	var st: Node = get_node_or_null("/root/Settings")
@@ -876,15 +887,12 @@ func _bind_or_build_fps_chip() -> void:
 	if _fps_chip == null:
 		_fps_chip = PanelContainer.new()
 		_fps_chip.name = "FpsChip"
+		_fps_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fps_chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_fps_chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_fps_chip.offset_right = -12.0
+		_fps_chip.offset_top = 12.0
 		hud.add_child(_fps_chip)
-	_fps_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_fps_chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_fps_chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_fps_chip.offset_left = -114.0
-	_fps_chip.offset_right = -14.0
-	_fps_chip.offset_top = 44.0
-	_fps_chip.offset_bottom = 70.0
-	_fps_chip.visible = true
 	_fps_chip.add_theme_stylebox_override("panel", _retro_hud_style())
 	_corner_stats = _fps_chip.get_node_or_null("CornerStats") as Label
 	if _corner_stats == null:
@@ -2293,6 +2301,9 @@ func _on_health_changed(hp: float, max_hp: float) -> void:
 
 
 func _on_health_depleted() -> void:
+	if player != null and is_instance_valid(player) and player.alive:
+		player.die(self)
+		chat.add_system("Oof! Took too much damage!")
 	if not _respawning:
 		_start_respawn()
 

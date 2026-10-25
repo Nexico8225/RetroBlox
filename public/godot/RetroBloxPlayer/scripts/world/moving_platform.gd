@@ -50,9 +50,6 @@ const STUDS_SHADER_PATH := "res://assets/studs/part_studs.gdshader"
 		move_on_player_stand = v
 		move_on_stand = v
 
-## If true, jumping while on the moving platform carries you along with the platform in mid-air so you never get dropped off.
-@export var keep_player_on_jump := true
-
 ## If false (default), Point A is the platform's starting position + point_a, and Point B is starting position + point_b (or target_offset). If true, point_a and point_b are exact world coordinates.
 @export var use_world_coordinates := false
 
@@ -166,9 +163,9 @@ func _setup_stand_sensor() -> void:
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	var world_sz := block_size * STUD
-	box.size = Vector3(world_sz.x + 1.2 * STUD, 7.5 * STUD, world_sz.z + 1.2 * STUD)
+	box.size = Vector3(world_sz.x + 0.6 * STUD, 2.0 * STUD, world_sz.z + 0.6 * STUD)
 	cs.shape = box
-	cs.position = Vector3(0.0, world_sz.y * 0.5 + 3.6 * STUD, 0.0)
+	cs.position = Vector3(0.0, world_sz.y * 0.5 + 0.9 * STUD, 0.0)
 	_stand_area.add_child(cs)
 	_stand_area.body_entered.connect(_on_stand_entered)
 	_stand_area.body_exited.connect(_on_stand_exited)
@@ -176,41 +173,21 @@ func _setup_stand_sensor() -> void:
 
 
 func _on_stand_entered(body: Node3D) -> void:
-	if body is CharacterBody3D:
-		(body as CharacterBody3D).platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
-		if not _players_on_top.has(body):
-			_players_on_top.append(body)
+	if body is CharacterBody3D and not _players_on_top.has(body):
+		_players_on_top.append(body)
 
 
 func _on_stand_exited(body: Node3D) -> void:
 	_players_on_top.erase(body)
 
 
-func _is_player_on_or_jumping_above(b: CharacterBody3D) -> bool:
-	if b == null or not is_instance_valid(b):
-		return false
-	var world_sz := block_size * STUD
-	var rel := b.global_position - global_position
-	var max_x := world_sz.x * 0.5 + 1.6 * STUD
-	var max_z := world_sz.z * 0.5 + 1.6 * STUD
-	if absf(rel.x) > max_x or absf(rel.z) > max_z:
-		return false
-	var top_y := world_sz.y * 0.5
-	var max_y := top_y + (9.5 * STUD if keep_player_on_jump else 1.8 * STUD)
-	return rel.y >= top_y - 0.6 * STUD and rel.y <= max_y
-
-
 func _is_player_standing() -> bool:
 	if _stand_area != null and is_instance_valid(_stand_area):
 		for b in _stand_area.get_overlapping_bodies():
-			if b is CharacterBody3D and _is_player_on_or_jumping_above(b as CharacterBody3D):
-				(b as CharacterBody3D).platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
-				if not _players_on_top.has(b):
-					_players_on_top.append(b)
+			if b is CharacterBody3D:
 				return true
 	for i in range(_players_on_top.size() - 1, -1, -1):
-		var p := _players_on_top[i]
-		if not is_instance_valid(p) or not (p is CharacterBody3D) or not _is_player_on_or_jumping_above(p as CharacterBody3D):
+		if not is_instance_valid(_players_on_top[i]):
 			_players_on_top.remove_at(i)
 	if not _players_on_top.is_empty():
 		return true
@@ -223,9 +200,9 @@ func _physics_process(delta: float) -> void:
 	_recompute_endpoints()
 	var dur := maxf(move_duration, 0.05)
 	var stand_only := (move_mode == 1) or move_on_stand or move_on_player_stand
-	var has_rider := _is_player_standing()
 
 	if stand_only:
+		var has_rider := _is_player_standing()
 		if has_rider:
 			if _progress < 1.0:
 				_progress = minf(1.0, _progress + delta / dur)
@@ -249,22 +226,8 @@ func _physics_process(delta: float) -> void:
 					_forward = true
 					_wait_timer = maxf(wait_time, 0.0)
 
-	var prev_pos := global_position
 	var eased_t := _evaluate_easing(_progress, easing)
-	var next_pos := _world_a.lerp(_world_b, eased_t)
-	var step_delta := next_pos - prev_pos
-	global_position = next_pos
-
-	if keep_player_on_jump and step_delta.length_squared() > 0.0:
-		var top_surface_y := next_pos.y + block_size.y * 0.5 * STUD
-		for p in _players_on_top:
-			if is_instance_valid(p) and p is CharacterBody3D:
-				var cb := p as CharacterBody3D
-				cb.platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
-				if not cb.is_on_floor():
-					cb.global_position += step_delta
-					if cb.global_position.y < top_surface_y + 0.02:
-						cb.global_position.y = top_surface_y + 0.02
+	global_position = _world_a.lerp(_world_b, eased_t)
 
 
 static func _evaluate_easing(t: float, kind: String) -> float:

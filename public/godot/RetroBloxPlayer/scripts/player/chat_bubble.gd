@@ -1,17 +1,25 @@
 class_name ChatBubble
 extends Node3D
 # Renders 3D billboard speech bubbles above characters when they chat.
+# Scaled dynamically with camera distance to preserve legibility when zoomed out.
 const SHOW_SECONDS := 10.0
 const FADE_SECONDS := 1.2
 const MAX_LINES := 4
 const MAX_STACK := 3
-const WRAP_WIDTH := 288.0
+const WRAP_WIDTH := 330.0
 const MAX_CHARS := 160
-const STACK_GAP := 0.24
+const STACK_GAP := 0.28
 const REFLOW_SPEED := 28.0
-const BASE_LIFT := 0.35
-const PLATE_CENTER_LIFT := 8.0
-const TEXT_SIZE := 24
+const BASE_LIFT := 0.18
+const PLATE_CENTER_LIFT := 7.0
+const TEXT_SIZE := 28
+const BASE_PIXEL_SIZE := 0.0145
+
+const REF_DISTANCE := 14.0
+const MIN_SCALE := 0.85
+const MAX_SCALE := 7.0
+const FADE_START_DIST := 70.0
+const MAX_VISIBLE_DIST := 95.0
 
 static var _tex_cache: Dictionary = {}
 
@@ -26,7 +34,7 @@ var _entries: Array[Dictionary] = []
 
 
 func _init() -> void:
-	position = Vector3(0.0, 6.55, 0.0)
+	position = Vector3(0.0, 5.85, 0.0)
 
 
 func show_text(message: String) -> void:
@@ -37,6 +45,15 @@ func show_text(message: String) -> void:
 	if lines.is_empty():
 		return
 
+	# Match perspective distance scale immediately on creation
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	var dist := REF_DISTANCE
+	if cam != null and is_instance_valid(cam):
+		dist = cam.global_position.distance_to(global_position)
+	var dist_scale := clampf(dist / REF_DISTANCE, MIN_SCALE, MAX_SCALE)
+	scale = Vector3(dist_scale, dist_scale, dist_scale)
+	visible = dist < MAX_VISIBLE_DIST
+
 	while _entries.size() >= MAX_STACK:
 		_fade_out(0)
 
@@ -44,19 +61,19 @@ func show_text(message: String) -> void:
 	var max_w := 0.0
 	for ln in lines:
 		max_w = maxf(max_w, font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x)
-	var w := clampi((int(max_w) + 46 + 9) & ~15, 96, 384)
+	var w := clampi((int(max_w) + 56 + 9) & ~15, 120, 480)
 	var tex := _plate_texture(lines.size(), w)
-	var squeeze := 0.62 + 0.38 * float(lines.size()) / float(MAX_LINES)
-	var height := tex.get_height() * 0.012 * squeeze
+	var squeeze := 0.65 + 0.35 * float(lines.size()) / float(MAX_LINES)
+	var height := tex.get_height() * BASE_PIXEL_SIZE * squeeze
 	var initial_y := BASE_LIFT + height * 0.5
 
 	var sprite := Sprite3D.new()
 	sprite.name = "Plate"
 	sprite.texture = tex
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.pixel_size = 0.012
+	sprite.pixel_size = BASE_PIXEL_SIZE
 	sprite.shaded = false
-	sprite.render_priority = 0
+	sprite.render_priority = 10
 	sprite.scale = Vector3(1.0, squeeze, 1.0)
 	sprite.modulate = Color(1, 1, 1, 1.0)
 	sprite.position = Vector3(0.0, initial_y, 0.0)
@@ -66,7 +83,7 @@ func show_text(message: String) -> void:
 	label.name = "Text"
 	label.text = "\n".join(lines)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.pixel_size = 0.012
+	label.pixel_size = BASE_PIXEL_SIZE
 	label.font = font
 	label.font_size = TEXT_SIZE
 	label.outline_size = 0
@@ -74,8 +91,8 @@ func show_text(message: String) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.shaded = false
-	label.render_priority = 1
-	label.position = Vector3(0.0, initial_y + PLATE_CENTER_LIFT * sprite.pixel_size * squeeze, 0.0)
+	label.render_priority = 11
+	label.position = Vector3(0.0, initial_y + PLATE_CENTER_LIFT * BASE_PIXEL_SIZE * squeeze, 0.0)
 	add_child(label)
 
 	_entries.append({
@@ -88,6 +105,29 @@ func show_text(message: String) -> void:
 func _process(delta: float) -> void:
 	if _entries.is_empty():
 		return
+
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	var dist := REF_DISTANCE
+	if cam != null and is_instance_valid(cam):
+		dist = cam.global_position.distance_to(global_position)
+
+	# Dynamic perspective scaling: expands with distance so it maintains
+	# a constant readable size on the screen as the player zooms out
+	var dist_scale := clampf(dist / REF_DISTANCE, MIN_SCALE, MAX_SCALE)
+	scale = Vector3(dist_scale, dist_scale, dist_scale)
+
+	# Distance fade: disappears if very far away (between FADE_START_DIST and MAX_VISIBLE_DIST)
+	var dist_alpha := 1.0
+	if dist >= MAX_VISIBLE_DIST:
+		dist_alpha = 0.0
+	elif dist > FADE_START_DIST:
+		dist_alpha = (MAX_VISIBLE_DIST - dist) / (MAX_VISIBLE_DIST - FADE_START_DIST)
+
+	if dist_alpha <= 0.001:
+		visible = false
+	else:
+		visible = true
+
 	var died: Array[int] = []
 	for i in range(_entries.size()):
 		var e: Dictionary = _entries[i]
@@ -98,10 +138,13 @@ func _process(delta: float) -> void:
 			a = 0.0
 		elif float(e["left"]) < FADE_SECONDS:
 			a = float(e["left"]) / FADE_SECONDS
+		var final_a := a * dist_alpha
 		var spr: Sprite3D = e["sprite"]
-		spr.modulate.a = a
+		if spr != null and is_instance_valid(spr):
+			spr.modulate.a = final_a
 		var lab: Label3D = e["label"]
-		lab.modulate.a = a
+		if lab != null and is_instance_valid(lab):
+			lab.modulate.a = final_a
 	for i in range(died.size() - 1, -1, -1):
 		_retire(died[i])
 	if _entries.is_empty():
@@ -116,9 +159,11 @@ func _process(delta: float) -> void:
 		var y: float = lerpf(float(e["y"]), target, 1.0 - exp(-REFLOW_SPEED * delta))
 		e["y"] = y
 		var spr: Sprite3D = e["sprite"]
-		spr.position = Vector3(0.0, y, 0.0)
+		if spr != null and is_instance_valid(spr):
+			spr.position = Vector3(0.0, y, 0.0)
 		var lab: Label3D = e["label"]
-		lab.position = Vector3(0.0, y + PLATE_CENTER_LIFT * 0.012 * sq, 0.0)
+		if lab != null and is_instance_valid(lab):
+			lab.position = Vector3(0.0, y + PLATE_CENTER_LIFT * BASE_PIXEL_SIZE * sq, 0.0)
 		cursor += h + STACK_GAP
 
 
@@ -214,16 +259,16 @@ static func _plate_texture(line_count: int, w := 256) -> ImageTexture:
 	if _tex_cache.has(key):
 		return _tex_cache[key]
 
-	var lines_h := 26 + 30 * clampi(line_count, 1, MAX_LINES)
-	var rect := Rect2(8.0, 6.0, float(w) - 16.0, float(lines_h))
-	var tail_h := 22.0
+	var lines_h := 32 + 36 * clampi(line_count, 1, MAX_LINES)
+	var rect := Rect2(10.0, 8.0, float(w) - 20.0, float(lines_h))
+	var tail_h := 24.0
 	var h := int(rect.end.y + tail_h)
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 
-	var rad := 16.0
-	var tail_l := Vector2(rect.get_center().x - 16.0, rect.end.y - 2.0)
-	var tail_r := Vector2(rect.get_center().x + 16.0, rect.end.y - 2.0)
+	var rad := 18.0
+	var tail_l := Vector2(rect.get_center().x - 18.0, rect.end.y - 2.0)
+	var tail_r := Vector2(rect.get_center().x + 18.0, rect.end.y - 2.0)
 	var tail_tip := Vector2(rect.get_center().x, rect.end.y + tail_h - 2.0)
 
 	for y in range(h):
@@ -275,4 +320,4 @@ static func _near_edge(p: Vector2, r: Rect2, rad: float, tl: Vector2, _tr: Vecto
 		var sr := _tr.lerp(mid, 0.4)
 		var st := tip.lerp(mid, 0.3)
 		return not _in_triangle(p, sl, sr, st)
-	return not _in_rounded_rect(p, r.grow(-2.5), maxf(rad - 2.5, 1.0))
+	return not _in_rounded_rect(p, r.grow(-2.8), maxf(rad - 2.8, 1.0))

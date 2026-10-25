@@ -384,31 +384,44 @@ static func _node_float(node: Object, prop_name: String, meta_name: String, defa
 func _update_brick_ticks(delta: float) -> void:
 	if not alive:
 		return
-	for i in range(_touching_damage.size() - 1, -1, -1):
-		if not is_instance_valid(_touching_damage[i]):
-			_touching_damage.remove_at(i)
-	for i in range(_touching_heal.size() - 1, -1, -1):
-		if not is_instance_valid(_touching_heal[i]):
-			_touching_heal.remove_at(i)
+	if _touch_sensor != null and is_instance_valid(_touch_sensor):
+		var overlapping := _touch_sensor.get_overlapping_bodies()
+		for i in range(_touching_damage.size() - 1, -1, -1):
+			var b := _touching_damage[i]
+			if not is_instance_valid(b) or not overlapping.has(b):
+				_touching_damage.remove_at(i)
+		for i in range(_touching_heal.size() - 1, -1, -1):
+			var b := _touching_heal[i]
+			if not is_instance_valid(b) or not overlapping.has(b):
+				_touching_heal.remove_at(i)
+	else:
+		for i in range(_touching_damage.size() - 1, -1, -1):
+			if not is_instance_valid(_touching_damage[i]):
+				_touching_damage.remove_at(i)
+		for i in range(_touching_heal.size() - 1, -1, -1):
+			if not is_instance_valid(_touching_heal[i]):
+				_touching_heal.remove_at(i)
 	if _damage_tick_cd > 0.0:
 		_damage_tick_cd -= delta
 	elif not _touching_damage.is_empty():
 		var brick := _touching_damage[0]
-		var dmg := _node_float(brick, "damage_amount", "damage", 20.0)
-		var cd := _node_float(brick, "damage_cooldown", "damage_cooldown", 0.55)
-		hurt(dmg)
-		_damage_tick_cd = cd
-		touched_group.emit("damage", brick)
+		if bool(brick.get("continuous_damage")):
+			var dmg := _node_float(brick, "damage_amount", "damage", 20.0)
+			var cd := _node_float(brick, "damage_cooldown", "damage_cooldown", 0.55)
+			hurt(dmg)
+			_damage_tick_cd = cd
+			touched_group.emit("damage", brick)
 	if _heal_tick_cd > 0.0:
 		_heal_tick_cd -= delta
 	elif not _touching_heal.is_empty():
 		var hbrick := _touching_heal[0]
-		var h_amt := _node_float(hbrick, "heal_amount", "heal", 15.0)
-		var h_cd := _node_float(hbrick, "heal_cooldown", "heal_cooldown", 0.45)
-		if health < MAX_HEALTH:
-			heal(h_amt)
-		_heal_tick_cd = h_cd
-		touched_group.emit("heal", hbrick)
+		if bool(hbrick.get("continuous_heal")):
+			var h_amt := _node_float(hbrick, "heal_amount", "heal", 15.0)
+			var h_cd := _node_float(hbrick, "heal_cooldown", "heal_cooldown", 0.45)
+			if health < MAX_HEALTH:
+				heal(h_amt)
+			_heal_tick_cd = h_cd
+			touched_group.emit("heal", hbrick)
 
 
 func _prune_ladder_contacts() -> void:
@@ -496,13 +509,13 @@ func _update_climb(wish: Vector3, delta: float, _auto_rot_ladder: bool) -> void:
 				_climb_grace = 0.12
 				return
 
-	# Rung towers (like Stair1..4) and climbable vertical stud faces taller than max_step_studs
+	# Rung towers (like Stair1..4), StepTest blocks, and any vertical face (0.1 - 2+ studs high)
 	if wish.length_squared() > 0.04:
-		var wall_normal := _wall_hit_along(wish, max_step_studs + 0.15)
+		var wall_normal := _wall_hit_along(wish, 0.1 * STUD)
 		if wall_normal != Vector3.ZERO:
 			var wface := -wall_normal
 			var fwd := Vector3(-sin(heading), 0.0, -cos(heading))
-			if wish.dot(wface) > 0.45 and fwd.dot(wface) >= 0.35:
+			if wish.dot(wface) > 0.35 and fwd.dot(wface) >= 0.25:
 				_climb_kind = ClimbKind.WALL
 				_climb_face = wface
 				_active_climb_speed = climb_speed
@@ -517,7 +530,7 @@ func _wall_hit_along(dir: Vector3, min_h := 0.0) -> Vector3:
 	var space := get_world_3d().direct_space_state
 	if space == null:
 		return Vector3.ZERO
-	for raw_h: float in [1.1, 1.65, 2.2, 2.75, 3.3, 3.85]:
+	for raw_h: float in [0.2, 0.5, 0.9, 1.35, 1.85, 2.35, 2.85, 3.4, 4.0]:
 		if raw_h < min_h:
 			continue
 		var from := global_position + Vector3.UP * (raw_h * STUD)
@@ -528,7 +541,7 @@ func _wall_hit_along(dir: Vector3, min_h := 0.0) -> Vector3:
 		var col_obj: Variant = hit.get("collider", null)
 		if col_obj is Node3D:
 			var cn := col_obj as Node3D
-			if _is_climbable_node(cn) or cn.name.begins_with("Stair"):
+			if _is_climbable_node(cn) or cn.name.begins_with("Stair") or cn.name.begins_with("StepTest") or raw_h <= 2.2:
 				var normal: Vector3 = hit["normal"]
 				if absf(normal.y) < 0.4:
 					return normal
@@ -542,24 +555,24 @@ func _try_mantle() -> bool:
 	var space := get_world_3d().direct_space_state
 	if space == null:
 		return false
-	var over := global_position + f * (1.35 * STUD) + Vector3.UP * (2.6 * STUD)
-	var down := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (3.2 * STUD), collision_mask)
+	var over := global_position + f * (1.2 * STUD) + Vector3.UP * (2.5 * STUD)
+	var down := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (3.0 * STUD), collision_mask)
 	var hit := space.intersect_ray(down)
 	if hit.is_empty():
 		return false
 	var lip: float = float(hit["position"].y) - global_position.y
-	if lip < -0.5 * STUD or lip > 2.6 * STUD:
+	if lip < -0.5 * STUD or lip > 2.5 * STUD:
 		return false
 	if lip > 0.0:
 		move_and_collide(Vector3.UP * (lip + 0.08))
-	move_and_collide(f * (1.35 * STUD))
+	move_and_collide(f * (1.3 * STUD))
 	velocity = Vector3.ZERO
 	_stop_climb()
 	grounded = true
 	return true
 
 
-func _drive_climb(wish: Vector3, delta: float) -> void:
+func _drive_climb(wish: Vector3, _delta: float) -> void:
 	var up_amount := wish.dot(_climb_face)
 	if _jump_buffer_left > 0.0:
 		_jump_buffer_left = 0.0
@@ -579,21 +592,8 @@ func _drive_climb(wish: Vector3, delta: float) -> void:
 	else:
 		velocity.y = 0.0
 		climbing = true
-	# Do not push deep into gaps between ladder rungs; if capsule catches on an overhead rung lip, nudge outward
-	if velocity.y > 0.0:
-		var up_step := Vector3.UP * (velocity.y * delta + 0.10 * STUD)
-		if test_move(global_transform, up_step):
-			var back_dir := -Vector3(_climb_face.x, 0.0, _climb_face.z).normalized()
-			for push_out: float in [0.12, 0.25, 0.40, 0.58]:
-				var shift := back_dir * (push_out * STUD)
-				if not test_move(global_transform, shift):
-					var cand := global_transform.translated(shift)
-					if not test_move(cand, up_step):
-						global_transform = cand
-						break
-	var hug := 0.0 if is_on_wall() else 1.4 * STUD
-	velocity.x = _climb_face.x * hug
-	velocity.z = _climb_face.z * hug
+	velocity.x = _climb_face.x * HUG_PRESSURE
+	velocity.z = _climb_face.z * HUG_PRESSURE
 
 
 func _stop_climb() -> void:
@@ -820,14 +820,6 @@ static func _is_climbable_node(other: Node3D) -> bool:
 		return false
 	if other.is_in_group("ladder") or other.is_in_group("climb"):
 		return true
-	var nm := other.name.to_lower()
-	if nm.contains("ladder") or nm.contains("climb") or nm.contains("truss"):
-		return true
-	var par := other.get_parent()
-	if par is Node3D:
-		var pn := (par as Node3D).name.to_lower()
-		if par.is_in_group("ladder") or par.is_in_group("climb") or pn.contains("ladder") or pn.contains("climb") or pn.contains("truss"):
-			return true
 	if other is CollisionObject3D and (((other as CollisionObject3D).collision_layer & 16) != 0):
 		return true
 	return false

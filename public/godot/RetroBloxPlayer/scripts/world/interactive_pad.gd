@@ -72,6 +72,12 @@ const STUD_TEX_PATH := "res://assets/studs/stud_tile.png"
 		heal_cooldown = maxf(v, 0.05)
 		set_meta("heal_cooldown", heal_cooldown)
 
+## If true, continuously damages the player every cooldown period while standing on it. If false (default), damages once per touch.
+@export var continuous_damage := false
+
+## If true, continuously heals the player every cooldown period while standing on it. If false (default), heals once per touch.
+@export var continuous_heal := false
+
 ## If true (or if pad_type is Kill Brick), touching this brick instantly kills the player.
 @export var insta_kill := false:
 	set(v):
