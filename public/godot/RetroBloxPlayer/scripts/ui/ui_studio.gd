@@ -511,7 +511,7 @@ func _build_ui() -> void:
 	_snap_line_v.color = Color(0.1, 0.55, 1.0, 0.85)
 	_snap_line_v.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	_snap_line_v.custom_minimum_size = Vector2(2, 0)
-	_snap_line_v.size = Vector2(2, 2000)
+	_snap_line_v.offset_right = 2.0
 	_snap_line_v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_snap_line_v.visible = false
 	add_child(_snap_line_v)
@@ -521,7 +521,7 @@ func _build_ui() -> void:
 	_snap_line_h.color = Color(0.1, 0.55, 1.0, 0.85)
 	_snap_line_h.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_snap_line_h.custom_minimum_size = Vector2(0, 2)
-	_snap_line_h.size = Vector2(3000, 2)
+	_snap_line_h.offset_bottom = 2.0
 	_snap_line_h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_snap_line_h.visible = false
 	add_child(_snap_line_h)

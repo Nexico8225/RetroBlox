@@ -1239,7 +1239,18 @@ func _menu_panel_size() -> Vector2:
 
 
 func _menu_panel_style() -> StyleBox:
-	return RetroUI.menu_casing()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = RetroUI.NIGHT_PANEL
+	sb.set_corner_radius_all(16)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.14)
+	sb.shadow_color = Color(0, 0, 0, 0.55)
+	sb.shadow_size = 24
+	sb.content_margin_left = 18.0
+	sb.content_margin_right = 18.0
+	sb.content_margin_top = 14.0
+	sb.content_margin_bottom = 14.0
+	return sb
 
 
 func _tab_button(label: String, icon_kind: String) -> Button:

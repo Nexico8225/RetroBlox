@@ -1,7 +1,8 @@
 extends SceneTree
 ## Parse-check every .gd in the project — prints PARSE_OK or the errors.
 
-func _init() -> void:
+func _initialize() -> void:
+        await process_frame
         var res := {"bad": 0, "total": 0}
         for d in ["res://scripts", "res://tests"]:
                 _scan(d, res)

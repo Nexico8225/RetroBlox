@@ -201,6 +201,21 @@ static func pill_style() -> StyleBox:
         return sb
 
 
+static func menu_casing() -> StyleBox:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = NIGHT_PANEL
+        sb.set_corner_radius_all(16)
+        sb.set_border_width_all(1)
+        sb.border_color = Color(1, 1, 1, 0.14)
+        sb.shadow_color = Color(0, 0, 0, 0.55)
+        sb.shadow_size = 24
+        sb.content_margin_left = 18.0
+        sb.content_margin_right = 18.0
+        sb.content_margin_top = 14.0
+        sb.content_margin_bottom = 14.0
+        return sb
+
+
 ## Legacy aliases — kept so older callers keep compiling.
 static func surface(radius := 8, face := PANEL, shadow := 0, shadow_a := 0.5) -> StyleBox:
         return raised(radius, face, shadow, shadow_a)
@@ -821,16 +836,16 @@ static func _in_rounded_px(p: Vector2, r: Rect2, rad: float) -> bool:
 ## pointer normally is, and the Pointer variant on buttons/links. Applied
 ## once per run (login and game both call this on ready).
 static func apply_cursors() -> void:
-	if _cursors_applied:
-		return
-	var arrow: Texture2D = load_png_safe(CURSOR_ARROW_PATH)
-	var hand: Texture2D = load_png_safe(CURSOR_HAND_PATH)
-	if arrow == null or hand == null:
-		return
-	Input.set_custom_mouse_cursor(arrow, Input.CURSOR_ARROW, Vector2(3, 2))
-	Input.set_custom_mouse_cursor(hand, Input.CURSOR_POINTING_HAND, Vector2(5, 2))
-	Input.set_custom_mouse_cursor(hand, Input.CURSOR_IBEAM, Vector2(5, 2))
-	_cursors_applied = true
+        if _cursors_applied:
+                return
+        var arrow: Texture2D = load_png_safe(CURSOR_ARROW_PATH)
+        var hand: Texture2D = load_png_safe(CURSOR_HAND_PATH)
+        if arrow == null or hand == null:
+                return
+        Input.set_custom_mouse_cursor(arrow, Input.CURSOR_ARROW, Vector2(3, 2))
+        Input.set_custom_mouse_cursor(hand, Input.CURSOR_POINTING_HAND, Vector2(5, 2))
+        Input.set_custom_mouse_cursor(hand, Input.CURSOR_IBEAM, Vector2(5, 2))
+        _cursors_applied = true
 
 
 static var _cursors_applied := false
@@ -1013,44 +1028,44 @@ static var shared: Theme = make_theme()
 static var _safe_png_cache: Dictionary = {}
 
 static func load_png_safe(res_path: String) -> Texture2D:
-	if _safe_png_cache.has(res_path):
-		return _safe_png_cache[res_path]
-	var bytes := FileAccess.get_file_as_bytes(res_path)
-	if not bytes.is_empty():
-		var img := Image.new()
-		if img.load_png_from_buffer(bytes) == OK and not img.is_empty():
-			img.generate_mipmaps()
-			var tex := ImageTexture.create_from_image(img)
-			_safe_png_cache[res_path] = tex
-			return tex
-	if ResourceLoader.exists(res_path):
-		var loaded = load(res_path)
-		if loaded is Texture2D:
-			_safe_png_cache[res_path] = loaded
-			return loaded
-	var fb := _make_fallback_icon(res_path)
-	_safe_png_cache[res_path] = fb
-	return fb
+        if _safe_png_cache.has(res_path):
+                return _safe_png_cache[res_path]
+        var bytes := FileAccess.get_file_as_bytes(res_path)
+        if not bytes.is_empty():
+                var img := Image.new()
+                if img.load_png_from_buffer(bytes) == OK and not img.is_empty():
+                        img.generate_mipmaps()
+                        var tex := ImageTexture.create_from_image(img)
+                        _safe_png_cache[res_path] = tex
+                        return tex
+        if ResourceLoader.exists(res_path):
+                var loaded = load(res_path)
+                if loaded is Texture2D:
+                        _safe_png_cache[res_path] = loaded
+                        return loaded
+        var fb := _make_fallback_icon(res_path)
+        _safe_png_cache[res_path] = fb
+        return fb
 
 static func _make_fallback_icon(res_path: String) -> Texture2D:
-	var img := Image.create(128, 128, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	if res_path.contains("shiftlock"):
-		for y in range(128):
-			for x in range(128):
-				var dx := float(x) - 63.5
-				var dy := float(y) - 63.5
-				var r := sqrt(dx * dx + dy * dy)
-				var ring_d := absf(r - 32.0)
-				var tick_h := maxf(absf(dy) - 3.0, maxf(24.0 - absf(dx), absf(dx) - 52.0))
-				var tick_v := maxf(absf(dx) - 3.0, maxf(24.0 - absf(dy), absf(dy) - 52.0))
-				var d := minf(ring_d - 3.2, minf(tick_h, tick_v))
-				if d <= 1.2:
-					var a := clampf(1.0 - maxf(d, 0.0) / 1.2, 0.0, 1.0)
-					img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
-				elif d <= 3.6:
-					var sa := clampf(1.0 - (d - 1.2) / 2.4, 0.0, 1.0) * 0.75
-					img.set_pixel(x, y, Color(0.0, 0.0, 0.0, sa))
-	img.generate_mipmaps()
-	return ImageTexture.create_from_image(img)
+        var img := Image.create(128, 128, false, Image.FORMAT_RGBA8)
+        img.fill(Color(0, 0, 0, 0))
+        if res_path.contains("shiftlock"):
+                for y in range(128):
+                        for x in range(128):
+                                var dx := float(x) - 63.5
+                                var dy := float(y) - 63.5
+                                var r := sqrt(dx * dx + dy * dy)
+                                var ring_d := absf(r - 32.0)
+                                var tick_h := maxf(absf(dy) - 3.0, maxf(24.0 - absf(dx), absf(dx) - 52.0))
+                                var tick_v := maxf(absf(dx) - 3.0, maxf(24.0 - absf(dy), absf(dy) - 52.0))
+                                var d := minf(ring_d - 3.2, minf(tick_h, tick_v))
+                                if d <= 1.2:
+                                        var a := clampf(1.0 - maxf(d, 0.0) / 1.2, 0.0, 1.0)
+                                        img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
+                                elif d <= 3.6:
+                                        var sa := clampf(1.0 - (d - 1.2) / 2.4, 0.0, 1.0) * 0.75
+                                        img.set_pixel(x, y, Color(0.0, 0.0, 0.0, sa))
+        img.generate_mipmaps()
+        return ImageTexture.create_from_image(img)
 
