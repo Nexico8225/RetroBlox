@@ -97,7 +97,8 @@ var _joystick_mouse_dragging := false
 
 func _ready() -> void:
 	randomize()
-	place = Session.current_place
+	var sess: Node = get_node_or_null("/root/Session")
+	place = sess.current_place if sess != null else {}
 	if place.is_empty():
 		place = PlacesScript.by_id("baseplate")
 	_session_start_ms = Time.get_ticks_msec()

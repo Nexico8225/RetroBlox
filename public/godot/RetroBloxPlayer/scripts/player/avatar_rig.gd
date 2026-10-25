@@ -16,6 +16,8 @@ const LEG_L := 4
 const LEG_R := 5
 const HEAD_INDEX := 0
 
+const RIG_TSCN_PATH := "res://assets/models/retroblox_anims.tscn"
+const RIG_GLB_PATH := "res://assets/models/retroblox_anims.glb"
 const RIG_SCENE_PATH := "res://assets/models/retroblox_anims.fbx"
 const STUD := 1.0
 const RIG_HEIGHT := 5.0 * STUD
@@ -203,18 +205,74 @@ func _animate_r6ik(speed: float, grounded: bool, climbing: bool) -> void:
 	var rate := 1.0
 	if climbing:
 		next = ANIM_CLIMB
-		rate = clampf(speed / (9.0 * STUD), 0.5, 1.5)
+		if speed < 0.2:
+			rate = 0.0
+		else:
+			rate = clampf(speed / (8.0 * STUD), 0.6, 1.4)
 	elif not grounded:
 		next = ANIM_JUMP
+		rate = 1.0
 	elif speed > 0.8 * STUD:
 		next = ANIM_WALK
-		rate = clampf(speed / (8.0 * STUD), 0.8, 2.2)
+		rate = clampf(speed / (16.0 * STUD), 0.6, 1.4)
 	if _current_anim != next:
 		_current_anim = next
 		if _anim_player.has_animation(next):
-			_anim_player.play(next, 0.16 if next != ANIM_JUMP else 0.08, rate if next != ANIM_JUMP else 1.35)
-	elif next == ANIM_WALK or next == ANIM_CLIMB:
+			var blend := 0.0 if (next == ANIM_JUMP or _current_anim == ANIM_JUMP) else 0.14
+			_anim_player.play(next, blend, rate)
+	if next == ANIM_WALK or next == ANIM_CLIMB:
 		_anim_player.speed_scale = rate
+
+
+func on_jump() -> void:
+	if _using_r6ik and _anim_player != null and is_instance_valid(_anim_player):
+		_current_anim = ANIM_JUMP
+		if _anim_player.has_animation(ANIM_JUMP):
+			_anim_player.play(ANIM_JUMP, 0.0, 1.0)
+
+
+static func _ensure_classic_climb_anim(ap: AnimationPlayer) -> void:
+	var anim := Animation.new()
+	anim.length = 0.8
+	anim.loop_mode = Animation.LOOP_LINEAR
+
+	var t_la := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_la, "Left Arm")
+	var t_ra := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_ra, "Right Arm")
+	var t_ll := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_ll, "Left Leg")
+	var t_rl := anim.add_track(Animation.TYPE_ROTATION_3D)
+	anim.track_set_path(t_rl, "Right Leg")
+
+	var steps := 8
+	for i in range(steps + 1):
+		var time := float(i) * (anim.length / float(steps))
+		var phase := float(i) / float(steps) * TAU
+		var alt := sin(phase)
+
+		var pitch_l := deg_to_rad(90.0 - 135.0 + alt * 25.0)
+		var pitch_r := deg_to_rad(90.0 - 135.0 - alt * 25.0)
+		var q_la := Quaternion(Vector3.RIGHT, pitch_l)
+		var q_ra := Quaternion(Vector3.RIGHT, pitch_r)
+
+		var pitch_ll := deg_to_rad(90.0 + alt * 28.0)
+		var pitch_rl := deg_to_rad(90.0 - alt * 28.0)
+		var q_ll := Quaternion(Vector3.RIGHT, pitch_ll)
+		var q_rl := Quaternion(Vector3.RIGHT, pitch_rl)
+
+		anim.rotation_track_insert_key(t_la, time, q_la)
+		anim.rotation_track_insert_key(t_ra, time, q_ra)
+		anim.rotation_track_insert_key(t_ll, time, q_ll)
+		anim.rotation_track_insert_key(t_rl, time, q_rl)
+
+	var lib: AnimationLibrary = ap.get_animation_library("")
+	if lib == null:
+		lib = AnimationLibrary.new()
+		ap.add_animation_library("", lib)
+	if lib.has_animation(ANIM_CLIMB):
+		lib.remove_animation(ANIM_CLIMB)
+	lib.add_animation(ANIM_CLIMB, anim)
 
 
 func play_emote(clip: String) -> void:
@@ -302,19 +360,26 @@ func _get_oof_audio() -> AudioStream:
 
 func _ensure_built(allow_upgrade: bool = false) -> void:
 	if _built:
-		if allow_upgrade and not _using_r6ik and is_inside_tree():
+		if allow_upgrade and not _using_r6ik:
 			_try_r6ik()
 		return
 	_built = true
-	if is_inside_tree() and _try_r6ik():
+	if _try_r6ik():
 		return
 	_build_boxes()
 
 
 func _try_r6ik() -> bool:
-	if not ResourceLoader.exists(RIG_SCENE_PATH):
+	var path_to_load := ""
+	if ResourceLoader.exists(RIG_TSCN_PATH):
+		path_to_load = RIG_TSCN_PATH
+	elif ResourceLoader.exists(RIG_GLB_PATH):
+		path_to_load = RIG_GLB_PATH
+	elif ResourceLoader.exists(RIG_SCENE_PATH):
+		path_to_load = RIG_SCENE_PATH
+	if path_to_load == "":
 		return false
-	var packed: PackedScene = load(RIG_SCENE_PATH)
+	var packed: PackedScene = load(path_to_load)
 	if packed == null:
 		return false
 	var inst: Node3D = packed.instantiate()
@@ -346,6 +411,7 @@ func _try_r6ik() -> bool:
 		var jump_anim := ap.get_animation(ANIM_JUMP)
 		if jump_anim != null:
 			jump_anim.loop_mode = Animation.LOOP_NONE
+		_ensure_classic_climb_anim(ap)
 		_anim_player = ap
 
 	var raw_bounds := AABB()

@@ -580,7 +580,10 @@ func _drive_climb(wish: Vector3, _delta: float) -> void:
 		velocity.y = LADDER_JUMP * 0.65
 		velocity.x = -_climb_face.x * 7.0 * STUD
 		velocity.z = -_climb_face.z * 7.0 * STUD
+		grounded = false
 		_stop_climb()
+		if avatar != null and avatar.has_method("on_jump"):
+			avatar.call("on_jump")
 		return
 	var spd := _active_climb_speed if _active_climb_speed > 0.0 else climb_speed
 	if up_amount > 0.12:
@@ -644,9 +647,12 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 	if _jump_buffer_left > 0.0 and can_jump:
 		_jump_buffer_left = 0.0
 		_coyote = 0.0
+		grounded = false
 		velocity.y = jump_power * (_jump_boost_mult if _gravity_boost_timer > 0.0 else 1.0)
 		_play_jump_sound()
 		_dust()
+		if avatar != null and avatar.has_method("on_jump"):
+			avatar.call("on_jump")
 
 
 func _perform_step_up(wish: Vector3, delta: float) -> void:

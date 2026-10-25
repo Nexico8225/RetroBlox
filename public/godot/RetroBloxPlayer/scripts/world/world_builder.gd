@@ -176,10 +176,15 @@ static func prepare_scene_world(world_root: Node3D) -> Array[Vector3]:
 					var col_hex := String(sb.get_meta("color", ""))
 					var col := Color(col_hex) if col_hex != "" else Color("8f8f8f")
 					if col_hex == "":
-						if mi.material_override is StandardMaterial3D:
-							col = (mi.material_override as StandardMaterial3D).albedo_color
-						elif mi.material_override is ShaderMaterial:
-							var p_col: Variant = (mi.material_override as ShaderMaterial).get_shader_parameter("albedo")
+						var mat_src: Material = mi.material_override
+						if mat_src == null:
+							mat_src = mi.get_surface_override_material(0)
+						if mat_src == null and mi.mesh != null:
+							mat_src = mi.mesh.material
+						if mat_src is StandardMaterial3D:
+							col = (mat_src as StandardMaterial3D).albedo_color
+						elif mat_src is ShaderMaterial:
+							var p_col: Variant = (mat_src as ShaderMaterial).get_shader_parameter("albedo")
 							if p_col is Color:
 								col = p_col
 					mi.material_override = _part_material(col, mat_kind, tex, no_studs)

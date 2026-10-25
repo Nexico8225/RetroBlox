@@ -8,7 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://b2sdf860oadpg" path="res://assets/studs/stud_tile.png" id="4_mwfpn"]
 [ext_resource type="Texture2D" uid="uid://dy4narrqpos83" path="res://assets/icons/logo.png" id="7_logo"]
 [ext_resource type="Texture2D" uid="uid://dpvr73jah5n1c" path="res://assets/icons/chat.png" id="8_chat"]
-[ext_resource type="Script" uid="uid://dnbsd4da330gr" path="res://scripts/world/interactive_pad.gd" id="9_pad"]
+[ext_resource type="Script" path="res://scripts/world/interactive_pad.gd" id="9_pad"]
 [ext_resource type="Script" uid="uid://do602renoe131" path="res://scripts/world/climb_ladder.gd" id="10_ladder"]
 [ext_resource type="FontFile" uid="uid://b3vut8cavqfvd" path="res://assets/fonts/LiberationSans-Bold.ttf" id="11_font_bold"]
 [ext_resource type="Script" uid="uid://cpbbjergntc6q" path="res://scripts/world/moving_platform.gd" id="13_movplat"]
@@ -37,9 +37,14 @@ fog_light_color = Color(0.772549, 0.866667, 0.941176, 1)
 fog_density = 0.0005
 fog_sky_affect = 0.04
 
-[sub_resource type="StandardMaterial3D" id="Mat_Baseplate"]
-albedo_color = Color(0.298039, 0.623529, 0.278431, 1)
-roughness = 0.7
+[sub_resource type="ShaderMaterial" id="Mat_Baseplate"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.298039, 0.623529, 0.278431, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/roughness_val = 0.7
+shader_parameter/specular_val = 0.5
 
 [sub_resource type="BoxMesh" id="Mesh_Baseplate"]
 material = SubResource("Mat_Baseplate")
@@ -48,9 +53,14 @@ size = Vector3(512, 2, 512)
 [sub_resource type="BoxShape3D" id="Shape_Baseplate"]
 size = Vector3(512, 2, 512)
 
-[sub_resource type="StandardMaterial3D" id="Mat_Spawn"]
-albedo_color = Color(0.847059, 0.870588, 0.898039, 1)
-roughness = 0.45
+[sub_resource type="ShaderMaterial" id="Mat_Spawn"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.847059, 0.870588, 0.898039, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/roughness_val = 0.45
+shader_parameter/specular_val = 0.5
 
 [sub_resource type="BoxMesh" id="Mesh_Spawn"]
 material = SubResource("Mat_Spawn")
@@ -59,9 +69,14 @@ size = Vector3(12, 1, 12)
 [sub_resource type="BoxShape3D" id="Shape_Spawn"]
 size = Vector3(12, 1, 12)
 
-[sub_resource type="StandardMaterial3D" id="Mat_Red"]
-albedo_color = Color(0.878431, 0.219608, 0.192157, 1)
-roughness = 0.45
+[sub_resource type="ShaderMaterial" id="Mat_Red"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.878431, 0.219608, 0.192157, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/roughness_val = 0.45
+shader_parameter/specular_val = 0.5
 
 [sub_resource type="BoxMesh" id="Mesh_Brick4x2"]
 size = Vector3(4, 2, 4)
@@ -69,17 +84,32 @@ size = Vector3(4, 2, 4)
 [sub_resource type="BoxShape3D" id="Shape_Brick4x2"]
 size = Vector3(4, 2, 4)
 
-[sub_resource type="StandardMaterial3D" id="Mat_Yellow"]
-albedo_color = Color(0.960784, 0.768627, 0.145098, 1)
-roughness = 0.45
+[sub_resource type="ShaderMaterial" id="Mat_Yellow"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.960784, 0.768627, 0.145098, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/roughness_val = 0.45
+shader_parameter/specular_val = 0.5
 
-[sub_resource type="StandardMaterial3D" id="Mat_Blue"]
-albedo_color = Color(0.14902, 0.490196, 0.858824, 1)
-roughness = 0.45
+[sub_resource type="ShaderMaterial" id="Mat_Blue"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.14902, 0.490196, 0.858824, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/roughness_val = 0.45
+shader_parameter/specular_val = 0.5
 
-[sub_resource type="StandardMaterial3D" id="Mat_StepTest"]
-albedo_color = Color(0.35, 0.72, 0.92, 1)
-roughness = 0.45
+[sub_resource type="ShaderMaterial" id="Mat_StepTest"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.35, 0.72, 0.92, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/roughness_val = 0.45
+shader_parameter/specular_val = 0.5
 
 [sub_resource type="BoxMesh" id="Mesh_Step05"]
 material = SubResource("Mat_StepTest")
@@ -115,9 +145,14 @@ size = Vector3(6, 2, 4)
 [sub_resource type="BoxShape3D" id="Shape_Stair"]
 size = Vector3(6, 2, 4)
 
-[sub_resource type="StandardMaterial3D" id="Mat_Gold"]
-albedo_color = Color(0.956863, 0.690196, 0.145098, 1)
-roughness = 0.35
+[sub_resource type="ShaderMaterial" id="Mat_Gold"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.956863, 0.690196, 0.145098, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/roughness_val = 0.35
+shader_parameter/specular_val = 0.5
 
 [sub_resource type="BoxMesh" id="Mesh_FortTop"]
 material = SubResource("Mat_Gold")
@@ -126,9 +161,14 @@ size = Vector3(14, 1, 14)
 [sub_resource type="BoxShape3D" id="Shape_FortTop"]
 size = Vector3(14, 1, 14)
 
-[sub_resource type="StandardMaterial3D" id="Mat_Ramp"]
-albedo_color = Color(0.454902, 0.560784, 0.988235, 1)
-roughness = 0.45
+[sub_resource type="ShaderMaterial" id="Mat_Ramp"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.454902, 0.560784, 0.988235, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/roughness_val = 0.45
+shader_parameter/specular_val = 0.5
 
 [sub_resource type="BoxMesh" id="Mesh_Ramp"]
 material = SubResource("Mat_Ramp")
@@ -274,6 +314,7 @@ directional_shadow_max_distance = 110.0
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/Baseplate" unique_id=65815227]
+material_override = SubResource("Mat_Baseplate")
 mesh = SubResource("Mesh_Baseplate")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/Baseplate" unique_id=1055418759]
@@ -283,6 +324,7 @@ shape = SubResource("Shape_Baseplate")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/SpawnPad" unique_id=1516963721]
+material_override = SubResource("Mat_Spawn")
 mesh = SubResource("Mesh_Spawn")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/SpawnPad" unique_id=1121692826]
