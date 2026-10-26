@@ -18,9 +18,11 @@ func _enter_tree() -> void:
 	_create_toolbar()
 	_settings_dialog = PlayerSettingsDialogScript.new()
 	get_editor_interface().get_base_control().add_child(_settings_dialog)
+	add_tool_menu_item("RetroBlox Player Settings...", _on_open_player_settings)
 
 
 func _exit_tree() -> void:
+	remove_tool_menu_item("RetroBlox Player Settings...")
 	if _toolbar != null:
 		remove_control_from_container(CONTAINER_SPATIAL_EDITOR_MENU, _toolbar)
 		_toolbar.queue_free()
@@ -48,6 +50,8 @@ func _set_setting_default(name: String, default_value: Variant, type: int, hint:
 	if not ProjectSettings.has_setting(name):
 		ProjectSettings.set_setting(name, default_value)
 	ProjectSettings.set_initial_value(name, default_value)
+	if ProjectSettings.has_method("set_as_basic"):
+		ProjectSettings.set_as_basic(name, true)
 	var info: Dictionary = {
 		"name": name,
 		"type": type,
@@ -100,6 +104,8 @@ func _create_toolbar() -> void:
 
 func _on_open_player_settings() -> void:
 	if _settings_dialog != null:
+		if _settings_dialog.has_method("_load_values"):
+			_settings_dialog.call("_load_values")
 		_settings_dialog.popup_centered()
 
 

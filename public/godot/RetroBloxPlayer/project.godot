@@ -40,6 +40,10 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/retroblox_studio/plugin.cfg")
+
 [input]
 
 move_forward={
@@ -93,20 +97,6 @@ open_chat={
 3d_physics/layer_3="Players"
 3d_physics/layer_5="Ladder"
 
-[rendering]
-
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
-lights_and_shadows/directional_shadow/size=2048
-lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
-anti_aliasing/quality/msaa_3d=1
-environment/defaults/default_clear_color=Color(0.623529, 0.843137, 1, 1)
-occlusion_culling/use_occlusion_culling=true
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/retroblox_studio/plugin.cfg")
-
 [player]
 
 movement/walk_speed=16.0
@@ -120,6 +110,16 @@ features/voice_chat=true
 features/shift_lock=true
 appearance/default_shirt=""
 appearance/default_pants=""
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+anti_aliasing/quality/msaa_3d=1
+environment/defaults/default_clear_color=Color(0.623529, 0.843137, 1, 1)
+occlusion_culling/use_occlusion_culling=true
 
 [world]
 
