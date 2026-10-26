@@ -1296,6 +1296,26 @@ mesh = SubResource("Mesh_DiscoTile")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/DiscoFloor/Tile_3_3" unique_id=436535844]
 shape = SubResource("Shape_DiscoTile")
 
+[node name="CheckpointCastle" type="StaticBody3D" parent="World" unique_id=1000000200 groups=["checkpoint"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -6)
+script = ExtResource("9_pad")
+pad_type = 7
+brick_size = Vector3(6, 0.5, 6)
+brick_color = Color(0.72, 0.78, 0.85, 1)
+is_neon = false
+label_text = "CHECKPOINT"
+metadata/spawn = Vector3(0, 1.2, -6)
+
+[node name="CheckpointObby" type="StaticBody3D" parent="World" unique_id=1000000210 groups=["checkpoint"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52, 6.6, -4)
+script = ExtResource("9_pad")
+pad_type = 7
+brick_size = Vector3(5, 0.5, 5)
+brick_color = Color(0.72, 0.78, 0.85, 1)
+is_neon = false
+label_text = "CHECKPOINT"
+metadata/spawn = Vector3(-52, 7.6, -4)
+
 
 [node name="LocalPlayer" type="CharacterBody3D" parent="." unique_id=1740033783]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)

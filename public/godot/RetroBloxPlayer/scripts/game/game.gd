@@ -10,6 +10,7 @@ const WorldBuilderScript := preload("res://scripts/world/world_builder.gd")
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
 const AvatarViewerScript := preload("res://scripts/ui/avatar_viewer.gd")
 const MenuIcons := preload("res://scripts/ui/menu_icons.gd")
+const EmoteWheelScript := preload("res://scripts/ui/emote_wheel.gd")
 
 const POLL_SECONDS := 2.0
 const HEARTBEAT_SECONDS := 3.5
@@ -35,6 +36,7 @@ var _people_title: Label
 var _corner_stats: Label
 var _fps_chip: PanelContainer
 var _shift_hud_btn: Button
+var _emote_wheel: Control
 var _tab_buttons: Dictionary = {}
 var _pages: Dictionary = {}
 var _fps_smooth := 60.0
@@ -320,7 +322,8 @@ func _physics_process(delta: float) -> void:
 		return
 	var studio_open: bool = _ui_studio != null and is_instance_valid(_ui_studio) and _ui_studio.visible
 	var typing: bool = chat != null and is_instance_valid(chat) and chat.is_open
-	var block_move: bool = typing or _menu_open or studio_open
+	var emote_open: bool = _emote_wheel != null and is_instance_valid(_emote_wheel) and _emote_wheel.visible
+	var block_move: bool = typing or _menu_open or studio_open or emote_open
 	var kb_dir := Vector2.ZERO if block_move else Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var dir := kb_dir + (Vector2.ZERO if block_move else _mobile_move_vec)
 	if dir.length() > 1.0:
@@ -432,11 +435,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 
 	if event.is_action_pressed("ui_cancel"):
-		if chat != null and chat.is_open:
+		if _emote_wheel != null and is_instance_valid(_emote_wheel) and _emote_wheel.visible:
+			_emote_wheel.close()
+		elif chat != null and chat.is_open:
 			chat.unfocus()
 		else:
 			_toggle_menu()
 		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.is_pressed() and not event.is_echo() \
+			and ((event as InputEventKey).keycode == KEY_PERIOD or (event as InputEventKey).physical_keycode == KEY_PERIOD or (event as InputEventKey).unicode == 46):
+		var focus_owner := get_viewport().gui_get_focus_owner()
+		var in_text := (focus_owner is LineEdit or focus_owner is TextEdit)
+		var chat_busy: bool = (chat != null and is_instance_valid(chat) and (bool(chat.is_open) or (chat.has_method("is_typing") and bool(chat.call("is_typing")))))
+		if not _menu_open and not in_text and not chat_busy:
+			_toggle_emote_wheel()
+			get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.is_pressed() and not event.is_echo() \
 			and ((event as InputEventKey).keycode == KEY_SLASH or (event as InputEventKey).physical_keycode == KEY_SLASH or (event as InputEventKey).unicode == 47):
 		if not _menu_open and chat != null and is_instance_valid(chat) and not chat.is_open:
@@ -532,6 +545,7 @@ func _setup_hud() -> void:
 	_bind_or_build_mobile_controls()
 	_bind_or_build_shiftlock_btn()
 	_bind_or_build_center_cursor()
+	_bind_or_build_emote_wheel()
 	_setup_ui_studio()
 
 	_toast_box = hud.get_node_or_null("ToastBox") as VBoxContainer
@@ -900,6 +914,7 @@ func _bind_or_build_fps_chip() -> void:
 		_corner_stats = Label.new()
 		_corner_stats.name = "CornerStats"
 		_fps_chip.add_child(_corner_stats)
+	_corner_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_title(_corner_stats, 12, Color.WHITE, 700)
 	_names_by_uid[Session.user_id] = Session.username
 
@@ -922,6 +937,46 @@ func _bind_or_build_shiftlock_btn() -> void:
 	_shift_hud_btn.icon = RetroUI.load_png_safe("res://assets/ui/shiftlock.png")
 	_style_topbar_btn(_shift_hud_btn)
 	_shift_hud_btn.pressed.connect(_toggle_shiftlock)
+
+
+func _bind_or_build_emote_wheel() -> void:
+	_emote_wheel = hud.get_node_or_null("EmoteWheel") as Control
+	if _emote_wheel == null:
+		_emote_wheel = EmoteWheelScript.new()
+		hud.add_child(_emote_wheel)
+	if not _emote_wheel.emote_selected.is_connected(_on_emote_selected):
+		_emote_wheel.emote_selected.connect(_on_emote_selected)
+	if not _emote_wheel.closed.is_connected(_on_emote_wheel_closed):
+		_emote_wheel.closed.connect(_on_emote_wheel_closed)
+
+
+func _on_emote_selected(emote_id: String) -> void:
+	if player != null and is_instance_valid(player):
+		player.call("play_emote", emote_id)
+	if camera_rig != null and is_instance_valid(camera_rig):
+		camera_rig.set_ui_blocked(false)
+
+
+func _on_emote_wheel_closed() -> void:
+	if not _menu_open and (chat == null or not chat.is_chat_focused()):
+		if camera_rig != null and is_instance_valid(camera_rig):
+			camera_rig.set_ui_blocked(false)
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _toggle_emote_wheel() -> void:
+	if _emote_wheel == null or not is_instance_valid(_emote_wheel):
+		return
+	if _emote_wheel.visible:
+		_emote_wheel.close()
+	else:
+		if _menu_open:
+			_toggle_menu()
+		if chat != null and chat.is_chat_focused():
+			return
+		_emote_wheel.open()
+		if camera_rig != null and is_instance_valid(camera_rig):
+			camera_rig.set_ui_blocked(true)
 
 
 func _topbar_key() -> Button:
@@ -1528,9 +1583,41 @@ func _update_live_stats() -> void:
 			parts.append("FPS %d" % int(roundf(_fps_smooth)))
 		if want_ping and _last_ping_ms > 0:
 			parts.append("%dms" % _last_ping_ms)
+
+		var phys_parts: PackedStringArray = []
+		if player != null and is_instance_valid(player):
+			var spd: float = player.call("get_effective_speed_studs") if player.has_method("get_effective_speed_studs") else (float(player.get("walk_speed")) / 0.28)
+			var jmp: float = player.call("get_effective_jump_studs") if player.has_method("get_effective_jump_studs") else (float(player.get("jump_power")) / 0.28)
+			var grv: float = player.call("get_effective_gravity_studs") if player.has_method("get_effective_gravity_studs") else (float(player.get("gravity")) / 0.28)
+			var smult: float = player.call("get_speed_multiplier") if player.has_method("get_speed_multiplier") else 1.0
+			var gmult: float = player.call("get_gravity_multiplier") if player.has_method("get_gravity_multiplier") else 1.0
+
+			if is_equal_approx(smult, 1.0):
+				phys_parts.append("Speed: %d" % int(roundf(spd)))
+			else:
+				phys_parts.append("Speed: %.1f (%.2fx)" % [spd, smult])
+
+			phys_parts.append("Jump: %d" % int(roundf(jmp)))
+
+			if is_equal_approx(gmult, 1.0):
+				phys_parts.append("Grav: %d" % int(roundf(grv)))
+			else:
+				phys_parts.append("Grav: %.1f (%.2fx)" % [grv, gmult])
+
+		var top_line := "  ·  ".join(parts) if not parts.is_empty() else ""
+		var bottom_line := "  ·  ".join(phys_parts) if not phys_parts.is_empty() else ""
+
+		if top_line != "" and bottom_line != "":
+			_corner_stats.text = "%s\n%s" % [top_line, bottom_line]
+		elif top_line != "":
+			_corner_stats.text = top_line
+		elif bottom_line != "":
+			_corner_stats.text = bottom_line
+		else:
+			_corner_stats.text = ""
+
 		if _fps_chip != null and is_instance_valid(_fps_chip):
-			_fps_chip.visible = not parts.is_empty()
-		_corner_stats.text = "  ·  ".join(parts) if not parts.is_empty() else ""
+			_fps_chip.visible = _corner_stats.text != ""
 
 
 func _update_people_title() -> void:
@@ -2267,6 +2354,8 @@ func _paper_slider(s: HSlider) -> void:
 func _toggle_menu() -> void:
 	if _menu == null or not is_instance_valid(_menu):
 		return
+	if _emote_wheel != null and is_instance_valid(_emote_wheel) and _emote_wheel.visible:
+		_emote_wheel.close()
 	_menu_open = not _menu_open
 	_menu.visible = _menu_open
 	if _menu_open:
@@ -2316,9 +2405,12 @@ func _on_touched_group(group: String, node: Node3D) -> void:
 		_start_respawn()
 	elif group == "checkpoint":
 		var pos: Variant = node.get_meta("spawn", null)
-		if pos is Vector3:
-			player.spawn_point = Transform3D(Basis(), pos)
-			chat.add_system("Checkpoint reached!")
+		if not (pos is Vector3):
+			pos = node.global_position + Vector3(0.0, 1.2 * WorldBuilderScript.STUD, 0.0)
+		player.spawn_point = Transform3D(Basis(), pos)
+		if node.has_method("activate_checkpoint"):
+			node.call("activate_checkpoint")
+		chat.add_system("Checkpoint reached!")
 	elif group == "goal" and not _finished:
 		_finished = true
 		chat.add_system("*** You reached the goal — classic victory! ***")
@@ -2580,22 +2672,44 @@ func _handle_command(command: String) -> void:
 	var parts := command.split(" ", false)
 	var cmd := String(parts[0]).to_lower()
 	if cmd == "/help":
-		chat.add_system("Commands: /e sit · /e stop · /help")
-		chat.add_system("Press / to chat · SHIFT = shift lock · V = voice mic · F11 = fullscreen")
-	elif cmd == "/e":
+		chat.add_system("Commands: /e <dance|dance2|dance3|wave|point|laugh|cheer|sit|stop> · /help")
+		chat.add_system("Press . for Emote Wheel · Press / to chat · SHIFT = shift lock · V = voice mic")
+	elif cmd == "/e" or cmd == "/emote":
 		var emote := String(parts[1]).to_lower() if parts.size() > 1 else ""
 		match emote:
 			"sit":
 				if player != null and is_instance_valid(player):
-					player.avatar.call("play_emote", "Sit")
+					player.call("play_emote", "sit")
 				chat.add_system("You sit down. (move to stand up)")
 			"stop", "stand":
 				if player != null and is_instance_valid(player):
-					player.avatar.call("play_emote", "")
-			"dance", "wave", "point":
-				chat.add_system("The classic rig knows Sit — try /e sit")
+					player.call("play_emote", "")
+			"dance", "dance1":
+				if player != null and is_instance_valid(player):
+					player.call("play_emote", "dance1")
+			"dance2":
+				if player != null and is_instance_valid(player):
+					player.call("play_emote", "dance2")
+			"dance3":
+				if player != null and is_instance_valid(player):
+					player.call("play_emote", "dance3")
+			"wave":
+				if player != null and is_instance_valid(player):
+					player.call("play_emote", "wave")
+			"point":
+				if player != null and is_instance_valid(player):
+					player.call("play_emote", "point")
+			"laugh":
+				if player != null and is_instance_valid(player):
+					player.call("play_emote", "laugh")
+			"cheer":
+				if player != null and is_instance_valid(player):
+					player.call("play_emote", "cheer")
+			"":
+				chat.add_system("Usage: /e <dance|dance2|dance3|wave|point|laugh|cheer|sit|stop> (or press . for wheel)")
 			_:
-				chat.add_system("Unknown emote — try /e sit or /e stop")
+				if player != null and is_instance_valid(player):
+					player.call("play_emote", emote)
 	else:
 		chat.add_system("Unknown command — try /help")
 

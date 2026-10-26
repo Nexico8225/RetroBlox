@@ -362,19 +362,101 @@ func _animate_pivots(delta: float, speed: float, grounded: bool, climbing: bool)
 	var leg_l_x := 0.0
 	var leg_r_x := 0.0
 	var head_x := 0.0
+	var head_z := 0.0
 	var torso_x := 0.0
+	var torso_y := 0.0
 	var arm_l_z := 0.0
 	var arm_r_z := 0.0
 
 	if grounded and not climbing:
 		_jump_phase = 0.0
 
-	if _active_emote.to_lower() == "sit":
-		_sit_phase = minf(_sit_phase + delta * 2.5, 1.0)
-		arm_l_x = _sample_curve(CURVE_SIT_ARM_L, _sit_phase)
-		arm_r_x = _sample_curve(CURVE_SIT_ARM_R, _sit_phase)
-		leg_l_x = _sample_curve(CURVE_SIT_LEG, _sit_phase)
-		leg_r_x = _sample_curve(CURVE_SIT_LEG, _sit_phase)
+	var em := _active_emote.strip_edges().to_lower()
+	if em != "" and grounded and speed <= 0.8 * STUD and not climbing:
+		var et := _time
+		match em:
+			"sit":
+				_sit_phase = minf(_sit_phase + delta * 2.5, 1.0)
+				arm_l_x = _sample_curve(CURVE_SIT_ARM_L, _sit_phase)
+				arm_r_x = _sample_curve(CURVE_SIT_ARM_R, _sit_phase)
+				leg_l_x = _sample_curve(CURVE_SIT_LEG, _sit_phase)
+				leg_r_x = _sample_curve(CURVE_SIT_LEG, _sit_phase)
+			"dance", "dance1":
+				# Classic Roblox Dance 1: swinging arms and side-to-side leg step
+				var d_t := et * 5.5
+				arm_l_x = sin(d_t) * 0.75
+				arm_r_x = -sin(d_t) * 0.75
+				arm_l_z = -0.35 - absf(sin(d_t * 0.5)) * 0.35
+				arm_r_z = 0.35 + absf(sin(d_t * 0.5)) * 0.35
+				leg_l_x = -sin(d_t) * 0.45
+				leg_r_x = sin(d_t) * 0.45
+				torso_x = absf(sin(d_t)) * 0.08
+				torso_y = sin(d_t * 0.5) * 0.15
+				head_x = sin(d_t * 2.0) * 0.06
+			"dance2":
+				# Classic Roblox Dance 2: high disco point with right arm and groove
+				var d_t := et * 5.0
+				arm_r_x = -2.25 + sin(d_t) * 0.25
+				arm_r_z = 0.55 + cos(d_t) * 0.25
+				arm_l_x = 0.35 + sin(d_t) * 0.25
+				arm_l_z = -0.45
+				leg_l_x = sin(d_t) * 0.30
+				leg_r_x = -sin(d_t) * 0.30
+				torso_x = sin(d_t) * 0.12
+				torso_y = cos(d_t) * 0.20
+				head_x = -0.15 + sin(d_t) * 0.08
+			"dance3":
+				# Classic Roblox Dance 3: hip shuffle and chest cross swings
+				var d_t := et * 7.5
+				arm_l_x = -1.25 + sin(d_t) * 0.5
+				arm_r_x = -1.25 - sin(d_t) * 0.5
+				arm_l_z = -0.25 + sin(d_t) * 0.4
+				arm_r_z = 0.25 + sin(d_t) * 0.4
+				leg_l_x = sin(d_t) * 0.25
+				leg_r_x = -sin(d_t) * 0.25
+				torso_x = sin(d_t * 0.5) * 0.12
+				torso_y = sin(d_t) * 0.25
+				head_x = absf(sin(d_t)) * 0.12
+			"wave":
+				# Classic Wave: right arm raised high waving side to side
+				var w_t := et * 8.5
+				arm_r_x = -2.85
+				arm_r_z = 0.25 + sin(w_t) * 0.38
+				arm_l_x = 0.05
+				arm_l_z = -idle_arm_sway
+				head_x = -0.08
+				head_z = -0.12
+			"point":
+				# Classic Point: right arm held straight forward
+				arm_r_x = -1.57
+				arm_r_z = 0.08
+				arm_l_x = 0.05
+				arm_l_z = -idle_arm_sway
+				head_x = -0.05
+			"laugh":
+				# Classic Laugh: torso leaned back, head tilted up, laughing shake
+				var l_t := et * 14.0
+				torso_x = -0.28 + sin(l_t) * 0.07
+				head_x = -0.52 + sin(l_t) * 0.10
+				arm_l_x = -0.25
+				arm_l_z = -0.42 + sin(l_t) * 0.05
+				arm_r_x = -0.25
+				arm_r_z = 0.42 - sin(l_t) * 0.05
+				leg_l_x = 0.0
+				leg_r_x = 0.0
+			"cheer":
+				# Classic Cheer: both arms raised celebrating
+				var c_t := et * 7.0
+				arm_l_x = -2.80 + sin(c_t) * 0.18
+				arm_r_x = -2.80 + sin(c_t) * 0.18
+				arm_l_z = -0.40
+				arm_r_z = 0.40
+				head_x = -0.32
+				torso_x = sin(c_t) * 0.08
+			_:
+				arm_l_x = sin(et * 3.0) * 0.25
+				arm_r_x = -sin(et * 3.0) * 0.25
+				torso_y = sin(et * 3.0) * 0.15
 	elif climbing:
 		var climb_moving := speed > 0.25 * STUD
 		if climb_moving:
@@ -423,7 +505,9 @@ func _animate_pivots(delta: float, speed: float, grounded: bool, climbing: bool)
 	_pivots[ARM_L].rotation.z = lerp_angle(_pivots[ARM_L].rotation.z, arm_l_z, k)
 	_pivots[ARM_R].rotation.z = lerp_angle(_pivots[ARM_R].rotation.z, arm_r_z, k)
 	_pivots[HEAD].rotation.x = lerp_angle(_pivots[HEAD].rotation.x, head_x, k)
+	_pivots[HEAD].rotation.z = lerp_angle(_pivots[HEAD].rotation.z, head_z, k)
 	_pivots[TORSO].rotation.x = lerp_angle(_pivots[TORSO].rotation.x, torso_x, k)
+	_pivots[TORSO].rotation.y = lerp_angle(_pivots[TORSO].rotation.y, torso_y, k)
 
 
 func burst(world: Node3D, impulse_seed: int, is_first_person: bool = false) -> void:

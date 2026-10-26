@@ -11,7 +11,7 @@ const STUD_TEX_PATH := "res://assets/studs/stud_tile.png"
 const STUD_NORMAL_PATH := "res://assets/Materials/Studs 4x4 Normal Plastic.png"
 
 @export_group("Pad Type & Appearance")
-@export_enum("Damage Brick:0", "Kill Brick:1", "Heal Brick:2", "Insta-Heal Brick:3", "Speed Pad:4", "Gravity Pad:5", "Bounce Pad:6") var pad_type: int = 0:
+@export_enum("Damage Brick:0", "Kill Brick:1", "Heal Brick:2", "Insta-Heal Brick:3", "Speed Pad:4", "Gravity Pad:5", "Bounce Pad:6", "Checkpoint:7") var pad_type: int = 0:
 	set(v):
 		pad_type = v
 		_sync_groups_and_meta()
@@ -128,6 +128,29 @@ const STUD_NORMAL_PATH := "res://assets/Materials/Studs 4x4 Normal Plastic.png"
 		bounce_power = maxf(v, 1.0)
 		set_meta("bounce_power", bounce_power)
 
+@export_group("Speed & Gravity Pad Customization")
+## If true, speed or gravity boosts last indefinitely until manually cleared or touching a block.
+@export var infinite_duration := false:
+	set(v):
+		infinite_duration = v
+		set_meta("infinite_duration", v)
+
+## If true, stepping off the pad and touching any normal block or ground immediately removes the boost.
+@export var remove_on_touch_block := false:
+	set(v):
+		remove_on_touch_block = v
+		set_meta("remove_on_touch_block", v)
+
+@export_group("Checkpoint Settings")
+## Checkpoint sequence ID.
+@export var checkpoint_id: int = 1
+## Color when this checkpoint is reached and activated.
+@export var active_color := Color("00ff88")
+## Whether to fully heal the player upon reaching this checkpoint.
+@export var heal_on_checkpoint := true
+
+var is_checkpoint_activated := false
+
 
 func _ready() -> void:
 	_sync_groups_and_meta()
@@ -135,7 +158,7 @@ func _ready() -> void:
 
 
 func _sync_groups_and_meta() -> void:
-	for g in ["damage", "kill", "heal", "insta_heal", "speed_pad", "gravity_pad", "bounce"]:
+	for g in ["damage", "kill", "heal", "insta_heal", "speed_pad", "gravity_pad", "bounce", "checkpoint"]:
 		if is_in_group(g):
 			remove_from_group(g)
 	if insta_kill or pad_type == 1:
@@ -152,6 +175,12 @@ func _sync_groups_and_meta() -> void:
 		add_to_group("gravity_pad")
 	elif pad_type == 6:
 		add_to_group("bounce")
+	elif pad_type == 7:
+		add_to_group("checkpoint")
+		var spawn_pos := (global_position if is_inside_tree() else position) + Vector3(0.0, brick_size.y * 0.5 + 1.2 * STUD, 0.0)
+		set_meta("spawn", spawn_pos)
+		if label_text == "DAMAGE BRICK (-20 HP)":
+			label_text = "CHECKPOINT"
 
 	set_meta("damage", damage_amount)
 	set_meta("damage_cooldown", damage_cooldown)
@@ -163,8 +192,20 @@ func _sync_groups_and_meta() -> void:
 	set_meta("jump_boost_multiplier", jump_boost_multiplier)
 	set_meta("gravity_duration", gravity_duration)
 	set_meta("bounce_power", bounce_power)
+	set_meta("infinite_duration", infinite_duration)
+	set_meta("remove_on_touch_block", remove_on_touch_block)
 	set_meta("color", brick_color.to_html(false))
 	set_meta("mat", "neon" if is_neon else "plastic")
+
+
+func activate_checkpoint() -> void:
+	if not is_in_group("checkpoint"):
+		return
+	is_checkpoint_activated = true
+	brick_color = active_color
+	is_neon = true
+	label_text = "CHECKPOINT ACTIVATED"
+	_rebuild_visuals()
 
 
 func _rebuild_visuals() -> void:

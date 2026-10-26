@@ -50,11 +50,45 @@ const RetroUI := preload("res://scripts/ui/retro_theme.gd")
 
 enum ClimbKind { NONE, LADDER, WALL }
 
-@export_group("Character Physics")
-@export var walk_speed := WALK_SPEED
-@export var jump_power := JUMP_SPEED
-@export var max_step_studs := 2.0
-@export var climb_speed := CLIMB_SPEED
+@export_group("Character Physics & Movement")
+## Base walk speed in studs/second (classic Roblox default: 16.0).
+@export var walk_speed: float = 16.0 * STUD
+## Jump launch power (classic Roblox default: 50.0).
+@export var jump_power: float = 50.0 * STUD
+## Downward gravity acceleration in studs/s² (classic Roblox default: 196.2).
+@export var gravity: float = 196.2 * STUD
+
+@export_group("Climbing & Ledges")
+## Master toggle for whether the player can climb.
+@export var can_climb: bool = true
+## Master toggle for stepping up onto ledges and curbs.
+@export var can_step_up: bool = true
+## Maximum step-up height in studs (e.g. 1.0, 1.5, or 2.0 studs).
+@export var max_step_studs: float = 2.0:
+	set(v):
+		max_step_studs = maxf(v, 0.05)
+## Minimum step-up height in studs (default: 0.05 studs).
+@export var min_step_studs: float = 0.05:
+	set(v):
+		min_step_studs = maxf(v, 0.01)
+## Whether player can climb platform edges and ledges (0.1 to max_step_studs high).
+@export var can_climb_ledges: bool = true
+## Ladder & ledge climbing speed in studs/second.
+@export var climb_speed: float = 11.0 * STUD
+
+@export_group("Health & Fall Damage")
+## Maximum health.
+@export var max_health: float = 100.0
+## Health points regenerated per second (classic Roblox: 1.0 HP/s).
+@export var health_regen_rate: float = 1.0
+## Delay in seconds after taking damage before health starts regenerating (classic Roblox: 1.0s).
+@export var health_regen_delay: float = 1.0
+## Whether high falls cause damage (classic Roblox has no fall damage: false).
+@export var enable_fall_damage: bool = false
+## Safe drop height in studs before fall damage is applied (if enabled).
+@export var fall_safe_height: float = 45.0
+## Damage dealt per stud fallen beyond the safe height (if enabled).
+@export var fall_damage_per_stud: float = 4.0
 
 @export_group("Custom Walk Animation")
 ## Drag-and-drop a custom Animation resource here to override the default walk
@@ -121,9 +155,11 @@ var _tex_voice_levels: Array[Texture2D] = []
 
 var _speed_boost_timer := 0.0
 var _speed_boost_mult := 1.65
+var _speed_remove_on_block := false
 var _gravity_boost_timer := 0.0
 var _gravity_boost_mult := 0.42
 var _jump_boost_mult := 1.25
+var _gravity_remove_on_block := false
 var _climb_grace := 0.0
 var _active_climb_speed := CLIMB_SPEED
 var _touching_damage: Array[Node3D] = []
@@ -343,13 +379,17 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 		_gravity_boost_timer -= delta
 
 	var auto_rot_ladder := true if _settings == null else bool(_settings.get("ladder_auto_rotate"))
-	_update_climb(wish, delta, auto_rot_ladder)
-	if _climb_kind != ClimbKind.NONE and auto_rot_ladder:
-		heading = lerp_angle(heading, atan2(-_climb_face.x, -_climb_face.z), 1.0 - exp(-22.0 * delta))
-	elif use_shiftlock or first_person:
-		heading = cam_yaw
-	elif wish.length_squared() > 0.005:
-		heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
+	if can_climb:
+		_update_climb(wish, delta, auto_rot_ladder)
+		if _climb_kind != ClimbKind.NONE and auto_rot_ladder:
+			heading = lerp_angle(heading, atan2(-_climb_face.x, -_climb_face.z), 1.0 - exp(-22.0 * delta))
+	else:
+		_stop_climb()
+	if not (_climb_kind != ClimbKind.NONE and auto_rot_ladder):
+		if use_shiftlock or first_person:
+			heading = cam_yaw
+		elif wish.length_squared() > 0.005:
+			heading = lerp_angle(heading, atan2(-wish.x, -wish.z), 1.0 - exp(-18.0 * delta))
 
 	if _climb_kind != ClimbKind.NONE:
 		_drive_climb(wish, delta)
@@ -358,7 +398,7 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 		_perform_step_up(wish, delta)
 
 	move_and_slide()
-	if _climb_kind == ClimbKind.NONE and is_on_floor() and is_on_wall():
+	if _climb_kind == ClimbKind.NONE:
 		_perform_step_up(wish, delta)
 	for i in range(get_slide_collision_count()):
 		var sc := get_slide_collision(i)
@@ -379,9 +419,9 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 	_update_brick_ticks(delta)
 	if _regen_wait > 0.0:
 		_regen_wait -= delta
-	elif health < MAX_HEALTH:
-		health = minf(health + REGEN_RATE * delta * 8.0, MAX_HEALTH)
-		health_changed.emit(health, MAX_HEALTH)
+	elif health < max_health:
+		health = minf(health + health_regen_rate * delta, max_health)
+		health_changed.emit(health, max_health)
 	_last_vy = velocity.y
 	avatar.rotation.y = heading
 	if _ladder_sensor != null and is_instance_valid(_ladder_sensor):
@@ -562,7 +602,7 @@ func _wall_hit_along(dir: Vector3, min_h := 0.0) -> Vector3:
 		var col_obj: Variant = hit.get("collider", null)
 		if col_obj is Node3D:
 			var cn := col_obj as Node3D
-			if _is_climbable_node(cn):
+			if _is_climbable_node(cn) or can_climb_ledges:
 				var normal: Vector3 = hit["normal"]
 				if absf(normal.y) < 0.4:
 					return normal
@@ -661,7 +701,7 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 		velocity.x = move_toward(velocity.x, target.x, accel * delta)
 		velocity.z = move_toward(velocity.z, target.z, accel * delta)
 	if not is_on_floor():
-		velocity.y -= GRAVITY * grav_mult * delta
+		velocity.y -= gravity * grav_mult * delta
 	elif velocity.y < 0.0:
 		velocity.y = 0.0
 	var can_jump: bool = is_on_floor() or _coyote > 0.0 or is_on_wall()
@@ -676,27 +716,55 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 			avatar.call("on_jump")
 
 
-func _perform_step_up(wish: Vector3, delta: float) -> void:
-	if (not is_on_floor() and _coyote <= 0.0) or wish.length_squared() < 0.005:
+func _perform_step_up(wish: Vector3, _delta: float) -> void:
+	if not can_step_up or not alive:
 		return
-	var step_h := maxf(max_step_studs, 2.05) * STUD
+	if wish.length_squared() < 0.005:
+		return
 	var move_dir := wish.normalized()
-	var horiz_step := move_dir * maxf(Vector2(velocity.x, velocity.z).length() * delta, 0.38 * STUD)
-	if not test_move(global_transform, horiz_step):
+	var step_h := maxf(max_step_studs, 0.08) * STUD
+
+	# 1. Probing headroom: ensure ceiling above is clear
+	if test_move(global_transform, Vector3.UP * (step_h + 0.1 * STUD)):
 		return
-	if test_move(global_transform, Vector3.UP * step_h):
+
+	var space := get_world_3d().direct_space_state
+	if space == null:
 		return
-	var up_xform := global_transform.translated(Vector3.UP * step_h)
-	if test_move(up_xform, horiz_step):
+
+	# 2. Probe downward across multiple offsets to find step/ledge top surface
+	var found_step := false
+	var target_y := global_position.y
+	var best_dist := 0.0
+
+	for dist_mult: float in [0.65, 1.05, 1.45]:
+		var probe_x := move_dir * (dist_mult * STUD)
+		var from_pt := global_position + probe_x + Vector3.UP * (step_h + 0.15 * STUD)
+		var to_pt := global_position + probe_x + Vector3.DOWN * (0.25 * STUD)
+		var ray := PhysicsRayQueryParameters3D.create(from_pt, to_pt, collision_mask, [get_rid()])
+		var hit := space.intersect_ray(ray)
+		if not hit.is_empty():
+			var hit_norm: Vector3 = hit.get("normal", Vector3.UP)
+			if hit_norm.y > 0.6:
+				var hit_pos: Vector3 = hit["position"]
+				var h_diff := hit_pos.y - global_position.y
+				if h_diff >= (min_step_studs * STUD) and h_diff <= (step_h + 0.08 * STUD):
+					target_y = hit_pos.y
+					best_dist = dist_mult * STUD
+					found_step = true
+					break
+
+	if not found_step:
 		return
-	var forward_xform := up_xform.translated(horiz_step)
-	var down_res := KinematicCollision3D.new()
-	if test_move(forward_xform, Vector3.DOWN * (step_h + 0.15 * STUD), down_res):
-		var actual_step := step_h - down_res.get_travel().length()
-		if actual_step >= 0.04 * STUD and actual_step <= step_h + 0.08:
-			global_transform = forward_xform.translated(Vector3.DOWN * down_res.get_travel().length())
-			if velocity.y < 0.0:
-				velocity.y = 0.0
+
+	# 3. Test if capsule can stand at target step position
+	var target_pos := global_position + move_dir * (best_dist * 0.75)
+	target_pos.y = target_y + 0.02 * STUD
+	var test_xform := Transform3D(global_transform.basis, target_pos)
+	if not test_move(test_xform, Vector3.ZERO):
+		global_position = target_pos
+		if velocity.y < 0.0:
+			velocity.y = 0.0
 
 
 func _dust(strength := 1.0) -> void:
@@ -740,10 +808,11 @@ func _update_fall_damage() -> void:
 	if grounded:
 		if _falling:
 			_falling = false
-			var drop := _fall_peak_y - global_position.y
-			var drop_studs := drop / STUD
-			if drop_studs > FALL_SAFE_HEIGHT:
-				hurt((drop_studs - FALL_SAFE_HEIGHT) * FALL_DMG_PER_STUD)
+			if enable_fall_damage:
+				var drop := _fall_peak_y - global_position.y
+				var drop_studs := drop / STUD
+				if drop_studs > fall_safe_height:
+					hurt((drop_studs - fall_safe_height) * fall_damage_per_stud)
 	else:
 		_fall_peak_y = maxf(_fall_peak_y, global_position.y) if _falling else global_position.y
 		_falling = true
@@ -753,8 +822,8 @@ func hurt(amount: float) -> void:
 	if not alive or amount <= 0.0:
 		return
 	health = maxf(health - amount, 0.0)
-	_regen_wait = REGEN_DELAY
-	health_changed.emit(health, MAX_HEALTH)
+	_regen_wait = health_regen_delay
+	health_changed.emit(health, max_health)
 	if health <= 0.0:
 		health_depleted.emit()
 
@@ -762,8 +831,36 @@ func hurt(amount: float) -> void:
 func heal(amount: float) -> void:
 	if not alive or amount <= 0.0:
 		return
-	health = minf(health + amount, MAX_HEALTH)
-	health_changed.emit(health, MAX_HEALTH)
+	health = minf(health + amount, max_health)
+	health_changed.emit(health, max_health)
+
+
+func play_emote(clip: String) -> void:
+	if avatar != null and avatar.has_method("play_emote"):
+		avatar.call("play_emote", clip)
+
+
+func get_effective_speed_studs() -> float:
+	var mult: float = _speed_boost_mult if _speed_boost_timer > 0.0 else 1.0
+	return (walk_speed * mult) / STUD
+
+
+func get_effective_jump_studs() -> float:
+	var mult: float = _jump_boost_mult if _gravity_boost_timer > 0.0 else 1.0
+	return (jump_power * mult) / STUD
+
+
+func get_effective_gravity_studs() -> float:
+	var mult: float = _gravity_boost_mult if _gravity_boost_timer > 0.0 else 1.0
+	return (gravity * mult) / STUD
+
+
+func get_speed_multiplier() -> float:
+	return _speed_boost_mult if _speed_boost_timer > 0.0 else 1.0
+
+
+func get_gravity_multiplier() -> float:
+	return _gravity_boost_mult if _gravity_boost_timer > 0.0 else 1.0
 
 
 func die(world: Node3D) -> void:
@@ -771,7 +868,7 @@ func die(world: Node3D) -> void:
 		return
 	alive = false
 	health = 0.0
-	health_changed.emit(health, MAX_HEALTH)
+	health_changed.emit(health, max_health)
 	velocity = Vector3.ZERO
 	_stop_climb()
 	if voice_indicator != null and is_instance_valid(voice_indicator):
@@ -782,7 +879,7 @@ func die(world: Node3D) -> void:
 func respawn_at(pos: Vector3) -> void:
 	_ensure_nodes()
 	alive = true
-	health = MAX_HEALTH
+	health = max_health
 	_regen_wait = 0.0
 	_falling = false
 	_stop_climb()
@@ -793,7 +890,7 @@ func respawn_at(pos: Vector3) -> void:
 	_damage_tick_cd = 0.0
 	_heal_tick_cd = 0.0
 	avatar.position.y = 0.0
-	health_changed.emit(health, MAX_HEALTH)
+	health_changed.emit(health, max_health)
 	global_position = pos
 	velocity = Vector3.ZERO
 	heading = 0.0
@@ -888,8 +985,8 @@ func _on_touch_entered(other: Node3D) -> void:
 		touched_group.emit("kill", other)
 		return
 	if other.is_in_group("insta_heal") or other.get("insta_heal") == true:
-		if health < MAX_HEALTH:
-			heal(MAX_HEALTH)
+		if health < max_health:
+			heal(max_health)
 		touched_group.emit("insta_heal", other)
 		return
 	if other.is_in_group("damage"):
@@ -908,27 +1005,58 @@ func _on_touch_entered(other: Node3D) -> void:
 		if _heal_tick_cd <= 0.0:
 			var h_amt := _node_float(other, "heal_amount", "heal", 15.0)
 			var h_cd := _node_float(other, "heal_cooldown", "heal_cooldown", 0.45)
-			if health < MAX_HEALTH:
+			if health < max_health:
 				heal(h_amt)
 			_heal_tick_cd = h_cd
 			touched_group.emit("heal", other)
 		return
+
+	# If remove_on_touch_block was requested by a pad, stepping onto any normal block/ground resets the boost
+	var is_pad := other.is_in_group("speed_pad") or other.is_in_group("gravity_pad") or other.is_in_group("bounce") or other.is_in_group("checkpoint")
+	if not is_pad:
+		if _speed_remove_on_block:
+			_speed_boost_mult = 1.0
+			_speed_boost_timer = 0.0
+			_speed_remove_on_block = false
+		if _gravity_remove_on_block:
+			_gravity_boost_mult = 1.0
+			_jump_boost_mult = 1.0
+			_gravity_boost_timer = 0.0
+			_gravity_remove_on_block = false
+
 	for g in ["goal", "checkpoint", "bounce", "speed_pad", "gravity_pad"]:
 		if other.is_in_group(g):
+			if g == "checkpoint":
+				var spawn_pos: Vector3 = other.global_position + Vector3(0.0, 1.2 * STUD, 0.0)
+				var meta_spawn: Variant = other.get_meta("spawn", null)
+				if meta_spawn is Vector3:
+					spawn_pos = meta_spawn
+				spawn_point = Transform3D(Basis(), spawn_pos)
+				if other.has_method("activate_checkpoint"):
+					other.call("activate_checkpoint")
+				if bool(other.get("heal_on_checkpoint")):
+					heal(max_health)
+				_dust(1.5)
+				touched_group.emit(g, other)
+				return
 			if g == "bounce":
 				var bp := _node_float(other, "bounce_power", "bounce_power", BOUNCE_POWER)
 				_do_bounce(bp * STUD)
 				return
 			if g == "speed_pad":
 				_speed_boost_mult = _node_float(other, "speed_multiplier", "speed_multiplier", 1.65)
-				_speed_boost_timer = _node_float(other, "speed_duration", "speed_duration", 10.0)
+				var is_inf := bool(other.get("infinite_duration")) or bool(other.get_meta("infinite_duration", false)) or _node_float(other, "speed_duration", "speed_duration", 10.0) > 100000.0
+				_speed_boost_timer = INF if is_inf else _node_float(other, "speed_duration", "speed_duration", 10.0)
+				_speed_remove_on_block = bool(other.get("remove_on_touch_block")) or bool(other.get_meta("remove_on_touch_block", false))
 				_dust(1.5)
 				touched_group.emit(g, other)
 				return
 			if g == "gravity_pad":
 				_gravity_boost_mult = _node_float(other, "gravity_multiplier", "gravity_multiplier", 0.42)
 				_jump_boost_mult = _node_float(other, "jump_boost_multiplier", "jump_boost_multiplier", 1.25)
-				_gravity_boost_timer = _node_float(other, "gravity_duration", "gravity_duration", 10.0)
+				var is_inf_g := bool(other.get("infinite_duration")) or bool(other.get_meta("infinite_duration", false)) or _node_float(other, "gravity_duration", "gravity_duration", 10.0) > 100000.0
+				_gravity_boost_timer = INF if is_inf_g else _node_float(other, "gravity_duration", "gravity_duration", 10.0)
+				_gravity_remove_on_block = bool(other.get("remove_on_touch_block")) or bool(other.get_meta("remove_on_touch_block", false))
 				_dust(1.5)
 				touched_group.emit(g, other)
 				return
