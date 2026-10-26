@@ -32,7 +32,7 @@ const CLIMB_FACE_START := 0.35
 const CLIMB_FACE_STAY := 0.20
 const HUG_PRESSURE := 1.5 * STUD
 
-const LAND_SOUND_FALL := 22.0 * STUD
+const LAND_SOUND_FALL := 12.0 * STUD
 const FALL_WIND_SPEED := 34.0 * STUD
 
 const MAX_HEALTH := 100.0
@@ -48,7 +48,7 @@ const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
 const ChatBubbleScript := preload("res://scripts/player/chat_bubble.gd")
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
 
-enum ClimbKind { NONE, LADDER, WALL }
+enum ClimbKind { NONE, LADDER }
 
 @export_group("Character Physics & Movement")
 ## Base walk speed in studs/second (classic Roblox default: 16.0).
@@ -124,6 +124,8 @@ var spawn_point := Transform3D()
 var wants_chat_input := false
 var dust_enabled := true
 
+var _air_time := 0.0
+var _is_jumping := false
 var _regen_wait := 0.0
 var _falling := false
 var _fall_peak_y := 0.0
@@ -135,8 +137,6 @@ var _climb_face := Vector3.ZERO
 var _coyote := 0.0
 var _jump_buffer_left := 0.0
 var _rise_left := 0.0
-var _rise_dir := Vector3.ZERO
-var _rise_lip := 0.0
 var _step_dir := Vector3.ZERO
 var _bounce_cd := 0.0
 var _time := 0.0
@@ -172,7 +172,7 @@ func _init() -> void:
 	name = "LocalPlayer"
 	collision_layer = 4
 	collision_mask = 1
-	floor_snap_length = 0.65 * STUD
+	floor_snap_length = 2.1 * STUD
 	floor_max_angle = deg_to_rad(65.0)
 	floor_block_on_wall = false
 	floor_constant_speed = true
@@ -258,6 +258,7 @@ func set_custom_walk(anim: Animation) -> void:
 
 func _ready() -> void:
 	_ensure_nodes()
+	_apply_project_settings()
 	_settings = get_node_or_null("/root/Settings")
 	_setup_character_sfx()
 	var vc: Node = get_node_or_null("/root/VoiceChat")
@@ -276,6 +277,22 @@ func _ready() -> void:
 func _on_setting_changed(key: String, _val: Variant) -> void:
 	if key in ["voice_enabled", "voice_muted"]:
 		_refresh_voice_bubble(0.0)
+
+
+func _apply_project_settings() -> void:
+	if ProjectSettings.has_setting("player/movement/walk_speed"):
+		walk_speed = float(ProjectSettings.get_setting("player/movement/walk_speed")) * STUD
+	if ProjectSettings.has_setting("player/movement/jump_power"):
+		jump_power = float(ProjectSettings.get_setting("player/movement/jump_power")) * STUD
+	if ProjectSettings.has_setting("player/movement/gravity"):
+		gravity = float(ProjectSettings.get_setting("player/movement/gravity")) * STUD
+	if ProjectSettings.has_setting("player/health/max_health"):
+		max_health = float(ProjectSettings.get_setting("player/health/max_health"))
+		health = max_health
+	if ProjectSettings.has_setting("player/health/health_regen_rate"):
+		health_regen_rate = float(ProjectSettings.get_setting("player/health/health_regen_rate"))
+	if ProjectSettings.has_setting("player/health/fall_damage_enabled"):
+		enable_fall_damage = bool(ProjectSettings.get_setting("player/health/fall_damage_enabled"))
 
 
 func _on_voice_mute_changed(_muted: bool) -> void:
@@ -410,10 +427,15 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 				_on_touch_entered(b as Node3D)
 	var was_grounded := grounded
 	grounded = is_on_floor()
-	if grounded and not was_grounded and _last_vy < -LAND_SOUND_FALL:
-		_play_land_sound()
-		_dust(clampf(-_last_vy / (40.0 * STUD), 1.0, 1.8))
-		land_impact.emit(-_last_vy)
+	if grounded:
+		_air_time = 0.0
+		_is_jumping = false
+		if not was_grounded and _last_vy < -LAND_SOUND_FALL:
+			_play_land_sound()
+			_dust(clampf(-_last_vy / (40.0 * STUD), 1.0, 1.8))
+			land_impact.emit(-_last_vy)
+	else:
+		_air_time += delta
 
 	_update_fall_damage()
 	_update_brick_ticks(delta)
@@ -428,7 +450,8 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 		_ladder_sensor.rotation.y = heading
 	var hspeed := Vector2(velocity.x, velocity.z).length()
 	var anim_speed := absf(velocity.y) if climbing else hspeed
-	avatar.call("animate", delta, anim_speed, grounded, climbing)
+	var anim_grounded := grounded or (not _is_jumping and _air_time < 0.20 and velocity.y > -14.0 * STUD)
+	avatar.call("animate", delta, anim_speed, anim_grounded, climbing)
 
 
 static func _node_float(node: Object, prop_name: String, meta_name: String, default_val: float) -> float:
@@ -487,25 +510,37 @@ func _update_brick_ticks(delta: float) -> void:
 
 func _prune_ladder_contacts() -> void:
 	_ladder_areas.clear()
-	if _ladder_sensor == null or not is_instance_valid(_ladder_sensor):
-		return
-	for b in _ladder_sensor.get_overlapping_bodies():
-		if b is Node3D and b != self and _is_climbable_node(b as Node3D):
-			if not _ladder_areas.has(b):
-				_ladder_areas.append(b as Node3D)
-	for a in _ladder_sensor.get_overlapping_areas():
-		if a is Node3D and a != self and _is_climbable_node(a as Node3D):
-			if not _ladder_areas.has(a):
-				_ladder_areas.append(a as Node3D)
+	if _ladder_sensor != null and is_instance_valid(_ladder_sensor):
+		for b in _ladder_sensor.get_overlapping_bodies():
+			if b is Node3D and b != self and _is_climbable_node(b as Node3D):
+				if not _ladder_areas.has(b):
+					_ladder_areas.append(b as Node3D)
+		for a in _ladder_sensor.get_overlapping_areas():
+			if a is Node3D and a != self and _is_climbable_node(a as Node3D):
+				if not _ladder_areas.has(a):
+					_ladder_areas.append(a as Node3D)
 	for i in range(get_slide_collision_count()):
 		var sc := get_slide_collision(i)
 		if sc != null and sc.get_collider() is Node3D:
 			var col_node := sc.get_collider() as Node3D
 			if col_node != self and _is_climbable_node(col_node) and not _ladder_areas.has(col_node):
 				_ladder_areas.append(col_node)
+	# Direct torso-level raycast straight forward (ensures ladder in front of chest is detected
+	# even when capsule collider halts movement before torso mesh touches)
+	var space := get_world_3d().direct_space_state
+	if space != null:
+		var forward := Vector3(-sin(heading), 0.0, -cos(heading)).normalized()
+		var torso_origin := global_position + Vector3.UP * (2.6 * STUD)
+		var query := PhysicsRayQueryParameters3D.create(torso_origin, torso_origin + forward * (1.6 * STUD), collision_mask, [get_rid()])
+		var hit := space.intersect_ray(query)
+		if not hit.is_empty():
+			var col_obj: Variant = hit.get("collider", null)
+			if col_obj is Node3D and _is_climbable_node(col_obj as Node3D):
+				if not _ladder_areas.has(col_obj):
+					_ladder_areas.append(col_obj as Node3D)
 
 
-func _update_climb(wish: Vector3, delta: float, _auto_rot_ladder: bool) -> void:
+func _update_climb(wish: Vector3, _delta: float, _auto_rot_ladder: bool) -> void:
 	_prune_ladder_contacts()
 
 	if _climb_kind != ClimbKind.NONE and grounded and wish.dot(_climb_face) < -0.15:
@@ -519,44 +554,23 @@ func _update_climb(wish: Vector3, delta: float, _auto_rot_ladder: bool) -> void:
 			var face := _toward(lad)
 			if face != Vector3.ZERO and face.dot(_climb_face) > -0.5:
 				_climb_face = face
-			_climb_grace = 0.12
+			_climb_grace = 0.08
 			return
 		# Left the ladder volume at the top: step cleanly onto the top platform without launching into the sky
-		var was_climbing_up := velocity.y > 0.5 * STUD
+		var was_climbing_up := velocity.y > 0.0
 		var f := _climb_face
-		if was_climbing_up and _try_mantle():
-			return
 		_stop_climb()
+		velocity.y = 0.0
 		if was_climbing_up:
-			velocity.y = 0.0
-			_jump_buffer_left = 0.0
-			_coyote = 0.0
-			velocity.x = f.x * walk_speed * 0.78
-			velocity.z = f.z * walk_speed * 0.78
-		return
-
-	if _climb_kind == ClimbKind.WALL:
-		var normal := _wall_hit_along(_climb_face)
-		if normal != Vector3.ZERO:
-			_climb_face = -normal
-			_climb_grace = 0.35
-			return
-		_climb_grace -= delta
-		if wish.dot(_climb_face) > 0.15 and _try_mantle():
-			return
-		if _climb_grace <= 0.0 or wish.dot(_climb_face) < -0.15:
-			var was_up := velocity.y > 0.5 * STUD
-			var wf := _climb_face
-			_stop_climb()
-			if was_up:
-				velocity.y = 0.0
-				velocity.x = wf.x * walk_speed * 0.75
-				velocity.z = wf.z * walk_speed * 0.75
+			_try_mantle()
+			velocity.x = f.x * walk_speed * 0.7
+			velocity.z = f.z * walk_speed * 0.7
 		return
 
 	if _ladder_dismount > 0.0:
 		return
 
+	# ONLY Ladders and Trusses are climbable — walls and blocks are NEVER climbable!
 	if not _ladder_areas.is_empty():
 		var lad2: Node3D = _nearest_ladder()
 		var face_to_lad := _toward(lad2)
@@ -567,67 +581,30 @@ func _update_climb(wish: Vector3, delta: float, _auto_rot_ladder: bool) -> void:
 				_climb_kind = ClimbKind.LADDER
 				_climb_face = face_to_lad
 				_active_climb_speed = _node_float(lad2, "climb_speed", "climb_speed", climb_speed)
-				_climb_grace = 0.12
+				_climb_grace = 0.08
 				return
-
-	# Rung towers (like Stair1..4), StepTest blocks, and any vertical face (0.1 - 2+ studs high)
-	if wish.length_squared() > 0.04:
-		var wall_normal := _wall_hit_along(wish, 0.1 * STUD)
-		if wall_normal != Vector3.ZERO:
-			var wface := -wall_normal
-			var fwd := Vector3(-sin(heading), 0.0, -cos(heading))
-			if wish.dot(wface) > 0.35 and fwd.dot(wface) >= 0.25:
-				_climb_kind = ClimbKind.WALL
-				_climb_face = wface
-				_active_climb_speed = climb_speed
-				_climb_grace = 0.35
-
-
-func _wall_hit_along(dir: Vector3, min_h := 0.0) -> Vector3:
-	var d := Vector3(dir.x, 0.0, dir.z)
-	if d.length_squared() < 0.001:
-		return Vector3.ZERO
-	d = d.normalized()
-	var space := get_world_3d().direct_space_state
-	if space == null:
-		return Vector3.ZERO
-	for raw_h: float in [0.2, 0.5, 0.9, 1.35, 1.85, 2.35, 2.85, 3.4, 4.0]:
-		if raw_h < min_h:
-			continue
-		var from := global_position + Vector3.UP * (raw_h * STUD)
-		var query := PhysicsRayQueryParameters3D.create(from, from + d * (2.6 * STUD), collision_mask)
-		var hit := space.intersect_ray(query)
-		if hit.is_empty():
-			continue
-		var col_obj: Variant = hit.get("collider", null)
-		if col_obj is Node3D:
-			var cn := col_obj as Node3D
-			if _is_climbable_node(cn) or can_climb_ledges:
-				var normal: Vector3 = hit["normal"]
-				if absf(normal.y) < 0.4:
-					return normal
-	return Vector3.ZERO
 
 
 func _try_mantle() -> bool:
 	var f := Vector3(_climb_face.x, 0.0, _climb_face.z).normalized()
 	if f.length_squared() < 0.01:
-		return false
+		f = Vector3(-sin(heading), 0.0, -cos(heading)).normalized()
 	var space := get_world_3d().direct_space_state
 	if space == null:
+		velocity.y = 0.0
+		_stop_climb()
 		return false
-	var over := global_position + f * (1.2 * STUD) + Vector3.UP * (2.5 * STUD)
-	var down := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (3.0 * STUD), collision_mask)
+	var over := global_position + f * (1.1 * STUD) + Vector3.UP * (1.4 * STUD)
+	var down := PhysicsRayQueryParameters3D.create(over, over + Vector3.DOWN * (2.4 * STUD), collision_mask, [get_rid()])
 	var hit := space.intersect_ray(down)
-	if hit.is_empty():
-		return false
-	var lip: float = float(hit["position"].y) - global_position.y
-	if lip < -0.5 * STUD or lip > 2.5 * STUD:
-		return false
-	if lip > 0.0:
-		move_and_collide(Vector3.UP * (lip + 0.08))
-	move_and_collide(f * (1.3 * STUD))
-	velocity = Vector3.ZERO
+	if not hit.is_empty():
+		var hit_y: float = float(hit["position"].y)
+		var target_pos := global_position + f * (0.9 * STUD)
+		target_pos.y = hit_y + 0.02 * STUD
+		var test_xform := Transform3D(global_transform.basis, target_pos)
+		if not test_move(test_xform, Vector3.ZERO):
+			global_position = target_pos
+	velocity.y = 0.0
 	_stop_climb()
 	grounded = true
 	return true
@@ -708,6 +685,7 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 	if _jump_buffer_left > 0.0 and can_jump:
 		_jump_buffer_left = 0.0
 		_coyote = 0.0
+		_is_jumping = true
 		grounded = false
 		velocity.y = jump_power * (_jump_boost_mult if _gravity_boost_timer > 0.0 else 1.0)
 		_play_jump_sound()
@@ -731,6 +709,16 @@ func _perform_step_up(wish: Vector3, _delta: float) -> void:
 	var space := get_world_3d().direct_space_state
 	if space == null:
 		return
+
+	# Torso-level wall check: ensure no vertical wall in front at chest height (stairs have open air above them; walls do not)
+	var torso_from := global_position + Vector3.UP * (2.5 * STUD)
+	var torso_to := torso_from + move_dir * (1.6 * STUD)
+	var wall_query := PhysicsRayQueryParameters3D.create(torso_from, torso_to, collision_mask, [get_rid()])
+	var wall_hit := space.intersect_ray(wall_query)
+	if not wall_hit.is_empty():
+		var wnorm: Vector3 = wall_hit.get("normal", Vector3.UP)
+		if absf(wnorm.y) < 0.4:
+			return
 
 	# 2. Probe downward across multiple offsets to find step/ledge top surface
 	var found_step := false
@@ -759,12 +747,16 @@ func _perform_step_up(wish: Vector3, _delta: float) -> void:
 
 	# 3. Test if capsule can stand at target step position
 	var target_pos := global_position + move_dir * (best_dist * 0.75)
-	target_pos.y = target_y + 0.02 * STUD
+	target_pos.y = target_y
 	var test_xform := Transform3D(global_transform.basis, target_pos)
-	if not test_move(test_xform, Vector3.ZERO):
+	if test_move(test_xform, Vector3.UP * (2.8 * STUD)):
+		return
+	if not test_move(test_xform, Vector3.DOWN * (0.05 * STUD)):
 		global_position = target_pos
 		if velocity.y < 0.0:
 			velocity.y = 0.0
+		apply_floor_snap()
+		grounded = true
 
 
 func _dust(strength := 1.0) -> void:
@@ -930,13 +922,27 @@ func _update_loops() -> void:
 		return
 	var hspeed := Vector2(velocity.x, velocity.z).length()
 	var walking := alive and grounded and not climbing and hspeed > 2.0 * STUD
-	_steps_loop.playing = walking
 	if walking:
+		if not _steps_loop.playing:
+			_steps_loop.play()
 		_steps_loop.pitch_scale = clampf(1.85 * (0.9 + hspeed / walk_speed * 0.2), 1.4, 2.2)
-	_climb_loop.playing = alive and climbing
+	elif _steps_loop.playing:
+		_steps_loop.stop()
+
+	var is_climbing := alive and climbing
+	if is_climbing:
+		if not _climb_loop.playing:
+			_climb_loop.play()
+	elif _climb_loop.playing:
+		_climb_loop.stop()
+
 	if _fall_loop != null and is_instance_valid(_fall_loop):
 		var plummeting := alive and not grounded and not climbing and velocity.y < -FALL_WIND_SPEED
-		_fall_loop.playing = plummeting
+		if plummeting:
+			if not _fall_loop.playing:
+				_fall_loop.play()
+		elif _fall_loop.playing:
+			_fall_loop.stop()
 
 
 static func _is_climbable_node(other: Node3D) -> bool:
@@ -1045,8 +1051,8 @@ func _on_touch_entered(other: Node3D) -> void:
 				return
 			if g == "speed_pad":
 				_speed_boost_mult = _node_float(other, "speed_multiplier", "speed_multiplier", 1.65)
-				var is_inf := bool(other.get("infinite_duration")) or bool(other.get_meta("infinite_duration", false)) or _node_float(other, "speed_duration", "speed_duration", 10.0) > 100000.0
-				_speed_boost_timer = INF if is_inf else _node_float(other, "speed_duration", "speed_duration", 10.0)
+				var is_infinite := bool(other.get("infinite_duration")) or bool(other.get_meta("infinite_duration", false)) or _node_float(other, "speed_duration", "speed_duration", 10.0) > 100000.0
+				_speed_boost_timer = INF if is_infinite else _node_float(other, "speed_duration", "speed_duration", 10.0)
 				_speed_remove_on_block = bool(other.get("remove_on_touch_block")) or bool(other.get_meta("remove_on_touch_block", false))
 				_dust(1.5)
 				touched_group.emit(g, other)

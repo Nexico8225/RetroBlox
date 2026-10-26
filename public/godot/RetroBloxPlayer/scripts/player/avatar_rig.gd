@@ -561,10 +561,16 @@ func burst(world: Node3D, impulse_seed: int, is_first_person: bool = false) -> v
 
 func _get_oof_audio() -> AudioStream:
 	if _oof_audio == null:
-		if ResourceLoader.exists("res://assets/rbx_uuhhh.mp3"):
-			_oof_audio = load("res://assets/rbx_uuhhh.mp3")
-		else:
-			_oof_audio = load("res://assets/oof.wav")
+		var paths: Array[String] = [
+			"res://assets/SFX/rbx_uuhhh.mp3",
+			"res://assets/SFX/oof.wav",
+			"res://assets/rbx_uuhhh.mp3",
+			"res://assets/oof.wav",
+		]
+		for p in paths:
+			if ResourceLoader.exists(p):
+				_oof_audio = load(p)
+				break
 	return _oof_audio
 
 

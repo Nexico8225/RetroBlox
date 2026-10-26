@@ -64,9 +64,15 @@ func _ensure_nodes() -> void:
 		_camera.name = "Camera3D"
 		_camera.fov = 70.0
 		_camera.near = 0.1
-		_camera.far = 1200.0
+		_camera.far = 1000.0
 		_camera.current = true
 		_arm.add_child(_camera)
+	var listener := _camera.get_node_or_null("AudioListener3D") as AudioListener3D
+	if listener == null:
+		listener = AudioListener3D.new()
+		listener.name = "AudioListener3D"
+		_camera.add_child(listener)
+	listener.make_current()
 
 
 func setup(p_player: Node3D) -> void:
@@ -103,9 +109,9 @@ func _apply_quality_far(q: int) -> void:
 	if _camera == null:
 		return
 	match q:
-		0: _camera.far = 350.0
-		1: _camera.far = 700.0
-		2: _camera.far = 1200.0
+		0: _camera.far = 160.0
+		1: _camera.far = 380.0
+		2: _camera.far = 1000.0
 		3: _camera.far = 2000.0
 
 

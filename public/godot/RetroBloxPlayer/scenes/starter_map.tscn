@@ -1,0 +1,818 @@
+[gd_scene format=3 uid="uid://d0afr5u7welgs"]
+
+[ext_resource type="Script" uid="uid://ce3uijo5vhh24" path="res://scripts/game/game.gd" id="1_game"]
+[ext_resource type="Script" uid="uid://cyrrjc86bxtvb" path="res://scripts/player/local_player.gd" id="2_player"]
+[ext_resource type="Shader" uid="uid://bo468dck1xsqc" path="res://assets/studs/part_studs.gdshader" id="3_0gglp"]
+[ext_resource type="Script" uid="uid://bhb1msdww71su" path="res://scripts/game/camera_rig.gd" id="3_camrig"]
+[ext_resource type="Texture2D" uid="uid://ckmkgy6s85y05" path="res://assets/Materials/Studs 4x4 Normal Plastic.png" id="3_mwfpn"]
+[ext_resource type="Script" uid="uid://d0tibtl0yt0tp" path="res://scripts/game/chat_box.gd" id="4_chatbox"]
+[ext_resource type="Texture2D" uid="uid://b2sdf860oadpg" path="res://assets/studs/stud_tile.png" id="4_mwfpn"]
+[ext_resource type="Texture2D" uid="uid://dy4narrqpos83" path="res://assets/icons/logo.png" id="7_logo"]
+[ext_resource type="Texture2D" uid="uid://dpvr73jah5n1c" path="res://assets/icons/chat.png" id="8_chat"]
+[ext_resource type="Script" uid="uid://be52pow04aysq" path="res://scripts/world/interactive_pad.gd" id="9_pad"]
+[ext_resource type="Script" uid="uid://do602renoe131" path="res://scripts/world/climb_ladder.gd" id="10_ladder"]
+[ext_resource type="FontFile" uid="uid://b3vut8cavqfvd" path="res://assets/fonts/LiberationSans-Bold.ttf" id="11_font_bold"]
+[ext_resource type="Script" uid="uid://cpbbjergntc6q" path="res://scripts/world/moving_platform.gd" id="13_movplat"]
+[ext_resource type="Texture2D" uid="uid://chbws17u1e18f" path="res://assets/studs/SpawnPoint.png" id="14_spawnpoint"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
+sky_top_color = Color(0.231373, 0.509804, 0.768627, 1)
+sky_horizon_color = Color(0.619608, 0.784314, 0.909804, 1)
+ground_bottom_color = Color(0.227451, 0.305882, 0.235294, 1)
+ground_horizon_color = Color(0.619608, 0.784314, 0.909804, 1)
+sun_angle_max = 24.0
+sun_curve = 0.1
+
+[sub_resource type="Sky" id="Sky_main"]
+sky_material = SubResource("ProceduralSkyMaterial_sky")
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 2
+sky = SubResource("Sky_main")
+ambient_light_source = 3
+ambient_light_color = Color(0.545098, 0.643137, 0.741176, 1)
+ambient_light_sky_contribution = 0.45
+ambient_light_energy = 0.42
+tonemap_exposure = 0.92
+fog_enabled = true
+fog_light_color = Color(0.772549, 0.866667, 0.941176, 1)
+fog_density = 0.0005
+fog_sky_affect = 0.04
+
+[sub_resource type="ShaderMaterial" id="Mat_Baseplate"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.28, 0.52, 0.24, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="BoxMesh" id="Mesh_Baseplate"]
+material = SubResource("Mat_Baseplate")
+size = Vector3(512, 2, 512)
+
+[sub_resource type="BoxShape3D" id="Shape_Baseplate"]
+size = Vector3(512, 2, 512)
+
+[sub_resource type="ShaderMaterial" id="Mat_Spawn"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.85, 0.88, 0.9, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="BoxMesh" id="Mesh_Spawn"]
+material = SubResource("Mat_Spawn")
+size = Vector3(14, 1, 14)
+
+[sub_resource type="BoxShape3D" id="Shape_Spawn"]
+size = Vector3(14, 1, 14)
+
+[sub_resource type="StandardMaterial3D" id="Mat_SpawnDecal"]
+transparency = 1
+cull_mode = 0
+albedo_texture = ExtResource("14_spawnpoint")
+roughness = 0.48
+texture_filter = 5
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_SpawnDecal"]
+size = Vector2(12, 12)
+
+[sub_resource type="ShaderMaterial" id="Mat_Red"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.88, 0.22, 0.19, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="BoxMesh" id="Mesh_Brick4x2"]
+size = Vector3(4, 2, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Brick4x2"]
+size = Vector3(4, 2, 4)
+
+[sub_resource type="ShaderMaterial" id="Mat_Yellow"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.96, 0.77, 0.15, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_Blue"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.15, 0.49, 0.86, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_Green"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.18, 0.62, 0.27, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_Stone"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.55, 0.58, 0.62, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_StoneDark"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.35, 0.37, 0.4, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_WoodTrunk"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.42, 0.26, 0.14, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.45
+shader_parameter/specular_val = 0.4
+
+[sub_resource type="ShaderMaterial" id="Mat_PineLeaves"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.18, 0.45, 0.22, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.5
+
+[sub_resource type="ShaderMaterial" id="Mat_ObbyCyan"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.08, 0.72, 0.88, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_ObbyPink"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.92, 0.28, 0.65, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_ObbyOrange"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.96, 0.55, 0.12, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_ObbyPurple"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.58, 0.22, 0.88, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_StepTest"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.22, 0.76, 0.62, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="BoxMesh" id="Mesh_Step05"]
+material = SubResource("Mat_StepTest")
+size = Vector3(4, 0.5, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Step05"]
+size = Vector3(4, 0.5, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_Step10"]
+material = SubResource("Mat_StepTest")
+size = Vector3(4, 1, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Step10"]
+size = Vector3(4, 1, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_Step15"]
+material = SubResource("Mat_StepTest")
+size = Vector3(4, 1.5, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Step15"]
+size = Vector3(4, 1.5, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_Step20"]
+material = SubResource("Mat_StepTest")
+size = Vector3(4, 2, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Step20"]
+size = Vector3(4, 2, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_Stair"]
+size = Vector3(8, 2, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_Stair"]
+size = Vector3(8, 2, 4)
+
+[sub_resource type="ShaderMaterial" id="Mat_Gold"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.96, 0.75, 0.15, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.35
+shader_parameter/specular_val = 0.55
+
+[sub_resource type="BoxMesh" id="Mesh_FortTop"]
+material = SubResource("Mat_Gold")
+size = Vector3(14, 1, 14)
+
+[sub_resource type="BoxShape3D" id="Shape_FortTop"]
+size = Vector3(14, 1, 14)
+
+[sub_resource type="ShaderMaterial" id="Mat_Ramp"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.32, 0.65, 0.95, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="BoxMesh" id="Mesh_Ramp"]
+material = SubResource("Mat_Ramp")
+size = Vector3(6, 1, 26)
+
+[sub_resource type="BoxShape3D" id="Shape_Ramp"]
+size = Vector3(6, 1, 26)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mwfpn"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.55, 0.36, 0.2, 1)
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="BoxMesh" id="BoxMesh_xut8t"]
+size = Vector3(3, 14, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_yqhm1"]
+size = Vector3(3, 14, 0.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nypvj"]
+albedo_color = Color(0.12, 0.84, 0.48, 1)
+roughness = 0.28
+emission_enabled = true
+emission = Color(0.12, 0.84, 0.48, 1)
+emission_energy_multiplier = 1.25
+
+[sub_resource type="BoxMesh" id="BoxMesh_qdvxa"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_oklny"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qecss"]
+albedo_color = Color(0.96, 0.42, 0.1, 1)
+roughness = 0.28
+emission_enabled = true
+emission = Color(0.96, 0.42, 0.1, 1)
+emission_energy_multiplier = 1.25
+
+[sub_resource type="BoxMesh" id="BoxMesh_6lc5r"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_jqr1e"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fcjih"]
+albedo_color = Color(0.92, 0.1, 0.14, 1)
+roughness = 0.28
+emission_enabled = true
+emission = Color(0.92, 0.1, 0.14, 1)
+emission_energy_multiplier = 1.25
+
+[sub_resource type="BoxMesh" id="BoxMesh_hhtnm"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ykfhg"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rakeg"]
+albedo_color = Color(0.22, 0.86, 0.36, 1)
+roughness = 0.28
+emission_enabled = true
+emission = Color(0.22, 0.86, 0.36, 1)
+emission_energy_multiplier = 1.25
+
+[sub_resource type="BoxMesh" id="BoxMesh_yn4dv"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ndqcg"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tnhah"]
+albedo_color = Color(0.15, 0.92, 0.85, 1)
+roughness = 0.28
+emission_enabled = true
+emission = Color(0.15, 0.92, 0.85, 1)
+emission_energy_multiplier = 1.25
+
+[sub_resource type="BoxMesh" id="BoxMesh_x1y4d"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_6m266"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_olsm0"]
+albedo_color = Color(0.15, 0.62, 0.98, 1)
+roughness = 0.28
+emission_enabled = true
+emission = Color(0.15, 0.62, 0.98, 1)
+emission_energy_multiplier = 1.25
+
+[sub_resource type="BoxMesh" id="BoxMesh_l5xxg"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_qv7j1"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dcn7w"]
+albedo_color = Color(0.65, 0.25, 0.96, 1)
+roughness = 0.28
+emission_enabled = true
+emission = Color(0.65, 0.25, 0.96, 1)
+emission_energy_multiplier = 1.25
+
+[sub_resource type="BoxMesh" id="BoxMesh_u4xk6"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_jnij7"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxMesh" id="Mesh_DiscoTile"]
+size = Vector3(4, 0.4, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_DiscoTile"]
+size = Vector3(4, 0.4, 4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_TowerCol"]
+size = Vector3(8, 20, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_TowerCol"]
+size = Vector3(8, 20, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_TowerPlat"]
+size = Vector3(12, 1.5, 12)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_TowerPlat"]
+size = Vector3(12, 1.5, 12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Bridge"]
+size = Vector3(24, 1.2, 5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Bridge"]
+size = Vector3(24, 1.2, 5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_LadderTall"]
+size = Vector3(3, 20, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_LadderTall"]
+size = Vector3(3, 20, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_VictoryPlat"]
+size = Vector3(10, 1.5, 10)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_VictoryPlat"]
+size = Vector3(10, 1.5, 10)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Trunk"]
+size = Vector3(1.6, 4, 1.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Trunk"]
+size = Vector3(1.6, 4, 1.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Leaves1"]
+size = Vector3(6, 2, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Leaves1"]
+size = Vector3(6, 2, 6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Leaves2"]
+size = Vector3(4.5, 2, 4.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Leaves2"]
+size = Vector3(4.5, 2, 4.5)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 1.0
+height = 5.0
+
+[node name="RetroBlox" type="Node3D" unique_id=1989836938]
+script = ExtResource("1_game")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=738012105]
+environment = SubResource("Environment_main")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=2123147578]
+transform = Transform3D(0.819152, 0.42625, -0.383797, 0, 0.669131, 0.743145, 0.573576, -0.608749, 0.54812, 0, 28, 0)
+light_color = Color(1, 0.976471, 0.929412, 1)
+light_energy = 0.82
+shadow_enabled = true
+shadow_bias = 0.03
+shadow_blur = 0.85
+directional_shadow_max_distance = 120.0
+
+[node name="World" type="Node3D" parent="." unique_id=206948336]
+
+[node name="Baseplate" type="StaticBody3D" parent="World" unique_id=1352020447]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+metadata/color = "47853d"
+metadata/mat = "plastic"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Baseplate" unique_id=65815227]
+material_override = SubResource("Mat_Baseplate")
+mesh = SubResource("Mesh_Baseplate")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Baseplate" unique_id=1055418759]
+shape = SubResource("Shape_Baseplate")
+
+[node name="SpawnPad" type="StaticBody3D" parent="World" unique_id=207185890 groups=["spawn"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+metadata/color = "d9dde2"
+metadata/mat = "plastic"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SpawnPad" unique_id=1516963721]
+mesh = SubResource("Mesh_Spawn")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SpawnPad" unique_id=1121692826]
+shape = SubResource("Shape_Spawn")
+
+[node name="SpawnDecal" type="MeshInstance3D" parent="World/SpawnPad" unique_id=1000000001]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.51, 0)
+material_override = SubResource("Mat_SpawnDecal")
+mesh = SubResource("PlaneMesh_SpawnDecal")
+
+[node name="LocalPlayer" type="CharacterBody3D" parent="." unique_id=1740033783]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+collision_layer = 4
+script = ExtResource("2_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LocalPlayer" unique_id=321910658]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="VoiceIndicator" type="Sprite3D" parent="LocalPlayer" unique_id=381355565]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.55, 0)
+pixel_size = 0.0075
+billboard = 1
+no_depth_test = true
+
+[node name="CameraRig" type="Node3D" parent="." unique_id=1896053346]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.8, 0)
+script = ExtResource("3_camrig")
+
+[node name="Pivot" type="Node3D" parent="CameraRig" unique_id=1335900342]
+transform = Transform3D(1, 0, 0, 0, 0.9838437, 0.17902958, 0, -0.17902958, 0.9838437, 0, 0, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraRig/Pivot" unique_id=693393897]
+spring_length = 14.0
+margin = 0.4
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig/Pivot/SpringArm3D" unique_id=1345109045]
+current = true
+fov = 70.0
+near = 0.1
+far = 1200.0
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=563808798]
+
+[node name="ChatBox" type="Control" parent="HUD" unique_id=1608342265]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 10.0
+offset_top = 54.0
+offset_right = 404.0
+offset_bottom = 288.0
+script = ExtResource("4_chatbox")
+
+[node name="LogPanel" type="PanelContainer" parent="HUD/ChatBox" unique_id=487438119]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -42.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LogScroll" type="ScrollContainer" parent="HUD/ChatBox/LogPanel" unique_id=1250463066]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="LogList" type="VBoxContainer" parent="HUD/ChatBox/LogPanel/LogScroll" unique_id=1659946463]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="InputPanel" type="PanelContainer" parent="HUD/ChatBox" unique_id=1696065251]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -36.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="ChatInput" type="LineEdit" parent="HUD/ChatBox/InputPanel" unique_id=1250720377]
+layout_mode = 2
+placeholder_text = "To chat click here or press \"/\" key"
+max_length = 240
+
+[node name="Topbar" type="HBoxContainer" parent="HUD" unique_id=1269252796]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 156.0
+offset_bottom = 46.0
+theme_override_constants/separation = 6
+
+[node name="MenuButton" type="Button" parent="HUD/Topbar" unique_id=105265343]
+custom_minimum_size = Vector2(42, 34)
+layout_mode = 2
+tooltip_text = "Menu (ESC)"
+focus_mode = 0
+icon = ExtResource("7_logo")
+icon_alignment = 1
+expand_icon = true
+
+[node name="ChatButton" type="Button" parent="HUD/Topbar" unique_id=411056406]
+custom_minimum_size = Vector2(42, 34)
+layout_mode = 2
+tooltip_text = "Chat (/)"
+focus_mode = 0
+icon = ExtResource("8_chat")
+icon_alignment = 1
+expand_icon = true
+
+[node name="BadgeHolder" type="Control" parent="HUD/Topbar/ChatButton" unique_id=401063654]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ChatBadgePanel" type="PanelContainer" parent="HUD/Topbar/ChatButton/BadgeHolder" unique_id=1132006909]
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -6.0
+offset_top = -8.0
+offset_right = 10.0
+offset_bottom = 8.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="ChatBadge" type="Label" parent="HUD/Topbar/ChatButton/BadgeHolder/ChatBadgePanel" unique_id=600807008]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="VoiceMicButton" type="Button" parent="HUD/Topbar" unique_id=2019409878]
+custom_minimum_size = Vector2(42, 34)
+layout_mode = 2
+tooltip_text = "Voice Chat (V)"
+focus_mode = 0
+icon_alignment = 1
+expand_icon = true
+
+[node name="HealthBarContainer" type="Control" parent="HUD" unique_id=1602822773]
+layout_mode = 3
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -216.0
+offset_top = 12.0
+offset_right = -14.0
+offset_bottom = 38.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="HealthBar" type="Panel" parent="HUD/HealthBarContainer" unique_id=1737561611]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Fill" type="Panel" parent="HUD/HealthBarContainer/HealthBar" unique_id=1120244340]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 3.0
+offset_top = 3.0
+offset_right = -3.0
+offset_bottom = -3.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HealthValue" type="Label" parent="HUD/HealthBarContainer/HealthBar" unique_id=781539139]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("11_font_bold")
+theme_override_font_sizes/font_size = 12
+text = "HP: 100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FpsChip" type="PanelContainer" parent="HUD" unique_id=1793888327]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -114.0
+offset_top = 44.0
+offset_right = -14.0
+offset_bottom = 70.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="CornerStats" type="Label" parent="HUD/FpsChip" unique_id=36991887]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("11_font_bold")
+theme_override_font_sizes/font_size = 12
+text = "FPS 60"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MobileControls" type="Control" parent="HUD" unique_id=1268926294]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ThumbstickPad" type="Panel" parent="HUD/MobileControls" unique_id=1780906903]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -168.0
+offset_right = 168.0
+offset_bottom = -28.0
+grow_vertical = 0
+
+[node name="ThumbstickKnob" type="Panel" parent="HUD/MobileControls/ThumbstickPad" unique_id=1221342258]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -28.0
+offset_top = -28.0
+offset_right = 28.0
+offset_bottom = 28.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TouchJumpButton" type="Button" parent="HUD/MobileControls" unique_id=2129322650]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -148.0
+offset_top = -136.0
+offset_right = -64.0
+offset_bottom = -52.0
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+icon_alignment = 1
+expand_icon = true
+
+[node name="ShiftLockButton" type="Button" parent="HUD" unique_id=1818721114]
+custom_minimum_size = Vector2(40, 40)
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -52.0
+offset_top = -52.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 0
+grow_vertical = 0
+tooltip_text = "Shift Lock (Shift)"
+focus_mode = 0
+icon_alignment = 1
+expand_icon = true
+
+[node name="CenterCursor" type="TextureRect" parent="HUD" unique_id=1178591128]
+visible = false
+custom_minimum_size = Vector2(38, 38)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -19.0
+offset_top = -19.0
+offset_right = 19.0
+offset_bottom = 19.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ToastBox" type="VBoxContainer" parent="HUD" unique_id=1184454379]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_top = 14.0
+grow_horizontal = 2
+theme_override_constants/separation = 6

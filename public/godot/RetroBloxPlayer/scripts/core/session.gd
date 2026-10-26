@@ -23,9 +23,11 @@ func _ready() -> void:
 
 func _apply_window_icon() -> void:
 	if DisplayServer.has_feature(DisplayServer.FEATURE_ICON):
-		var icon_img := Image.load_from_file("res://assets/RetroBloxLogo.png")
-		if icon_img != null and not icon_img.is_empty():
-			DisplayServer.set_icon(icon_img)
+		var icon_tex = load("res://assets/RetroBloxLogo.png")
+		if icon_tex is Texture2D:
+			var icon_img: Image = (icon_tex as Texture2D).get_image()
+			if icon_img != null and not icon_img.is_empty():
+				DisplayServer.set_icon(icon_img)
 
 
 func sign_in(payload: Dictionary, p_user_id: String, p_username: String, p_role: String, p_seq: int = 0) -> void:

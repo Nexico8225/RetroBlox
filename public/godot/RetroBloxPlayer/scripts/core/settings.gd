@@ -284,14 +284,17 @@ func set_key(key: String, value: Variant) -> void:
 
 
 func apply_graphics_quality() -> void:
-	# 0 = Low (Most Optimized), 1 = Medium (Same look as High, optimized), 2 = High (Unoptimized Native), 3 = Ultra (Realistic Depth)
+	# 0 = Low (Extreme Optimization: 60+ FPS, shadows off, FSR 0.65x, distance culling)
+	# 1 = Medium (Distance Blur & Fog Pixelation, FSR 0.82x, soft shadows)
+	# 2 = High (Native 1.0x, 4x MSAA, full draw distance)
+	# 3 = Ultra (Realistic Depth, 8x MSAA)
 	match graphics_quality:
 		0:
 			shadows = false
-			render_scale = 0.85
+			render_scale = 0.65
 		1:
 			shadows = true
-			render_scale = 1.0
+			render_scale = 0.82
 		2:
 			shadows = true
 			render_scale = 1.0
@@ -303,15 +306,25 @@ func apply_graphics_quality() -> void:
 		var vp := get_viewport()
 		if vp != null:
 			vp.scaling_3d_scale = clampf(render_scale, 0.5, 1.0)
+			if graphics_quality <= 1:
+				vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+				vp.fsr_sharpness = 0.15
+			else:
+				vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+
 			match graphics_quality:
 				0:
 					vp.msaa_3d = Viewport.MSAA_DISABLED
+					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 				1:
 					vp.msaa_3d = Viewport.MSAA_2X
+					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 				2:
 					vp.msaa_3d = Viewport.MSAA_4X
+					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 				3:
 					vp.msaa_3d = Viewport.MSAA_8X
+					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	changed.emit("shadows", shadows)
 	changed.emit("render_scale", render_scale)
 	changed.emit("graphics_preset_applied", graphics_quality)

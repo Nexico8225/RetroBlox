@@ -25,9 +25,7 @@ var hud: CanvasLayer
 var _health_container: Control
 var _health_fill: Panel
 var _health_value: Label
-var _health_hide_timer := 0.0
 var _names_by_uid: Dictionary = {}
-var _health_track_h := 220.0
 var _menu: Control
 var _menu_panel: PanelContainer
 var _players_grid: GridContainer
@@ -196,6 +194,8 @@ func _ready() -> void:
 	_setup_hud()
 	_sync_shiftlock_ui()
 	_sync_mobile_ui()
+	_setup_occlusion_culling()
+	_apply_camera_quality_far()
 
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
@@ -872,6 +872,26 @@ func _apply_light_taps() -> void:
 				btn.action_mode = mode
 
 
+func _setup_occlusion_culling() -> void:
+	var world := get_node_or_null("World")
+	if world == null:
+		return
+	for child in world.get_children():
+		if child is StaticBody3D:
+			var col := child.get_node_or_null("CollisionShape3D") as CollisionShape3D
+			if col != null and col.shape is BoxShape3D:
+				var box := col.shape as BoxShape3D
+				if box.size.x >= 5.0 or box.size.y >= 5.0 or box.size.z >= 5.0:
+					if child.get_node_or_null("Occluder") == null:
+						var occ_inst := OccluderInstance3D.new()
+						occ_inst.name = "Occluder"
+						var occ_box := BoxOccluder3D.new()
+						occ_box.size = box.size * 0.98
+						occ_inst.occluder = occ_box
+						occ_inst.transform = col.transform
+						child.add_child(occ_inst)
+
+
 func _apply_camera_quality_far() -> void:
 	if camera_rig == null or not is_instance_valid(camera_rig):
 		return
@@ -881,10 +901,32 @@ func _apply_camera_quality_far() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
 	var q := 2 if settings == null else int(settings.get("graphics_quality"))
 	match q:
-		0: cam.far = 350.0
-		1: cam.far = 750.0
-		2: cam.far = 1400.0
-		3: cam.far = 2200.0
+		0: cam.far = 160.0
+		1: cam.far = 380.0
+		2: cam.far = 1000.0
+		3: cam.far = 2000.0
+
+	var env_node := get_node_or_null("WorldEnvironment") as WorldEnvironment
+	var sun_node := get_node_or_null("Sun") as DirectionalLight3D
+	if sun_node != null:
+		if q == 0:
+			sun_node.shadow_enabled = false
+		else:
+			sun_node.shadow_enabled = true
+			sun_node.directional_shadow_max_distance = 60.0 if q == 1 else 120.0
+
+	if env_node != null and env_node.environment != null:
+		var env: Environment = env_node.environment
+		match q:
+			0:
+				env.fog_enabled = true
+				env.fog_density = 0.005
+			1:
+				env.fog_enabled = true
+				env.fog_density = 0.0028
+			2, 3:
+				env.fog_enabled = true
+				env.fog_density = 0.0005
 
 
 func _sync_mobile_ui() -> void:
@@ -958,7 +1000,8 @@ func _on_emote_selected(emote_id: String) -> void:
 
 
 func _on_emote_wheel_closed() -> void:
-	if not _menu_open and (chat == null or not chat.is_chat_focused()):
+	var chat_focused: bool = (chat != null and chat.has_method("is_chat_focused") and chat.is_chat_focused())
+	if not _menu_open and not chat_focused:
 		if camera_rig != null and is_instance_valid(camera_rig):
 			camera_rig.set_ui_blocked(false)
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -972,7 +1015,8 @@ func _toggle_emote_wheel() -> void:
 	else:
 		if _menu_open:
 			_toggle_menu()
-		if chat != null and chat.is_chat_focused():
+		var chat_focused: bool = (chat != null and chat.has_method("is_chat_focused") and chat.is_chat_focused())
+		if chat_focused:
 			return
 		_emote_wheel.open()
 		if camera_rig != null and is_instance_valid(camera_rig):

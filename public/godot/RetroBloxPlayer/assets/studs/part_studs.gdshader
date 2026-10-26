@@ -23,37 +23,44 @@ void fragment() {
 	float r_out = roughness_val;
 	float s_out = specular_val;
 
+	float dist_cam = length(world_pos - CAMERA_POSITION_WORLD);
+
 	if (world_normal.y > 0.7) {
-		// Top face: 3D studs
+		// Top face: studs
 		vec2 uv_stud = world_pos.xz * stud_density;
 		vec2 local_cell = fract(uv_stud) - vec2(0.5);
 		float dist = length(local_cell);
 
-		// Tangent-space normal mapping from 4x4 normal texture (4 studs per texture tile -> * 0.25)
-		vec2 uv_norm = world_pos.xz * (stud_density * 0.25);
-		vec4 n_tex_sample = texture(stud_normal_tex, uv_norm);
-		if (length(n_tex_sample.rgb) > 0.05) {
-			NORMAL_MAP = n_tex_sample.rgb;
-			NORMAL_MAP_DEPTH = normal_depth;
-		} else {
-			// Procedural 3D stud dome normal when texture is unassigned
-			if (dist < 0.33) {
-				vec2 dir = dist > 0.001 ? normalize(local_cell) : vec2(0.0);
-				float slope = smoothstep(0.23, 0.32, dist);
-				NORMAL_MAP = vec3(0.5 + dir.x * slope * 0.45, 0.5 - dir.y * slope * 0.45, 1.0);
+		if (dist_cam < 55.0) {
+			// Near camera: full 3D normal mapping & AO highlights
+			vec2 uv_norm = world_pos.xz * (stud_density * 0.25);
+			vec4 n_tex_sample = texture(stud_normal_tex, uv_norm);
+			if (length(n_tex_sample.rgb) > 0.05) {
+				NORMAL_MAP = n_tex_sample.rgb;
 				NORMAL_MAP_DEPTH = normal_depth;
+			} else {
+				if (dist < 0.33) {
+					vec2 dir = dist > 0.001 ? normalize(local_cell) : vec2(0.0);
+					float slope = smoothstep(0.23, 0.32, dist);
+					NORMAL_MAP = vec3(0.5 + dir.x * slope * 0.45, 0.5 - dir.y * slope * 0.45, 1.0);
+					NORMAL_MAP_DEPTH = normal_depth;
+				}
+			}
+
+			float rim_shadow = smoothstep(0.25, 0.31, dist) * (1.0 - smoothstep(0.31, 0.38, dist));
+			float top_rim = smoothstep(0.22, 0.27, dist) * (1.0 - smoothstep(0.27, 0.32, dist));
+			float stud_cap = 1.0 - smoothstep(0.0, 0.25, dist);
+
+			base *= (1.0 - rim_shadow * 0.22);
+			base += vec3(top_rim * 0.07 + stud_cap * 0.04);
+			r_out = clamp(roughness_val - (top_rim * 0.14 + stud_cap * 0.07), 0.18, 0.88);
+			s_out = clamp(specular_val + stud_cap * 0.10, 0.0, 1.0);
+		} else {
+			// Fast optimized stud highlights for far pixels
+			if (dist < 0.28) {
+				base += vec3(0.04);
 			}
 		}
-
-		// Authentic Stud ring contact AO and cap highlights
-		float rim_shadow = smoothstep(0.25, 0.31, dist) * (1.0 - smoothstep(0.31, 0.38, dist));
-		float top_rim = smoothstep(0.22, 0.27, dist) * (1.0 - smoothstep(0.27, 0.32, dist));
-		float stud_cap = 1.0 - smoothstep(0.0, 0.25, dist);
-
-		base *= (1.0 - rim_shadow * 0.22);
-		base += vec3(top_rim * 0.07 + stud_cap * 0.04);
-		r_out = clamp(roughness_val - (top_rim * 0.14 + stud_cap * 0.07), 0.18, 0.88);
-		s_out = clamp(specular_val + stud_cap * 0.10, 0.0, 1.0);
 	} else if (world_normal.y < -0.7) {
 		// Underside: classic recessed darker plastic
 		base *= 0.82;

@@ -119,11 +119,15 @@ export function RbxAdminView() {
     if (!window.confirm(`Permanently remove ${ids.length} account${ids.length === 1 ? '' : 's'} and everything they own? This cannot be undone.`)) return
     setBotBusy(true)
     try {
-      const res = await api<{ removed: string[] }>('/api/admin/bots', { method: 'POST', body: JSON.stringify({ userIds: ids }) })
-      flash(setToast, `Removed ${res.removed.length} account${res.removed.length === 1 ? '' : 's'}.`, 3200)
+      const res = await api<{ removed: string[]; errors?: string[] }>('/api/admin/bots', { method: 'POST', body: JSON.stringify({ userIds: ids }) })
+      if (res.errors && res.errors.length > 0) {
+        flash(setToast, `Removed ${res.removed.length} account(s). Warning: ${res.errors[0]}`, 4500)
+      } else {
+        flash(setToast, `Removed ${res.removed.length} account${res.removed.length === 1 ? '' : 's'}.`, 3200)
+      }
       await loadBots()
     } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Cleanup failed.', 3600)
+      flash(setToast, e instanceof Error ? e.message : 'Cleanup failed.', 4000)
     } finally {
       setBotBusy(false)
     }

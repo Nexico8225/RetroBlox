@@ -297,6 +297,10 @@ func is_typing() -> bool:
 	return is_open or (_input_box != null and is_instance_valid(_input_box) and _input_box.has_focus())
 
 
+func is_chat_focused() -> bool:
+	return is_typing()
+
+
 func add_chat(username: String, _seq_id: int, text: String, name_color: String = "", _self_style := false, _uid := "") -> void:
 	_ensure_ui()
 	var color := _color_for(username, name_color)

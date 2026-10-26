@@ -97,9 +97,31 @@ open_chat={
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-lights_and_shadows/directional_shadow/size=8192
-lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
-textures/default_filters/anisotropic_filtering_level=4
-anti_aliasing/quality/msaa_3d=2
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+anti_aliasing/quality/msaa_3d=1
 environment/defaults/default_clear_color=Color(0.623529, 0.843137, 1, 1)
 occlusion_culling/use_occlusion_culling=true
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/retroblox_studio/plugin.cfg")
+
+[player]
+
+movement/walk_speed=16.0
+movement/jump_power=50.0
+movement/gravity=196.2
+movement/bunny_hop=true
+health/max_health=100.0
+health/health_regen_rate=1.0
+health/fall_damage_enabled=true
+features/voice_chat=true
+features/shift_lock=true
+appearance/default_shirt=""
+appearance/default_pants=""
+
+[world]
+
+baseplate/size=512.0
+baseplate/color="5ca744"
