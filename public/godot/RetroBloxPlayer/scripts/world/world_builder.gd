@@ -4,8 +4,12 @@ extends RefCounted
 const STUD := 1.0
 const STUD_SHADER_PATH := "res://assets/studs/part_studs.gdshader"
 const STUD_TEX_PATH := "res://assets/studs/stud_tile.png"
+const STUD_NORMAL_PATH := "res://assets/Materials/Studs 4x4 Normal Plastic.png"
+const SPAWN_TEX_PATH := "res://assets/studs/SpawnPoint.png"
 
 static var _stud_tex: Texture2D
+static var _stud_normal_tex: Texture2D
+static var _spawn_tex: Texture2D
 static var _stud_shader: Shader
 
 
@@ -171,6 +175,8 @@ static func prepare_scene_world(world_root: Node3D) -> Array[Vector3]:
 					col_size = ((c as CollisionShape3D).shape as BoxShape3D).size
 				if c is MeshInstance3D:
 					var mi := c as MeshInstance3D
+					if mi.name == "SpawnDecal" or mi.name.begins_with("Decal"):
+						continue
 					var mat_kind := String(sb.get_meta("mat", "plastic"))
 					var no_studs := bool(sb.get_meta("no_studs", false))
 					var col_hex := String(sb.get_meta("color", ""))
@@ -189,6 +195,8 @@ static func prepare_scene_world(world_root: Node3D) -> Array[Vector3]:
 								col = p_col
 					mi.material_override = _part_material(col, mat_kind, tex, no_studs)
 			if sb.is_in_group("spawn"):
+				if sb.get_node_or_null("SpawnDecal") == null:
+					_spawn_pad_visual(sb, Vector3.ZERO, col_size)
 				spawns.append(sb.position + Vector3(0.0, col_size.y * 0.5 + 0.2 * STUD, 0.0))
 	return spawns
 
@@ -823,6 +831,42 @@ static func stud_texture() -> Texture2D:
 	return _stud_tex
 
 
+static func stud_normal_texture() -> Texture2D:
+	if _stud_normal_tex != null and is_instance_valid(_stud_normal_tex):
+		return _stud_normal_tex
+	if ResourceLoader.exists(STUD_NORMAL_PATH):
+		var loaded: Texture2D = load(STUD_NORMAL_PATH)
+		if loaded != null:
+			_stud_normal_tex = loaded
+			return _stud_normal_tex
+	var abs_path := ProjectSettings.globalize_path(STUD_NORMAL_PATH)
+	if FileAccess.file_exists(abs_path):
+		var raw_img := Image.load_from_file(abs_path)
+		if raw_img != null and not raw_img.is_empty():
+			raw_img.generate_mipmaps()
+			_stud_normal_tex = ImageTexture.create_from_image(raw_img)
+			return _stud_normal_tex
+	return null
+
+
+static func spawn_texture() -> Texture2D:
+	if _spawn_tex != null and is_instance_valid(_spawn_tex):
+		return _spawn_tex
+	if ResourceLoader.exists(SPAWN_TEX_PATH):
+		var loaded: Texture2D = load(SPAWN_TEX_PATH)
+		if loaded != null:
+			_spawn_tex = loaded
+			return _spawn_tex
+	var abs_path := ProjectSettings.globalize_path(SPAWN_TEX_PATH)
+	if FileAccess.file_exists(abs_path):
+		var raw_img := Image.load_from_file(abs_path)
+		if raw_img != null and not raw_img.is_empty():
+			raw_img.generate_mipmaps()
+			_spawn_tex = ImageTexture.create_from_image(raw_img)
+			return _spawn_tex
+	return null
+
+
 static func _flat_mat(color: Color, roughness: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
@@ -839,7 +883,13 @@ static func _part_material(color: Color, kind: String, tex: Texture2D, no_studs:
 			sm.shader = _stud_shader
 			sm.set_shader_parameter("albedo", color)
 			sm.set_shader_parameter("stud_tex", tex)
+			var ntex := stud_normal_texture()
+			if ntex != null:
+				sm.set_shader_parameter("stud_normal_tex", ntex)
 			sm.set_shader_parameter("stud_density", 1.0 / STUD)
+			sm.set_shader_parameter("normal_depth", 1.35)
+			sm.set_shader_parameter("roughness_val", 0.38)
+			sm.set_shader_parameter("specular_val", 0.52)
 			return sm
 	var m := StandardMaterial3D.new()
 	match kind:
@@ -885,14 +935,17 @@ static func _ladder_visual(root: Node3D, pos: Vector3, size: Vector3) -> void:
 
 static func _spawn_pad_visual(root: Node3D, pos: Vector3, size: Vector3) -> void:
 	var decal := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = minf(size.x, size.z) * 0.36
-	cyl.bottom_radius = cyl.top_radius
-	cyl.height = 0.05 * STUD
-	decal.mesh = cyl
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color("d9dde2")
-	m.roughness = 0.6
-	decal.material_override = m
-	decal.position = pos + Vector3(0.0, size.y * 0.5 + 0.03 * STUD, 0.0)
+	decal.name = "SpawnDecal"
+	var pm := PlaneMesh.new()
+	var d_sz: float = minf(size.x, size.z) * 0.90
+	pm.size = Vector2(d_sz, d_sz)
+	decal.mesh = pm
+	var sm := StandardMaterial3D.new()
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	sm.albedo_texture = spawn_texture()
+	sm.roughness = 0.48
+	sm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	decal.material_override = sm
+	decal.position = pos + Vector3(0.0, size.y * 0.5 + 0.02 * STUD, 0.0)
 	root.add_child(decal)

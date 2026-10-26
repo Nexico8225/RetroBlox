@@ -8,6 +8,7 @@ extends StaticBody3D
 const STUD := 1.0
 const STUD_SHADER_PATH := "res://assets/studs/part_studs.gdshader"
 const STUD_TEX_PATH := "res://assets/studs/stud_tile.png"
+const STUD_NORMAL_PATH := "res://assets/Materials/Studs 4x4 Normal Plastic.png"
 
 @export_group("Pad Type & Appearance")
 @export_enum("Damage Brick:0", "Kill Brick:1", "Heal Brick:2", "Insta-Heal Brick:3", "Speed Pad:4", "Gravity Pad:5", "Bounce Pad:6") var pad_type: int = 0:
@@ -196,13 +197,17 @@ func _rebuild_visuals() -> void:
 	else:
 		var sh := load(STUD_SHADER_PATH) as Shader
 		var st := load(STUD_TEX_PATH) as Texture2D
+		var sn := load(STUD_NORMAL_PATH) as Texture2D
 		if sh != null:
 			var smat := ShaderMaterial.new()
 			smat.shader = sh
 			smat.set_shader_parameter("albedo", brick_color)
 			if st != null:
 				smat.set_shader_parameter("stud_tex", st)
+			if sn != null:
+				smat.set_shader_parameter("stud_normal_tex", sn)
 			smat.set_shader_parameter("stud_density", 1.0)
+			smat.set_shader_parameter("normal_depth", 1.35)
 			smat.set_shader_parameter("roughness_val", 0.38)
 			smat.set_shader_parameter("specular_val", 0.52)
 			mesh_node.material_override = smat

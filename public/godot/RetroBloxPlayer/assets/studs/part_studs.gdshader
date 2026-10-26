@@ -1,15 +1,14 @@
 shader_type spatial;
 render_mode diffuse_burley, specular_schlick_ggx;
 
-// High-Detail Classic Roblox Studded Plastic Shader with 3D Stud & Tile Seam Normal Relief
-// Renders the 512x512 stud tile texture on top-facing surfaces (world_normal.y > 0.7)
-// with 3D normal mapping, contact AO, and subtle surface roughness variation, without overexposing albedo.
-
+// Authentic Classic Roblox Studded Plastic Shader with 3D Normal Mapping & Procedural Fallback
 uniform vec4 albedo : source_color = vec4(0.56, 0.56, 0.58, 1.0);
+uniform sampler2D stud_normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D stud_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float stud_density : hint_range(0.25, 4.0) = 1.0;
-uniform float roughness_val : hint_range(0.0, 1.0) = 0.46;
-uniform float specular_val : hint_range(0.0, 1.0) = 0.48;
+uniform float normal_depth : hint_range(0.0, 3.0) = 1.35;
+uniform float roughness_val : hint_range(0.0, 1.0) = 0.38;
+uniform float specular_val : hint_range(0.0, 1.0) = 0.52;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -23,35 +22,48 @@ void fragment() {
 	vec3 base = albedo.rgb;
 	float r_out = roughness_val;
 	float s_out = specular_val;
+
 	if (world_normal.y > 0.7) {
-		vec2 uv = world_pos.xz * stud_density;
-		float s_center = texture(stud_tex, uv).r;
-		vec2 cell = fract(uv) - vec2(0.5);
-		float dist = length(cell);
+		// Top face: 3D studs
+		vec2 uv_stud = world_pos.xz * stud_density;
+		vec2 local_cell = fract(uv_stud) - vec2(0.5);
+		float dist = length(local_cell);
 
-		// 3D stud cylinder rim normal + tile border bevel normal
-		float rim_slope = smoothstep(0.23, 0.285, dist) * (1.0 - smoothstep(0.285, 0.34, dist));
-		vec2 radial = (dist > 0.001) ? (cell / dist) : vec2(0.0);
-		vec2 border_n = smoothstep(0.46, 0.50, abs(cell)) * sign(cell) * 0.28;
-		vec3 n_map = normalize(vec3(-radial.x * rim_slope * 0.72 - border_n.x, -radial.y * rim_slope * 0.72 - border_n.y, 1.0));
-		NORMAL_MAP = n_map * 0.5 + 0.5;
-		NORMAL_MAP_DEPTH = 1.05;
+		// Tangent-space normal mapping from 4x4 normal texture (4 studs per texture tile -> * 0.25)
+		vec2 uv_norm = world_pos.xz * (stud_density * 0.25);
+		vec4 n_tex_sample = texture(stud_normal_tex, uv_norm);
+		if (length(n_tex_sample.rgb) > 0.05) {
+			NORMAL_MAP = n_tex_sample.rgb;
+			NORMAL_MAP_DEPTH = normal_depth;
+		} else {
+			// Procedural 3D stud dome normal when texture is unassigned
+			if (dist < 0.33) {
+				vec2 dir = dist > 0.001 ? normalize(local_cell) : vec2(0.0);
+				float slope = smoothstep(0.23, 0.32, dist);
+				NORMAL_MAP = vec3(0.5 + dir.x * slope * 0.45, 0.5 - dir.y * slope * 0.45, 1.0);
+				NORMAL_MAP_DEPTH = normal_depth;
+			}
+		}
 
-		// Preserve true albedo richness (never blow out to white) with contact AO in the stud collar
-		float tex_mod = clamp(s_center / 0.93, 0.68, 1.03);
-		float collar_ao = 1.0 - smoothstep(0.26, 0.31, dist) * (1.0 - smoothstep(0.31, 0.38, dist)) * 0.16;
-		base *= tex_mod * collar_ao;
-		r_out = clamp(roughness_val - (1.0 - smoothstep(0.0, 0.25, dist)) * 0.07 + rim_slope * 0.08, 0.22, 0.92);
+		// Authentic Stud ring contact AO and cap highlights
+		float rim_shadow = smoothstep(0.25, 0.31, dist) * (1.0 - smoothstep(0.31, 0.38, dist));
+		float top_rim = smoothstep(0.22, 0.27, dist) * (1.0 - smoothstep(0.27, 0.32, dist));
+		float stud_cap = 1.0 - smoothstep(0.0, 0.25, dist);
+
+		base *= (1.0 - rim_shadow * 0.22);
+		base += vec3(top_rim * 0.07 + stud_cap * 0.04);
+		r_out = clamp(roughness_val - (top_rim * 0.14 + stud_cap * 0.07), 0.18, 0.88);
+		s_out = clamp(specular_val + stud_cap * 0.10, 0.0, 1.0);
 	} else if (world_normal.y < -0.7) {
-		// Subtle darker underside inlet
-		base *= 0.84;
-		r_out = clamp(roughness_val + 0.10, 0.25, 0.95);
+		// Underside: classic recessed darker plastic
+		base *= 0.82;
+		r_out = clamp(roughness_val + 0.12, 0.25, 0.95);
 	} else {
-		// Subtle horizontal molding seam on vertical brick faces
-		float v_seam = smoothstep(0.47, 0.50, abs(fract(world_pos.y * stud_density) - 0.5));
-		base *= 1.0 - v_seam * 0.06;
-		r_out = clamp(roughness_val + 0.04, 0.25, 0.92);
+		// Side faces: sleek molded plastic with subtle bevel seams
+		float v_seam = smoothstep(0.48, 0.50, abs(fract(world_pos.y * stud_density) - 0.5));
+		base *= 1.0 - v_seam * 0.05;
 	}
+
 	ALBEDO = base;
 	ROUGHNESS = r_out;
 	SPECULAR = s_out;

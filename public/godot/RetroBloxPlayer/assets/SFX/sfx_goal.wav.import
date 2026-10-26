@@ -2,13 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://dj6scp741ckq"
-path="res://.godot/imported/oof.wav-9bbe018d71ae4175e05f51c04c8fbf6c.sample"
+uid="uid://bhbr4l5sq51ue"
+path="res://.godot/imported/sfx_goal.wav-bc3ffa439e168659015d6011e031f9e6.sample"
 
 [deps]
 
-source_file="res://assets/oof.wav"
-dest_files=["res://.godot/imported/oof.wav-9bbe018d71ae4175e05f51c04c8fbf6c.sample"]
+source_file="res://assets/SFX/sfx_goal.wav"
+dest_files=["res://.godot/imported/sfx_goal.wav-bc3ffa439e168659015d6011e031f9e6.sample"]
 
 [params]
 
