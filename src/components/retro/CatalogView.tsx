@@ -201,29 +201,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   const [myGroups, setMyGroups] = useState<GroupOpt[]>([])
   const [tryOn, setTryOn] = useState<CatalogItem | null>(null)
   const [editing, setEditing] = useState<CatalogItem | null>(null)
-  // admin-only: soft-deleted UGC — deletes are reversible, nothing is ever really gone
-  const [deletedItems, setDeletedItems] = useState<CatalogItem[]>([])
   const isAdmin = user?.role === 'admin'
-
-  const loadDeleted = useCallback(async () => {
-    if (!isAdmin) { setDeletedItems([]); return }
-    try {
-      const res = await api<{ items: CatalogItem[] }>('/api/catalog?deleted=1')
-      setDeletedItems(res.items)
-    } catch { /* ignore */ }
-  }, [isAdmin])
-
-  useEffect(() => { loadDeleted() }, [loadDeleted])
-
-  async function restoreItem(item: CatalogItem) {
-    try {
-      const res = await api<{ message?: string }>(`/api/catalog/${item.id}`, { method: 'POST', body: JSON.stringify({ action: 'restore' }) })
-      flash(setToast, res.message || 'Restored!')
-      await Promise.all([loadDeleted(), load()])
-    } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Restore failed', 3000)
-    }
-  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -264,14 +242,13 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
   }
 
   async function removeItem(item: CatalogItem) {
-    if (!window.confirm(`Delete "${item.name}"? It hides from the catalog — an admin can restore it any time.`)) return
+    if (!window.confirm(`Permanently delete "${item.name}"? This cannot be undone.`)) return
     try {
       await api(`/api/catalog/${item.id}`, { method: 'DELETE' })
-      flash(setToast, 'UGC deleted — restorable by an admin.')
+      flash(setToast, 'UGC permanently deleted.')
       load()
-      loadDeleted()
     } catch (e) {
-      flash(setToast, e instanceof Error ? e.message : 'Failed', 2400)
+      flash(setToast, e instanceof Error ? e.message : 'Delete failed', 2400)
     }
   }
 
@@ -356,31 +333,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
         </div>
       </div>
 
-      {/* admin-only recycle bin — deleted UGC is restorable, nothing is ever gone for good */}
-      {isAdmin && deletedItems.length > 0 && (
-        <div className="rb-box" style={{ padding: 10, marginBottom: 12, background: '#fff8e8', borderColor: '#e0c98a' }}>
-          <div style={{ fontSize: 11, fontWeight: 'bold', color: '#8a6d1a', marginBottom: 6 }}>
-            Deleted UGC ({deletedItems.length}) — restorable, nothing is ever gone for good
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {deletedItems.map((item) => (
-              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e0c98a', padding: '3px 8px', borderRadius: 3 }}>
-                <span style={{ fontSize: 10, color: '#5d4a0a' }}>
-                  {item.name} <span style={{ fontFamily: 'monospace', color: '#9aa7b4' }}>({item.assetId})</span>
-                </span>
-                <button
-                  type="button"
-                  className="rb-btn rb-btn-green"
-                  style={{ fontSize: 9, padding: '2px 8px' }}
-                  onClick={() => restoreItem(item)}
-                >
-                  ↺ Restore
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* item grid */}
       {loading ? (

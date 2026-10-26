@@ -434,11 +434,41 @@ export function RbxAdminView() {
               ))}
               {bots.length === 0 && <div style={{ fontSize: 11, color: '#8ba0b3' }}>No accounts to review.</div>}
             </div>
-            <div style={{ marginTop: 9, display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button type="button" className="rb-btn rb-btn-red" disabled={botBusy || botPicked.size === 0} onClick={removeBots} style={{ fontSize: 11.5, padding: '5px 14px' }}>
-                {botBusy ? 'Removing…' : `Remove ${botPicked.size || ''} picked`}
+            <div style={{ marginTop: 9, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="rb-btn rb-btn-red"
+                disabled={botBusy || botPicked.size === 0}
+                onClick={removeBots}
+                style={{ fontSize: 11.5, padding: '5px 14px' }}
+              >
+                {botBusy ? 'Removing…' : `Remove ${botPicked.size || ''} picked & their UGC`}
               </button>
-              <span style={{ fontSize: 10, color: '#8ba0b3' }}>This cannot be undone.</span>
+              <button
+                type="button"
+                className="rb-btn"
+                style={{ fontSize: 10.5, padding: '4px 10px' }}
+                onClick={() => setBotPicked(new Set(bots.filter((u) => u.likelyBot).map((u) => u.id)))}
+              >
+                Select All Bots
+              </button>
+              <button
+                type="button"
+                className="rb-btn"
+                style={{ fontSize: 10.5, padding: '4px 10px' }}
+                onClick={() => setBotPicked(new Set(bots.filter((u) => u.role !== 'admin').map((u) => u.id)))}
+              >
+                Select All Non-Admins
+              </button>
+              <button
+                type="button"
+                className="rb-link"
+                style={{ fontSize: 10.5 }}
+                onClick={() => setBotPicked(new Set())}
+              >
+                Clear
+              </button>
+              <span style={{ fontSize: 10, color: '#8ba0b3' }}>Permanently deletes accounts and everything they created (no restore).</span>
             </div>
           </div>
         </div>
