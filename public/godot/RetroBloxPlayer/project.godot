@@ -17,7 +17,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="RetroBlox Player"
 run/main_scene="res://scenes/login.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://assets/icon.svg"
+config/icon="res://assets/RetroBloxLogo.png"
 
 [audio]
 

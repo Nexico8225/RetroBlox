@@ -144,6 +144,22 @@ func is_r6ik() -> bool:
 	return _using_r6ik
 
 
+func get_part_pivot(index: int) -> Node3D:
+	if index >= 0 and index < _pivots.size() and is_instance_valid(_pivots[index]):
+		return _pivots[index]
+	return null
+
+
+func get_part_holder(index: int) -> Node3D:
+	var p := get_part_pivot(index)
+	if p == null:
+		return null
+	var h := p.get_node_or_null("Holder_%d" % index) as Node3D
+	if h != null:
+		return h
+	return p
+
+
 func setup(p_name: String) -> void:
 	_display_name = p_name
 	_ensure_built(true)
@@ -801,6 +817,11 @@ func _build_boxes() -> void:
 		mount.position = Vector3.ZERO
 		mesh_node.add_child(mount)
 		_mounts.append(mount)
+
+		var holder := Node3D.new()
+		holder.name = "Holder_%d" % index
+		holder.position = -pivot_pos
+		pivot.add_child(holder)
 
 	HEAD_PIVOT_Y = (4.0 + 1.15 * 0.5 - 0.05) * STUD
 	_setup_anim_library()

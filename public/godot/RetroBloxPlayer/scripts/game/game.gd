@@ -2393,7 +2393,6 @@ func _on_health_changed(hp: float, max_hp: float) -> void:
 func _on_health_depleted() -> void:
 	if player != null and is_instance_valid(player) and player.alive:
 		player.die(self)
-		chat.add_system("Oof! Took too much damage!")
 	if not _respawning:
 		_start_respawn()
 
@@ -2401,7 +2400,6 @@ func _on_health_depleted() -> void:
 func _on_touched_group(group: String, node: Node3D) -> void:
 	if group == "kill" and player.alive:
 		player.die(self)
-		chat.add_system("Oof! Touched Kill Brick!")
 		_start_respawn()
 	elif group == "checkpoint":
 		var pos: Variant = node.get_meta("spawn", null)
@@ -2410,7 +2408,6 @@ func _on_touched_group(group: String, node: Node3D) -> void:
 		player.spawn_point = Transform3D(Basis(), pos)
 		if node.has_method("activate_checkpoint"):
 			node.call("activate_checkpoint")
-		chat.add_system("Checkpoint reached!")
 	elif group == "goal" and not _finished:
 		_finished = true
 		chat.add_system("*** You reached the goal — classic victory! ***")

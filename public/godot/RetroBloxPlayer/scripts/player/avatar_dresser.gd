@@ -180,14 +180,37 @@ static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
         # wrapper (the same trick loadRig() uses on the site) maps the
         # whole placement — position AND rotation — into this rig's
         # space, so items appear forwards here exactly like the site.
-        var existing_ugc := (avatar_node as Node).get_node_or_null("UGCYaw_" + acc_id)
+        var existing_ugc := (avatar_node as Node).find_child("UGCYaw_" + acc_id, true, false)
         if existing_ugc != null:
                 existing_ugc.queue_free()
         var yaw := Node3D.new()
         yaw.name = "UGCYaw_" + acc_id
         yaw.rotation.y = PI
         yaw.add_child(holder)
-        avatar_node.add_child(yaw)
+
+        var target_part: int = int(avatar_node.get("HEAD"))
+        match kind:
+                "hat", "hair", "face":
+                        target_part = int(avatar_node.get("HEAD"))
+                "gear":
+                        target_part = int(avatar_node.get("ARM_R"))
+                "neck", "shoulder", "front", "waist", "accessory":
+                        target_part = int(avatar_node.get("TORSO"))
+                _:
+                        var p_raw: Variant = surface_asset.get("placement", null)
+                        if p_raw is Dictionary:
+                                var p_arr: Variant = p_raw.get("p", null)
+                                if p_arr is Array and p_arr.size() > 1:
+                                        var py: float = float(p_arr[1])
+                                        target_part = int(avatar_node.get("TORSO")) if py < 3.8 else int(avatar_node.get("HEAD"))
+
+        var target_parent: Node = avatar_node
+        if avatar_node.has_method("get_part_holder"):
+                var holder_node: Node3D = avatar_node.call("get_part_holder", target_part)
+                if holder_node != null:
+                        target_parent = holder_node
+
+        target_parent.add_child(yaw)
         # creator texture / tint — THE ROBLOX RULE, DATA WINS
         var tex_url := String(surface_asset.get("textureUrl", ""))
         var tint := String(surface_asset.get("color", ""))
