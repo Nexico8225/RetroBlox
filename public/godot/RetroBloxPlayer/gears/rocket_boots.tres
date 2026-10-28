@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "rocket_boots"
+gear_name = "Rocket Boots"
+short_name = "BOOTS"
+item_type = 30
+color = Color(1, 0.57, 0.17, 1)
+cooldown = 0.4
+lose_item_when_dead = true
+speed_multiplier = 1.35
+jump_boost_multiplier = 1.45
+gravity_multiplier = 0.5
+ascend_speed = 34.0

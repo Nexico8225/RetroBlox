@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "windforce"
+gear_name = "Windforce"
+short_name = "WIND"
+item_type = 26
+color = Color(0.45, 0.75, 0.99, 1)
+cooldown = 0.95
+slash_damage = 36.0
+lunge_damage = 58.0
+lunge_cooldown = 2.0
+sword_range = 5.8
+lunge_forward_boost = 0.0
+lunge_duration = 0.78
+lunge_up_boost = 34.0
+speed_multiplier = 1.25
+jump_boost_multiplier = 1.28
+gravity_multiplier = 0.62

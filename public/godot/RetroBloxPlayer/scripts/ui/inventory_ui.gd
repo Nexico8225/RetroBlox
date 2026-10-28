@@ -613,7 +613,7 @@ func _get_item_icon_tex(item_id: String) -> Texture2D:
 	var img: Image = Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 
-	if item_id in ["sword", "flame_sword", "slow_sword", "super_sword"]:
+	if item_id in ["sword", "flame_sword", "slow_sword", "super_sword", "venomshank", "icedagger", "windforce", "darkheart", "illumina"]:
 		var b_col_a: Color = Color("e9ecef")
 		var b_col_b: Color = Color("adb5bd")
 		var g_col: Color = Color("fcc419")
@@ -624,11 +624,34 @@ func _get_item_icon_tex(item_id: String) -> Texture2D:
 			b_col_b = Color("e03131")
 			g_col = Color("fcc419")
 			h_col = Color("7f1d1d")
-		elif item_id == "slow_sword":
-			b_col_a = Color("66d9e8")
-			b_col_b = Color("1098ad")
-			g_col = Color("3bc9db")
+		elif item_id in ["slow_sword", "icedagger"]:
+			b_col_a = Color("339af0") if item_id == "icedagger" else Color("66d9e8")
+			b_col_b = Color("1c7ed6") if item_id == "icedagger" else Color("1098ad")
+			g_col = Color("74c0fc") if item_id == "icedagger" else Color("3bc9db")
 			h_col = Color("0c4a6e")
+			if item_id == "icedagger":
+				thick = 2
+		elif item_id == "venomshank":
+			b_col_a = Color("51cf66")
+			b_col_b = Color("2f9e44")
+			g_col = Color("b2f2bb")
+			h_col = Color("1b4332")
+		elif item_id == "windforce":
+			b_col_a = Color("74c0fc")
+			b_col_b = Color("339af0")
+			g_col = Color("e7f5ff")
+			h_col = Color("1864ab")
+		elif item_id == "darkheart":
+			b_col_a = Color("212529")
+			b_col_b = Color("9c36b5")
+			g_col = Color("ae3ec9")
+			h_col = Color("1f1924")
+		elif item_id == "illumina":
+			b_col_a = Color("ffdeeb")
+			b_col_b = Color("faa2c1")
+			g_col = Color("fcc2d7")
+			h_col = Color("a61e4d")
+			thick = 4
 		elif item_id == "super_sword":
 			b_col_a = Color("fff3bf")
 			b_col_b = Color("fcc419")
@@ -676,8 +699,8 @@ func _get_item_icon_tex(item_id: String) -> Texture2D:
 					img.set_pixel(x, y, Color("ffd6e7") if d < 7.0 else (Color("ff2a85") if d < 14.0 else Color("a61e4d")))
 				elif d >= 20.0 and d <= 22.5:
 					img.set_pixel(x, y, Color("ff85c0"))
-	elif item_id in ["healing_potion", "big_head_potion"]:
-		var pcol: Color = Color("40c057") if item_id == "healing_potion" else Color("be4bdb")
+	elif item_id in ["healing_potion", "big_head_potion", "slateskin_potion"]:
+		var pcol: Color = Color("40c057") if item_id == "healing_potion" else (Color("868e96") if item_id == "slateskin_potion" else Color("be4bdb"))
 		for y in range(22, 54):
 			for x in range(16, 48):
 				var d: float = Vector2(x - 32.0, y - 38.0).length()
@@ -719,19 +742,38 @@ func _get_item_icon_tex(item_id: String) -> Texture2D:
 					if d <= 20.0:
 						img.set_pixel(x, y, Color("2b2d42"))
 
-	elif item_id == "grappler":
+	elif item_id in ["grappler", "grappler_v2"]:
+		var gcol_main: Color = Color("00e5ff") if item_id == "grappler_v2" else Color("c0eb75")
+		var gcol_sub: Color = Color("99e9f2") if item_id == "grappler_v2" else Color("8ce99a")
 		for y in range(10, 54):
 			for x in range(10, 54):
 				var d: float = Vector2(x - 32.0, y - 32.0).length()
 				if d >= 18.0 and d <= 24.0:
-					img.set_pixel(x, y, Color("c0eb75"))
+					img.set_pixel(x, y, gcol_main)
 		for y2 in range(10, 40):
 			for w2 in range(-2, 3):
-				img.set_pixel(clampi(24 + w2, 0, 63), clampi(y2, 0, 63), Color("8ce99a"))
-		for prong_i in range(3):
+				img.set_pixel(clampi(24 + w2, 0, 63), clampi(y2, 0, 63), gcol_sub)
+		for prong_i in range(4 if item_id == "grappler_v2" else 3):
 			for yy in range(8, 20):
-				var px2: int = clampi(18 + prong_i * 8, 0, 63)
-				img.set_pixel(px2, clampi(yy, 0, 63), Color("c0eb75"))
+				var px2: int = clampi(16 + prong_i * 7, 0, 63)
+				img.set_pixel(px2, clampi(yy, 0, 63), gcol_main)
+	elif item_id == "medkit":
+		for y in range(16, 50):
+			for x in range(10, 54):
+				var is_cross: bool = (absf(float(x) - 32.0) <= 4.0 and absf(float(y) - 33.0) <= 11.0) or (absf(float(y) - 33.0) <= 4.0 and absf(float(x) - 32.0) <= 11.0)
+				img.set_pixel(x, y, Color("e03131") if is_cross else Color("f8f9fa"))
+		for y in range(10, 16):
+			for x in range(24, 40):
+				img.set_pixel(x, y, Color("343a40"))
+	elif item_id == "rocket_boots":
+		for y in range(14, 46):
+			for x in range(14, 50):
+				if (x >= 16 and x <= 28) or (x >= 36 and x <= 48) or (y >= 36):
+					img.set_pixel(x, y, Color("fd7e14"))
+		for y in range(46, 58):
+			for x in range(18, 46):
+				if (x >= 18 and x <= 26) or (x >= 38 and x <= 46):
+					img.set_pixel(x, y, Color("ffd43b"))
 	elif item_id == "spicy_sauce":
 		for y in range(16, 56):
 			for x in range(20, 44):
@@ -772,47 +814,65 @@ func _get_item_icon_tex(item_id: String) -> Texture2D:
 
 static func _get_item_flavor_text(item_id: String, iname: String) -> String:
 	if item_id == "sword":
-		return "Linked Sword — Click to Slash · Double-Click or Right-Click/E to Lunge (Insta-Kill!)"
+		return "[ID 5] Linked Sword — Click to Slash · Double-Click or Right-Click/E for Lunge Jump Boost!"
 	if item_id == "flame_sword":
-		return "Flame Sword — Sets attacked enemies on FIRE + Lunge Dash (Double-Click or Right-Click/E)!"
+		return "[ID 6] Flame Sword (Firebrand) — Sets enemies on FIRE + Lunge Jump Boost!"
 	if item_id == "slow_sword":
-		return "Slow Sword — Freezes & Slows attacked enemies by 75% + Lunge Dash!"
+		return "[ID 7] Slow Sword — Freezes & Slows enemies by 75% + Lunge Jump Boost!"
 	if item_id == "super_sword":
-		return "Super Sword — Giant Greatsword with Huge, Super-Fast Lunge Dash & Massive Damage!"
+		return "[ID 8] Super Sword — Giant Greatsword with Super-Fast Lunge Dash & Massive Damage!"
 	if item_id == "swelling_ball":
-		return "Swelling Ball — HOLD Left-Click to Swell Bigger & Deal More Damage, Release to Launch!"
+		return "[ID 9] Swelling Ball — HOLD Left-Click to Swell Bigger & Deal More Damage, Release to Launch!"
 	if item_id == "speed_coil":
-		return "Speed Coil — Doubles walk speed (Speed: 32) while equipped!"
+		return "[ID 1] Speed Coil — Doubles walk speed (Speed: 32) while equipped!"
 	if item_id == "gravity_coil":
-		return "Gravity Coil — Lowers gravity & boosts jump height while equipped!"
+		return "[ID 2] Gravity Coil — Lowers gravity & boosts jump height while equipped!"
 	if item_id == "fusion_coil":
-		return "Fusion Coil — Combines Speed Coil (2x Speed) + Gravity Coil (Low Gravity & High Jump)!"
+		return "[ID 3] Fusion Coil — Combines Speed Coil (2x Speed) + Gravity Coil (Low Gravity & High Jump)!"
 	if item_id == "heal_coil":
-		return "Heal Coil — Passively regenerates +16 HP/sec while equipped!"
+		return "[ID 4] Heal Coil — Passively regenerates +16 HP/sec while equipped!"
 	if item_id == "healing_potion":
-		return "Healing Potion — Click to drink and restore HP!"
+		return "[ID 10] Healing Potion — Click to drink and restore 65 HP (Infinite uses)!"
 	if item_id == "big_head_potion":
-		return "Big Head Potion — Click to drink for a giant head!"
+		return "[ID 11] Big Head Potion — Click to drink for a giant head (Infinite uses)!"
 	if item_id == "flying_carpet":
-		return "Rainbow Magic Carpet — WASD to Fly · Space Up · C/Ctrl Down!"
+		return "[ID 12] Rainbow Magic Carpet — WASD to Fly · Space Up · C/Ctrl Down!"
 	if item_id == "laser_gun":
-		return "Hyperlaser Gun — Shoots a Slow Cyan Plasma Projectile that Insta-Kills anything it touches!"
+		return "[ID 13] Hyperlaser Gun — Shoots a Cyan Plasma Orb that Insta-Kills anything it touches!"
 	if item_id == "rocket_launcher":
-		return "Rocket Launcher — Fires explosive RPG rockets (Insta-Kills on impact!)"
+		return "[ID 14] Rocket Launcher — Fires explosive RPG rockets!"
 	if item_id == "subspace_tripmine":
-		return "Subspace Tripmine — Drops a cloaking mine that Insta-Kills in a pink blast!"
+		return "[ID 15] Subspace Tripmine — Drops a cloaking mine that explodes in a pink blast!"
 	if item_id == "grappler":
-		return "Grappler — Aim at a wall or platform and click to reel yourself straight to it!"
+		return "[ID 16] Grappler V1 — Aim & click to zip super fast (165 studs/s) to any surface!"
 	if item_id == "spicy_sauce":
-		return "Spicy Sauce — 3x walk speed for 10s, but it burns 4 HP per second. One serving."
+		return "[ID 17] Spicy Sauce — 3x walk speed for 10s, burns 4 HP/sec (Infinite uses)!"
 	if item_id == "ghost_burger":
-		return "Ghost Burger — Go invisible for 8s. Attacks still hurt you. One bite."
+		return "[ID 18] Ghost Burger — Turn invisible for 8s + heal 10 HP (Infinite uses)!"
 	if item_id == "hamburger":
-		return "Hamburger — Restores 30 HP. One bite."
+		return "[ID 19] Hamburger — Restores 30 HP on every bite (Infinite uses)!"
 	if item_id == "sandwich":
-		return "Sandwich — Restores 45 HP. One bite."
+		return "[ID 20] Sandwich — Restores 45 HP on every bite (Infinite uses)!"
 	if item_id == "bloxy_cola":
-		return "Bloxy Cola — Restores 12 HP and gives a 1.6x speed boost for 7s."
+		return "[ID 21] Bloxy Cola — Restores 12 HP + slight 1.22x speed boost for 8s (Infinite uses)!"
+	if item_id == "grappler_v2":
+		return "[ID 22] Grappler V2 (Hyper) — Ultra-fast 235 studs/s long-range hook with upward arc!"
+	if item_id == "medkit":
+		return "[ID 23] Medkit — Classic SFOTH First-Aid Kit: restores +85 HP (Infinite uses)!"
+	if item_id == "venomshank":
+		return "[ID 24] Venomshank — Classic SFOTH Poison Sword: deals toxic acid damage over time + Lunge Jump!"
+	if item_id == "icedagger":
+		return "[ID 25] Icedagger — Classic SFOTH Ice Blade: freezes targets & Insta-Kills on Lunge!"
+	if item_id == "windforce":
+		return "[ID 26] Windforce — Classic SFOTH Wind Sword: +25% Speed, High Jump & Huge Knockback!"
+	if item_id == "darkheart":
+		return "[ID 27] Darkheart — Classic SFOTH Vampiric Sword: steals life (+25 HP) on every hit!"
+	if item_id == "illumina":
+		return "[ID 28] Illumina — Legendary SFOTH Sword: +32% Speed, High Lunge Jump & Sparkle Slash!"
+	if item_id == "slateskin_potion":
+		return "[ID 29] Slateskin Potion — Turns skin to stone (80% damage reduction for 12s, Infinite uses)!"
+	if item_id == "rocket_boots":
+		return "[ID 30] Rocket Boots — +35% Speed & hold Space in mid-air to jet-boost upward!"
 	return iname
 
 

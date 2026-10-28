@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "illumina"
+gear_name = "Illumina"
+short_name = "ILLUMINA"
+item_type = 28
+color = Color(1, 0.66, 0.95, 1)
+cooldown = 0.9
+slash_damage = 48.0
+lunge_damage = 80.0
+lunge_cooldown = 1.9
+sword_range = 6.2
+lunge_forward_boost = 0.0
+lunge_duration = 0.85
+lunge_up_boost = 38.0
+speed_multiplier = 1.32
+jump_boost_multiplier = 1.35
+gravity_multiplier = 0.55

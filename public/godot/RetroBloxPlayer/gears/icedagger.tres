@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "icedagger"
+gear_name = "Icedagger"
+short_name = "ICEDAG"
+item_type = 25
+color = Color(0.2, 0.6, 0.94, 1)
+cooldown = 0.85
+slash_damage = 45.0
+lunge_damage = 999.0
+lunge_cooldown = 2.8
+sword_range = 4.6
+lunge_forward_boost = 0.0
+lunge_duration = 0.65
+lunge_up_boost = 28.0
+slow_multiplier = 0.15
+slow_duration = 4.5

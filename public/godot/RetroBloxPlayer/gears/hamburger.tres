@@ -11,5 +11,5 @@ item_type = 19
 color = Color(0.94, 0.6, 0.24, 1)
 cooldown = 1.2
 lose_item_when_dead = true
-unlimited_potion_uses = false
+unlimited_potion_uses = true
 heal_amount = 30.0

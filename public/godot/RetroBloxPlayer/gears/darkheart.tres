@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "darkheart"
+gear_name = "Darkheart"
+short_name = "DARK"
+item_type = 27
+color = Color(0.68, 0.24, 0.79, 1)
+cooldown = 1.05
+slash_damage = 42.0
+lunge_damage = 68.0
+lunge_cooldown = 2.3
+sword_range = 5.5
+lunge_forward_boost = 0.0
+lunge_duration = 0.68
+lunge_up_boost = 29.0
+heal_amount = 25.0

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "medkit"
+gear_name = "Medkit"
+short_name = "MEDKIT"
+item_type = 23
+color = Color(0.95, 0.22, 0.22, 1)
+cooldown = 2.0
+lose_item_when_dead = true
+unlimited_potion_uses = true
+heal_amount = 85.0

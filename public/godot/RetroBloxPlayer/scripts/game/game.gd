@@ -3717,7 +3717,7 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 		return false
 
 	var iid: String = String(item.get("id", ""))
-	if iid in ["speed_coil", "gravity_coil", "fusion_coil", "heal_coil", "flying_carpet"]:
+	if iid in ["speed_coil", "gravity_coil", "fusion_coil", "heal_coil", "flying_carpet", "rocket_boots"]:
 		return false
 
 	if iid == "swelling_ball":
@@ -3727,7 +3727,7 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 		_swell_charge_time = 0.05
 		return true
 
-	var is_sword: bool = iid in ["sword", "flame_sword", "slow_sword", "super_sword"]
+	var is_sword: bool = iid in ["sword", "flame_sword", "slow_sword", "super_sword", "venomshank", "icedagger", "windforce", "darkheart", "illumina"]
 	var now_ms: int = Time.get_ticks_msec()
 	var wants_lunge: bool = force_lunge or (is_sword and (now_ms - _last_sword_click_ms) <= 580 and _lunge_cd <= 0.0)
 
@@ -3757,26 +3757,36 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 		var fx_col: Color = Color("ffd43b")
 		if iid == "flame_sword":
 			fx_col = Color("ff5c00")
-		elif iid == "slow_sword":
+		elif iid in ["slow_sword", "icedagger"]:
 			fx_col = Color("22b8cf")
+		elif iid == "venomshank":
+			fx_col = Color("51cf66")
+		elif iid == "windforce":
+			fx_col = Color("74c0fc")
+		elif iid == "darkheart":
+			fx_col = Color("ae3ec9")
+		elif iid == "illumina":
+			fx_col = Color("faa2c1")
 		elif iid == "super_sword":
 			fx_col = Color("fcc419")
 
 		if is_lunge:
-			# Flat lunge: charge forward at a locked height, gravity off, then drop when it ends.
-			# Super Sword lunges much faster and pops a little upward.
+			# Super Sword keeps its fast forward dash + upward pop.
+			# All other swords keep your normal walking speed and give a classic Roblox / SFOTH lunge jump-float boost!
 			var is_super: bool = iid == "super_sword"
-			var f_boost: float = float(item.get("lunge_forward_boost", 96.0 if is_super else 52.0))
-			var u_boost: float = float(item.get("lunge_up_boost", 18.0 if is_super else 0.0))
-			var f_dur: float = float(item.get("lunge_duration", 0.52 if is_super else 0.34))
 			if is_super:
-				f_boost = maxf(f_boost, 88.0)
-				u_boost = maxf(u_boost, 16.0)
-				f_dur = maxf(f_dur, 0.46)
-			if player.has_method("apply_lunge_dash"):
-				player.call("apply_lunge_dash", fwd, f_boost, u_boost, f_dur)
-			elif player.has_method("apply_lunge_float"):
-				player.call("apply_lunge_float", u_boost, f_dur)
+				var f_boost: float = maxf(float(item.get("lunge_forward_boost", 96.0)), 88.0)
+				var u_boost: float = maxf(float(item.get("lunge_up_boost", 18.0)), 16.0)
+				var f_dur: float = maxf(float(item.get("lunge_duration", 0.52)), 0.46)
+				if player.has_method("apply_lunge_dash"):
+					player.call("apply_lunge_dash", fwd, f_boost, u_boost, f_dur)
+			else:
+				var u_jump: float = float(item.get("lunge_up_boost", 28.0))
+				if u_jump <= 1.0:
+					u_jump = 28.0
+				var f_dur2: float = maxf(float(item.get("lunge_duration", 0.65)), 0.45)
+				if player.has_method("apply_lunge_float"):
+					player.call("apply_lunge_float", u_jump, f_dur2)
 			var ring_sz: float = 5.5 if iid == "super_sword" else 3.8
 			_spawn_beam_effect(p_node.global_position + Vector3(0.0, 3.0, 0.0), p_node.global_position + Vector3(0.0, 3.0, 0.0) + fwd * (6.2 if iid == "super_sword" else 4.5), fx_col, 0.25)
 			_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), ring_sz, fx_col, 0.28)
@@ -3784,26 +3794,38 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 			_spawn_beam_effect(p_node.global_position + Vector3(0.0, 3.6, 0.0) + fwd * 1.2, p_node.global_position + Vector3(0.0, 2.0, 0.0) + fwd * 3.8, fx_col, 0.16)
 
 		var dmg: float = float(item.get("lunge_damage", 55.0)) if is_lunge else float(item.get("slash_damage", 35.0))
-		var s_range: float = float(item.get("sword_range", 6.8 if iid == "super_sword" else 4.8))
-		var kb_val: float = (30.0 if iid == "super_sword" else 22.0) if is_lunge else 14.0
-		var b_dps: float = float(item.get("burn_damage_per_sec", 12.0 if iid == "flame_sword" else 0.0))
-		var b_dur: float = float(item.get("burn_duration", 4.5 if iid == "flame_sword" else 0.0))
-		var s_mult: float = float(item.get("slow_multiplier", 0.28 if iid == "slow_sword" else 1.0))
-		var s_dur: float = float(item.get("slow_duration", 5.0 if iid == "slow_sword" else 0.0))
+		var s_range: float = float(item.get("sword_range", 6.8 if iid == "super_sword" else 5.2))
+		var kb_val: float = (34.0 if iid in ["super_sword", "windforce"] else 22.0) if is_lunge else (24.0 if iid == "windforce" else 14.0)
+		var b_dps: float = float(item.get("burn_damage_per_sec", 16.0 if iid == "venomshank" else (12.0 if iid == "flame_sword" else 0.0)))
+		var b_dur: float = float(item.get("burn_duration", 5.5 if iid == "venomshank" else (4.5 if iid == "flame_sword" else 0.0)))
+		var s_mult: float = float(item.get("slow_multiplier", 0.15 if iid == "icedagger" else (0.28 if iid == "slow_sword" else 1.0)))
+		var s_dur: float = float(item.get("slow_duration", 4.5 if iid == "icedagger" else (5.0 if iid == "slow_sword" else 0.0)))
 		_apply_melee_hit(p_node.global_position + Vector3(0.0, 3.0, 0.0), fwd, s_range, dmg, kb_val, b_dps, b_dur, s_mult, s_dur)
+		if iid == "darkheart":
+			player.call("heal", float(item.get("heal_amount", 25.0)) if is_lunge else 12.0)
 		return true
 
-	elif iid == "healing_potion":
-		var cd_p: float = float(item.get("cooldown", 3.0))
+	elif iid in ["healing_potion", "medkit"]:
+		var cd_p: float = float(item.get("cooldown", 2.0 if iid == "medkit" else 3.0))
 		_item_use_cd = cd_p
 		_item_use_cd_max = cd_p
-		var h_amt: float = float(item.get("heal_amount", 65.0))
+		var h_amt: float = float(item.get("heal_amount", 85.0 if iid == "medkit" else 65.0))
 		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
 			player.avatar.call("trigger_tool_swing", false, "drink")
 		player.call("heal", h_amt)
-		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 3.6, Color("40c057"), 0.35)
-		if not bool(item.get("unlimited_potion_uses", true)):
-			_inventory.call("consume_active_item")
+		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 3.8, Color("f03e3e") if iid == "medkit" else Color("40c057"), 0.35)
+		return true
+
+	elif iid == "slateskin_potion":
+		var cd_sl: float = float(item.get("cooldown", 3.0))
+		_item_use_cd = cd_sl
+		_item_use_cd_max = cd_sl
+		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
+			player.avatar.call("trigger_tool_swing", false, "drink")
+		player.call("heal", float(item.get("heal_amount", 25.0)))
+		if player.has_method("activate_slateskin"):
+			player.call("activate_slateskin", float(item.get("big_head_duration", 12.0)))
+		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 4.0, Color("adb5bd"), 0.35)
 		return true
 
 	elif iid == "big_head_potion":
@@ -3816,13 +3838,12 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 			player.avatar.call("trigger_tool_swing", false, "drink")
 		player.call("activate_big_head", h_mult, h_dur)
 		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 4.5, 0.0), 4.0, Color("be4bdb"), 0.35)
-		if not bool(item.get("unlimited_potion_uses", true)):
-			_inventory.call("consume_active_item")
 		return true
 
-	elif iid == "grappler":
-		# Aim at any surface, fire the hook, and get reeled straight there.
-		var cd_gr: float = float(item.get("cooldown", 1.8))
+	elif iid in ["grappler", "grappler_v2"]:
+		# V1 Grappler: very fast reel (165 studs/s). V2 Grappler: hyper 235 studs/s, 150 range + upward arc!
+		var is_v2: bool = (iid == "grappler_v2")
+		var cd_gr: float = float(item.get("cooldown", 0.65 if is_v2 else 1.1))
 		_item_use_cd = cd_gr
 		_item_use_cd_max = cd_gr
 		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
@@ -3830,7 +3851,9 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 		var ray_g: Dictionary = _get_aim_ray()
 		var g_dir: Vector3 = (ray_g["dir"] as Vector3).normalized()
 		var g_from: Vector3 = p_node.global_position + Vector3(0.0, 3.2, 0.0)
-		var g_range: float = float(item.get("grapple_range", 60.0))
+		var g_range: float = maxf(float(item.get("grapple_range", 150.0 if is_v2 else 95.0)), 140.0 if is_v2 else 90.0)
+		var g_spd: float = maxf(float(item.get("grapple_speed", 235.0 if is_v2 else 165.0)), 220.0 if is_v2 else 155.0)
+		var g_dur: float = float(item.get("grapple_duration", 0.95 if is_v2 else 0.85))
 		var g_end: Vector3 = g_from + g_dir * g_range
 		var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
 		if space != null:
@@ -3838,13 +3861,16 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 			var hit: Dictionary = space.intersect_ray(q)
 			if not hit.is_empty():
 				g_end = hit["position"] as Vector3
-		_spawn_beam_effect(g_from, g_end, Color("c0eb75"), 0.2)
+		var beam_col: Color = Color("00e5ff") if is_v2 else Color("c0eb75")
+		_spawn_beam_effect(g_from, g_end, beam_col, 0.22)
+		if is_v2:
+			_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 4.0, beam_col, 0.25)
 		if player.has_method("start_grapple"):
-			player.call("start_grapple", g_end, float(item.get("grapple_speed", 95.0)), float(item.get("grapple_duration", 1.15)))
+			player.call("start_grapple", g_end, g_spd, g_dur, 18.0 if is_v2 else 0.0)
 		return true
 
 	elif iid == "spicy_sauce":
-		# 3x speed for a burst, paid for with health.
+		# Infinite use: 3x speed burst, paid for with health.
 		var cd_ss: float = float(item.get("cooldown", 1.2))
 		_item_use_cd = cd_ss
 		_item_use_cd_max = cd_ss
@@ -3852,11 +3878,10 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 			player.avatar.call("trigger_tool_swing", false, "drink")
 		player.call("apply_speed_surge", float(item.get("speed_surge_multiplier", 3.0)), float(item.get("speed_surge_duration", 10.0)), float(item.get("health_cost_per_sec", 4.0)))
 		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 4.2, Color("ff6b35"), 0.35)
-		if not bool(item.get("unlimited_potion_uses", false)):
-			_inventory.call("consume_active_item")
 		return true
 
 	elif iid == "ghost_burger":
+		# Infinite use: invisibility + small heal
 		var cd_gb: float = float(item.get("cooldown", 1.0))
 		_item_use_cd = cd_gb
 		_item_use_cd_max = cd_gb
@@ -3865,11 +3890,10 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 		player.call("set_ghost", float(item.get("invisible_duration", 8.0)))
 		player.call("heal", float(item.get("heal_amount", 10.0)))
 		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 3.4, Color("9be7ff"), 0.3)
-		if not bool(item.get("unlimited_potion_uses", false)):
-			_inventory.call("consume_active_item")
 		return true
 
 	elif iid in ["hamburger", "sandwich", "bloxy_cola"]:
+		# Infinite food & Bloxy Cola (slight 1.22x speed boost)
 		var cd_f: float = float(item.get("cooldown", 1.2))
 		_item_use_cd = cd_f
 		_item_use_cd_max = cd_f
@@ -3877,10 +3901,8 @@ func _use_equipped_item(force_lunge: bool = false) -> bool:
 			player.avatar.call("trigger_tool_swing", false, "drink")
 		player.call("heal", float(item.get("heal_amount", 30.0)))
 		if iid == "bloxy_cola":
-			player.call("apply_speed_surge", float(item.get("speed_surge_multiplier", 1.6)), float(item.get("speed_surge_duration", 7.0)), float(item.get("health_cost_per_sec", 0.0)))
+			player.call("apply_speed_surge", float(item.get("speed_surge_multiplier", 1.22)), float(item.get("speed_surge_duration", 8.0)), 0.0)
 		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.2, 0.0), 2.6, Color("ffd8a8"), 0.25)
-		if not bool(item.get("unlimited_potion_uses", false)):
-			_inventory.call("consume_active_item")
 		return true
 
 	elif iid == "laser_gun":

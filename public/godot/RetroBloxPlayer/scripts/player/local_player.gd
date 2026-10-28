@@ -37,8 +37,8 @@ const LAND_SOUND_FALL := 12.0 * STUD
 const FALL_WIND_SPEED := 34.0 * STUD
 
 const MAX_HEALTH := 100.0
-const REGEN_DELAY := 5.0
-const REGEN_RATE := 1.0
+const REGEN_DELAY := 8.0
+const REGEN_RATE := 0.25
 const FALL_SAFE_HEIGHT := 45.0
 const FALL_DMG_PER_STUD := 4.0
 const BOUNCE_POWER := 72.0 * STUD
@@ -81,11 +81,11 @@ enum ClimbKind { NONE, LADDER }
 @export_group("Health & Fall Damage")
 ## Maximum health.
 @export var max_health: float = 100.0
-## Health points regenerated per second (classic Roblox: 1.0 HP/s).
-@export var health_regen_rate: float = 1.0
-## Delay in seconds after taking damage before health starts regenerating (classic Roblox: 1.0s).
-@export var health_regen_delay: float = 1.0
-## Whether high falls cause damage (classic Roblox has no fall damage: false).
+## Health points regenerated per second (SFOTH slow passive regen: 0.25 HP/s — use Medkit or Food to heal fast!).
+@export var health_regen_rate: float = 0.25
+## Delay in seconds after taking damage before health starts regenerating.
+@export var health_regen_delay: float = 6.0
+## Whether high falls cause damage (SFOTH / classic Roblox has no fall damage: false).
 @export var enable_fall_damage: bool = false
 ## Safe drop height in studs before fall damage is applied (if enabled).
 @export var fall_safe_height: float = 45.0
@@ -178,6 +178,7 @@ var _lunge_vert_lock: bool = true
 var _surge_timer: float = 0.0
 var _surge_drain: float = 0.0
 var _ghost_timer: float = 0.0
+var _slateskin_timer: float = 0.0
 var _floor_snap_default: float = 2.1 * STUD
 var _burn_timer: float = 0.0
 var _burn_dps: float = 0.0
@@ -321,8 +322,8 @@ func _apply_project_settings() -> void:
 		health = max_health
 	if ProjectSettings.has_setting("player/health/health_regen_rate"):
 		health_regen_rate = float(ProjectSettings.get_setting("player/health/health_regen_rate"))
-	if ProjectSettings.has_setting("player/health/fall_damage_enabled"):
-		enable_fall_damage = bool(ProjectSettings.get_setting("player/health/fall_damage_enabled"))
+	# Always disable fall damage (SFOTH / classic Roblox rules)
+	enable_fall_damage = false
 	if ProjectSettings.has_setting("player/features/lose_item_when_dead"):
 		lose_item_when_dead = bool(ProjectSettings.get_setting("player/features/lose_item_when_dead"))
 
@@ -436,6 +437,10 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 		_ghost_timer = maxf(0.0, _ghost_timer - delta)
 		if _ghost_timer <= 0.0:
 			set_ghost_alpha(1.0)
+	if _slateskin_timer > 0.0:
+		_slateskin_timer = maxf(0.0, _slateskin_timer - delta)
+		if _slateskin_timer <= 0.0:
+			_set_slateskin_tint(false)
 
 	var auto_rot_ladder := true if _settings == null else bool(_settings.get("ladder_auto_rotate"))
 	if can_climb:
@@ -744,6 +749,9 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 	var spd_mult: float = get_speed_multiplier()
 	var grav_mult: float = get_gravity_multiplier()
 	var jmp_mult: float = get_jump_multiplier()
+	if _lunge_float_timer > 0.0:
+		_lunge_float_timer = maxf(0.0, _lunge_float_timer - delta)
+		grav_mult = minf(grav_mult, 0.28)
 
 	if _lunge_dash_timer > 0.0:
 		_drive_lunge_dash(delta)
@@ -788,6 +796,9 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 
 	if not is_on_floor():
 		velocity.y -= gravity * grav_mult * delta
+		if eq_id == "rocket_boots" and (Input.is_action_pressed("jump") or Input.is_key_pressed(KEY_SPACE)):
+			var thrust: float = float(_equipped_item.get("ascend_speed", 34.0)) * STUD
+			velocity.y = move_toward(velocity.y, thrust, (gravity * 1.45) * delta)
 	elif velocity.y < 0.0:
 		velocity.y = 0.0
 	var can_jump: bool = is_on_floor() or _coyote > 0.0 or is_on_wall()
@@ -925,7 +936,8 @@ func _update_fall_damage() -> void:
 func hurt(amount: float) -> void:
 	if not alive or amount <= 0.0 or in_safe_zone:
 		return
-	health = maxf(health - amount, 0.0)
+	var eff_amount: float = amount * (0.20 if _slateskin_timer > 0.0 else 1.0)
+	health = maxf(health - eff_amount, 0.0)
 	_regen_wait = health_regen_delay
 	health_changed.emit(health, max_health)
 	if health <= 0.0:
@@ -959,8 +971,10 @@ func get_effective_gravity_studs() -> float:
 func get_speed_multiplier() -> float:
 	var mult: float = _speed_boost_mult if _speed_boost_timer > 0.0 else 1.0
 	var eq_id: String = String(_equipped_item.get("id", ""))
-	if eq_id in ["speed_coil", "fusion_coil"]:
-		mult = maxf(mult, float(_equipped_item.get("speed_multiplier", 2.0)))
+	if eq_id in ["speed_coil", "fusion_coil", "windforce", "illumina", "rocket_boots"]:
+		mult = maxf(mult, float(_equipped_item.get("speed_multiplier", 1.25)))
+	if _slateskin_timer > 0.0:
+		mult *= 0.78
 	if _slow_timer > 0.0:
 		mult *= _slow_mult
 	return mult
@@ -969,16 +983,16 @@ func get_speed_multiplier() -> float:
 func get_jump_multiplier() -> float:
 	var mult: float = _jump_boost_mult if _gravity_boost_timer > 0.0 else 1.0
 	var eq_id: String = String(_equipped_item.get("id", ""))
-	if eq_id in ["gravity_coil", "fusion_coil"]:
-		mult = maxf(mult, float(_equipped_item.get("jump_boost_multiplier", 1.40)))
+	if eq_id in ["gravity_coil", "fusion_coil", "windforce", "illumina", "rocket_boots"]:
+		mult = maxf(mult, float(_equipped_item.get("jump_boost_multiplier", 1.30)))
 	return mult
 
 
 func get_gravity_multiplier() -> float:
 	var mult: float = _gravity_boost_mult if _gravity_boost_timer > 0.0 else 1.0
 	var eq_id: String = String(_equipped_item.get("id", ""))
-	if eq_id in ["gravity_coil", "fusion_coil"]:
-		mult = minf(mult, float(_equipped_item.get("gravity_multiplier", 0.35)))
+	if eq_id in ["gravity_coil", "fusion_coil", "windforce", "illumina", "rocket_boots"]:
+		mult = minf(mult, float(_equipped_item.get("gravity_multiplier", 0.55)))
 	return mult
 
 
@@ -1001,9 +1015,12 @@ func apply_lunge_dash(direction: Vector3, forward_speed: float = 52.0, up_boost:
 	velocity.y = _lunge_rise_speed if _lunge_rise_left > 0.0 else 0.0
 
 
-func apply_lunge_float(up_boost: float = 22.0, duration: float = 1.6) -> void:
-	# Kept for older scenes: an upward float is now just a zero-speed dash with a pop.
-	apply_lunge_dash(Vector3(-sin(heading), 0.0, -cos(heading)), 0.0, up_boost, duration)
+func apply_lunge_float(up_boost: float = 28.0, duration: float = 0.65) -> void:
+	# Classic Roblox / SFOTH sword lunge: walking speed stays normal, you get a clean upward jump/float boost!
+	_lunge_float_timer = maxf(_lunge_float_timer, maxf(duration, 0.25))
+	grounded = false
+	_is_jumping = true
+	velocity.y = maxf(velocity.y, maxf(up_boost, 18.0) * STUD)
 
 
 func _drive_lunge_dash(delta: float) -> void:
@@ -1034,19 +1051,45 @@ func is_lunging() -> bool:
 	return _lunge_dash_timer > 0.0
 
 
-func start_grapple(target: Vector3, speed: float = 95.0, duration: float = 1.15) -> void:
+func start_grapple(target: Vector3, speed: float = 155.0, duration: float = 0.85, up_arc: float = 0.0) -> void:
 	var to_target: Vector3 = target - global_position
-	if to_target.length_squared() < 0.04:
+	var dist: float = to_target.length()
+	if dist < 0.2:
 		return
-	_lunge_dash_dir = to_target.normalized()
-	_lunge_dash_speed = maxf(speed, 10.0) * STUD
-	_lunge_dash_timer = maxf(duration, 0.15)
+	var eff_spd: float = maxf(speed, 20.0) * STUD
+	var dir: Vector3 = to_target.normalized()
+	if up_arc > 0.0:
+		dir = (dir + Vector3.UP * (up_arc / maxf(eff_spd, 1.0))).normalized()
+	_lunge_dash_dir = dir
+	_lunge_dash_speed = eff_spd
+	var calc_dur: float = clampf(dist / maxf(eff_spd, 1.0), 0.12, maxf(duration, 0.20))
+	_lunge_dash_timer = calc_dur
 	_lunge_vert_lock = false
 	_lunge_rise_left = 0.0
 	_lunge_rise_speed = 0.0
 	floor_snap_length = 0.0
 	grounded = false
 	_is_jumping = true
+
+
+func activate_slateskin(duration: float = 12.0) -> void:
+	_slateskin_timer = maxf(_slateskin_timer, duration)
+	_set_slateskin_tint(true)
+
+
+func _set_slateskin_tint(active: bool) -> void:
+	if avatar == null or not is_instance_valid(avatar):
+		return
+	for n in avatar.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi != null and mi.material_override is StandardMaterial3D:
+			var sm := mi.material_override as StandardMaterial3D
+			if active:
+				if not mi.has_meta("_orig_albedo"):
+					mi.set_meta("_orig_albedo", sm.albedo_color)
+				sm.albedo_color = Color("6c757d")
+			elif mi.has_meta("_orig_albedo"):
+				sm.albedo_color = mi.get_meta("_orig_albedo")
 
 
 func apply_speed_surge(mult: float, duration: float, health_drain_per_sec: float = 0.0) -> void:

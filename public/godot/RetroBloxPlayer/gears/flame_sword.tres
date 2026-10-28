@@ -5,17 +5,17 @@
 [resource]
 script = ExtResource("1_gear")
 gear_id = "flame_sword"
-gear_name = "Flame Sword"
+gear_name = "Flame Sword (Firebrand)"
 short_name = "FLAME"
 item_type = 6
 color = Color(1, 0.38, 0.08, 1)
-cooldown = 1.25
-slash_damage = 30.0
-lunge_damage = 48.0
-lunge_cooldown = 2.8
-sword_range = 5.0
-lunge_forward_boost = 54.0
-lunge_duration = 0.34
-lunge_up_boost = 0.0
+cooldown = 1.15
+slash_damage = 35.0
+lunge_damage = 60.0
+lunge_cooldown = 2.5
+sword_range = 5.6
+lunge_forward_boost = 0.0
+lunge_duration = 0.65
+lunge_up_boost = 28.0
 burn_damage_per_sec = 12.0
 burn_duration = 4.5

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "venomshank"
+gear_name = "Venomshank"
+short_name = "VENOM"
+item_type = 24
+color = Color(0.32, 0.81, 0.4, 1)
+cooldown = 1.05
+slash_damage = 38.0
+lunge_damage = 62.0
+lunge_cooldown = 2.2
+sword_range = 5.5
+lunge_forward_boost = 0.0
+lunge_duration = 0.68
+lunge_up_boost = 29.0
+burn_damage_per_sec = 16.0
+burn_duration = 5.5
