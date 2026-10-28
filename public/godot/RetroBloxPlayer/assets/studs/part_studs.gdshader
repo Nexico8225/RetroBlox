@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode diffuse_burley, specular_schlick_ggx;
 
-// Authentic Classic Roblox Studded Plastic Shader with 3D Normal Mapping & Procedural Fallback
+// Authentic Classic Roblox Studded Plastic Shader with 3D Normal Mapping, Multi-Surface Studs & Procedural Fallback
 uniform vec4 albedo : source_color = vec4(0.56, 0.56, 0.58, 1.0);
 uniform sampler2D stud_normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D stud_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -9,13 +9,23 @@ uniform float stud_density : hint_range(0.25, 4.0) = 1.0;
 uniform float normal_depth : hint_range(0.0, 3.0) = 1.35;
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.38;
 uniform float specular_val : hint_range(0.0, 1.0) = 0.52;
+uniform float top_threshold : hint_range(0.1, 0.95) = 0.55;
+uniform bool stud_full = false;
+uniform bool stud_top = true;
+uniform bool stud_bottom = false;
+uniform bool stud_left = false;
+uniform bool stud_right = false;
+uniform bool stud_front = false;
+uniform bool stud_back = false;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
+varying vec3 obj_normal;
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize(mat3(MODEL_MATRIX) * NORMAL);
+	obj_normal = normalize(NORMAL);
 }
 
 void fragment() {
@@ -24,16 +34,35 @@ void fragment() {
 	float s_out = specular_val;
 
 	float dist_cam = length(world_pos - CAMERA_POSITION_WORLD);
+	vec3 n = normalize(obj_normal);
+	vec3 wn = abs(normalize(world_normal));
 
-	if (world_normal.y > 0.7) {
-		// Top face: studs
-		vec2 uv_stud = world_pos.xz * stud_density;
+	bool show_studs = false;
+	if (stud_full) {
+		show_studs = true;
+	} else {
+		if (stud_top && n.y > top_threshold) show_studs = true;
+		if (stud_bottom && n.y < -top_threshold) show_studs = true;
+		if (stud_right && n.x > top_threshold) show_studs = true;
+		if (stud_left && n.x < -top_threshold) show_studs = true;
+		if (stud_back && n.z > top_threshold) show_studs = true;
+		if (stud_front && n.z < -top_threshold) show_studs = true;
+	}
+
+	vec2 plane_coords = world_pos.xz;
+	if (wn.x > wn.y && wn.x > wn.z) {
+		plane_coords = world_pos.zy;
+	} else if (wn.z > wn.y && wn.z > wn.x) {
+		plane_coords = world_pos.xy;
+	}
+
+	if (show_studs) {
+		vec2 uv_stud = plane_coords * stud_density;
 		vec2 local_cell = fract(uv_stud) - vec2(0.5);
 		float dist = length(local_cell);
 
 		if (dist_cam < 55.0) {
-			// Near camera: full 3D normal mapping & AO highlights
-			vec2 uv_norm = world_pos.xz * (stud_density * 0.25);
+			vec2 uv_norm = plane_coords * (stud_density * 0.25);
 			vec4 n_tex_sample = texture(stud_normal_tex, uv_norm);
 			if (length(n_tex_sample.rgb) > 0.05) {
 				NORMAL_MAP = n_tex_sample.rgb;
@@ -56,17 +85,14 @@ void fragment() {
 			r_out = clamp(roughness_val - (top_rim * 0.14 + stud_cap * 0.07), 0.18, 0.88);
 			s_out = clamp(specular_val + stud_cap * 0.10, 0.0, 1.0);
 		} else {
-			// Fast optimized stud highlights for far pixels
 			if (dist < 0.28) {
 				base += vec3(0.04);
 			}
 		}
 	} else if (world_normal.y < -0.7) {
-		// Underside: classic recessed darker plastic
 		base *= 0.82;
 		r_out = clamp(roughness_val + 0.12, 0.25, 0.95);
 	} else {
-		// Side faces: sleek molded plastic with subtle bevel seams
 		float v_seam = smoothstep(0.48, 0.50, abs(fract(world_pos.y * stud_density) - 0.5));
 		base *= 1.0 - v_seam * 0.05;
 	}

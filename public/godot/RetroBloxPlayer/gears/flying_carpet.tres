@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "flying_carpet"
+gear_name = "Flying Carpet"
+short_name = "CARPET"
+item_type = 12
+color = Color(0.96, 0.62, 0, 1)
+cooldown = 0.5
+fly_speed = 38.0
+ascend_speed = 24.0

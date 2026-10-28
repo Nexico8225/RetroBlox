@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "bloxy_cola"
+gear_name = "Bloxy Cola"
+short_name = "COLA"
+item_type = 21
+color = Color(0.79, 0.19, 0.19, 1)
+cooldown = 1.0
+lose_item_when_dead = true
+unlimited_potion_uses = false
+heal_amount = 12.0
+speed_surge_multiplier = 1.6
+speed_surge_duration = 7.0
+health_cost_per_sec = 0.0

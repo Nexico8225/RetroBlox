@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "gravity_coil"
+gear_name = "Gravity Coil"
+short_name = "GRAV"
+item_type = 2
+color = Color(0.2, 0.6, 0.94, 1)
+cooldown = 0.5
+gravity_multiplier = 0.35
+jump_boost_multiplier = 1.4

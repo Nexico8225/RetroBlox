@@ -5,6 +5,7 @@ signal health_changed(health: float, max_health: float)
 signal health_depleted
 signal touched_group(group: String, node: Node3D)
 signal land_impact(speed: float)
+signal item_picked_up(item_data: Dictionary)
 
 const STUD := 1.0
 
@@ -47,6 +48,7 @@ const AvatarRigScript := preload("res://scripts/player/avatar_rig.gd")
 const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
 const ChatBubbleScript := preload("res://scripts/player/chat_bubble.gd")
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
+const ITEM_SPAWNER_SCRIPT_PATH := "res://scripts/world/item_spawner.gd"
 
 enum ClimbKind { NONE, LADDER }
 
@@ -89,6 +91,8 @@ enum ClimbKind { NONE, LADDER }
 @export var fall_safe_height: float = 45.0
 ## Damage dealt per stud fallen beyond the safe height (if enabled).
 @export var fall_damage_per_stud: float = 4.0
+## Whether the player loses their inventory/equipped items when they die (default: On / true).
+@export var lose_item_when_dead: bool = true
 
 @export_group("Custom Walk Animation")
 ## Drag-and-drop a custom Animation resource here to override the default walk
@@ -160,6 +164,31 @@ var _gravity_boost_timer := 0.0
 var _gravity_boost_mult := 0.42
 var _jump_boost_mult := 1.25
 var _gravity_remove_on_block := false
+var _equipped_item: Dictionary = {}
+var _carpet_visual: Node3D = null
+var _big_head_timer: float = 0.0
+var _lunge_float_timer: float = 0.0
+# Flat lunge / grapple dash state
+var _lunge_dash_timer: float = 0.0
+var _lunge_dash_dir: Vector3 = Vector3.ZERO
+var _lunge_dash_speed: float = 0.0
+var _lunge_rise_left: float = 0.0
+var _lunge_rise_speed: float = 0.0
+var _lunge_vert_lock: bool = true
+var _surge_timer: float = 0.0
+var _surge_drain: float = 0.0
+var _ghost_timer: float = 0.0
+var _floor_snap_default: float = 2.1 * STUD
+var _burn_timer: float = 0.0
+var _burn_dps: float = 0.0
+var _burn_tick_accum: float = 0.0
+var _slow_timer: float = 0.0
+var _slow_mult: float = 1.0
+var in_safe_zone: bool = false
+var _seated_chair: Node3D = null
+var _chair_sit_cooldown: float = 0.0
+var _slide_timer: float = 0.0
+var _slide_dir: Vector3 = Vector3.ZERO
 var _climb_grace := 0.0
 var _active_climb_speed := CLIMB_SPEED
 var _touching_damage: Array[Node3D] = []
@@ -173,6 +202,7 @@ func _init() -> void:
 	collision_layer = 4
 	collision_mask = 1
 	floor_snap_length = 2.1 * STUD
+	_floor_snap_default = floor_snap_length
 	floor_max_angle = deg_to_rad(65.0)
 	floor_block_on_wall = false
 	floor_constant_speed = true
@@ -293,6 +323,8 @@ func _apply_project_settings() -> void:
 		health_regen_rate = float(ProjectSettings.get_setting("player/health/health_regen_rate"))
 	if ProjectSettings.has_setting("player/health/fall_damage_enabled"):
 		enable_fall_damage = bool(ProjectSettings.get_setting("player/health/fall_damage_enabled"))
+	if ProjectSettings.has_setting("player/features/lose_item_when_dead"):
+		lose_item_when_dead = bool(ProjectSettings.get_setting("player/features/lose_item_when_dead"))
 
 
 func _on_voice_mute_changed(_muted: bool) -> void:
@@ -394,6 +426,16 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 		_speed_boost_timer -= delta
 	if _gravity_boost_timer > 0.0:
 		_gravity_boost_timer -= delta
+	if _surge_timer > 0.0:
+		_surge_timer = maxf(0.0, _surge_timer - delta)
+		if _surge_drain > 0.0:
+			hurt(_surge_drain * delta)
+		if _surge_timer <= 0.0:
+			_surge_drain = 0.0
+	if _ghost_timer > 0.0:
+		_ghost_timer = maxf(0.0, _ghost_timer - delta)
+		if _ghost_timer <= 0.0:
+			set_ghost_alpha(1.0)
 
 	var auto_rot_ladder := true if _settings == null else bool(_settings.get("ladder_auto_rotate"))
 	if can_climb:
@@ -667,16 +709,83 @@ func _toward(lad: Node3D) -> Vector3:
 
 
 func _drive_ground_air(wish: Vector3, delta: float) -> void:
-	var accel := ACCEL_GROUND if is_on_floor() else ACCEL_AIR
-	var spd_mult := _speed_boost_mult if _speed_boost_timer > 0.0 else 1.0
-	var grav_mult := _gravity_boost_mult if _gravity_boost_timer > 0.0 else 1.0
-	var target := wish * (walk_speed * spd_mult)
-	if wish.length_squared() < 0.005 and is_on_floor():
-		velocity.x = move_toward(velocity.x, 0.0, BRAKE_GROUND * delta)
-		velocity.z = move_toward(velocity.z, 0.0, BRAKE_GROUND * delta)
+	var eq_id: String = String(_equipped_item.get("id", ""))
+	if eq_id == "flying_carpet":
+		var f_spd: float = float(_equipped_item.get("fly_speed", 38.0)) * STUD
+		var a_spd: float = float(_equipped_item.get("ascend_speed", 24.0)) * STUD
+		velocity.x = move_toward(velocity.x, wish.x * f_spd, ACCEL_GROUND * delta)
+		velocity.z = move_toward(velocity.z, wish.z * f_spd, ACCEL_GROUND * delta)
+		var vy: float = 0.0
+		if Input.is_action_pressed("jump") or Input.is_key_pressed(KEY_SPACE):
+			vy += a_spd
+		if Input.is_key_pressed(KEY_C) or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_Q):
+			vy -= a_spd
+		velocity.y = move_toward(velocity.y, vy, ACCEL_GROUND * delta)
+		_fall_peak_y = global_position.y
+		return
+
+	if eq_id == "heal_coil" and alive and health < max_health:
+		var h_rate: float = float(_equipped_item.get("heal_per_second", 16.0))
+		heal(h_rate * delta)
+
+	if _burn_timer > 0.0 and alive:
+		_burn_timer = maxf(0.0, _burn_timer - delta)
+		_burn_tick_accum += delta
+		if _burn_tick_accum >= 0.25:
+			hurt(_burn_dps * _burn_tick_accum)
+			_burn_tick_accum = 0.0
+
+	if _slow_timer > 0.0:
+		_slow_timer = maxf(0.0, _slow_timer - delta)
+		if _slow_timer <= 0.0:
+			_slow_mult = 1.0
+
+	var accel: float = ACCEL_GROUND if is_on_floor() else ACCEL_AIR
+	var spd_mult: float = get_speed_multiplier()
+	var grav_mult: float = get_gravity_multiplier()
+	var jmp_mult: float = get_jump_multiplier()
+
+	if _lunge_dash_timer > 0.0:
+		_drive_lunge_dash(delta)
+		return
+
+	if _chair_sit_cooldown > 0.0:
+		_chair_sit_cooldown = maxf(0.0, _chair_sit_cooldown - delta)
+
+	if _seated_chair != null and is_instance_valid(_seated_chair):
+		if _jump_buffer_left > 0.0:
+			_jump_buffer_left = 0.0
+			_seated_chair = null
+			_chair_sit_cooldown = 1.0
+			velocity.y = jump_power * jmp_mult
+			grounded = false
+			_is_jumping = true
+			if avatar != null and avatar.has_method("play_emote"):
+				avatar.call("play_emote", "")
+			if avatar != null and avatar.has_method("on_jump"):
+				avatar.call("on_jump")
+			return
+		global_position = _seated_chair.global_position + Vector3(0.0, 0.55 * STUD, 0.0)
+		velocity = Vector3.ZERO
+		heading = _seated_chair.global_rotation.y
+		grounded = true
+		if avatar != null and avatar.has_method("play_emote"):
+			avatar.call("play_emote", "sit")
+		return
+
+	if _slide_timer > 0.0:
+		_slide_timer = maxf(0.0, _slide_timer - delta)
+		velocity.x = _slide_dir.x * 34.0 * STUD
+		velocity.z = _slide_dir.z * 34.0 * STUD
 	else:
-		velocity.x = move_toward(velocity.x, target.x, accel * delta)
-		velocity.z = move_toward(velocity.z, target.z, accel * delta)
+		var target: Vector3 = wish * (walk_speed * spd_mult)
+		if wish.length_squared() < 0.005 and is_on_floor():
+			velocity.x = move_toward(velocity.x, 0.0, BRAKE_GROUND * delta)
+			velocity.z = move_toward(velocity.z, 0.0, BRAKE_GROUND * delta)
+		else:
+			velocity.x = move_toward(velocity.x, target.x, accel * delta)
+			velocity.z = move_toward(velocity.z, target.z, accel * delta)
+
 	if not is_on_floor():
 		velocity.y -= gravity * grav_mult * delta
 	elif velocity.y < 0.0:
@@ -687,7 +796,7 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 		_coyote = 0.0
 		_is_jumping = true
 		grounded = false
-		velocity.y = jump_power * (_jump_boost_mult if _gravity_boost_timer > 0.0 else 1.0)
+		velocity.y = jump_power * jmp_mult
 		_play_jump_sound()
 		_dust()
 		if avatar != null and avatar.has_method("on_jump"):
@@ -695,6 +804,9 @@ func _drive_ground_air(wish: Vector3, delta: float) -> void:
 
 
 func _perform_step_up(wish: Vector3, _delta: float) -> void:
+	if _lunge_dash_timer > 0.0:
+		# Never step-snap mid-lunge: the dash must keep its exact height.
+		return
 	if not can_step_up or not alive:
 		return
 	if wish.length_squared() < 0.005:
@@ -811,7 +923,7 @@ func _update_fall_damage() -> void:
 
 
 func hurt(amount: float) -> void:
-	if not alive or amount <= 0.0:
+	if not alive or amount <= 0.0 or in_safe_zone:
 		return
 	health = maxf(health - amount, 0.0)
 	_regen_wait = health_regen_delay
@@ -833,26 +945,155 @@ func play_emote(clip: String) -> void:
 
 
 func get_effective_speed_studs() -> float:
-	var mult: float = _speed_boost_mult if _speed_boost_timer > 0.0 else 1.0
-	return (walk_speed * mult) / STUD
+	return (walk_speed * get_speed_multiplier()) / STUD
 
 
 func get_effective_jump_studs() -> float:
-	var mult: float = _jump_boost_mult if _gravity_boost_timer > 0.0 else 1.0
-	return (jump_power * mult) / STUD
+	return (jump_power * get_jump_multiplier()) / STUD
 
 
 func get_effective_gravity_studs() -> float:
-	var mult: float = _gravity_boost_mult if _gravity_boost_timer > 0.0 else 1.0
-	return (gravity * mult) / STUD
+	return (gravity * get_gravity_multiplier()) / STUD
 
 
 func get_speed_multiplier() -> float:
-	return _speed_boost_mult if _speed_boost_timer > 0.0 else 1.0
+	var mult: float = _speed_boost_mult if _speed_boost_timer > 0.0 else 1.0
+	var eq_id: String = String(_equipped_item.get("id", ""))
+	if eq_id in ["speed_coil", "fusion_coil"]:
+		mult = maxf(mult, float(_equipped_item.get("speed_multiplier", 2.0)))
+	if _slow_timer > 0.0:
+		mult *= _slow_mult
+	return mult
+
+
+func get_jump_multiplier() -> float:
+	var mult: float = _jump_boost_mult if _gravity_boost_timer > 0.0 else 1.0
+	var eq_id: String = String(_equipped_item.get("id", ""))
+	if eq_id in ["gravity_coil", "fusion_coil"]:
+		mult = maxf(mult, float(_equipped_item.get("jump_boost_multiplier", 1.40)))
+	return mult
 
 
 func get_gravity_multiplier() -> float:
-	return _gravity_boost_mult if _gravity_boost_timer > 0.0 else 1.0
+	var mult: float = _gravity_boost_mult if _gravity_boost_timer > 0.0 else 1.0
+	var eq_id: String = String(_equipped_item.get("id", ""))
+	if eq_id in ["gravity_coil", "fusion_coil"]:
+		mult = minf(mult, float(_equipped_item.get("gravity_multiplier", 0.35)))
+	return mult
+
+
+func apply_lunge_dash(direction: Vector3, forward_speed: float = 52.0, up_boost: float = 0.0, duration: float = 0.34) -> void:
+	# Classic flat lunge: charge forward at a FIXED height. Gravity is switched off for the
+	# dash, so running off a ledge mid-lunge keeps you level instead of dropping you, and the
+	# moment the dash ends gravity comes back and you fall normally.
+	var flat := Vector3(direction.x, 0.0, direction.z)
+	if flat.length_squared() < 0.0001:
+		flat = Vector3(-sin(heading), 0.0, -cos(heading))
+	_lunge_dash_dir = flat.normalized()
+	_lunge_dash_speed = maxf(forward_speed, 0.0) * STUD
+	_lunge_dash_timer = maxf(duration, 0.08)
+	_lunge_vert_lock = true
+	_lunge_rise_speed = maxf(up_boost, 0.0) * STUD
+	_lunge_rise_left = 0.22 if _lunge_rise_speed > 0.0 else 0.0
+	floor_snap_length = 0.0
+	grounded = false
+	_is_jumping = true
+	velocity.y = _lunge_rise_speed if _lunge_rise_left > 0.0 else 0.0
+
+
+func apply_lunge_float(up_boost: float = 22.0, duration: float = 1.6) -> void:
+	# Kept for older scenes: an upward float is now just a zero-speed dash with a pop.
+	apply_lunge_dash(Vector3(-sin(heading), 0.0, -cos(heading)), 0.0, up_boost, duration)
+
+
+func _drive_lunge_dash(delta: float) -> void:
+	_lunge_dash_timer = maxf(0.0, _lunge_dash_timer - delta)
+	floor_snap_length = 0.0
+	velocity.x = _lunge_dash_dir.x * _lunge_dash_speed
+	velocity.z = _lunge_dash_dir.z * _lunge_dash_speed
+	if not _lunge_vert_lock:
+		velocity.y = _lunge_dash_dir.y * _lunge_dash_speed
+	elif _lunge_rise_left > 0.0:
+		_lunge_rise_left = maxf(0.0, _lunge_rise_left - delta)
+		velocity.y = _lunge_rise_speed
+	else:
+		velocity.y = 0.0
+	if _lunge_dash_timer <= 0.0:
+		_end_lunge_dash()
+
+
+func _end_lunge_dash() -> void:
+	_lunge_dash_timer = 0.0
+	_lunge_rise_left = 0.0
+	_lunge_vert_lock = true
+	floor_snap_length = _floor_snap_default
+	grounded = false
+
+
+func is_lunging() -> bool:
+	return _lunge_dash_timer > 0.0
+
+
+func start_grapple(target: Vector3, speed: float = 95.0, duration: float = 1.15) -> void:
+	var to_target: Vector3 = target - global_position
+	if to_target.length_squared() < 0.04:
+		return
+	_lunge_dash_dir = to_target.normalized()
+	_lunge_dash_speed = maxf(speed, 10.0) * STUD
+	_lunge_dash_timer = maxf(duration, 0.15)
+	_lunge_vert_lock = false
+	_lunge_rise_left = 0.0
+	_lunge_rise_speed = 0.0
+	floor_snap_length = 0.0
+	grounded = false
+	_is_jumping = true
+
+
+func apply_speed_surge(mult: float, duration: float, health_drain_per_sec: float = 0.0) -> void:
+	_speed_boost_mult = maxf(_speed_boost_mult, mult)
+	_speed_boost_timer = maxf(_speed_boost_timer, duration)
+	_surge_timer = maxf(_surge_timer, duration)
+	_surge_drain = maxf(_surge_drain, health_drain_per_sec)
+
+
+func set_ghost(duration: float) -> void:
+	_ghost_timer = maxf(_ghost_timer, duration)
+	set_ghost_alpha(0.18)
+
+
+func set_ghost_alpha(alpha: float) -> void:
+	if avatar == null or not is_instance_valid(avatar):
+		return
+	var tr: float = clampf(1.0 - alpha, 0.0, 1.0)
+	for n in avatar.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi != null:
+			mi.transparency = tr
+	for n in avatar.find_children("*", "Label3D", true, false):
+		var lbl := n as Label3D
+		if lbl != null:
+			lbl.transparency = clampf(tr + 0.35, 0.0, 1.0)
+
+
+func sit_in_chair(chair_node: Node3D) -> void:
+	if chair_node == null or not is_instance_valid(chair_node) or _chair_sit_cooldown > 0.0:
+		return
+	_seated_chair = chair_node
+	global_position = chair_node.global_position + Vector3(0.0, 0.55 * STUD, 0.0)
+	velocity = Vector3.ZERO
+	heading = chair_node.global_rotation.y
+	if avatar != null and avatar.has_method("play_emote"):
+		avatar.call("play_emote", "sit")
+
+
+func apply_burn(dps: float, duration: float) -> void:
+	_burn_dps = maxf(_burn_dps, dps)
+	_burn_timer = maxf(_burn_timer, duration)
+
+
+func apply_slow(mult: float, duration: float) -> void:
+	_slow_mult = clampf(mult, 0.1, 1.0)
+	_slow_timer = maxf(_slow_timer, duration)
 
 
 func die(world: Node3D) -> void:
@@ -987,6 +1228,21 @@ func _setup_ladder_sensor() -> void:
 func _on_touch_entered(other: Node3D) -> void:
 	if other == null or other == self or not is_instance_valid(other):
 		return
+	if other.is_in_group("chair") and _seated_chair == null and _chair_sit_cooldown <= 0.0:
+		sit_in_chair(other)
+		return
+	if other.is_in_group("slide_ramp"):
+		var s_fwd: Vector3 = -other.global_transform.basis.z
+		s_fwd.y = 0.0
+		if s_fwd.length_squared() > 0.01:
+			_slide_dir = s_fwd.normalized()
+			_slide_timer = 0.25
+		return
+	if other.is_in_group("item_spawner") and other.has_method("can_pickup"):
+		if bool(other.call("can_pickup")):
+			var it_data: Dictionary = other.call("consume_pickup")
+			item_picked_up.emit(it_data)
+		return
 	if other.is_in_group("kill") or other.get("insta_kill") == true:
 		touched_group.emit("kill", other)
 		return
@@ -1095,3 +1351,42 @@ func _setup_touch_sensor() -> void:
 	area.body_exited.connect(_on_touch_exited)
 	area.area_entered.connect(_on_touch_entered)
 	area.area_exited.connect(_on_touch_exited)
+
+
+func set_equipped_item(item_data: Dictionary) -> void:
+	_equipped_item = item_data
+	if _carpet_visual != null and is_instance_valid(_carpet_visual):
+		_carpet_visual.queue_free()
+		_carpet_visual = null
+	if avatar == null or not is_instance_valid(avatar):
+		return
+	if item_data.is_empty():
+		if avatar.has_method("set_equipped_hand_model"):
+			avatar.call("set_equipped_hand_model", null)
+		return
+	var spawner_scr: Script = load(ITEM_SPAWNER_SCRIPT_PATH) as Script
+	if spawner_scr == null:
+		return
+	var iid_str: String = String(item_data.get("id", ""))
+	var t_idx: int = int(item_data.get("item_type", 0))
+	if t_idx <= 0 and spawner_scr.has_method("get_type_from_id"):
+		t_idx = int(spawner_scr.call("get_type_from_id", iid_str))
+	if t_idx <= 0:
+		t_idx = 5
+	var model: Node3D = spawner_scr.call("build_item_mesh_3d", t_idx) as Node3D
+	if model != null:
+		if avatar.has_method("set_equipped_hand_model"):
+			avatar.call("set_equipped_hand_model", model, iid_str)
+	if String(item_data.get("id", "")) == "flying_carpet":
+		_carpet_visual = spawner_scr.call("build_item_mesh_3d", 12) as Node3D
+		if _carpet_visual != null:
+			_carpet_visual.name = "FlyingCarpetUnderFeet"
+			_carpet_visual.scale = Vector3(1.6, 1.0, 1.6)
+			_carpet_visual.position = Vector3(0.0, 0.08 * STUD, 0.0)
+			add_child(_carpet_visual)
+
+
+func activate_big_head(scale_mult: float, duration: float) -> void:
+	_big_head_timer = maxf(duration, 1.0)
+	if avatar != null and avatar.has_method("set_head_scale"):
+		avatar.call("set_head_scale", scale_mult)

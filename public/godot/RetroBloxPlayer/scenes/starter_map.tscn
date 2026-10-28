@@ -14,6 +14,7 @@
 [ext_resource type="FontFile" uid="uid://b3vut8cavqfvd" path="res://assets/fonts/LiberationSans-Bold.ttf" id="11_font_bold"]
 [ext_resource type="Script" uid="uid://cpbbjergntc6q" path="res://scripts/world/moving_platform.gd" id="13_movplat"]
 [ext_resource type="Texture2D" uid="uid://chbws17u1e18f" path="res://assets/studs/SpawnPoint.png" id="14_spawnpoint"]
+[ext_resource type="Script" path="res://scripts/world/item_spawner.gd" id="15_spawner"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.231373, 0.509804, 0.768627, 1)
@@ -470,6 +471,465 @@ size = Vector3(4.5, 2, 4.5)
 radius = 1.0
 height = 5.0
 
+[sub_resource type="ShaderMaterial" id="Mat_GW_Back"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.910, 0.930, 0.940, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_GW_Blue"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.230, 0.430, 0.650, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_GW_Step"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.680, 0.710, 0.740, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_SZ_Green"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.170, 0.540, 0.240, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_SZ_Cyan"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.130, 0.720, 0.810, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_PG_Yellow"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.990, 0.770, 0.100, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_PG_Red"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(1.000, 0.420, 0.420, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_PG_Pink"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.940, 0.400, 0.580, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_PG_Grey"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.520, 0.560, 0.590, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="ShaderMaterial" id="Mat_PG_Orange"]
+render_priority = 0
+shader = ExtResource("3_0gglp")
+shader_parameter/albedo = Color(0.910, 0.350, 0.050, 1)
+shader_parameter/stud_normal_tex = ExtResource("3_mwfpn")
+shader_parameter/stud_tex = ExtResource("4_mwfpn")
+shader_parameter/stud_density = 1.0
+shader_parameter/normal_depth = 1.35
+shader_parameter/roughness_val = 0.38
+shader_parameter/specular_val = 0.52
+
+[sub_resource type="StandardMaterial3D" id="Mat_SZ_Dome"]
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.15, 0.9, 0.65, 0.16)
+emission_enabled = true
+emission = Color(0.125, 0.788, 0.592, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="SphereMesh" id="Mesh_SZ_Dome"]
+material = SubResource("Mat_SZ_Dome")
+radius = 10.5
+height = 14.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_PadPreview"]
+material = SubResource("Mat_PG_Yellow")
+size = Vector3(4, 0.5, 4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_PadPreview"]
+size = Vector3(4, 0.5, 4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_PlaquePreview"]
+material = SubResource("Mat_SZ_Cyan")
+size = Vector3(2.6, 2.6, 0.25)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_PlaquePreview"]
+size = Vector3(2.6, 2.6, 0.25)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_1"]
+material = SubResource("Mat_GW_Back")
+size = Vector3(34.0, 9.6, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_1"]
+size = Vector3(34.0, 9.6, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_2"]
+material = SubResource("Mat_GW_Blue")
+size = Vector3(35.6, 0.8, 1.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_2"]
+size = Vector3(35.6, 0.8, 1.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_3"]
+material = SubResource("Mat_GW_Blue")
+size = Vector3(35.6, 0.8, 1.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_3"]
+size = Vector3(35.6, 0.8, 1.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_4"]
+material = SubResource("Mat_GW_Blue")
+size = Vector3(0.9, 11.0, 1.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_4"]
+size = Vector3(0.9, 11.0, 1.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_5"]
+material = SubResource("Mat_GW_Blue")
+size = Vector3(0.9, 11.0, 1.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_5"]
+size = Vector3(0.9, 11.0, 1.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_6"]
+material = SubResource("Mat_GW_Step")
+size = Vector3(36.0, 0.6, 4.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_6"]
+size = Vector3(36.0, 0.6, 4.5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_7"]
+material = SubResource("Mat_GW_Back")
+size = Vector3(35.0, 0.6, 2.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_7"]
+size = Vector3(35.0, 0.6, 2.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_8"]
+material = SubResource("Mat_SZ_Green")
+size = Vector3(16.0, 0.6, 16.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_8"]
+size = Vector3(16.0, 0.6, 16.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_9"]
+material = SubResource("Mat_SZ_Cyan")
+size = Vector3(1.0, 8.0, 1.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_9"]
+size = Vector3(1.0, 8.0, 1.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_10"]
+material = SubResource("Mat_SZ_Cyan")
+size = Vector3(1.0, 8.0, 1.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_10"]
+size = Vector3(1.0, 8.0, 1.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_11"]
+material = SubResource("Mat_SZ_Cyan")
+size = Vector3(1.0, 8.0, 1.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_11"]
+size = Vector3(1.0, 8.0, 1.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_12"]
+material = SubResource("Mat_SZ_Cyan")
+size = Vector3(1.0, 8.0, 1.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_12"]
+size = Vector3(1.0, 8.0, 1.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_13"]
+material = SubResource("Mat_GW_Blue")
+size = Vector3(3.2, 11.0, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_13"]
+size = Vector3(3.2, 11.0, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_14"]
+material = SubResource("Mat_PG_Yellow")
+size = Vector3(5.0, 0.6, 5.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_14"]
+size = Vector3(5.0, 0.6, 5.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_15"]
+material = SubResource("Mat_PG_Red")
+size = Vector3(4.2, 0.5, 19.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_15"]
+size = Vector3(4.2, 0.5, 19.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_16"]
+material = SubResource("Mat_PG_Yellow")
+size = Vector3(0.4, 1.2, 19.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_16"]
+size = Vector3(0.4, 1.2, 19.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_17"]
+material = SubResource("Mat_PG_Yellow")
+size = Vector3(0.4, 1.2, 19.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_17"]
+size = Vector3(0.4, 1.2, 19.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_18"]
+material = SubResource("Mat_PG_Pink")
+size = Vector3(11.0, 0.5, 11.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_18"]
+size = Vector3(11.0, 0.5, 11.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_19"]
+material = SubResource("Mat_SZ_Cyan")
+size = Vector3(11.0, 0.52, 11.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_19"]
+size = Vector3(11.0, 0.52, 11.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_20"]
+material = SubResource("Mat_PG_Yellow")
+size = Vector3(1.2, 3.6, 1.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_20"]
+size = Vector3(1.2, 3.6, 1.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_21"]
+material = SubResource("Mat_SZ_Green")
+size = Vector3(9.6, 0.35, 0.35)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_21"]
+size = Vector3(9.6, 0.35, 0.35)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_22"]
+material = SubResource("Mat_PG_Orange")
+size = Vector3(0.35, 0.35, 9.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_22"]
+size = Vector3(0.35, 0.35, 9.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_23"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(1.6, 1.8, 3.0)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_23"]
+size = Vector3(1.6, 1.8, 3.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_24"]
+material = SubResource("Mat_PG_Yellow")
+size = Vector3(14.0, 0.45, 2.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_24"]
+size = Vector3(14.0, 0.45, 2.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_25"]
+material = SubResource("Mat_PG_Red")
+size = Vector3(2.2, 0.3, 2.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_25"]
+size = Vector3(2.2, 0.3, 2.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_26"]
+material = SubResource("Mat_GW_Blue")
+size = Vector3(2.2, 0.3, 2.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_26"]
+size = Vector3(2.2, 0.3, 2.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_27"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.3, 1.2, 1.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_27"]
+size = Vector3(0.3, 1.2, 1.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_28"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.3, 1.2, 1.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_28"]
+size = Vector3(0.3, 1.2, 1.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_29"]
+material = SubResource("Mat_PG_Orange")
+size = Vector3(2.4, 0.4, 2.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_29"]
+size = Vector3(2.4, 0.4, 2.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_30"]
+material = SubResource("Mat_PG_Orange")
+size = Vector3(2.4, 2.4, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_30"]
+size = Vector3(2.4, 2.4, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_31"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_31"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_32"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_32"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_33"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_33"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_34"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_34"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_35"]
+material = SubResource("Mat_GW_Blue")
+size = Vector3(2.4, 0.4, 2.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_35"]
+size = Vector3(2.4, 0.4, 2.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_36"]
+material = SubResource("Mat_GW_Blue")
+size = Vector3(2.4, 2.4, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_36"]
+size = Vector3(2.4, 2.4, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_37"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_37"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_38"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_38"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_39"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_39"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_40"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_40"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_41"]
+material = SubResource("Mat_SZ_Green")
+size = Vector3(2.4, 0.4, 2.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_41"]
+size = Vector3(2.4, 0.4, 2.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_42"]
+material = SubResource("Mat_SZ_Green")
+size = Vector3(2.4, 2.4, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_42"]
+size = Vector3(2.4, 2.4, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_43"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_43"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_44"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_44"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_45"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_45"]
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_GW_46"]
+material = SubResource("Mat_PG_Grey")
+size = Vector3(0.4, 1.0, 0.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape_GW_46"]
+size = Vector3(0.4, 1.0, 0.4)
+
 [node name="RetroBlox" type="Node3D" unique_id=1989836938]
 script = ExtResource("1_game")
 
@@ -514,6 +974,775 @@ shape = SubResource("Shape_Spawn")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.51, 0)
 material_override = SubResource("Mat_SpawnDecal")
 mesh = SubResource("PlaneMesh_SpawnDecal")
+
+[node name="ItemSpawners" type="Node3D" parent="World"]
+
+[node name="RandomGearSpawner_1" type="StaticBody3D" parent="World/ItemSpawners" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.0, 0.25, -9)
+script = ExtResource("15_spawner")
+item_type = 0
+respawn_cooldown = 1.2
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/RandomGearSpawner_1"]
+mesh = SubResource("BoxMesh_GW_PadPreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/RandomGearSpawner_1"]
+shape = SubResource("BoxShape_GW_PadPreview")
+metadata/_spawner_generated = true
+
+[node name="RandomGearSpawner_2" type="StaticBody3D" parent="World/ItemSpawners" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0, 0.25, -9)
+script = ExtResource("15_spawner")
+item_type = 0
+respawn_cooldown = 1.2
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/RandomGearSpawner_2"]
+mesh = SubResource("BoxMesh_GW_PadPreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/RandomGearSpawner_2"]
+shape = SubResource("BoxShape_GW_PadPreview")
+metadata/_spawner_generated = true
+
+[node name="RandomGearSpawner_3" type="StaticBody3D" parent="World/ItemSpawners" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0, 0.25, -9)
+script = ExtResource("15_spawner")
+item_type = 0
+respawn_cooldown = 1.2
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/RandomGearSpawner_3"]
+mesh = SubResource("BoxMesh_GW_PadPreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/RandomGearSpawner_3"]
+shape = SubResource("BoxShape_GW_PadPreview")
+metadata/_spawner_generated = true
+
+[node name="GearWall" type="Node3D" parent="World/ItemSpawners"]
+transform = Transform3D(0.42262, 0, 0.90631, 0, 1, 0, -0.90631, 0, 0.42262, -28, 0, -6)
+
+[node name="WallBacking" type="StaticBody3D" parent="World/ItemSpawners/GearWall"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 5.3999999999999995, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallBacking"]
+mesh = SubResource("BoxMesh_GW_1")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallBacking"]
+shape = SubResource("BoxShape_GW_1")
+
+[node name="FrameBottom" type="StaticBody3D" parent="World/ItemSpawners/GearWall"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 0.4, 0.1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/FrameBottom"]
+mesh = SubResource("BoxMesh_GW_2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/FrameBottom"]
+shape = SubResource("BoxShape_GW_2")
+
+[node name="FrameTop" type="StaticBody3D" parent="World/ItemSpawners/GearWall"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 10.5, 0.1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/FrameTop"]
+mesh = SubResource("BoxMesh_GW_3")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/FrameTop"]
+shape = SubResource("BoxShape_GW_3")
+
+[node name="FrameLeft" type="StaticBody3D" parent="World/ItemSpawners/GearWall"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -17.4, 5.3999999999999995, 0.1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/FrameLeft"]
+mesh = SubResource("BoxMesh_GW_4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/FrameLeft"]
+shape = SubResource("BoxShape_GW_4")
+
+[node name="FrameRight" type="StaticBody3D" parent="World/ItemSpawners/GearWall"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 17.4, 5.3999999999999995, 0.1)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/FrameRight"]
+mesh = SubResource("BoxMesh_GW_5")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/FrameRight"]
+shape = SubResource("BoxShape_GW_5")
+
+[node name="WalkwayStep1" type="StaticBody3D" parent="World/ItemSpawners/GearWall"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 0.3, 2.5)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WalkwayStep1"]
+mesh = SubResource("BoxMesh_GW_6")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WalkwayStep1"]
+shape = SubResource("BoxShape_GW_6")
+
+[node name="WalkwayStep2" type="StaticBody3D" parent="World/ItemSpawners/GearWall"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 0.9, 1.6)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WalkwayStep2"]
+mesh = SubResource("BoxMesh_GW_7")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WalkwayStep2"]
+shape = SubResource("BoxShape_GW_7")
+
+[node name="GearWallSign" type="Label3D" parent="World/ItemSpawners/GearWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.7, 0.6)
+modulate = Color(1, 0.83, 0.23, 1)
+text = "⚔️ RETROBLOX GEAR WALL (Click or Touch Any Gear!) ⚔️"
+font_size = 44
+outline_size = 12
+
+[node name="WallGear_1" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14.0, 3.0, 0.55)
+script = ExtResource("15_spawner")
+item_type = 1
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_1"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_1"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_2" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.0, 3.0, 0.55)
+script = ExtResource("15_spawner")
+item_type = 2
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_2"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_2"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_3" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.0, 3.0, 0.55)
+script = ExtResource("15_spawner")
+item_type = 3
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_3"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_3"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_4" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 3.0, 0.55)
+script = ExtResource("15_spawner")
+item_type = 4
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_4"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_4"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_5" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 3.0, 0.55)
+script = ExtResource("15_spawner")
+item_type = 5
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_5"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_5"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_6" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0, 3.0, 0.55)
+script = ExtResource("15_spawner")
+item_type = 6
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_6"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_6"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_7" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0, 3.0, 0.55)
+script = ExtResource("15_spawner")
+item_type = 7
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_7"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_7"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_8" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.0, 3.0, 0.55)
+script = ExtResource("15_spawner")
+item_type = 8
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_8"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_8"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_9" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.0, 6.6, 0.55)
+script = ExtResource("15_spawner")
+item_type = 9
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_9"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_9"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_10" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.0, 6.6, 0.55)
+script = ExtResource("15_spawner")
+item_type = 10
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_10"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_10"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_11" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.0, 6.6, 0.55)
+script = ExtResource("15_spawner")
+item_type = 11
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_11"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_11"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_12" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0, 6.6, 0.55)
+script = ExtResource("15_spawner")
+item_type = 12
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_12"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_12"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_13" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.0, 6.6, 0.55)
+script = ExtResource("15_spawner")
+item_type = 13
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_13"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_13"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_14" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.0, 6.6, 0.55)
+script = ExtResource("15_spawner")
+item_type = 14
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_14"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_14"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="WallGear_15" type="StaticBody3D" parent="World/ItemSpawners/GearWall" groups=["item_spawner"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.0, 6.6, 0.55)
+script = ExtResource("15_spawner")
+item_type = 15
+respawn_cooldown = 1.2
+wall_mount = true
+
+[node name="EditorPreview" type="MeshInstance3D" parent="World/ItemSpawners/GearWall/WallGear_15"]
+mesh = SubResource("BoxMesh_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="EditorCol" type="CollisionShape3D" parent="World/ItemSpawners/GearWall/WallGear_15"]
+shape = SubResource("BoxShape_GW_PlaquePreview")
+metadata/_spawner_generated = true
+
+[node name="SafeZone" type="Node3D" parent="World" groups=["safe_zone"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -8)
+
+[node name="SafePad" type="StaticBody3D" parent="World/SafeZone"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 0.3, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SafeZone/SafePad"]
+mesh = SubResource("BoxMesh_GW_8")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SafeZone/SafePad"]
+shape = SubResource("BoxShape_GW_8")
+
+[node name="Pillar_1" type="StaticBody3D" parent="World/SafeZone"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -7.4, 4.3, -7.4)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SafeZone/Pillar_1"]
+mesh = SubResource("BoxMesh_GW_9")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SafeZone/Pillar_1"]
+shape = SubResource("BoxShape_GW_9")
+
+[node name="Pillar_2" type="StaticBody3D" parent="World/SafeZone"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -7.4, 4.3, 7.4)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SafeZone/Pillar_2"]
+mesh = SubResource("BoxMesh_GW_10")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SafeZone/Pillar_2"]
+shape = SubResource("BoxShape_GW_10")
+
+[node name="Pillar_3" type="StaticBody3D" parent="World/SafeZone"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 7.4, 4.3, -7.4)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SafeZone/Pillar_3"]
+mesh = SubResource("BoxMesh_GW_11")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SafeZone/Pillar_3"]
+shape = SubResource("BoxShape_GW_11")
+
+[node name="Pillar_4" type="StaticBody3D" parent="World/SafeZone"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 7.4, 4.3, 7.4)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/SafeZone/Pillar_4"]
+mesh = SubResource("BoxMesh_GW_12")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/SafeZone/Pillar_4"]
+shape = SubResource("BoxShape_GW_12")
+
+[node name="ForcefieldDome" type="MeshInstance3D" parent="World/SafeZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0)
+mesh = SubResource("Mesh_SZ_Dome")
+
+[node name="SafeZoneLabel" type="Label3D" parent="World/SafeZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.8, 0)
+billboard = 1
+modulate = Color(0.39, 0.9, 0.75, 1)
+text = "🛡️ SAFE ZONE (No Damage Inside)"
+font_size = 40
+outline_size = 12
+
+[node name="Playground" type="Node3D" parent="World"]
+
+[node name="PlaygroundSlide" type="Node3D" parent="World/Playground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 14)
+
+[node name="SlideLadder" type="StaticBody3D" parent="World/Playground/PlaygroundSlide" groups=["climb", "ladder"]]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 5.5, 6.2)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/PlaygroundSlide/SlideLadder"]
+mesh = SubResource("BoxMesh_GW_13")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/PlaygroundSlide/SlideLadder"]
+shape = SubResource("BoxShape_GW_13")
+
+[node name="SlideTopPlatform" type="StaticBody3D" parent="World/Playground/PlaygroundSlide"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 11.0, 4.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/PlaygroundSlide/SlideTopPlatform"]
+mesh = SubResource("BoxMesh_GW_14")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/PlaygroundSlide/SlideTopPlatform"]
+shape = SubResource("BoxShape_GW_14")
+
+[node name="SlideRamp" type="StaticBody3D" parent="World/Playground/PlaygroundSlide" groups=["slide_ramp"]]
+transform = Transform3D(1.00000, -0.00000, 0.00000, 0.00000, 0.81915, 0.57358, -0.00000, -0.57358, 0.81915, 0.0, 5.6, -6.5)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/PlaygroundSlide/SlideRamp"]
+mesh = SubResource("BoxMesh_GW_15")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/PlaygroundSlide/SlideRamp"]
+shape = SubResource("BoxShape_GW_15")
+
+[node name="SlideRailL" type="StaticBody3D" parent="World/Playground/PlaygroundSlide"]
+transform = Transform3D(1.00000, -0.00000, 0.00000, 0.00000, 0.81915, 0.57358, -0.00000, -0.57358, 0.81915, -2.1, 6.1, -6.5)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/PlaygroundSlide/SlideRailL"]
+mesh = SubResource("BoxMesh_GW_16")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/PlaygroundSlide/SlideRailL"]
+shape = SubResource("BoxShape_GW_16")
+
+[node name="SlideRailR" type="StaticBody3D" parent="World/Playground/PlaygroundSlide"]
+transform = Transform3D(1.00000, -0.00000, 0.00000, 0.00000, 0.81915, 0.57358, -0.00000, -0.57358, 0.81915, 2.1, 6.1, -6.5)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/PlaygroundSlide/SlideRailR"]
+mesh = SubResource("BoxMesh_GW_17")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/PlaygroundSlide/SlideRailR"]
+shape = SubResource("BoxShape_GW_17")
+
+[node name="SlideLabel" type="Label3D" parent="World/Playground/PlaygroundSlide"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.2, 4)
+billboard = 1
+modulate = Color(1, 0.83, 0.23, 1)
+text = "🛝 SUPER SLIDE"
+font_size = 36
+outline_size = 10
+
+[node name="MerryGoRound" type="Node3D" parent="World/Playground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0, 14)
+
+[node name="Spinner" type="Node3D" parent="World/Playground/MerryGoRound"]
+
+[node name="DiskBase" type="StaticBody3D" parent="World/Playground/MerryGoRound/Spinner"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 0.45, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/MerryGoRound/Spinner/DiskBase"]
+mesh = SubResource("BoxMesh_GW_18")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/MerryGoRound/Spinner/DiskBase"]
+shape = SubResource("BoxShape_GW_18")
+
+[node name="DiskCross" type="StaticBody3D" parent="World/Playground/MerryGoRound/Spinner"]
+transform = Transform3D(0.70711, 0.00000, 0.70711, 0.00000, 1.00000, -0.00000, -0.70711, 0.00000, 0.70711, 0.0, 0.45, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/MerryGoRound/Spinner/DiskCross"]
+mesh = SubResource("BoxMesh_GW_19")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/MerryGoRound/Spinner/DiskCross"]
+shape = SubResource("BoxShape_GW_19")
+
+[node name="CenterPost" type="StaticBody3D" parent="World/Playground/MerryGoRound/Spinner"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 2.2, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/MerryGoRound/Spinner/CenterPost"]
+mesh = SubResource("BoxMesh_GW_20")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/MerryGoRound/Spinner/CenterPost"]
+shape = SubResource("BoxShape_GW_20")
+
+[node name="HandleBarX" type="StaticBody3D" parent="World/Playground/MerryGoRound/Spinner"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 2.4, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/MerryGoRound/Spinner/HandleBarX"]
+mesh = SubResource("BoxMesh_GW_21")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/MerryGoRound/Spinner/HandleBarX"]
+shape = SubResource("BoxShape_GW_21")
+
+[node name="HandleBarZ" type="StaticBody3D" parent="World/Playground/MerryGoRound/Spinner"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 2.4, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/MerryGoRound/Spinner/HandleBarZ"]
+mesh = SubResource("BoxMesh_GW_22")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/MerryGoRound/Spinner/HandleBarZ"]
+shape = SubResource("BoxShape_GW_22")
+
+[node name="MGRLabel" type="Label3D" parent="World/Playground/MerryGoRound"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.2, 0)
+billboard = 1
+modulate = Color(1, 0.52, 0.75, 1)
+text = "🎠 MERRY-GO-ROUND"
+font_size = 36
+outline_size = 10
+
+[node name="Seesaw" type="Node3D" parent="World/Playground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 16)
+
+[node name="Fulcrum" type="StaticBody3D" parent="World/Playground/Seesaw"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 0.9, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Seesaw/Fulcrum"]
+mesh = SubResource("BoxMesh_GW_23")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Seesaw/Fulcrum"]
+shape = SubResource("BoxShape_GW_23")
+
+[node name="PlankPivot" type="Node3D" parent="World/Playground/Seesaw"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0)
+
+[node name="Plank" type="StaticBody3D" parent="World/Playground/Seesaw/PlankPivot"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 0.0, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Seesaw/PlankPivot/Plank"]
+mesh = SubResource("BoxMesh_GW_24")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Seesaw/PlankPivot/Plank"]
+shape = SubResource("BoxShape_GW_24")
+
+[node name="SeatLeft" type="StaticBody3D" parent="World/Playground/Seesaw/PlankPivot"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -6.0, 0.35, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Seesaw/PlankPivot/SeatLeft"]
+mesh = SubResource("BoxMesh_GW_25")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Seesaw/PlankPivot/SeatLeft"]
+shape = SubResource("BoxShape_GW_25")
+
+[node name="SeatRight" type="StaticBody3D" parent="World/Playground/Seesaw/PlankPivot"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 6.0, 0.35, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Seesaw/PlankPivot/SeatRight"]
+mesh = SubResource("BoxMesh_GW_26")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Seesaw/PlankPivot/SeatRight"]
+shape = SubResource("BoxShape_GW_26")
+
+[node name="HandleLeft" type="StaticBody3D" parent="World/Playground/Seesaw/PlankPivot"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -4.8, 0.7, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Seesaw/PlankPivot/HandleLeft"]
+mesh = SubResource("BoxMesh_GW_27")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Seesaw/PlankPivot/HandleLeft"]
+shape = SubResource("BoxShape_GW_27")
+
+[node name="HandleRight" type="StaticBody3D" parent="World/Playground/Seesaw/PlankPivot"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 4.8, 0.7, 0.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Seesaw/PlankPivot/HandleRight"]
+mesh = SubResource("BoxMesh_GW_28")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Seesaw/PlankPivot/HandleRight"]
+shape = SubResource("BoxShape_GW_28")
+
+[node name="SeesawLabel" type="Label3D" parent="World/Playground/Seesaw"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.4, 0)
+billboard = 1
+modulate = Color(0.99, 0.77, 0.1, 1)
+text = "⚖️ SEESAW"
+font_size = 36
+outline_size = 10
+
+[node name="Chair_1" type="StaticBody3D" parent="World/Playground" groups=["chair"]]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 9.5, 1.2, -4.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_1"]
+mesh = SubResource("BoxMesh_GW_29")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_1"]
+shape = SubResource("BoxShape_GW_29")
+
+[node name="Backrest" type="StaticBody3D" parent="World/Playground/Chair_1"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 1.4, 1.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_1/Backrest"]
+mesh = SubResource("BoxMesh_GW_30")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_1/Backrest"]
+shape = SubResource("BoxShape_GW_30")
+
+[node name="Leg_1" type="StaticBody3D" parent="World/Playground/Chair_1"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -0.9, -0.7, -0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_1/Leg_1"]
+mesh = SubResource("BoxMesh_GW_31")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_1/Leg_1"]
+shape = SubResource("BoxShape_GW_31")
+
+[node name="Leg_2" type="StaticBody3D" parent="World/Playground/Chair_1"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -0.9, -0.7, 0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_1/Leg_2"]
+mesh = SubResource("BoxMesh_GW_32")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_1/Leg_2"]
+shape = SubResource("BoxShape_GW_32")
+
+[node name="Leg_3" type="StaticBody3D" parent="World/Playground/Chair_1"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.9, -0.7, -0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_1/Leg_3"]
+mesh = SubResource("BoxMesh_GW_33")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_1/Leg_3"]
+shape = SubResource("BoxShape_GW_33")
+
+[node name="Leg_4" type="StaticBody3D" parent="World/Playground/Chair_1"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.9, -0.7, 0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_1/Leg_4"]
+mesh = SubResource("BoxMesh_GW_34")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_1/Leg_4"]
+shape = SubResource("BoxShape_GW_34")
+
+[node name="ChairLabel" type="Label3D" parent="World/Playground/Chair_1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, 0)
+billboard = 1
+text = "🪑 Chair (Touch/Click to Sit)"
+font_size = 26
+outline_size = 8
+
+[node name="Chair_2" type="StaticBody3D" parent="World/Playground" groups=["chair"]]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 12.5, 1.2, -4.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_2"]
+mesh = SubResource("BoxMesh_GW_35")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_2"]
+shape = SubResource("BoxShape_GW_35")
+
+[node name="Backrest" type="StaticBody3D" parent="World/Playground/Chair_2"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 1.4, 1.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_2/Backrest"]
+mesh = SubResource("BoxMesh_GW_36")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_2/Backrest"]
+shape = SubResource("BoxShape_GW_36")
+
+[node name="Leg_1" type="StaticBody3D" parent="World/Playground/Chair_2"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -0.9, -0.7, -0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_2/Leg_1"]
+mesh = SubResource("BoxMesh_GW_37")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_2/Leg_1"]
+shape = SubResource("BoxShape_GW_37")
+
+[node name="Leg_2" type="StaticBody3D" parent="World/Playground/Chair_2"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -0.9, -0.7, 0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_2/Leg_2"]
+mesh = SubResource("BoxMesh_GW_38")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_2/Leg_2"]
+shape = SubResource("BoxShape_GW_38")
+
+[node name="Leg_3" type="StaticBody3D" parent="World/Playground/Chair_2"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.9, -0.7, -0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_2/Leg_3"]
+mesh = SubResource("BoxMesh_GW_39")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_2/Leg_3"]
+shape = SubResource("BoxShape_GW_39")
+
+[node name="Leg_4" type="StaticBody3D" parent="World/Playground/Chair_2"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.9, -0.7, 0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_2/Leg_4"]
+mesh = SubResource("BoxMesh_GW_40")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_2/Leg_4"]
+shape = SubResource("BoxShape_GW_40")
+
+[node name="ChairLabel" type="Label3D" parent="World/Playground/Chair_2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, 0)
+billboard = 1
+text = "🪑 Chair (Touch/Click to Sit)"
+font_size = 26
+outline_size = 8
+
+[node name="Chair_3" type="StaticBody3D" parent="World/Playground" groups=["chair"]]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 20.0, 1.8, -8.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_3"]
+mesh = SubResource("BoxMesh_GW_41")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_3"]
+shape = SubResource("BoxShape_GW_41")
+
+[node name="Backrest" type="StaticBody3D" parent="World/Playground/Chair_3"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.0, 1.4, 1.0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_3/Backrest"]
+mesh = SubResource("BoxMesh_GW_42")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_3/Backrest"]
+shape = SubResource("BoxShape_GW_42")
+
+[node name="Leg_1" type="StaticBody3D" parent="World/Playground/Chair_3"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -0.9, -0.7, -0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_3/Leg_1"]
+mesh = SubResource("BoxMesh_GW_43")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_3/Leg_1"]
+shape = SubResource("BoxShape_GW_43")
+
+[node name="Leg_2" type="StaticBody3D" parent="World/Playground/Chair_3"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, -0.9, -0.7, 0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_3/Leg_2"]
+mesh = SubResource("BoxMesh_GW_44")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_3/Leg_2"]
+shape = SubResource("BoxShape_GW_44")
+
+[node name="Leg_3" type="StaticBody3D" parent="World/Playground/Chair_3"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.9, -0.7, -0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_3/Leg_3"]
+mesh = SubResource("BoxMesh_GW_45")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_3/Leg_3"]
+shape = SubResource("BoxShape_GW_45")
+
+[node name="Leg_4" type="StaticBody3D" parent="World/Playground/Chair_3"]
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, -0.00000, 0.00000, 0.00000, 1.00000, 0.9, -0.7, 0.9)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="World/Playground/Chair_3/Leg_4"]
+mesh = SubResource("BoxMesh_GW_46")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="World/Playground/Chair_3/Leg_4"]
+shape = SubResource("BoxShape_GW_46")
+
+[node name="ChairLabel" type="Label3D" parent="World/Playground/Chair_3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, 0)
+billboard = 1
+text = "🪑 Chair (Touch/Click to Sit)"
+font_size = 26
+outline_size = 8
 
 [node name="LocalPlayer" type="CharacterBody3D" parent="." unique_id=1740033783]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)

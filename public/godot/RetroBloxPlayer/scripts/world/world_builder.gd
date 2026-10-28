@@ -890,6 +890,13 @@ static func _part_material(color: Color, kind: String, tex: Texture2D, no_studs:
 			sm.set_shader_parameter("normal_depth", 1.35)
 			sm.set_shader_parameter("roughness_val", 0.38)
 			sm.set_shader_parameter("specular_val", 0.52)
+			sm.set_shader_parameter("stud_full", false)
+			sm.set_shader_parameter("stud_top", not no_studs)
+			sm.set_shader_parameter("stud_bottom", false)
+			sm.set_shader_parameter("stud_left", false)
+			sm.set_shader_parameter("stud_right", false)
+			sm.set_shader_parameter("stud_front", false)
+			sm.set_shader_parameter("stud_back", false)
 			return sm
 	var m := StandardMaterial3D.new()
 	match kind:

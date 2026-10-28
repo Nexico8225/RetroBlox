@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "grappler"
+gear_name = "Grappler"
+short_name = "GRAPPLE"
+item_type = 16
+color = Color(0.75, 0.92, 0.46, 1)
+cooldown = 1.8
+lose_item_when_dead = true
+grapple_range = 60.0
+grapple_speed = 95.0
+grapple_duration = 1.15

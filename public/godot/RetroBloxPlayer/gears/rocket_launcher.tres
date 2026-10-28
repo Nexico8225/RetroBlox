@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "rocket_launcher"
+gear_name = "Rocket Launcher"
+short_name = "ROCKET"
+item_type = 14
+color = Color(0.98, 0.32, 0.32, 1)
+cooldown = 3.5
+projectile_speed = 52.0
+explosion_radius = 10.0
+explosion_damage = 120.0
+explosion_knockback = 42.0

@@ -1,61 +1,58 @@
 extends Node
-# Developer guide for customizing worlds, animations, and UI in the RetroBlox SDK.
-
 # ============================================================================
-# 1. BUILDING YOUR 3D GAME / WORLD (scenes/retroblox.tscn)
+# RETROBLOX BUILDER & GEAR SDK - QUICK GUIDE
 # ============================================================================
-# - Open `res://scenes/retroblox.tscn` in Godot's 3D tab to build your map
-#   under the `World` node. Everything you see under `World` in `retroblox.tscn`
-#   is the exact map played in the game!
-# - 1 stud = 1 meter in Godot. Characters can step up 0.1–2.0 stud blocks
-#   automatically, and use a Roblox-style CapsuleShape3D collision body.
-# - Select any special brick or pad (`DamageBrick`, `KillBrick`, `HealBrick`,
-#   `InstaHealBrick`, `SpeedCoilPad`, `GravityCoilPad`, `Trampoline`, `ClimbLadder`,
-#   `MovingPlatformAlways`, `MovingPlatformOnStand`) in `retroblox.tscn` and look
-#   at the Inspector panel on the right to edit its `@export` variables (`pad_type`,
-#   `damage_amount`, `heal_amount`, `speed_multiplier`, `gravity_multiplier`,
-#   `bounce_power`, `climb_speed`, `move_on_stand`, etc.).
-# - Add any StaticBody3D to group:
-#     * `"spawn"`       -> Spawn pad
-#     * `"ladder"`      -> Climbable part (climbs while the player's Torso touches it, and smoothly steps onto the platform at the top)
-#     * `"damage"`      -> Damage brick (hurts player by `metadata/damage`, default 20 HP per tick)
-#     * `"kill"`        -> Kill brick (instant 100% death on touch)
-#     * `"heal"`        -> Heal brick (heals player by `metadata/heal`, default 15 HP per tick)
-#     * `"insta_heal"`  -> Insta-Heal brick (restores 100% full health immediately)
-#     * `"bounce"`      -> Trampoline pad
-#     * `"speed_pad"`   -> Speed Coil boost pad
-#     * `"gravity_pad"` -> Gravity Coil low-gravity pad
-# - For Moveable Platforms (`res://scripts/world/moving_platform.gd`):
-#     * Add an `AnimatableBody3D` with `moving_platform.gd` attached.
-#     * Set `point_a` and `point_b` in the Inspector.
-#     * Set `move_mode` to `0` ("Always Move") or `1` ("Move When Player Stands On It") / toggle `move_on_player_stand`.
-#     * Pick `easing` (`"Linear"`, `"SineInOut"`, `"QuadInOut"`, `"CubicInOut"`, `"ExpoInOut"`, `"BounceOut"`, `"ElasticOut"`, `"BackInOut"`).
+# 1. UNLINK DATA & DUPLICATING PARTS:
+#    - Duplicating any part (Ctrl+D) automatically unlinks its Mesh, Material,
+#      and CollisionShape so changing one part color/size NEVER changes the other.
+#    - You can also click "Unlink Data" on the 3D toolbar anytime.
 #
-# ============================================================================
-# 2. EDITING ANIMATIONS (Walk, Jump, Climb, Idle, Sit)
-# ============================================================================
-# - Select `LocalPlayer` in `res://scenes/retroblox.tscn` and look at the
-#   Inspector panel on the right under "Editable Animations", OR open
-#   `res://scripts/player/avatar_rig.gd`.
-# - You can adjust `walk_arm_swing`, `walk_leg_swing`, `walk_cycle_speed`,
-#   `jump_arm_angle`, `jump_leg_spread`, and `climb_swing` directly.
-# - If you want full keyframe animation control in Godot's Animation editor,
-#   toggle `use_animation_player = true` on `AvatarRig` and edit the tracks on
-#   its `AnimationPlayer` node (`Idle`, `Walk`, `Jump`, `Climb`, `Sit`).
+# 2. SURFACE STUDS CONFIGURATION (TOP, BOTTOM, LEFT, RIGHT, FULL):
+#    - Select any part and use the "Surface Studs" dropdown on the 3D toolbar,
+#      or toggle checkboxes in Inspector -> Material Override -> Shader Parameters:
+#        * stud_full:   Check to display studs on ALL faces (Full studs!)
+#        * stud_top:    Uncheck if you do not want studs on top
+#        * stud_bottom: Check to display studs on bottom / underside
+#        * stud_left:   Check to display studs on the left face
+#        * stud_right:  Check to display studs on the right face
+#        * stud_front / stud_back: Check for front and back faces
 #
-# ============================================================================
-# 3. EDITING THE UI & USING IN-GAME UI STUDIO
-# ============================================================================
-# - You can edit the HUD nodes directly inside `res://scenes/retroblox.tscn`
-#   under the `HUD` CanvasLayer (`Topbar`, `ChatBox`, `FpsChip`, `MobileControls`).
-# - While playing, click the UI Studio button in the topbar (or open Settings
-#   -> "Open UI Studio") to drag/move any UI element, resize it (great for small
-#   or Nokia-sized screens), rotate it, change its opacity, hide it, or add
-#   your own custom images on screen.
+# 3. SPAWN INSIDE SELECTED NODE & AT CAMERA LOOK POINT:
+#    - Select any Node3D / Folder in the Scene Tree and click "+ Part" or
+#      "+ Item Spawner": the new object is placed as a child INSIDE that node
+#      and spawns in 3D right where your editor camera is looking!
+#    - Collapsed nodes in the Scene Tree stay collapsed when inserting parts.
 #
+# 4. SNAP CONTROLS (MOVE SNAP & SCALE SNAP):
+#    - Use "Snap: ON/OFF", "Move: 0.25..4 studs", and "Scale: 0.1..1 stud"
+#      directly on the top 3D toolbar.
+#
+# 5. HIDE NODE & HIDER/UNHIDER NODE PANEL:
+#    - Click "Hide Node" to hide the selected node from the Workspace (Scene)
+#      panel, or open "Hider/Unhider Node" to Hide All, Unhide All, or toggle
+#      specific nodes.
+#
+# 6. 21 EDITABLE ITEMS, ITEM SPAWNERS & INFINITE BACKPACK INVENTORY:
+#    - Select any ItemSpawner under World/ItemSpawners (or insert one via
+#      "+ Item Spawner") to edit all item variables in the Inspector:
+#      Speed/Gravity/Fusion/Heal Coils, Linked/Flame/Slow/Super Sword (with
+#      double-click Lunge!), Healing Potion, Big Head Potion, Flying Carpet,
+#      Laser Gun, Rocket Launcher, Subspace Tripmine, Grappler, Spicy Sauce
+#      (3x speed for health), Ghost Burger (invisibility), Hamburger, Sandwich
+#      and Bloxy Cola.
+#    - Every gear also exists as an editable resource in res://gears/*.tres —
+#      open one and change damage, lunge speed, duration, heal amounts, etc.
+#    - Lunge is now a FLAT dash: same height the whole way (even over a hole),
+#      and you fall normally once the dash ends. Super Sword dashes faster and
+#      pops slightly upward.
+#7. MAP DISTRICTS & WORLD CONFIG:
+#    - World/SafeZone is the big spawn safe zone (no damage, slow heal).
+#    - World/FoodCourt, World/GrappleRange, World/CombatArena, World/ObbyCourse
+#      and World/BuildingYard are ordinary nodes: move them anywhere.
+#    - Select World/WorldConfig to change safe-zone radius/heal, item respawn
+#      timers and plaza distances without touching a script.
+#    - Toggle "lose_item_when_dead" (default: On) on LocalPlayer, in Player
+#      Settings, or per ItemSpawner.
+#    - Press "," (Comma) or click the Backpack icon in the top-left Topbar
+#      to open your infinite-storage Inventory and drag items to/from the Hotbar.
 # ============================================================================
-# 4. LOGIN SCENE WARNING (scenes/login.tscn & scripts/ui/login.gd)
-# ============================================================================
-# - Do NOT modify `res://scenes/login.tscn` or `res://scripts/ui/login.gd`
-#   unless you are only restyling the visual UI nodes OR you are a pro who
-#   knows how the session/authentication handshake works.

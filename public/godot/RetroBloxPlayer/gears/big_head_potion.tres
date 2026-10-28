@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "big_head_potion"
+gear_name = "Big Head Potion"
+short_name = "BIGHEAD"
+item_type = 11
+color = Color(0.75, 0.3, 0.86, 1)
+cooldown = 3.0
+head_scale_multiplier = 2.6
+big_head_duration = 18.0
+unlimited_potion_uses = true

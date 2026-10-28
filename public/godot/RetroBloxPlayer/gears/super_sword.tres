@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "super_sword"
+gear_name = "Super Sword"
+short_name = "SUPER"
+item_type = 8
+color = Color(1, 0.84, 0, 1)
+cooldown = 1.5
+slash_damage = 55.0
+lunge_damage = 85.0
+lunge_cooldown = 3.4
+sword_range = 6.8
+lunge_forward_boost = 96.0
+lunge_duration = 0.52
+lunge_up_boost = 18.0

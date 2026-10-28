@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "slow_sword"
+gear_name = "Slow Sword"
+short_name = "SLOW"
+item_type = 7
+color = Color(0.13, 0.72, 0.81, 1)
+cooldown = 1.2
+slash_damage = 28.0
+lunge_damage = 45.0
+lunge_cooldown = 2.8
+sword_range = 5.0
+lunge_forward_boost = 50.0
+lunge_duration = 0.34
+lunge_up_boost = 0.0
+slow_multiplier = 0.25
+slow_duration = 5.5

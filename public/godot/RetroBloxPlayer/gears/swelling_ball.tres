@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "swelling_ball"
+gear_name = "Swelling Ball"
+short_name = "SWELL"
+item_type = 9
+color = Color(1, 0.25, 0.65, 1)
+cooldown = 2.8
+min_swell_damage = 25.0
+max_swell_damage = 120.0
+max_swell_scale = 4.5
+max_charge_time = 2.5
+swell_launch_speed = 38.0

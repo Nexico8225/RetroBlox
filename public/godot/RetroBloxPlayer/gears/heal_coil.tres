@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "heal_coil"
+gear_name = "Heal Coil"
+short_name = "HEAL COIL"
+item_type = 4
+color = Color(0.25, 0.85, 0.38, 1)
+cooldown = 0.5
+heal_per_second = 16.0

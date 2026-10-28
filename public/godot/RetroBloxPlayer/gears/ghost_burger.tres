@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "ghost_burger"
+gear_name = "Ghost Burger"
+short_name = "GHOST"
+item_type = 18
+color = Color(0.62, 0.94, 1, 1)
+cooldown = 1.0
+lose_item_when_dead = true
+unlimited_potion_uses = false
+invisible_duration = 8.0
+heal_amount = 10.0

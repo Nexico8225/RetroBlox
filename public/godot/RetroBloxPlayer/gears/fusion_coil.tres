@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "fusion_coil"
+gear_name = "Fusion Coil"
+short_name = "FUSION"
+item_type = 3
+color = Color(0.75, 0.25, 0.95, 1)
+cooldown = 0.5
+speed_multiplier = 2.0
+gravity_multiplier = 0.35
+jump_boost_multiplier = 1.4

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "healing_potion"
+gear_name = "Healing Potion"
+short_name = "HEAL"
+item_type = 10
+color = Color(0.25, 0.75, 0.34, 1)
+cooldown = 3.0
+heal_amount = 65.0
+unlimited_potion_uses = true

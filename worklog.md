@@ -436,3 +436,25 @@ Work Log:
 
 Stage Summary:
 - ColorWorld does not exist anywhere in the codebase, the kit zip, the places list or the site nav — only leftover is the Game #2 row in the PRODUCTION Turso DB (creator-uploaded earlier, untouchable without admin creds): the owner deletes it with one click on the game page (Delete Game (Admin)). The studio finally has an undo: DEFAULT (avatar), RESET (UI), FACTORY RESET (everything) — the exact answer to "how do i revert it back".
+
+---
+
+## v1.1 SDK swap + flat lunge + hub map
+
+**Done**
+- **SDK replaced**: `public/godot/RetroBloxPlayer` mirrored from `d:\Folders\RetroBlox\RetroBlox SDK` (265 files, byte-identical, `.godot/` cache excluded). Zip rebuilt: 273 entries, 6.76 MB. Buster bumped in `SdkView.tsx` (v1.0 → v1.1) and `HomeView.tsx` (11.1 → 12.0).
+
+**Flat lunge (`local_player.gd`, `game.gd`)**
+- New `apply_lunge_dash(dir, forward, up, duration)` + `_drive_lunge_dash()`: gravity is off and `velocity.y = 0` for the whole dash while `floor_snap_length = 0`, so lunging across a hole keeps your exact height; the frame the dash ends, `_end_lunge_dash()` restores snap and gravity drops you.
+- `_perform_step_up()` is skipped while dashing so no ledge snap breaks the line.
+- Super Sword: `lunge_forward_boost 96`, `lunge_duration 0.52`, `lunge_up_boost 18`, floored at 88 / 0.46 / 16 in `game.gd`. All other swords: `lunge_up_boost = 0` (dead flat).
+- `apply_lunge_float()` kept as a compatibility wrapper (zero-speed dash).
+
+**Gear (6 new, 21 total)** — Grappler (16), Spicy Sauce (17, 3× speed 10 s, −4 HP/s), Ghost Burger (18, 8 s invisibility), Hamburger (19, +30 HP), Sandwich (20, +45 HP), Bloxy Cola (21, +12 HP, 1.6× for 7 s). Each has a `res://gears/*.tres` resource (all stats editable), enum/name/short/colour entries, a 3D hand+pad mesh in `item_spawner.gd`, a procedural hotbar icon and tooltip in `inventory_ui.gd`, and a use branch in `_use_equipped_item()`.
+- New player-side APIs: `start_grapple()`, `apply_speed_surge()`, `set_ghost()`/`set_ghost_alpha()` (transparency on avatar meshes + nameplate), with surge HP drain ticking in `drive()`.
+
+**Hub map (`scenes/retroblox.tscn`, the scene login actually loads)**
+- Spawn `SafeZone` scaled 2.2 and centred on the spawn pad; `World/WorldConfig` (`world_config.gd`) drives `safe_zone_radius 26`, height 30, 4 HP/s safe healing, effect clearing, spawner respawn timers.
+- Crammed props split into districts: `BuildingYard` (−96, 0, −24) holds bricks/stairs/fort/towers/ladders/ramp, `ObbyCourse` (86, 0, −52) holds the obby steps with 1.5× wider spacing, `Playground` moved to z 58.
+- New districts: `FoodCourt` (−72, 0, 52), `GrappleRange` (74, 0, 52) with three grapple towers, `CombatArena` (0, 0, −92) with walls/podium; combat dummies moved into the arena. Every platform is a `PlazaPlatform` node (`size` + `color` exported) so the map stays editable in the editor.
+- `HOW_TO_EDIT.gd` documents the 21 gears, the flat lunge and the district/WorldConfig layout.

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "laser_gun"
+gear_name = "Hyperlaser Gun"
+short_name = "LASER"
+item_type = 13
+color = Color(0, 0.9, 1, 1)
+cooldown = 3.2
+projectile_speed = 18.0
+projectile_damage = 9999.0
+insta_kill_on_touch = true
