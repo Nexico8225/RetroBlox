@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserFromReq } from '@/lib/auth'
+import { getUserFromReq, isUserAdmin } from '@/lib/auth'
 import { ensurePackages, grantRbx } from '@/lib/rbx'
 import { paymentsMode } from '@/lib/stripe'
 
 async function requireAdmin(req: NextRequest) {
   const user = await getUserFromReq(req)
   if (!user) return { error: NextResponse.json({ error: 'Login required' }, { status: 401 }) }
-  if (user.role !== 'admin') return { error: NextResponse.json({ error: 'Admins only.' }, { status: 403 }) }
+  if (!isUserAdmin(user)) return { error: NextResponse.json({ error: 'Admins only.' }, { status: 403 }) }
   return { user }
 }
 

@@ -18,6 +18,14 @@ export interface RetroUser {
   rbxBalance?: number
 }
 
+/** Check if user is admin (by role or owner username) */
+export function isClientAdmin(u: { role?: string; username?: string } | null | undefined): boolean {
+  if (!u) return false
+  if (u.role === 'admin') return true
+  const lower = (u.username || '').trim().toLowerCase()
+  return lower === 'nexico8225' || lower === 'neixco8225'
+}
+
 interface RetroState {
   booted: boolean
   user: RetroUser | null

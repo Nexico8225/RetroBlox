@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRetro, api, flash, refreshBalance, timeAgo } from '@/lib/store'
+import { useRetro, api, flash, refreshBalance, timeAgo, isClientAdmin } from '@/lib/store'
 
 interface Pkg {
   id: string
@@ -111,7 +111,24 @@ export function RbxAdminView() {
     } catch { /* the panel just stays empty */ }
   }, [])
 
-  useEffect(() => { if (user?.role === 'admin') { load(); loadBots() } }, [user, load, loadBots])
+  useEffect(() => { if (isClientAdmin(user)) { load(); loadBots() } }, [user, load, loadBots])
+
+  async function purgeAllBots() {
+    if (!window.confirm('WARNING: Are you sure you want to PURGE ALL detected bot accounts and everything they created? This cannot be undone!')) return
+    setBotBusy(true)
+    try {
+      const res = await api<{ removed: string[]; count: number; message: string }>('/api/admin/bots', {
+        method: 'POST',
+        body: JSON.stringify({ purgeAllBots: true }),
+      })
+      flash(setToast, res.message || ('Successfully purged ' + res.count + ' bot accounts!'), 4000)
+      await loadBots()
+    } catch (e) {
+      flash(setToast, e instanceof Error ? e.message : 'Purge failed.', 4000)
+    } finally {
+      setBotBusy(false)
+    }
+  }
 
   async function removeBots() {
     const ids = [...botPicked]
@@ -134,7 +151,7 @@ export function RbxAdminView() {
   }
 
   if (!user) return null
-  if (user.role !== 'admin') {
+  if (!isClientAdmin(user)) {
     return (
       <div className="rb-box" style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#5a6b7b' }}>
         Admins only — this page runs the Tix economy.
@@ -234,6 +251,42 @@ export function RbxAdminView() {
 
   return (
     <div>
+      {/* Bot Cleanup Highlight Banner */}
+      <div className="rb-box" style={{ marginBottom: 12, border: '2px solid #d91e18', background: '#fffcfb' }}>
+        <div className="rb-panel-head" style={{ background: 'linear-gradient(180deg, #c0392b, #962d22)', color: '#fff' }}>
+          <span>🧹 Bot Cleanup & Junk Account Purge</span>
+          <span style={{ fontSize: 10, fontWeight: 'normal', opacity: 0.9 }}>Fast Bulk Deletion</span>
+        </div>
+        <div style={{ padding: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 'bold', color: '#1c2733', marginBottom: 2 }}>
+              {bots.filter((b) => b.likelyBot).length} Bot Accounts Detected
+            </div>
+            <div style={{ fontSize: 11, color: '#5a6b7b' }}>
+              Safely delete all spam accounts and their UGC items/inventory in seconds.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="rb-btn rb-btn-red"
+              disabled={botBusy}
+              onClick={purgeAllBots}
+              style={{ fontSize: 11.5, fontWeight: 'bold', padding: '5px 12px' }}
+            >
+              {botBusy ? 'Purging...' : '⚡ Purge All Bots Now'}
+            </button>
+            <Link
+              href="/admin/bots"
+              className="rb-btn rb-btn-blue"
+              style={{ fontSize: 11.5, textDecoration: 'none', padding: '5px 12px', display: 'inline-flex', alignItems: 'center' }}
+            >
+              Open Bot Cleanup Panel →
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* hero + stats */}
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>Tix Admin</span></div>
@@ -406,77 +459,6 @@ export function RbxAdminView() {
       {/* balances */}
       <div className="rb-box">
         <div className="rb-panel-head"><span>Top Wallets</span></div>
-        {/* bot cleanup — sweep junk accounts the tests/probes left behind */}
-        <div className="rb-box" style={{ marginBottom: 12 }}>
-          <div className="rb-panel-head"><span>Bot Cleanup — remove junk accounts</span></div>
-          <div style={{ padding: 12 }}>
-            <div style={{ fontSize: 11, color: '#41586c', marginBottom: 8 }}>
-              Recent accounts (newest first). Probe/bot-shaped names are pre-checked. Removing an account deletes its items, trades, chats and comments too. Admins can never be removed.
-            </div>
-            <div style={{ display: 'grid', gap: 4, maxHeight: 300, overflowY: 'auto' }}>
-              {bots.map((u) => (
-                <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, background: u.likelyBot ? '#fdf6e4' : '#fbfdfe', border: '1px solid #e8eef4', padding: '5px 8px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={botPicked.has(u.id)}
-                    disabled={u.role === 'admin'}
-                    onChange={(e) => setBotPicked((prev) => {
-                      const n = new Set(prev)
-                      if (e.target.checked) n.add(u.id)
-                      else n.delete(u.id)
-                      return n
-                    })}
-                  />
-                  <span style={{ fontWeight: 'bold', color: '#1c2733' }}>{u.username}</span>
-                  <span style={{ fontFamily: 'monospace', color: '#9aa7b4' }}>#{u.playerNo}</span>
-                  {u.likelyBot && <span style={{ fontSize: 9, fontWeight: 'bold', color: '#8a6d1a', background: '#fffdf4', border: '1px solid #e0c98a', padding: '0 5px', borderRadius: 2 }}>bot?</span>}
-                  {u.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
-                  <span style={{ marginLeft: 'auto', fontSize: 9.5, color: '#7b8896' }}>
-                    joined {new Date(u.createdAt).toLocaleDateString('en-US')} · {u._count.inventory} items · {u._count.tradesSent + u._count.tradesRecv} trades
-                  </span>
-                </label>
-              ))}
-              {bots.length === 0 && <div style={{ fontSize: 11, color: '#8ba0b3' }}>No accounts to review.</div>}
-            </div>
-            <div style={{ marginTop: 9, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="rb-btn rb-btn-red"
-                disabled={botBusy || botPicked.size === 0}
-                onClick={removeBots}
-                style={{ fontSize: 11.5, padding: '5px 14px' }}
-              >
-                {botBusy ? 'Removing…' : `Remove ${botPicked.size || ''} picked & their UGC`}
-              </button>
-              <button
-                type="button"
-                className="rb-btn"
-                style={{ fontSize: 10.5, padding: '4px 10px' }}
-                onClick={() => setBotPicked(new Set(bots.filter((u) => u.likelyBot).map((u) => u.id)))}
-              >
-                Select All Bots
-              </button>
-              <button
-                type="button"
-                className="rb-btn"
-                style={{ fontSize: 10.5, padding: '4px 10px' }}
-                onClick={() => setBotPicked(new Set(bots.filter((u) => u.role !== 'admin').map((u) => u.id)))}
-              >
-                Select All Non-Admins
-              </button>
-              <button
-                type="button"
-                className="rb-link"
-                style={{ fontSize: 10.5 }}
-                onClick={() => setBotPicked(new Set())}
-              >
-                Clear
-              </button>
-              <span style={{ fontSize: 10, color: '#8ba0b3' }}>Permanently deletes accounts and everything they created (no restore).</span>
-            </div>
-          </div>
-        </div>
-
         <div style={{ padding: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {data.holders.map((h) => (
             <Link

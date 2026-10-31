@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useRetro, api, letterAvatar, clearAuthToken, type RetroUser } from '@/lib/store'
+import { useRetro, api, letterAvatar, clearAuthToken, isClientAdmin, type RetroUser } from '@/lib/store'
 import { useSiteUi } from '@/lib/siteui'
 import { tixCompact } from '@/lib/tix'
 import { eggLogoClick } from '@/lib/eggs'
@@ -262,8 +262,30 @@ export function Header() {
                 >
                   {user.username}
                 </span>
-                {user.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
+                {isClientAdmin(user) && <span className="rb-admin-badge">ADMIN</span>}
               </Link>
+              {isClientAdmin(user) && (
+                <Link
+                  href="/admin/bots"
+                  className="rb-header-chip"
+                  title="Bot Cleanup — Purge junk bot accounts"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    background: 'rgba(217, 30, 24, 0.35)',
+                    border: '1px solid rgba(255, 120, 120, 0.7)',
+                    borderRadius: 3,
+                    padding: '3px 8px',
+                    color: '#ffe4e4',
+                    textDecoration: 'none',
+                    fontSize: 11,
+                    fontWeight: 'bold',
+                  }}
+                >
+                  🧹 Bot Cleanup
+                </Link>
+              )}
             </>
           ) : (
             <>
@@ -372,7 +394,7 @@ export function Sidebar() {
             <Link href={`/users/${user.id}`} className="rb-link" style={{ fontSize: 12, display: 'block' }}>
               {user.username}
             </Link>
-            {user.role === 'admin' && (
+            {isClientAdmin(user) && (
               <div style={{ marginTop: 2 }}>
                 <span className="rb-admin-badge">ADMIN</span>
               </div>
@@ -397,8 +419,9 @@ export function Sidebar() {
         )}
         {/* Account + Log Out are ALWAYS here — the owner can't lock themselves out */}
         {sec('Account')}
-        {user.role === 'admin' && item('Admin Panel', '/admin')}
-        {user.role === 'admin' && item('Site UI Editor', '/site-ui')}
+        {isClientAdmin(user) && item('🧹 Bot Cleanup', '/admin/bots')}
+        {isClientAdmin(user) && item('Admin Panel', '/admin')}
+        {isClientAdmin(user) && item('Site UI Editor', '/site-ui')}
         {item('Settings', '/settings')}
         <div style={{ padding: '8px 10px', borderTop: '1px solid #e4eaf0' }}>
           <button className="rb-btn rb-btn-red" style={{ width: '100%', fontSize: 11 }} onClick={logout}>
@@ -575,7 +598,7 @@ function MobileDrawer() {
             </div>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#bcd8ef' }}>
               <OnlineDot online={user.online} /> {user.online ? 'Online' : 'Offline'}
-              {user.role === 'admin' && <span className="rb-admin-badge">ADMIN</span>}
+              {isClientAdmin(user) && <span className="rb-admin-badge">ADMIN</span>}
             </span>
           </div>
           <button type="button" className="rb-drawer-x" aria-label="Close menu" onClick={close}>
@@ -598,8 +621,9 @@ function MobileDrawer() {
         {link('Favorites', '/favorites')}
         {link('Friends', '/friends', pendingRequests || undefined)}
         {link('Tix Store', '/store')}
-        {user.role === 'admin' && link('Tix Admin', '/admin')}
-        {user.role === 'admin' && link('Site UI Editor', '/site-ui')}
+        {isClientAdmin(user) && link('🧹 Bot Cleanup', '/admin/bots')}
+        {isClientAdmin(user) && link('Tix Admin', '/admin')}
+        {isClientAdmin(user) && link('Site UI Editor', '/site-ui')}
         {link('Analytics', '/analytics')}
         {link('RetroBlox SDK', '/sdk')}
         {link('Settings', '/settings')}
