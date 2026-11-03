@@ -44,6 +44,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       'Content-Type': rows[0].mimeType || 'application/zip',
       'Content-Length': String(total),
       'Accept-Ranges': 'none',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
     }
     if (download) {
       headers['Content-Disposition'] = `attachment; filename="${path.basename(rows[0].filename || 'game.zip')}"`
@@ -71,6 +74,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const baseHeaders: Record<string, string> = {
     'Content-Type': file.mimeType || 'application/octet-stream',
     'Accept-Ranges': 'bytes',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+    'Access-Control-Allow-Headers': '*',
   }
   if (download) {
     baseHeaders['Content-Disposition'] = `attachment; filename="${path.basename(file.filename)}"`
@@ -167,4 +173,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const stream = Readable.toWeb(createReadStream(file.path)) as unknown as ReadableStream
   return new NextResponse(stream, { headers: { ...baseHeaders, 'Content-Length': String(size) } })
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    },
+  })
 }

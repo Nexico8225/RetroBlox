@@ -164,7 +164,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (!kept) return NextResponse.json({ error: 'Chunked upload not found — upload the game again.' }, { status: 400 })
       data.fileId = gameUploadId
       const gn = form.get('gameFileName')
-      data.fileName = typeof gn === 'string' && gn.trim() ? gn.trim().slice(-80) : 'game.zip'
+      data.fileName = typeof gn === 'string' && gn.trim() ? gn.trim().slice(-80) : 'game.rbxpkg'
     } catch (e) {
       return NextResponse.json({ error: 'Game build attach failed: ' + (e instanceof Error ? e.message : String(e)) }, { status: 500 })
     }

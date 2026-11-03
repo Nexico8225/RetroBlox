@@ -79,7 +79,7 @@ export function CreateView() {
       }
     }
     if (engine !== 'Web' && !gameFile) {
-      setError('Attach your game build file! (Unity export, Godot pack, .zip, .exe...)')
+      setError('Attach your game package or build file! (.rbxpkg package, Godot pack, Unity build, .zip...)')
       return
     }
     setBusy(true)
@@ -339,10 +339,16 @@ export function CreateView() {
           </div>
         ) : (
           <div style={{ background: '#f4f8fb', border: '1px dashed #9db2c4', borderRadius: 4, padding: 10 }}>
-            <label style={labelStyle}>Game Build File * <span style={{ color: '#7b8896' }}>(max 60MB)</span></label>
-            <input type="file" className="rb-input" style={{ width: '100%', fontSize: 10 }} onChange={(e) => setGameFile(e.target.files?.[0] || null)} />
+            <label style={labelStyle}>Game Package / Build File * <span style={{ color: '#7b8896' }}>(max 60MB)</span></label>
+            <input
+              type="file"
+              accept=".rbxpkg,.zip,.pck,.exe,.retroplace,*"
+              className="rb-input"
+              style={{ width: '100%', fontSize: 10 }}
+              onChange={(e) => setGameFile(e.target.files?.[0] || null)}
+            />
             <div style={{ fontSize: 10, color: '#7b8896', marginTop: 4 }}>
-              Unity build (.zip / .exe / .apk), Godot pack (.pck / .zip) — players download it and hit Play now.
+              <strong>RetroBlox Package (.rbxpkg)</strong>, Godot pack (.pck / .zip), or executable — .rbxpkg packages stream straight into RAM for 1-click instant play without saving to disk!
             </div>
           </div>
         )}

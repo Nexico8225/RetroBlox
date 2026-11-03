@@ -115,6 +115,11 @@ export function GameDetailView({ id }: { id: string }) {
   const iconInputRef = useRef<HTMLInputElement>(null)
   const thumbInputRef = useRef<HTMLInputElement>(null)
 
+  /* 1-Click Launch Protocol state */
+  const [launching, setLaunching] = useState(false)
+  const [launchModalOpen, setLaunchModalOpen] = useState(false)
+  const [lastLaunchUri, setLastLaunchUri] = useState('')
+
   const load = useCallback(async () => {
     try {
       const res = await api<{ game: GameDetail }>(`/api/games/${id}`)
@@ -145,7 +150,62 @@ export function GameDetailView({ id }: { id: string }) {
     if (game) document.title = `${game.name} - RetroBlox`
   }, [game])
 
-  /* ---- download / play / re-download ---- */
+  /* ---- 1-Click Launch Protocol / Play / Download ---- */
+
+  async function launchClient() {
+    if (!user) {
+      router.push('/login')
+      return
+    }
+    if (!game?.fileId) {
+      setToast('No game package or build file available for this game.')
+      setTimeout(() => setToast(null), 2500)
+      return
+    }
+
+    setLaunching(true)
+    setLaunchModalOpen(true)
+
+    try {
+      // 1. Best-effort log play for "Games You've Played" rail
+      api(`/api/games/${game.id}/play`, { method: 'POST' }).catch(() => {})
+
+      // 2. Pre-warm / cache package in browser memory so instant launch doesn't wait
+      fetch(`/api/files/${game.fileId}`, { cache: 'force-cache' }).catch(() => {})
+
+      // 3. Obtain signed v2 bearer token from /api/platform/launch-token
+      // (client cookie is httpOnly, so the endpoint reads it securely server-side)
+      let token = document.cookie.match(/(?:^|;\s*)rb_session=([^;]+)/)?.[1] || ''
+      let username = user?.username || ''
+      try {
+        const tokenRes = await api<{ ok: boolean; token?: string; username?: string }>('/api/platform/launch-token')
+        if (tokenRes?.token) token = tokenRes.token
+        if (tokenRes?.username) username = tokenRes.username
+      } catch {
+        // fallback to cookie if any
+      }
+
+      // 4. Construct protocol URI per Argon's SDK contract
+      const pkgUrl = `/api/files/${game.fileId}`
+      const uri = `retroblox://play?gameId=${encodeURIComponent(game.id)}&token=${encodeURIComponent(token)}&pkgUrl=${encodeURIComponent(pkgUrl)}&username=${encodeURIComponent(username)}`
+      setLastLaunchUri(uri)
+
+      // 5. Trigger the desktop launcher via custom protocol
+      window.location.href = uri
+
+      localStorage.setItem(`rb_dl_${game.id}`, '1')
+      setDownloaded(true)
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Could not launch RetroBlox')
+      setTimeout(() => setToast(null), 2600)
+    } finally {
+      setLaunching(false)
+    }
+  }
+
+  function playNow() {
+    launchClient()
+  }
 
   async function doDownload() {
     if (!user) {
@@ -157,33 +217,24 @@ export function GameDetailView({ id }: { id: string }) {
     try {
       const res = await api<{ downloads: number; fileUrl: string }>(`/api/games/${game.id}/download`, {
         method: 'POST',
-      })
-      // v6: the classic download dance — a bare page opens, the download
-      // starts by itself, the tab closes. Game files carry ?game=<id> so the
-      // desktop player can load the owner's PUBLISHED UI for everyone.
-      const dlUrl = `${res.fileUrl}${res.fileUrl.includes('?') ? '&' : '?'}dl=1&game=${game.id}`
-      const dlName = game.fileName || 'game'
-      window.open(`/download?u=${encodeURIComponent(dlUrl)}&n=${encodeURIComponent(dlName)}`, '_blank')
-      localStorage.setItem(`rb_dl_${game.id}`, '1')
-      setDownloaded(true)
-      setGame({ ...game, downloads: res.downloads })
-      setToast('Download started! Check your downloads folder.')
-      setTimeout(() => setToast(null), 2600)
+      }).catch(() => null)
+      if (res?.downloads) {
+        setGame((g) => (g ? { ...g, downloads: res.downloads } : null))
+      }
+      await launchClient()
     } catch (e) {
-      setToast(e instanceof Error ? e.message : 'Download failed')
+      setToast(e instanceof Error ? e.message : 'Launch failed')
       setTimeout(() => setToast(null), 2600)
     } finally {
       setBusy(false)
     }
   }
 
-  function playNow() {
+  function downloadDirectFile() {
     if (!game?.fileId) return
-    // log the play for "Games You've Played" (best-effort)
-    if (user) {
-      api(`/api/games/${game.id}/play`, { method: 'POST' }).catch(() => {})
-    }
-    window.open(`/download?u=${encodeURIComponent(`/api/files/${game.fileId}?dl=1&game=${game.id}`)}&n=${encodeURIComponent(game.fileName || 'game')}`, '_blank')
+    const dlUrl = `/api/files/${game.fileId}?dl=1&game=${game.id}`
+    const dlName = game.fileName || `${game.name}.rbxpkg`
+    window.open(`/download?u=${encodeURIComponent(dlUrl)}&n=${encodeURIComponent(dlName)}`, '_blank')
   }
 
   function triggerFile(url: string, name: string) {
@@ -1019,47 +1070,61 @@ export function GameDetailView({ id }: { id: string }) {
                     Web game — no download, it runs right here on RetroBlox.
                   </div>
                 </>
-              ) : downloaded ? (
+              ) : (
                 <>
                   <button
+                    type="button"
                     className="rb-btn rb-btn-green"
                     onClick={playNow}
+                    disabled={busy || launching}
                     style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
                   >
-                    Play now
+                    {launching ? 'Launching RetroBlox...' : '▶ Play'}
                   </button>
-                  <button
-                    className="rb-link"
-                    onClick={doDownload}
-                    disabled={busy}
-                    style={{
-                      display: 'block',
-                      margin: '7px auto 0',
-                      background: 'none',
-                      border: 'none',
-                      font: 'bold 11px Verdana',
-                      padding: 0,
-                      textDecoration: 'underline',
-                    }}
-                  >
-                    {busy ? 'Preparing...' : 'Re-Download'}
-                  </button>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 7, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="rb-link"
+                      onClick={() => setLaunchModalOpen(true)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        font: 'bold 10px Verdana',
+                        padding: 0,
+                        color: '#00639e',
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      Need the Launcher?
+                    </button>
+                    <span style={{ fontSize: 10, color: '#c3cdd7' }}>|</span>
+                    <button
+                      type="button"
+                      className="rb-link"
+                      onClick={downloadDirectFile}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        font: '10px Verdana',
+                        padding: 0,
+                        color: '#5a6b7b',
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      Download game file (.rbxpkg)
+                    </button>
+                  </div>
                 </>
-              ) : (
-                <button
-                  className="rb-btn rb-btn-green"
-                  onClick={doDownload}
-                  disabled={busy}
-                  style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
-                >
-                  {busy ? 'Preparing...' : 'Download Game File'}
-                </button>
               )}
               {game.fileName && (
                 <div style={{ textAlign: 'center', fontSize: 10, color: '#7b8896', marginTop: 6 }}>
-                  {game.fileName.endsWith('.retroplace')
-                    ? `${game.fileName} — the GAME FILE. Open it in RetroBlox: STUDIO → OPEN GAME FILE. The SDK is the green Source Code download.`
-                    : `${game.fileName} — opens with its own engine (${game.engine})`}
+                  {game.fileName.endsWith('.rbxpkg')
+                    ? `${game.fileName} — RetroBlox Package. Streams directly into RAM for 1-click instant play!`
+                    : game.fileName.endsWith('.retroplace')
+                    ? `${game.fileName} — the GAME FILE. Open it in RetroBlox: STUDIO → OPEN GAME FILE.`
+                    : `${game.fileName} — opens with ${game.engine}`}
                 </div>
               )}
             </div>
@@ -1189,10 +1254,10 @@ export function GameDetailView({ id }: { id: string }) {
                       </button>
                     </div>
                     <div>
-                      <div style={{ font: '10px Verdana', color: '#24425f', marginBottom: 4 }}>Replace game build:</div>
-                      <input ref={updateFileRef} type="file" style={{ fontSize: 10, maxWidth: '100%' }} aria-label="New build file" />
+                      <div style={{ font: '10px Verdana', color: '#24425f', marginBottom: 4 }}>Replace game package / build (.rbxpkg, .zip):</div>
+                      <input ref={updateFileRef} type="file" accept=".rbxpkg,.zip,.pck,.exe,.retroplace,*" style={{ fontSize: 10, maxWidth: '100%' }} aria-label="New build or package file" />
                       <button className="rb-btn" style={{ marginTop: 5 }} disabled={updating} onClick={() => updateGame(true, false)}>
-                        Upload New Build
+                        Upload New Package / Build
                       </button>
                     </div>
                     <div>
@@ -1264,6 +1329,129 @@ export function GameDetailView({ id }: { id: string }) {
           </tbody>
         </table>
       </div>
+
+      {/* 1-Click Launch Modal */}
+      {launchModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(10, 20, 30, 0.72)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setLaunchModalOpen(false)}
+        >
+          <div
+            className="rb-box"
+            style={{
+              width: '100%',
+              maxWidth: 480,
+              background: '#fff',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>RetroBlox Launcher</span>
+              <button
+                type="button"
+                onClick={() => setLaunchModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#24425f',
+                  fontSize: 16,
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: 20, textAlign: 'center' }}>
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 14,
+                  background: 'linear-gradient(135deg, #0d69ac, #00d26a)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: 26,
+                  marginBottom: 14,
+                  boxShadow: '0 4px 14px rgba(0, 162, 255, 0.35)',
+                }}
+              >
+                ▶
+              </div>
+              <h2 style={{ margin: '0 0 6px', fontSize: 18, color: '#1c2733' }}>
+                Starting {game.name}...
+              </h2>
+              <p style={{ margin: '0 0 16px', fontSize: 12, color: '#5a6b7b', lineHeight: 1.5 }}>
+                Streaming package directly into RAM. If your browser asks permission, click <strong>&ldquo;Open RetroBlox Launcher&rdquo;</strong> to start playing!
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                {lastLaunchUri && (
+                  <button
+                    type="button"
+                    className="rb-btn rb-btn-green"
+                    style={{ width: '100%', padding: '9px 0', fontSize: 13 }}
+                    onClick={() => {
+                      window.location.href = lastLaunchUri
+                    }}
+                  >
+                    Relaunch Game
+                  </button>
+                )}
+                <Link
+                  href="/sdk"
+                  className="rb-btn"
+                  style={{ display: 'block', width: '100%', padding: '8px 0', fontSize: 12, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
+                >
+                  Download RetroBlox Launcher (One-time setup)
+                </Link>
+                <button
+                  type="button"
+                  className="rb-link"
+                  onClick={downloadDirectFile}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: 11,
+                    color: '#00639e',
+                    padding: '6px 0',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Download game file directly (.rbxpkg / manual)
+                </button>
+              </div>
+            </div>
+            <div style={{ background: '#f4f8fb', padding: '10px 16px', borderTop: '1px solid #e4eaf0', textAlign: 'right' }}>
+              <button
+                type="button"
+                className="rb-btn"
+                style={{ fontSize: 11 }}
+                onClick={() => setLaunchModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

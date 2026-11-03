@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
 
     const gameFile = form.get('gameFile')
     if (engine !== 'Web' && (!(gameFile instanceof File) || gameFile.size === 0)) {
-      return NextResponse.json({ error: 'Please attach your game build file (.zip, .exe, .apk, etc.)' }, { status: 400 })
+      return NextResponse.json({ error: 'Please attach your game package or build file (.rbxpkg, .zip, .exe, .retroplace, etc.)' }, { status: 400 })
     }
     let saved: { id: string } | null = null
     if (gameFile instanceof File && gameFile.size > 0) {

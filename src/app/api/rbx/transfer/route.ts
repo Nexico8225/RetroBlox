@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromReq } from '@/lib/auth'
 import { transferRbx, RbxError } from '@/lib/rbx'
+import { PLATFORM_CORS } from '@/lib/platform'
 
 /**
  * POST /api/rbx/transfer — send Tix to another player.
@@ -10,7 +11,9 @@ import { transferRbx, RbxError } from '@/lib/rbx'
  */
 export async function POST(req: NextRequest) {
   const user = await getUserFromReq(req)
-  if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
+  if (!user) {
+    return NextResponse.json({ error: 'Login required' }, { status: 401, headers: PLATFORM_CORS })
+  }
 
   const body = (await req.json().catch(() => ({}))) as {
     to?: unknown
@@ -21,9 +24,11 @@ export async function POST(req: NextRequest) {
   const amount = typeof body.amount === 'number' ? Math.floor(body.amount) : NaN
   const note = typeof body.note === 'string' ? body.note : undefined
 
-  if (!to) return NextResponse.json({ error: 'Type who should get the Tix.' }, { status: 400 })
+  if (!to) {
+    return NextResponse.json({ error: 'Type who should get the Tix.' }, { status: 400, headers: PLATFORM_CORS })
+  }
   if (!Number.isFinite(amount) || amount < 1) {
-    return NextResponse.json({ error: 'Send at least 1 Tix (whole numbers only).' }, { status: 400 })
+    return NextResponse.json({ error: 'Send at least 1 Tix (whole numbers only).' }, { status: 400, headers: PLATFORM_CORS })
   }
 
   try {
@@ -32,12 +37,16 @@ export async function POST(req: NextRequest) {
       ok: true,
       balanceAfter: res.balanceAfter,
       recipient: res.recipient,
-    })
+    }, { headers: PLATFORM_CORS })
   } catch (e) {
     if (e instanceof RbxError) {
-      return NextResponse.json({ error: e.message }, { status: 400 })
+      return NextResponse.json({ error: e.message }, { status: 400, headers: PLATFORM_CORS })
     }
     console.error('[rbx/transfer] failed:', e)
-    return NextResponse.json({ error: 'The transfer failed — try again in a moment.' }, { status: 500 })
+    return NextResponse.json({ error: 'The transfer failed — try again in a moment.' }, { status: 500, headers: PLATFORM_CORS })
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: PLATFORM_CORS })
 }
