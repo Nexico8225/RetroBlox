@@ -83,6 +83,7 @@ export function BotCleanupView() {
         body: JSON.stringify({ purgeAllBots: true }),
       })
       flash(setToast, res.message || `Successfully purged ${res.count} bot accounts!`, 4500)
+      setPicked(new Set())
       await loadBots(query)
     } catch (e) {
       flash(setToast, e instanceof Error ? e.message : 'Purge failed', 4000)
@@ -109,6 +110,7 @@ export function BotCleanupView() {
       } else {
         flash(setToast, `Successfully removed ${res.removed.length} account(s)!`, 3500)
       }
+      setPicked(new Set())
       await loadBots(query)
     } catch (e) {
       flash(setToast, e instanceof Error ? e.message : 'Removal failed', 4000)
@@ -128,6 +130,11 @@ export function BotCleanupView() {
         body: JSON.stringify({ userIds: [account.id] }),
       })
       flash(setToast, `Removed "${account.username}".`, 3000)
+      setPicked((prev) => {
+        const next = new Set(prev)
+        next.delete(account.id)
+        return next
+      })
       await loadBots(query)
     } catch (e) {
       flash(setToast, e instanceof Error ? e.message : 'Failed to delete account', 4000)
