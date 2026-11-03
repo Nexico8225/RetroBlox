@@ -6,9 +6,12 @@
 script = ExtResource("1_gear")
 gear_id = "healing_potion"
 gear_name = "Healing Potion"
-short_name = "HEAL"
+short_name = "POTION"
+category = "items"
 item_type = 10
 color = Color(0.25, 0.75, 0.34, 1)
 cooldown = 3.0
-heal_amount = 65.0
+rent_tix = 35
+buy_tix = 35
+heal_amount = 50.0
 unlimited_potion_uses = true

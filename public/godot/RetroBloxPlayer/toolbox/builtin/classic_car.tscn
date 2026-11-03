@@ -1,0 +1,77 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://toolbox/builtin/car_controller.gd" id="1_car"]
+
+[sub_resource type="BoxShape3D" id="Shape_chassis"]
+size = Vector3(5.2, 1.4, 9.6)
+
+[sub_resource type="BoxMesh" id="Mesh_chassis"]
+size = Vector3(5.2, 1.2, 9.6)
+
+[sub_resource type="StandardMaterial3D" id="Mat_blue"]
+albedo_color = Color(0.12, 0.34, 0.88, 1)
+roughness = 0.35
+
+[sub_resource type="BoxMesh" id="Mesh_bumper"]
+size = Vector3(5.2, 1.0, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="Mat_yellow"]
+albedo_color = Color(0.98, 0.82, 0.12, 1)
+
+[sub_resource type="CylinderMesh" id="Mesh_wheel"]
+top_radius = 1.0
+bottom_radius = 1.0
+height = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Mat_tire"]
+albedo_color = Color(0.12, 0.12, 0.14, 1)
+
+[sub_resource type="BoxShape3D" id="Shape_seat"]
+size = Vector3(3.4, 2.4, 3.6)
+
+[node name="Car" type="StaticBody3D"]
+script = ExtResource("1_car")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 1.4, 0)
+shape = SubResource("Shape_chassis")
+
+[node name="BodyMesh" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.4, 0)
+mesh = SubResource("Mesh_chassis")
+surface_material_override/0 = SubResource("Mat_blue")
+
+[node name="FrontNose" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.3, -4.4)
+mesh = SubResource("Mesh_bumper")
+surface_material_override/0 = SubResource("Mat_yellow")
+
+[node name="WheelFL" type="MeshInstance3D" parent="."]
+position = Vector3(-2.7, 1.0, -3.0)
+rotation = Vector3(0, 0, 1.5708)
+mesh = SubResource("Mesh_wheel")
+surface_material_override/0 = SubResource("Mat_tire")
+
+[node name="WheelFR" type="MeshInstance3D" parent="."]
+position = Vector3(2.7, 1.0, -3.0)
+rotation = Vector3(0, 0, 1.5708)
+mesh = SubResource("Mesh_wheel")
+surface_material_override/0 = SubResource("Mat_tire")
+
+[node name="WheelBL" type="MeshInstance3D" parent="."]
+position = Vector3(-2.7, 1.0, 3.0)
+rotation = Vector3(0, 0, 1.5708)
+mesh = SubResource("Mesh_wheel")
+surface_material_override/0 = SubResource("Mat_tire")
+
+[node name="WheelBR" type="MeshInstance3D" parent="."]
+position = Vector3(2.7, 1.0, 3.0)
+rotation = Vector3(0, 0, 1.5708)
+mesh = SubResource("Mesh_wheel")
+surface_material_override/0 = SubResource("Mat_tire")
+
+[node name="SeatTrigger" type="Area3D" parent="."]
+position = Vector3(0, 2.4, 0.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SeatTrigger"]
+shape = SubResource("Shape_seat")

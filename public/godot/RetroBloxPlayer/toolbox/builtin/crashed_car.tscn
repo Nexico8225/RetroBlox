@@ -1,0 +1,44 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="BoxShape3D" id="Shape_wreck"]
+size = Vector3(5.0, 1.6, 9.0)
+
+[sub_resource type="BoxMesh" id="Mesh_wreck"]
+size = Vector3(5.0, 1.4, 9.0)
+
+[sub_resource type="StandardMaterial3D" id="Mat_burnt"]
+albedo_color = Color(0.24, 0.22, 0.20, 1)
+roughness = 0.9
+
+[sub_resource type="SphereMesh" id="Mesh_fire"]
+radius = 1.6
+height = 2.6
+
+[sub_resource type="StandardMaterial3D" id="Mat_fire"]
+albedo_color = Color(1, 0.38, 0.08, 1)
+emission_enabled = true
+emission = Color(1, 0.32, 0.04, 1)
+emission_energy_multiplier = 2.4
+
+[node name="CrashedCar" type="StaticBody3D"]
+rotation = Vector3(0.08, 0.25, -0.14)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 1.0, 0)
+shape = SubResource("Shape_wreck")
+
+[node name="WreckBody" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.0, 0)
+mesh = SubResource("Mesh_wreck")
+surface_material_override/0 = SubResource("Mat_burnt")
+
+[node name="FireGlow" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.0, -1.8)
+mesh = SubResource("Mesh_fire")
+surface_material_override/0 = SubResource("Mat_fire")
+
+[node name="FireLight" type="OmniLight3D" parent="."]
+position = Vector3(0, 3.2, -1.8)
+light_color = Color(1, 0.45, 0.12, 1)
+light_energy = 2.0
+omni_range = 14.0

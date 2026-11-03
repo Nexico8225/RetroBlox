@@ -25,21 +25,24 @@ enum ItemType {
 	HYPERLASER_GUN = 13,
 	ROCKET_LAUNCHER = 14,
 	SUBSPACE_TRIPMINE = 15,
-	GRAPPLER = 16,
-	SPICY_SAUCE = 17,
-	GHOST_BURGER = 18,
-	HAMBURGER = 19,
-	SANDWICH = 20,
-	BLOXY_COLA = 21,
-	GRAPPLER_V2 = 22,
-	MEDKIT = 23,
-	VENOMSHANK = 24,
-	ICEDAGGER = 25,
-	WINDFORCE = 26,
-	DARKHEART = 27,
-	ILLUMINA = 28,
-	SLATESKIN_POTION = 29,
-	ROCKET_BOOTS = 30
+	MEDKIT = 16,
+	HAMBURGER = 17,
+	SPICY_SAUCE = 18,
+	BLOXY_COLA = 19,
+	TIMEBOMB = 20,
+	ILLUMINA = 21,
+	VENOMSHANK = 22,
+	DARKHEART = 23,
+	WINDFORCE = 24,
+	GOLD_SKIN_POTION = 25,
+	GHOST_SKIN_POTION = 26,
+	RAINBOW_SKIN_POTION = 27,
+	TITAN_SKIN_POTION = 28,
+	SLINGSHOT = 29,
+	PAINTBALL_GUN = 30,
+	SUPERBALL = 31,
+	GHOSTWALKER = 32,
+	SLATESKIN_POTION = 33
 }
 
 @export_group("Gear Spawner Setup")
@@ -66,7 +69,7 @@ enum ItemType {
 @export var custom_item_name: String = ""
 
 ## Seconds before the spawner re-enables after pickup (when random, switches to a new gear immediately!).
-@export var respawn_cooldown: float = 1.5
+@export var respawn_cooldown: float = 8.0
 
 ## Whether this item is removed from the player's inventory when they die (default: On / true).
 @export var lose_item_when_dead: bool = true
@@ -130,6 +133,7 @@ var _time: float = 0.0
 var _active_resolved_type: int = 5
 var _active_gear_dict: Dictionary = {}
 var _loaded_folder_gears: Array[Dictionary] = []
+static var _static_folder_gears_cache: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -146,6 +150,13 @@ func _process(delta: float) -> void:
 		_cooldown_left = maxf(0.0, _cooldown_left - delta)
 		if _floating_root != null and is_instance_valid(_floating_root):
 			_floating_root.visible = (_cooldown_left <= 0.0)
+		if _label_3d != null and is_instance_valid(_label_3d):
+			if _cooldown_left > 0.0:
+				_label_3d.text = "Respawning in %.0fs" % _cooldown_left
+			else:
+				var resolved_t: int = _active_resolved_type if _active_resolved_type >= 1 else 5
+				var disp_name: String = custom_item_name.strip_edges() if custom_item_name.strip_edges() != "" else String(_active_gear_dict.get("name", get_default_item_name(resolved_t)))
+				_label_3d.text = (" Random: %s" % disp_name) if (item_type == ItemType.RANDOM_FROM_GEARS_FOLDER and custom_gear_resource == null) else disp_name
 	if _floating_root != null and is_instance_valid(_floating_root):
 		if wall_mount:
 			_floating_root.position.z = 0.65 + sin(_time * 2.8) * 0.08
@@ -156,6 +167,9 @@ func _process(delta: float) -> void:
 
 
 func _load_gears_folder() -> void:
+	if gears_folder_path == "res://gears" and not _static_folder_gears_cache.is_empty():
+		_loaded_folder_gears = _static_folder_gears_cache.duplicate(true)
+		return
 	_loaded_folder_gears.clear()
 	var dir: DirAccess = DirAccess.open(gears_folder_path)
 	if dir != null:
@@ -172,6 +186,8 @@ func _load_gears_folder() -> void:
 							_loaded_folder_gears.append(d)
 			fn = dir.get_next()
 		dir.list_dir_end()
+	if gears_folder_path == "res://gears" and not _loaded_folder_gears.is_empty():
+		_static_folder_gears_cache = _loaded_folder_gears.duplicate(true)
 
 
 func _roll_next_gear() -> void:
@@ -192,10 +208,10 @@ func _roll_next_gear() -> void:
 			_active_gear_dict = pick.duplicate(true)
 			_active_resolved_type = int(_active_gear_dict.get("item_type", 5))
 			return
-		# Fallback random 1..30 if folder was moved
-		var next_t: int = (randi() % 30) + 1
+		# Fallback random 1..15 if folder was moved
+		var next_t: int = (randi() % 28) + 1
 		if next_t == _active_resolved_type:
-			next_t = (next_t % 30) + 1
+			next_t = (next_t % 28) + 1
 		_active_resolved_type = next_t
 		_active_gear_dict = get_default_gear_dict(_active_resolved_type)
 	else:
@@ -214,8 +230,20 @@ func can_pickup() -> bool:
 	return _cooldown_left <= 0.0
 
 
+static func get_default_respawn_cooldown(t: int) -> float:
+	match t:
+		5: return 10.0
+		6, 7: return 45.0
+		22, 32: return 55.0
+		23, 24: return 65.0
+		8: return 80.0
+		21: return 90.0
+	return 18.0
+
+
 func consume_pickup() -> Dictionary:
-	_cooldown_left = maxf(0.15, respawn_cooldown)
+	var resolved_t: int = _active_resolved_type if _active_resolved_type >= 1 else int(item_type)
+	_cooldown_left = maxf(respawn_cooldown, get_default_respawn_cooldown(resolved_t))
 	var data: Dictionary = get_item_data()
 	if item_type == ItemType.RANDOM_FROM_GEARS_FOLDER:
 		# Immediately roll the next random gear so when it pops back up (or on the pad), it's a new gear!
@@ -239,39 +267,32 @@ static func get_default_gear_dict(t: int) -> Dictionary:
 		"color": col,
 		"cooldown": 0.35,
 		"lose_item_when_dead": true,
-		"speed_multiplier": 2.0 if t in [1, 3] else (1.25 if t == 26 else (1.32 if t == 28 else (1.35 if t == 30 else 1.0))),
-		"gravity_multiplier": 0.35 if t in [2, 3] else (0.62 if t == 26 else (0.55 if t == 28 else (0.50 if t == 30 else 1.0))),
-		"jump_boost_multiplier": 1.40 if t in [2, 3] else (1.28 if t == 26 else (1.35 if t == 28 else (1.45 if t == 30 else 1.0))),
+		"speed_multiplier": 2.0 if t in [1, 3] else 1.0,
+		"gravity_multiplier": 0.35 if t in [2, 3] else 1.0,
+		"jump_boost_multiplier": 1.40 if t in [2, 3] else 1.0,
 		"heal_per_second": 16.0 if t == 4 else 0.0,
-		"slash_damage": 150.0 if t == 8 else (45.0 if t == 6 else (50.0 if t == 7 else (38.0 if t == 24 else (45.0 if t == 25 else (36.0 if t == 26 else (42.0 if t == 27 else (48.0 if t == 28 else 35.0))))))),
-		"lunge_damage": 300.0 if t == 8 else (75.0 if t == 6 else (85.0 if t == 7 else (62.0 if t == 24 else (999.0 if t == 25 else (58.0 if t == 26 else (68.0 if t == 27 else (80.0 if t == 28 else 55.0))))))),
-		"lunge_cooldown": 1.0 if t == 8 else (1.9 if t == 28 else 2.2),
-		"sword_range": 10.5 if t == 8 else (6.2 if t == 28 else 5.4),
-		"lunge_forward_boost": 96.0 if t == 8 else 0.0,
-		"lunge_up_boost": 18.0 if t == 8 else (38.0 if t == 28 else (34.0 if t == 26 else 28.0)),
-		"lunge_duration": 0.52 if t == 8 else (0.85 if t == 28 else 0.65),
-		"grapple_range": 150.0 if t == 22 else 95.0,
-		"grapple_speed": 235.0 if t == 22 else 165.0,
-		"grapple_duration": 0.95 if t == 22 else 0.85,
-		"speed_surge_multiplier": 3.0 if t == 17 else (1.22 if t == 21 else 1.0),
-		"speed_surge_duration": 10.0 if t == 17 else (8.0 if t == 21 else 0.0),
-		"health_cost_per_sec": 4.0 if t == 17 else 0.0,
-		"invisible_duration": 8.0 if t == 18 else 0.0,
-		"burn_damage_per_sec": 20.0 if t == 6 else (16.0 if t == 24 else 0.0),
-		"burn_duration": 5.0 if t == 6 else (5.5 if t == 24 else 0.0),
-		"slow_multiplier": 0.25 if t == 7 else (0.15 if t == 25 else 1.0),
-		"slow_duration": 5.5 if t == 7 else (4.5 if t == 25 else 0.0),
+		"slash_damage": 150.0 if t == 8 else (45.0 if t == 6 else (50.0 if t == 7 else 100.0)),
+		"lunge_damage": 300.0 if t == 8 else (75.0 if t == 6 else (85.0 if t == 7 else 150.0)),
+		"lunge_cooldown": 1.0 if t == 8 else 0.85,
+		"sword_range": 10.5 if t == 8 else 7.0,
+		"lunge_forward_boost": 78.0 if t == 8 else 44.0,
+		"lunge_up_boost": 18.0 if t == 8 else 11.0,
+		"lunge_duration": 0.46 if t == 8 else 0.32,
+		"burn_damage_per_sec": 20.0 if t == 6 else 0.0,
+		"burn_duration": 5.0 if t == 6 else 0.0,
+		"slow_multiplier": 0.25 if t == 7 else 1.0,
+		"slow_duration": 5.5 if t == 7 else 0.0,
 		"min_swell_damage": 35.0,
 		"max_swell_damage": 250.0,
 		"max_swell_scale": 5.5,
 		"max_charge_time": 2.4,
 		"swell_launch_speed": 42.0,
-		"heal_amount": 85.0 if t == 23 else (65.0 if t in [10, 11] else (25.0 if t in [27, 29] else (10.0 if t == 18 else (30.0 if t == 19 else (45.0 if t == 20 else (12.0 if t == 21 else 0.0)))))),
+		"heal_amount": 65.0,
 		"head_scale_multiplier": 2.6,
-		"big_head_duration": 18.0 if t == 11 else 12.0,
+		"big_head_duration": 18.0,
 		"unlimited_potion_uses": true,
 		"fly_speed": 38.0,
-		"ascend_speed": 34.0 if t == 30 else 24.0,
+		"ascend_speed": 24.0,
 		"projectile_speed": 20.0 if t == 13 else 58.0,
 		"projectile_damage": 9999.0,
 		"insta_kill_on_touch": true,
@@ -288,22 +309,30 @@ static func get_default_gear_dict(t: int) -> Dictionary:
 		d["cooldown"] = 1.0
 	elif t == 9:
 		d["cooldown"] = 0.75
-	elif t in [10, 11]:
+	elif t in [10, 11, 25, 26, 27, 28, 33]:
 		d["cooldown"] = 1.1
-	elif t == 16:
-		d["cooldown"] = 1.1
-	elif t == 22:
-		d["cooldown"] = 0.65
-	elif t == 23:
-		d["cooldown"] = 2.0
 	elif t == 29:
-		d["cooldown"] = 3.0
-	elif t == 17:
-		d["cooldown"] = 1.2
-	elif t == 18:
-		d["cooldown"] = 1.0
-	elif t in [19, 20, 21]:
-		d["cooldown"] = 1.2
+		d["cooldown"] = 0.45
+		d["projectile_speed"] = 78.0
+		d["projectile_damage"] = 28.0
+		d["knockback_power"] = 22.0
+	elif t == 30:
+		d["cooldown"] = 0.38
+		d["projectile_speed"] = 72.0
+		d["projectile_damage"] = 25.0
+		d["knockback_power"] = 18.0
+	elif t == 31:
+		d["cooldown"] = 0.85
+		d["projectile_speed"] = 54.0
+		d["projectile_damage"] = 40.0
+		d["knockback_power"] = 48.0
+	elif t == 32:
+		d["cooldown"] = 0.80
+		d["slash_damage"] = 48.0
+		d["lunge_damage"] = 78.0
+		d["speed_multiplier"] = 1.32
+		d["gravity_multiplier"] = 0.45
+		d["jump_boost_multiplier"] = 1.35
 	return d
 
 
@@ -369,21 +398,24 @@ static func get_type_from_id(id_str: String) -> int:
 		"laser_gun": return 13
 		"rocket_launcher": return 14
 		"subspace_tripmine": return 15
-		"grappler": return 16
-		"spicy_sauce": return 17
-		"ghost_burger": return 18
-		"hamburger": return 19
-		"sandwich": return 20
-		"bloxy_cola": return 21
-		"grappler_v2": return 22
-		"medkit": return 23
-		"venomshank": return 24
-		"icedagger": return 25
-		"windforce": return 26
-		"darkheart": return 27
-		"illumina": return 28
-		"slateskin_potion": return 29
-		"rocket_boots": return 30
+		"medkit": return 16
+		"hamburger": return 17
+		"spicy_sauce": return 18
+		"bloxy_cola": return 19
+		"timebomb": return 20
+		"illumina": return 21
+		"venomshank": return 22
+		"darkheart": return 23
+		"windforce": return 24
+		"gold_skin_potion": return 25
+		"ghost_skin_potion": return 26
+		"rainbow_skin_potion": return 27
+		"titan_skin_potion": return 28
+		"slingshot": return 29
+		"paintball_gun": return 30
+		"superball": return 31
+		"ghostwalker": return 32
+		"slateskin_potion": return 33
 	return 5
 
 
@@ -404,22 +436,25 @@ static func get_type_id(t: int) -> String:
 		13: return "laser_gun"
 		14: return "rocket_launcher"
 		15: return "subspace_tripmine"
-		16: return "grappler"
-		17: return "spicy_sauce"
-		18: return "ghost_burger"
-		19: return "hamburger"
-		20: return "sandwich"
-		21: return "bloxy_cola"
-		22: return "grappler_v2"
-		23: return "medkit"
-		24: return "venomshank"
-		25: return "icedagger"
-		26: return "windforce"
-		27: return "darkheart"
-		28: return "illumina"
-		29: return "slateskin_potion"
-		30: return "rocket_boots"
-	return "sword"
+		16: return "medkit"
+		17: return "hamburger"
+		18: return "spicy_sauce"
+		19: return "bloxy_cola"
+		20: return "timebomb"
+		21: return "illumina"
+		22: return "venomshank"
+		23: return "darkheart"
+		24: return "windforce"
+		25: return "gold_skin_potion"
+		26: return "ghost_skin_potion"
+		27: return "rainbow_skin_potion"
+		28: return "titan_skin_potion"
+		29: return "slingshot"
+		30: return "paintball_gun"
+		31: return "superball"
+		32: return "ghostwalker"
+		33: return "slateskin_potion"
+	return "sword" 
 
 
 static func get_default_item_name(t: int) -> String:
@@ -429,8 +464,8 @@ static func get_default_item_name(t: int) -> String:
 		3: return "Fusion Coil"
 		4: return "Heal Coil"
 		5: return "Linked Sword"
-		6: return "Flame Sword (Firebrand)"
-		7: return "Slow Sword"
+		6: return "Firebrand"
+		7: return "Ice Dagger"
 		8: return "Super Sword"
 		9: return "Swelling Ball"
 		10: return "Healing Potion"
@@ -439,22 +474,25 @@ static func get_default_item_name(t: int) -> String:
 		13: return "Hyperlaser Gun"
 		14: return "Rocket Launcher"
 		15: return "Subspace Tripmine"
-		16: return "Grappler V1"
-		17: return "Spicy Sauce"
-		18: return "Ghost Burger"
-		19: return "Hamburger"
-		20: return "Sandwich"
-		21: return "Bloxy Cola"
-		22: return "Grappler V2 (Hyper)"
-		23: return "Medkit"
-		24: return "Venomshank"
-		25: return "Icedagger"
-		26: return "Windforce"
-		27: return "Darkheart"
-		28: return "Illumina"
-		29: return "Slateskin Potion"
-		30: return "Rocket Boots"
-	return "Linked Sword"
+		16: return "Medkit"
+		17: return "Hamburger"
+		18: return "Spicy Sauce"
+		19: return "Bloxy Cola"
+		20: return "Classic Timebomb"
+		21: return "Illumina"
+		22: return "Venomshank"
+		23: return "Darkheart"
+		24: return "Windforce"
+		25: return "24K Gold Skin Potion"
+		26: return "Ghostwalker Skin Potion"
+		27: return "Neon Rainbow Skin"
+		28: return "Giant Titan Skin"
+		29: return "Slingshot"
+		30: return "Paintball Gun"
+		31: return "Superball"
+		32: return "Ghostwalker"
+		33: return "Slateskin Potion"
+	return "Linked Sword" 
 
 
 static func get_short_label(t: int) -> String:
@@ -464,31 +502,34 @@ static func get_short_label(t: int) -> String:
 		3: return "FUSION"
 		4: return "HEALCOIL"
 		5: return "SWORD"
-		6: return "FLAME"
-		7: return "SLOW"
+		6: return "FIREBRAND"
+		7: return "ICEDAGGER"
 		8: return "SUPER"
 		9: return "SWELL"
-		10: return "HEAL"
+		10: return "POTION"
 		11: return "BIGHEAD"
 		12: return "CARPET"
 		13: return "LASER"
 		14: return "ROCKET"
 		15: return "TRIPMINE"
-		16: return "GRAP V1"
-		17: return "SPICY"
-		18: return "GHOST"
-		19: return "BURGER"
-		20: return "SANDWICH"
-		21: return "COLA"
-		22: return "GRAP V2"
-		23: return "MEDKIT"
-		24: return "VENOM"
-		25: return "ICEDAG"
-		26: return "WIND"
-		27: return "DARK"
-		28: return "ILLUMINA"
-		29: return "SLATE"
-		30: return "BOOTS"
+		16: return "MEDKIT"
+		17: return "BURGER"
+		18: return "SPICY"
+		19: return "COLA"
+		20: return "BOMB"
+		21: return "ILLUMINA"
+		22: return "VENOM"
+		23: return "DARKHEART"
+		24: return "WINDFORCE"
+		25: return "GOLDSKIN"
+		26: return "GHOST"
+		27: return "RAINBOW"
+		28: return "TITAN"
+		29: return "SLING"
+		30: return "PAINT"
+		31: return "BALL"
+		32: return "GHOSTW"
+		33: return "SLATE"
 	return "ITEM"
 
 
@@ -509,21 +550,24 @@ static func get_item_color(t: int) -> Color:
 		13: return Color("00e5ff")
 		14: return Color("ff5252")
 		15: return Color("ff00aa")
-		16: return Color("c0eb75")
-		17: return Color("ff6b35")
-		18: return Color("9be7ff")
-		19: return Color("f59f00")
-		20: return Color("ffe066")
-		21: return Color("e03131")
-		22: return Color("00e5ff")
-		23: return Color("f03e3e")
-		24: return Color("51cf66")
-		25: return Color("339af0")
-		26: return Color("74c0fc")
-		27: return Color("ae3ec9")
-		28: return Color("faa2c1")
-		29: return Color("868e96")
-		30: return Color("fd7e14")
+		16: return Color("fa5252")
+		17: return Color("e8590c")
+		18: return Color("e03131")
+		19: return Color("ae3ec9")
+		20: return Color("343a40")
+		21: return Color("ff66cc")
+		22: return Color("5cd820")
+		23: return Color("a61e4d")
+		24: return Color("4dabf7")
+		25: return Color("ffd43b")
+		26: return Color("66d9e8")
+		27: return Color("f06595")
+		28: return Color("ff922b")
+		29: return Color("b07d4f")
+		30: return Color("22b8cf")
+		31: return Color("e03131")
+		32: return Color("ced4da")
+		33: return Color("868e96")
 	return Color.WHITE
 
 
@@ -574,6 +618,7 @@ func _rebuild_visuals() -> void:
 		var std: StandardMaterial3D = StandardMaterial3D.new()
 		std.albedo_color = col_color.darkened(0.15)
 		pad_mi.material_override = std
+	pad_mi.visible = wall_mount
 	add_child(pad_mi)
 
 	if not wall_mount:
@@ -605,9 +650,9 @@ func _rebuild_visuals() -> void:
 	_label_3d.set_meta("_spawner_generated", true)
 	var disp_name: String = custom_item_name.strip_edges() if custom_item_name.strip_edges() != "" else String(_active_gear_dict.get("name", get_default_item_name(resolved_t)))
 	if item_type == ItemType.RANDOM_FROM_GEARS_FOLDER and custom_gear_resource == null:
-		_label_3d.text = "🎲 [ID %d] %s" % [resolved_t, disp_name]
+		_label_3d.text = " Random Gear: %s" % disp_name
 	else:
-		_label_3d.text = "[ID %d] %s" % [resolved_t, disp_name]
+		_label_3d.text = disp_name
 	_label_3d.font_size = 28 if wall_mount else 34
 	_label_3d.outline_size = 10
 	_label_3d.modulate = col_color.lightened(0.35)
@@ -643,99 +688,90 @@ static func build_item_mesh_3d(t: int) -> Node3D:
 	glow_mat.emission_energy_multiplier = 0.45
 
 	if t in [1, 2, 3, 4]:
-		# Helical Spring Coils: radius = 0.78 so it wraps clearly OUTSIDE the 1.0x1.0 R6 Right Arm!
-		var num_turns: int = 4
-		var segs_per_turn: int = 12
-		var total_segs: int = num_turns * segs_per_turn
-		var radius: float = 0.78
-		var height: float = 1.45
+		# Authentic Roblox Helical Spring Coils built from tilted metallic TorusMesh rings!
 		var mat_a: StandardMaterial3D = glow_mat.duplicate() as StandardMaterial3D
-		mat_a.emission_energy_multiplier = 0.95
+		mat_a.metallic = 0.72
+		mat_a.roughness = 0.18
+		mat_a.emission_energy_multiplier = 0.85
 		var mat_b: StandardMaterial3D = mat_a
 		if t == 3:
 			mat_a = StandardMaterial3D.new()
 			mat_a.albedo_color = Color("ff3b30")
+			mat_a.metallic = 0.72
+			mat_a.roughness = 0.18
 			mat_a.emission_enabled = true
 			mat_a.emission = Color("ff3b30")
-			mat_a.emission_energy_multiplier = 0.95
+			mat_a.emission_energy_multiplier = 0.85
 			mat_b = StandardMaterial3D.new()
 			mat_b.albedo_color = Color("339af0")
+			mat_b.metallic = 0.72
+			mat_b.roughness = 0.18
 			mat_b.emission_enabled = true
 			mat_b.emission = Color("339af0")
-			mat_b.emission_energy_multiplier = 0.95
+			mat_b.emission_energy_multiplier = 0.85
+		for r_i in range(5):
+			var tor: TorusMesh = TorusMesh.new()
+			tor.inner_radius = 0.62
+			tor.outer_radius = 0.82
+			var py: float = -0.60 + float(r_i) * 0.30
+			var use_m: StandardMaterial3D = mat_a if (r_i % 2 == 0) else mat_b
+			_add_part(root, tor, use_m, Vector3(0.0, py, 0.0), Vector3(11.0, float(r_i) * 35.0, 0.0))
 
-		for i in range(total_segs):
-			var frac: float = float(i) / float(total_segs)
-			var ang: float = frac * float(num_turns) * TAU
-			var py: float = -height * 0.5 + frac * height
-			var px: float = cos(ang) * radius
-			var pz: float = sin(ang) * radius
-			var seg_mesh: SphereMesh = SphereMesh.new()
-			seg_mesh.radius = 0.17
-			seg_mesh.height = 0.34
-			var use_mat: StandardMaterial3D = mat_a if (i % 2 == 0) else mat_b
-			_add_part(root, seg_mesh, use_mat, Vector3(px, py, pz))
-
-	elif t in [5, 6, 7, 8, 24, 25, 26, 27, 28]:
-		# Swords: Linked (5), Flame (6), Slow (7), Super (8), Venomshank (24), Icedagger (25), Windforce (26), Darkheart (27), Illumina (28)
-		var scale_mult: float = 1.48 if t == 8 else (0.78 if t == 25 else (1.12 if t == 28 else 1.0))
+	elif t in [5, 6, 7, 8, 21, 22, 23, 24, 32]:
+		# Super Sword (8) uses the exact classic Linked Sword (5) model!
+		var is_linked_look: bool = (t in [5, 8])
+		var scale_mult: float = 1.22 if t == 21 else 1.05
 		var gold_mat: StandardMaterial3D = StandardMaterial3D.new()
-		gold_mat.albedo_color = Color("ff5c00") if t == 6 else (Color("22b8cf") if t in [7, 25] else (Color("51cf66") if t == 24 else (Color("74c0fc") if t == 26 else (Color("ae3ec9") if t == 27 else (Color("faa2c1") if t == 28 else Color("fcc419"))))))
+		gold_mat.albedo_color = Color("fcc419") if is_linked_look else get_item_color(t)
 		gold_mat.metallic = 0.85
 		gold_mat.roughness = 0.18
-		if t in [6, 7, 8, 24, 25, 26, 27, 28]:
+		if not is_linked_look:
 			gold_mat.emission_enabled = true
 			gold_mat.emission = gold_mat.albedo_color
-			gold_mat.emission_energy_multiplier = 0.55
+			gold_mat.emission_energy_multiplier = 0.65
 
 		var grip_mat: StandardMaterial3D = StandardMaterial3D.new()
-		grip_mat.albedo_color = Color("7f1d1d") if t == 6 else (Color("0c4a6e") if t in [7, 25] else (Color("1b4332") if t == 24 else (Color("1864ab") if t == 26 else (Color("212529") if t == 27 else (Color("a61e4d") if t == 28 else (Color("5f3dc4") if t == 8 else Color("1864ab")))))))
-		grip_mat.roughness = 0.55
+		grip_mat.albedo_color = Color("1864ab") if is_linked_look else get_item_color(t).darkened(0.48)
+		grip_mat.roughness = 0.50
 
 		var blade_mat: StandardMaterial3D = StandardMaterial3D.new()
-		if t == 6:
-			blade_mat.albedo_color = Color("ff4500")
-			blade_mat.emission_enabled = true
-			blade_mat.emission = Color("ff6b00")
-			blade_mat.emission_energy_multiplier = 1.15
-		elif t in [7, 25]:
-			blade_mat.albedo_color = Color("339af0") if t == 25 else Color("66d9e8")
-			blade_mat.emission_enabled = true
-			blade_mat.emission = Color("74c0fc") if t == 25 else Color("22b8cf")
-			blade_mat.emission_energy_multiplier = 1.15 if t == 25 else 0.95
-		elif t == 24:
-			blade_mat.albedo_color = Color("2f9e44")
-			blade_mat.emission_enabled = true
-			blade_mat.emission = Color("51cf66")
-			blade_mat.emission_energy_multiplier = 1.1
-		elif t == 26:
-			blade_mat.albedo_color = Color("74c0fc")
-			blade_mat.emission_enabled = true
-			blade_mat.emission = Color("a5d8ff")
-			blade_mat.emission_energy_multiplier = 1.0
-		elif t == 27:
-			blade_mat.albedo_color = Color("1f1924")
-			blade_mat.emission_enabled = true
-			blade_mat.emission = Color("9c36b5")
-			blade_mat.emission_energy_multiplier = 1.2
-		elif t == 28:
-			blade_mat.albedo_color = Color("fcc2d7")
-			blade_mat.metallic = 0.95
-			blade_mat.roughness = 0.08
-			blade_mat.emission_enabled = true
-			blade_mat.emission = Color("ffdeeb")
-			blade_mat.emission_energy_multiplier = 1.4
-		elif t == 8:
-			blade_mat.albedo_color = Color("ffd43b")
-			blade_mat.metallic = 0.9
-			blade_mat.roughness = 0.12
-			blade_mat.emission_enabled = true
-			blade_mat.emission = Color("fcc419")
-			blade_mat.emission_energy_multiplier = 0.85
-		else:
+		if is_linked_look:
 			blade_mat.albedo_color = Color("e9ecef")
 			blade_mat.metallic = 0.92
 			blade_mat.roughness = 0.12
+		elif t == 21:
+			# Illumina: glowing crystal magenta/silver blade!
+			blade_mat.albedo_color = Color(1.0, 0.58, 0.92, 0.88)
+			blade_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			blade_mat.metallic = 0.85
+			blade_mat.roughness = 0.08
+			blade_mat.emission_enabled = true
+			blade_mat.emission = Color("ff66cc")
+			blade_mat.emission_energy_multiplier = 1.85
+		elif t == 32:
+			# Ghostwalker: translucent phantom silver-blue blade!
+			blade_mat.albedo_color = Color(0.82, 0.92, 1.0, 0.52)
+			blade_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			blade_mat.metallic = 0.65
+			blade_mat.roughness = 0.10
+			blade_mat.emission_enabled = true
+			blade_mat.emission = Color("a5d8ff")
+			blade_mat.emission_energy_multiplier = 1.25
+		elif t == 23:
+			# Darkheart: obsidian black & crimson vampiric blade!
+			blade_mat.albedo_color = Color("1f1218")
+			blade_mat.metallic = 0.9
+			blade_mat.roughness = 0.15
+			blade_mat.emission_enabled = true
+			blade_mat.emission = Color("c92a2a")
+			blade_mat.emission_energy_multiplier = 0.95
+		else:
+			blade_mat.albedo_color = get_item_color(t).lightened(0.18)
+			blade_mat.metallic = 0.8
+			blade_mat.roughness = 0.15
+			blade_mat.emission_enabled = true
+			blade_mat.emission = get_item_color(t)
+			blade_mat.emission_energy_multiplier = 1.10
 
 		var pommel: SphereMesh = SphereMesh.new()
 		pommel.radius = 0.16 * scale_mult
@@ -766,6 +802,18 @@ static func build_item_mesh_3d(t: int) -> Node3D:
 		tip.size = Vector3(0.24 * scale_mult, 0.42 * scale_mult, 0.07 * scale_mult)
 		_add_part(root, tip, blade_mat, Vector3(0.0, 1.73 * scale_mult, 0.0))
 
+		# Central fuller / elemental core ridge along the blade
+		var fuller: BoxMesh = BoxMesh.new()
+		fuller.size = Vector3(0.09 * scale_mult, 1.65 * scale_mult, 0.095 * scale_mult)
+		_add_part(root, fuller, gold_mat, Vector3(0.0, 0.55 * scale_mult, 0.0))
+
+		# Special SFOTH Elemental Sword Auras (Illumina, Super Sword, Ghostwalker, Darkheart, Venomshank, Windforce, Firebrand, Ice Dagger)
+		if t in [6, 7, 21, 22, 23, 24, 32]:
+			var aura_tor: TorusMesh = TorusMesh.new()
+			aura_tor.inner_radius = 0.28 * scale_mult
+			aura_tor.outer_radius = 0.36 * scale_mult
+			_add_part(root, aura_tor, gold_mat if t in [8, 24] else blade_mat, Vector3(0.0, -0.40 * scale_mult, 0.0), Vector3(90.0, 0.0, 0.0))
+
 	elif t == 9:
 		# Swelling Ball (glowing pink-magenta energy sphere + dual rings)
 		var core_sph: SphereMesh = SphereMesh.new()
@@ -784,7 +832,7 @@ static func build_item_mesh_3d(t: int) -> Node3D:
 		_add_part(root, ring_tor, glow_mat, Vector3.ZERO, Vector3(35.0, 0.0, 25.0))
 		_add_part(root, ring_tor, glow_mat, Vector3.ZERO, Vector3(-35.0, 45.0, -25.0))
 
-	elif t in [10, 11, 29]:
+	elif t in [10, 11, 25, 26, 27, 28, 33]:
 		var glass_mat: StandardMaterial3D = StandardMaterial3D.new()
 		glass_mat.albedo_color = Color(0.88, 0.96, 1.0, 0.38)
 		glass_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -900,254 +948,210 @@ static func build_item_mesh_3d(t: int) -> Node3D:
 		f_grip.size = Vector3(0.18, 0.48, 0.22)
 		_add_part(root, f_grip, rpg_tube_mat, Vector3(0.0, -0.34, -0.35), Vector3(12.0, 0.0, 0.0))
 
-	elif t in [16, 22]:
-		# Grappler V1 (16, lime) & Grappler V2 (22, hyper cyan)
-		var g_col_v: Color = Color("00e5ff") if t == 22 else Color("c0eb75")
-		var g_metal: StandardMaterial3D = StandardMaterial3D.new()
-		g_metal.albedo_color = g_col_v
-		g_metal.metallic = 0.85
-		g_metal.roughness = 0.20
-		g_metal.emission_enabled = true
-		g_metal.emission = g_col_v
-		g_metal.emission_energy_multiplier = 0.95 if t == 22 else 0.45
-
-		var shank: BoxMesh = BoxMesh.new()
-		shank.size = Vector3(0.26, 1.25, 0.26) if t == 22 else Vector3(0.24, 1.15, 0.24)
-		_add_part(root, shank, g_metal, Vector3(0.0, 0.15, 0.0))
-
-		var bend: TorusMesh = TorusMesh.new()
-		bend.inner_radius = 0.34
-		bend.outer_radius = 0.50 if t == 22 else 0.48
-		_add_part(root, bend, g_metal, Vector3(0.0, 0.86, 0.0), Vector3(90.0, 0.0, 0.0))
-
-		for p_idx in range(4 if t == 22 else 3):
-			var prong: BoxMesh = BoxMesh.new()
-			prong.size = Vector3(0.12, 0.62 if t == 22 else 0.55, 0.12)
-			var ang_off: float = float(p_idx) * (90.0 if t == 22 else 120.0)
-			_add_part(root, prong, g_metal, Vector3(cos(deg_to_rad(ang_off)) * 0.34, 1.16, sin(deg_to_rad(ang_off)) * 0.34), Vector3(0.0, ang_off, -20.0))
-
-		var spool: CylinderMesh = CylinderMesh.new()
-		spool.top_radius = 0.36
-		spool.bottom_radius = 0.36
-		spool.height = 0.30
-		var spool_mat: StandardMaterial3D = StandardMaterial3D.new()
-		spool_mat.albedo_color = Color("1f2937") if t == 22 else Color("495057")
-		spool_mat.roughness = 0.6
-		_add_part(root, spool, spool_mat, Vector3(0.0, -0.78, 0.0), Vector3(90.0, 0.0, 0.0))
-
-		for r_idx2 in range(3):
-			var rope_ring: TorusMesh = TorusMesh.new()
-			rope_ring.inner_radius = 0.30
-			rope_ring.outer_radius = 0.44
-			var rope_mat: StandardMaterial3D = StandardMaterial3D.new()
-			rope_mat.albedo_color = Color("99e9f2") if t == 22 else Color("e9fac8")
-			rope_mat.roughness = 0.85
-			_add_part(root, rope_ring, rope_mat, Vector3(0.0, -1.02 + float(r_idx2) * 0.16, 0.0), Vector3(90.0, 0.0, 0.0))
-
-	elif t == 23:
-		# Medkit: classic white first-aid case with glowing red cross + handle
+	elif t == 16:
+		# Medkit (white medical case + bright red cross + dark handle)
 		var case_mat: StandardMaterial3D = StandardMaterial3D.new()
 		case_mat.albedo_color = Color("f8f9fa")
 		case_mat.roughness = 0.35
-		var cross_mat: StandardMaterial3D = StandardMaterial3D.new()
-		cross_mat.albedo_color = Color("e03131")
-		cross_mat.emission_enabled = true
-		cross_mat.emission = Color("ff4d4d")
-		cross_mat.emission_energy_multiplier = 0.65
-
-		var box_m: BoxMesh = BoxMesh.new()
-		box_m.size = Vector3(1.45, 1.05, 0.55)
-		_add_part(root, box_m, case_mat, Vector3.ZERO)
-
-		var ch_v: BoxMesh = BoxMesh.new()
-		ch_v.size = Vector3(0.24, 0.68, 0.60)
-		_add_part(root, ch_v, cross_mat, Vector3.ZERO)
-
-		var ch_h: BoxMesh = BoxMesh.new()
-		ch_h.size = Vector3(0.68, 0.24, 0.60)
-		_add_part(root, ch_h, cross_mat, Vector3.ZERO)
-
+		var red_mat: StandardMaterial3D = StandardMaterial3D.new()
+		red_mat.albedo_color = Color("e03131")
+		red_mat.emission_enabled = true
+		red_mat.emission = Color("e03131")
+		red_mat.emission_energy_multiplier = 0.35
 		var h_mat: StandardMaterial3D = StandardMaterial3D.new()
 		h_mat.albedo_color = Color("343a40")
-		var handle_top: BoxMesh = BoxMesh.new()
-		handle_top.size = Vector3(0.56, 0.12, 0.16)
-		_add_part(root, handle_top, h_mat, Vector3(0.0, 0.64, 0.0))
-
-	elif t == 30:
-		# Rocket Boots: twin jet thruster boots with glowing orange exhaust cones
-		var boot_mat: StandardMaterial3D = StandardMaterial3D.new()
-		boot_mat.albedo_color = Color("fd7e14")
-		boot_mat.metallic = 0.65
-		boot_mat.roughness = 0.28
-		var flame_mat: StandardMaterial3D = StandardMaterial3D.new()
-		flame_mat.albedo_color = Color("ffd43b")
-		flame_mat.emission_enabled = true
-		flame_mat.emission = Color("ff6b00")
-		flame_mat.emission_energy_multiplier = 1.4
-		for side_x in [-0.42, 0.42]:
-			var boot_cyl: CylinderMesh = CylinderMesh.new()
-			boot_cyl.top_radius = 0.26
-			boot_cyl.bottom_radius = 0.30
-			boot_cyl.height = 0.95
-			_add_part(root, boot_cyl, boot_mat, Vector3(float(side_x), 0.10, 0.0))
-			var toe: BoxMesh = BoxMesh.new()
-			toe.size = Vector3(0.50, 0.34, 0.78)
-			_add_part(root, toe, boot_mat, Vector3(float(side_x), -0.25, -0.15))
-			var jet: CylinderMesh = CylinderMesh.new()
-			jet.top_radius = 0.14
-			jet.bottom_radius = 0.28
-			jet.height = 0.45
-			_add_part(root, jet, flame_mat, Vector3(float(side_x), -0.65, 0.05))
+		var m_box: BoxMesh = BoxMesh.new()
+		m_box.size = Vector3(1.15, 0.82, 0.42)
+		_add_part(root, m_box, case_mat)
+		var cross_v: BoxMesh = BoxMesh.new()
+		cross_v.size = Vector3(0.18, 0.50, 0.46)
+		_add_part(root, cross_v, red_mat)
+		var cross_h: BoxMesh = BoxMesh.new()
+		cross_h.size = Vector3(0.50, 0.18, 0.46)
+		_add_part(root, cross_h, red_mat)
+		var handle_b: BoxMesh = BoxMesh.new()
+		handle_b.size = Vector3(0.46, 0.14, 0.14)
+		_add_part(root, handle_b, h_mat, Vector3(0.0, 0.48, 0.0))
 
 	elif t == 17:
-		# Spicy Sauce: squat bottle with a molten glow
-		var sauce_mat: StandardMaterial3D = StandardMaterial3D.new()
-		sauce_mat.albedo_color = Color("ff6b35")
-		sauce_mat.emission_enabled = true
-		sauce_mat.emission = Color("e8590c")
-		sauce_mat.emission_energy_multiplier = 0.75
-		sauce_mat.roughness = 0.2
-
-		var bottle: CylinderMesh = CylinderMesh.new()
-		bottle.top_radius = 0.42
-		bottle.bottom_radius = 0.52
-		bottle.height = 1.35
-		_add_part(root, bottle, sauce_mat, Vector3(0.0, -0.05, 0.0))
-
-		var neck: CylinderMesh = CylinderMesh.new()
-		neck.top_radius = 0.20
-		neck.bottom_radius = 0.30
-		neck.height = 0.45
-		_add_part(root, neck, sauce_mat, Vector3(0.0, 0.80, 0.0))
-
-		var cap_mat: StandardMaterial3D = StandardMaterial3D.new()
-		cap_mat.albedo_color = Color("c92a2a")
-		cap_mat.metallic = 0.6
-		cap_mat.roughness = 0.3
-		var cap: CylinderMesh = CylinderMesh.new()
-		cap.top_radius = 0.24
-		cap.bottom_radius = 0.24
-		cap.height = 0.22
-		_add_part(root, cap, cap_mat, Vector3(0.0, 1.10, 0.0))
-
-		var label: CylinderMesh = CylinderMesh.new()
-		label.top_radius = 0.44
-		label.bottom_radius = 0.54
-		label.height = 0.42
-		var label_mat: StandardMaterial3D = StandardMaterial3D.new()
-		label_mat.albedo_color = Color("fff3bf")
-		label_mat.roughness = 0.7
-		_add_part(root, label, label_mat, Vector3(0.0, -0.10, 0.0))
+		# Hamburger (bottom bun, beef patty, melted cheese, green lettuce, top bun)
+		var bun_mat: StandardMaterial3D = StandardMaterial3D.new()
+		bun_mat.albedo_color = Color("e69138")
+		bun_mat.roughness = 0.65
+		var meat_mat: StandardMaterial3D = StandardMaterial3D.new()
+		meat_mat.albedo_color = Color("5c2d16")
+		meat_mat.roughness = 0.8
+		var cheese_mat: StandardMaterial3D = StandardMaterial3D.new()
+		cheese_mat.albedo_color = Color("fcc419")
+		var let_mat: StandardMaterial3D = StandardMaterial3D.new()
+		let_mat.albedo_color = Color("40c057")
+		var b_cyl: CylinderMesh = CylinderMesh.new()
+		b_cyl.top_radius = 0.52
+		b_cyl.bottom_radius = 0.48
+		b_cyl.height = 0.18
+		_add_part(root, b_cyl, bun_mat, Vector3(0.0, -0.24, 0.0))
+		var p_cyl: CylinderMesh = CylinderMesh.new()
+		p_cyl.top_radius = 0.54
+		p_cyl.bottom_radius = 0.54
+		p_cyl.height = 0.16
+		_add_part(root, p_cyl, meat_mat, Vector3(0.0, -0.08, 0.0))
+		var c_box: BoxMesh = BoxMesh.new()
+		c_box.size = Vector3(0.82, 0.05, 0.82)
+		_add_part(root, c_box, cheese_mat, Vector3(0.0, 0.02, 0.0), Vector3(0.0, 45.0, 0.0))
+		var l_cyl: CylinderMesh = CylinderMesh.new()
+		l_cyl.top_radius = 0.55
+		l_cyl.bottom_radius = 0.55
+		l_cyl.height = 0.07
+		_add_part(root, l_cyl, let_mat, Vector3(0.0, 0.08, 0.0))
+		var t_sph: SphereMesh = SphereMesh.new()
+		t_sph.radius = 0.52
+		t_sph.height = 0.52
+		_add_part(root, t_sph, bun_mat, Vector3(0.0, 0.16, 0.0))
 
 	elif t == 18:
-		# Ghost Burger: see-through ghost-white burger
-		var ghost_mat: StandardMaterial3D = StandardMaterial3D.new()
-		ghost_mat.albedo_color = Color(0.72, 0.94, 1.0, 0.55)
-		ghost_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		ghost_mat.emission_enabled = true
-		ghost_mat.emission = Color("9be7ff")
-		ghost_mat.emission_energy_multiplier = 0.9
-		ghost_mat.roughness = 0.15
+		# Spicy Sauce Bottle (fiery red bottle + flame band + green cap)
+		var sauce_mat: StandardMaterial3D = StandardMaterial3D.new()
+		sauce_mat.albedo_color = Color("e03131")
+		sauce_mat.emission_enabled = true
+		sauce_mat.emission = Color("ff4500")
+		sauce_mat.emission_energy_multiplier = 0.55
+		var lbl_mat: StandardMaterial3D = StandardMaterial3D.new()
+		lbl_mat.albedo_color = Color("fcc419")
+		var cap_mat: StandardMaterial3D = StandardMaterial3D.new()
+		cap_mat.albedo_color = Color("2f9e44")
+		var b_body: CylinderMesh = CylinderMesh.new()
+		b_body.top_radius = 0.28
+		b_body.bottom_radius = 0.30
+		b_body.height = 0.85
+		_add_part(root, b_body, sauce_mat, Vector3(0.0, -0.15, 0.0))
+		var b_lbl: CylinderMesh = CylinderMesh.new()
+		b_lbl.top_radius = 0.295
+		b_lbl.bottom_radius = 0.295
+		b_lbl.height = 0.34
+		_add_part(root, b_lbl, lbl_mat, Vector3(0.0, -0.15, 0.0))
+		var b_neck: CylinderMesh = CylinderMesh.new()
+		b_neck.top_radius = 0.11
+		b_neck.bottom_radius = 0.24
+		b_neck.height = 0.32
+		_add_part(root, b_neck, sauce_mat, Vector3(0.0, 0.42, 0.0))
+		var b_cap: CylinderMesh = CylinderMesh.new()
+		b_cap.top_radius = 0.12
+		b_cap.bottom_radius = 0.12
+		b_cap.height = 0.18
+		_add_part(root, b_cap, cap_mat, Vector3(0.0, 0.65, 0.0))
 
-		var top_bun: SphereMesh = SphereMesh.new()
-		top_bun.radius = 0.72
-		top_bun.height = 0.78
-		_add_part(root, top_bun, ghost_mat, Vector3(0.0, 0.42, 0.0), Vector3.ZERO)
+	elif t == 19:
+		# Bloxy Cola Can (classic brown/gold soda can + silver top rim)
+		var cola_mat: StandardMaterial3D = StandardMaterial3D.new()
+		cola_mat.albedo_color = Color("6b3e26")
+		cola_mat.metallic = 0.45
+		cola_mat.roughness = 0.28
+		var stripe_mat: StandardMaterial3D = StandardMaterial3D.new()
+		stripe_mat.albedo_color = Color("fcc419")
+		var rim_mat: StandardMaterial3D = StandardMaterial3D.new()
+		rim_mat.albedo_color = Color("dee2e6")
+		rim_mat.metallic = 0.85
+		rim_mat.roughness = 0.18
+		var can_cyl: CylinderMesh = CylinderMesh.new()
+		can_cyl.top_radius = 0.30
+		can_cyl.bottom_radius = 0.30
+		can_cyl.height = 0.82
+		_add_part(root, can_cyl, cola_mat)
+		var band_cyl: CylinderMesh = CylinderMesh.new()
+		band_cyl.top_radius = 0.31
+		band_cyl.bottom_radius = 0.31
+		band_cyl.height = 0.22
+		_add_part(root, band_cyl, stripe_mat)
+		var top_rim: CylinderMesh = CylinderMesh.new()
+		top_rim.top_radius = 0.28
+		top_rim.bottom_radius = 0.30
+		top_rim.height = 0.08
+		_add_part(root, top_rim, rim_mat, Vector3(0.0, 0.44, 0.0))
 
-		var bottom_bun: SphereMesh = SphereMesh.new()
-		bottom_bun.radius = 0.68
-		bottom_bun.height = 0.46
-		_add_part(root, bottom_bun, ghost_mat, Vector3(0.0, -0.42, 0.0), Vector3.ZERO)
+	elif t == 20:
+		# Classic Timebomb (black metal sphere + fuse cap + glowing orange spark)
+		var bomb_mat: StandardMaterial3D = StandardMaterial3D.new()
+		bomb_mat.albedo_color = Color("212529")
+		bomb_mat.metallic = 0.65
+		bomb_mat.roughness = 0.28
+		var spark_mat: StandardMaterial3D = StandardMaterial3D.new()
+		spark_mat.albedo_color = Color("ff922b")
+		spark_mat.emission_enabled = true
+		spark_mat.emission = Color("ff5c00")
+		spark_mat.emission_energy_multiplier = 2.4
+		var b_sph: SphereMesh = SphereMesh.new()
+		b_sph.radius = 0.56
+		b_sph.height = 1.12
+		_add_part(root, b_sph, bomb_mat)
+		var fuse_cap: CylinderMesh = CylinderMesh.new()
+		fuse_cap.top_radius = 0.14
+		fuse_cap.bottom_radius = 0.18
+		fuse_cap.height = 0.18
+		_add_part(root, fuse_cap, bomb_mat, Vector3(0.0, 0.56, 0.0))
+		var spark_sph: SphereMesh = SphereMesh.new()
+		spark_sph.radius = 0.14
+		spark_sph.height = 0.28
+		_add_part(root, spark_sph, spark_mat, Vector3(0.0, 0.78, 0.0))
 
-		var patty: CylinderMesh = CylinderMesh.new()
-		patty.top_radius = 0.66
-		patty.bottom_radius = 0.66
-		patty.height = 0.24
-		_add_part(root, patty, ghost_mat, Vector3(0.0, 0.02, 0.0))
+	elif t == 29:
+		# Classic Wooden Y-Slingshot
+		var wood_mat: StandardMaterial3D = StandardMaterial3D.new()
+		wood_mat.albedo_color = Color("8b5a2b")
+		wood_mat.roughness = 0.65
+		var band_mat: StandardMaterial3D = StandardMaterial3D.new()
+		band_mat.albedo_color = Color("d9480f")
+		var handle_c: CylinderMesh = CylinderMesh.new()
+		handle_c.top_radius = 0.09
+		handle_c.bottom_radius = 0.09
+		handle_c.height = 0.65
+		_add_part(root, handle_c, wood_mat, Vector3(0.0, -0.25, 0.0))
+		var fork_l: CylinderMesh = CylinderMesh.new()
+		fork_l.top_radius = 0.075
+		fork_l.bottom_radius = 0.08
+		fork_l.height = 0.55
+		_add_part(root, fork_l, wood_mat, Vector3(-0.18, 0.22, 0.0), Vector3(0.0, 0.0, 28.0))
+		_add_part(root, fork_l, wood_mat, Vector3(0.18, 0.22, 0.0), Vector3(0.0, 0.0, -28.0))
+		var band_b: BoxMesh = BoxMesh.new()
+		band_b.size = Vector3(0.56, 0.06, 0.12)
+		_add_part(root, band_b, band_mat, Vector3(0.0, 0.42, 0.08))
 
-		for eye_x in [-0.24, 0.24]:
-			var eye: SphereMesh = SphereMesh.new()
-			eye.radius = 0.10
-			eye.height = 0.20
-			var eye_mat: StandardMaterial3D = StandardMaterial3D.new()
-			eye_mat.albedo_color = Color("0b1f2a")
-			_add_part(root, eye, eye_mat, Vector3(float(eye_x), 0.55, 0.62))
+	elif t == 30:
+		# Classic Paintball Gun Marker
+		var pgun_mat: StandardMaterial3D = StandardMaterial3D.new()
+		pgun_mat.albedo_color = Color("1098ad")
+		pgun_mat.metallic = 0.55
+		pgun_mat.roughness = 0.28
+		var hop_mat: StandardMaterial3D = StandardMaterial3D.new()
+		hop_mat.albedo_color = Color("212529")
+		var body_b: BoxMesh = BoxMesh.new()
+		body_b.size = Vector3(0.22, 0.28, 0.85)
+		_add_part(root, body_b, pgun_mat, Vector3(0.0, 0.08, 0.0))
+		var brl: CylinderMesh = CylinderMesh.new()
+		brl.top_radius = 0.07
+		brl.bottom_radius = 0.08
+		brl.height = 0.75
+		_add_part(root, brl, hop_mat, Vector3(0.0, 0.12, -0.65), Vector3(90.0, 0.0, 0.0))
+		var hopper: SphereMesh = SphereMesh.new()
+		hopper.radius = 0.22
+		hopper.height = 0.44
+		_add_part(root, hopper, hop_mat, Vector3(0.0, 0.42, 0.05))
+		var grip_p: BoxMesh = BoxMesh.new()
+		grip_p.size = Vector3(0.18, 0.44, 0.22)
+		_add_part(root, grip_p, hop_mat, Vector3(0.0, -0.22, 0.20), Vector3(16.0, 0.0, 0.0))
 
-	elif t in [19, 20, 21]:
-		# Food court picks: Hamburger (19), Sandwich (20), Bloxy Cola (21)
-		if t == 19 or t == 20:
-			var bun_mat: StandardMaterial3D = StandardMaterial3D.new()
-			bun_mat.albedo_color = Color("f2ac57") if t == 19 else Color("f5d38a")
-			bun_mat.roughness = 0.65
-
-			var bun_top: SphereMesh = SphereMesh.new()
-			bun_top.radius = 0.74
-			bun_top.height = 0.80
-			_add_part(root, bun_top, bun_mat, Vector3(0.0, 0.40, 0.0))
-
-			var bun_bottom: SphereMesh = SphereMesh.new()
-			bun_bottom.radius = 0.70
-			bun_bottom.height = 0.44
-			_add_part(root, bun_bottom, bun_mat, Vector3(0.0, -0.44, 0.0))
-
-			if t == 19:
-				var patty_mat: StandardMaterial3D = StandardMaterial3D.new()
-				patty_mat.albedo_color = Color("6b3f21")
-				patty_mat.roughness = 0.8
-				var meat: CylinderMesh = CylinderMesh.new()
-				meat.top_radius = 0.70
-				meat.bottom_radius = 0.70
-				meat.height = 0.28
-				_add_part(root, meat, patty_mat, Vector3(0.0, 0.0, 0.0))
-
-				var cheese_mat: StandardMaterial3D = StandardMaterial3D.new()
-				cheese_mat.albedo_color = Color("ffd43b")
-				cheese_mat.roughness = 0.5
-				var cheese: BoxMesh = BoxMesh.new()
-				cheese.size = Vector3(1.34, 0.08, 1.34)
-				_add_part(root, cheese, cheese_mat, Vector3(0.0, 0.18, 0.0), Vector3(0.0, 12.0, 0.0))
-			else:
-				var filling_mat: StandardMaterial3D = StandardMaterial3D.new()
-				filling_mat.albedo_color = Color("e8590c")
-				filling_mat.roughness = 0.7
-				var filling: BoxMesh = BoxMesh.new()
-				filling.size = Vector3(1.26, 0.30, 0.86)
-				_add_part(root, filling, filling_mat, Vector3(0.0, 0.02, 0.0), Vector3(0.0, 0.0, 8.0))
-
-				var leaf_mat: StandardMaterial3D = StandardMaterial3D.new()
-				leaf_mat.albedo_color = Color("51cf66")
-				leaf_mat.roughness = 0.6
-				var leaf: BoxMesh = BoxMesh.new()
-				leaf.size = Vector3(1.30, 0.10, 0.92)
-				_add_part(root, leaf, leaf_mat, Vector3(0.0, 0.20, 0.0), Vector3(0.0, -6.0, 0.0))
-		else:
-			var can_mat: StandardMaterial3D = StandardMaterial3D.new()
-			can_mat.albedo_color = Color("ced4da")
-			can_mat.metallic = 0.8
-			can_mat.roughness = 0.25
-
-			var can_body: CylinderMesh = CylinderMesh.new()
-			can_body.top_radius = 0.36
-			can_body.bottom_radius = 0.36
-			can_body.height = 1.55
-			_add_part(root, can_body, can_mat, Vector3.ZERO)
-
-			var band_mat: StandardMaterial3D = StandardMaterial3D.new()
-			band_mat.albedo_color = Color("e03131")
-			band_mat.emission_enabled = true
-			band_mat.emission = Color("c92a2a")
-			band_mat.emission_energy_multiplier = 0.35
-			var band: CylinderMesh = CylinderMesh.new()
-			band.top_radius = 0.375
-			band.bottom_radius = 0.375
-			band.height = 0.72
-			_add_part(root, band, band_mat, Vector3(0.0, 0.05, 0.0))
-
-			var lid: CylinderMesh = CylinderMesh.new()
-			lid.top_radius = 0.30
-			lid.bottom_radius = 0.36
-			lid.height = 0.10
-			_add_part(root, lid, can_mat, Vector3(0.0, 0.82, 0.0))
+	elif t == 31:
+		# Classic Red Superball
+		var sb_mat: StandardMaterial3D = StandardMaterial3D.new()
+		sb_mat.albedo_color = Color("e03131")
+		sb_mat.roughness = 0.12
+		sb_mat.metallic = 0.25
+		sb_mat.emission_enabled = true
+		sb_mat.emission = Color("ff6b6b")
+		sb_mat.emission_energy_multiplier = 0.45
+		var sb_sph: SphereMesh = SphereMesh.new()
+		sb_sph.radius = 0.48
+		sb_sph.height = 0.96
+		_add_part(root, sb_sph, sb_mat)
 
 	else:
 		var cage_mat: StandardMaterial3D = StandardMaterial3D.new()

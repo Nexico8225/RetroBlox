@@ -165,7 +165,7 @@ func is_first_person() -> bool:
 
 func _apply_mouse_mode() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
-	var mobile_active := false if settings == null else bool(settings.call("is_mobile_ui_active"))
+	var mobile_active = false if settings == null else bool(settings.call("is_mobile_ui_active"))
 	if _ui_blocked or mobile_active:
 		_orbiting = false
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -199,7 +199,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if st.pressed:
 			var vp_size := get_viewport().get_visible_rect().size
 			var settings: Node = get_node_or_null("/root/Settings")
-			var mobile_on := false if settings == null else bool(settings.call("is_mobile_ui_active"))
+			var mobile_on = false if settings == null else bool(settings.call("is_mobile_ui_active"))
 			# Ignore touches that start on the bottom-left thumbstick or bottom-right buttons
 			if mobile_on and st.position.x < 240.0 and st.position.y > vp_size.y - 240.0:
 				return
@@ -222,8 +222,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			var k1: int = int(keys[1])
 			var p0: Vector2 = _touch_points[k0]
 			var p1: Vector2 = _touch_points[k1]
-			var old_p0 := prev_pos if sd.index == k0 else p0
-			var old_p1 := prev_pos if sd.index == k1 else p1
+			var old_p0 = prev_pos if sd.index == k0 else p0
+			var old_p1 = prev_pos if sd.index == k1 else p1
 			var old_dist := old_p0.distance_to(old_p1)
 			var new_dist := p0.distance_to(p1)
 			var delta_span := old_dist - new_dist
@@ -255,8 +255,8 @@ func _zoom_step() -> float:
 
 func _zoom(step: float) -> void:
 	var was := first_person
-	var lo := TD_MIN_ZOOM if mode_topdown else MIN_ZOOM
-	var hi := TD_MAX_ZOOM if mode_topdown else MAX_ZOOM
+	var lo = TD_MIN_ZOOM if mode_topdown else MIN_ZOOM
+	var hi = TD_MAX_ZOOM if mode_topdown else MAX_ZOOM
 	_zoom_target = clampf(_zoom_target + step, lo, hi)
 	if _zoom_target < FIRST_PERSON_AT:
 		distance = _zoom_target
@@ -278,7 +278,7 @@ func _process(delta: float) -> void:
 		_land_dip = lerpf(_land_dip, 0.0, 1.0 - exp(-7.0 * delta))
 	else:
 		_land_dip = 0.0
-	var dip := _land_dip if not (first_person or mode_topdown) else 0.0
+	var dip = _land_dip if not (first_person or mode_topdown) else 0.0
 	if mode_topdown:
 		global_position = player.global_position + Vector3(0.0, PIVOT_HEIGHT, 0.0)
 		_pivot.rotation = Vector3(TD_PITCH, 0.0, 0.0)

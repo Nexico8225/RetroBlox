@@ -723,7 +723,7 @@ export function BootScreen() {
  * could wander games and the catalog before signing up. Everything else
  * (create, chat, wallet, settings...) bounces to /login.
  */
-const PUBLIC_ROOTS = ['/', '/games', '/catalog', '/labs', '/community', '/groups', '/music', '/videos', '/users', '/sdk']
+const PUBLIC_ROOTS = ['/', '/games', '/catalog', '/labs', '/community', '/groups', '/music', '/videos', '/users', '/sdk', '/colorworld', '/download']
 function isPublicPath(p: string) {
   return PUBLIC_ROOTS.some((r) => (r === '/' ? p === '/' : p === r || p.startsWith(r + '/')))
 }
@@ -793,7 +793,7 @@ export function Page({ children }: { children: React.ReactNode }) {
           <Link href="/music" className="rb-link">Music</Link> ·{' '}
           <Link href="/catalog" className="rb-link">Catalog</Link> ·{' '}
           <Link href="/store" className="rb-link">Tix Store</Link> ·{' '}
-          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> ·{' '}
+          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> · <Link href="/colorworld" className="rb-link">ColorWorld</Link> ·{' '}
           <Link href="/create" className="rb-link">Create</Link> ·{' '}
           {new Date().getFullYear()} RetroBlox Corporation
         </div>

@@ -1,0 +1,26 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://toolbox/builtin/conveyor_belt.gd" id="1_conv"]
+
+[sub_resource type="BoxShape3D" id="BoxShape_conv"]
+size = Vector3(6, 0.8, 16)
+
+[sub_resource type="BoxMesh" id="BoxMesh_conv"]
+size = Vector3(6, 0.8, 16)
+
+[sub_resource type="StandardMaterial3D" id="Mat_conv"]
+albedo_color = Color(0.18, 0.2, 0.24, 1)
+roughness = 0.85
+
+[node name="SpeedConveyor" type="StaticBody3D"]
+script = ExtResource("1_conv")
+belt_speed = 16.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.4, 0)
+shape = SubResource("BoxShape_conv")
+
+[node name="BeltMesh" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.4, 0)
+mesh = SubResource("BoxMesh_conv")
+surface_material_override/0 = SubResource("Mat_conv")

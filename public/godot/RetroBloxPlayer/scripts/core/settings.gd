@@ -321,10 +321,10 @@ func apply_graphics_quality() -> void:
 					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 				2:
 					vp.msaa_3d = Viewport.MSAA_4X
-					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 				3:
 					vp.msaa_3d = Viewport.MSAA_8X
-					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	changed.emit("shadows", shadows)
 	changed.emit("render_scale", render_scale)
 	changed.emit("graphics_preset_applied", graphics_quality)

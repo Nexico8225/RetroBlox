@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "superball"
+gear_name = "Superball"
+short_name = "BALL"
+category = "items"
+item_type = 31
+color = Color(0.92, 0.18, 0.18, 1)
+cooldown = 0.85
+rent_tix = 20
+buy_tix = 20
+projectile_speed = 54.0
+projectile_damage = 40.0
+knockback_power = 48.0

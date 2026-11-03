@@ -1,0 +1,51 @@
+[gd_scene load_steps=7 format=3]
+
+[sub_resource type="CylinderMesh" id="Mesh_trunk"]
+top_radius = 0.45
+bottom_radius = 0.65
+height = 4.0
+
+[sub_resource type="StandardMaterial3D" id="Mat_trunk"]
+albedo_color = Color(0.42, 0.27, 0.15, 1)
+roughness = 0.85
+
+[sub_resource type="CylinderMesh" id="Mesh_cone1"]
+top_radius = 0.1
+bottom_radius = 3.2
+height = 4.2
+
+[sub_resource type="CylinderMesh" id="Mesh_cone2"]
+top_radius = 0.1
+bottom_radius = 2.5
+height = 3.6
+
+[sub_resource type="CylinderMesh" id="Mesh_cone3"]
+top_radius = 0.05
+bottom_radius = 1.8
+height = 3.0
+
+[sub_resource type="StandardMaterial3D" id="Mat_leaves"]
+albedo_color = Color(0.18, 0.46, 0.22, 1)
+roughness = 0.8
+
+[node name="PineTree" type="Node3D"]
+
+[node name="Trunk" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2, 0)
+mesh = SubResource("Mesh_trunk")
+surface_material_override/0 = SubResource("Mat_trunk")
+
+[node name="LeavesBottom" type="MeshInstance3D" parent="."]
+position = Vector3(0, 5.2, 0)
+mesh = SubResource("Mesh_cone1")
+surface_material_override/0 = SubResource("Mat_leaves")
+
+[node name="LeavesMid" type="MeshInstance3D" parent="."]
+position = Vector3(0, 7.6, 0)
+mesh = SubResource("Mesh_cone2")
+surface_material_override/0 = SubResource("Mat_leaves")
+
+[node name="LeavesTop" type="MeshInstance3D" parent="."]
+position = Vector3(0, 9.8, 0)
+mesh = SubResource("Mesh_cone3")
+surface_material_override/0 = SubResource("Mat_leaves")

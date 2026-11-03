@@ -1,0 +1,67 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/interactive_pad.gd" id="1_pad"]
+
+[sub_resource type="BoxShape3D" id="BoxShape_step"]
+size = Vector3(5, 1, 5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_step"]
+size = Vector3(5, 1, 5)
+
+[sub_resource type="StandardMaterial3D" id="Mat_step1"]
+albedo_color = Color(0.18, 0.65, 0.95, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_step2"]
+albedo_color = Color(0.95, 0.68, 0.15, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape_pad"]
+size = Vector3(5, 0.6, 5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pad"]
+size = Vector3(5, 0.6, 5)
+
+[node name="ObbyStarterKit_Folder" type="Node3D"]
+metadata/retroblox_folder = true
+
+[node name="StepBlock1" type="StaticBody3D" parent="."]
+position = Vector3(0, 1, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StepBlock1"]
+shape = SubResource("BoxShape_step")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="StepBlock1"]
+mesh = SubResource("BoxMesh_step")
+surface_material_override/0 = SubResource("Mat_step1")
+
+[node name="StepBlock2" type="StaticBody3D" parent="."]
+position = Vector3(0, 2.5, -8)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StepBlock2"]
+shape = SubResource("BoxShape_step")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="StepBlock2"]
+mesh = SubResource("BoxMesh_step")
+surface_material_override/0 = SubResource("Mat_step2")
+
+[node name="BouncePad" type="StaticBody3D" parent="."]
+position = Vector3(0, 4.0, -16)
+script = ExtResource("1_pad")
+pad_type = 0
+jump_velocity = 85.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BouncePad"]
+shape = SubResource("BoxShape_pad")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="BouncePad"]
+mesh = SubResource("BoxMesh_pad")
+
+[node name="GoalPlatform" type="StaticBody3D" parent="."]
+position = Vector3(0, 11.0, -28)
+script = ExtResource("1_pad")
+pad_type = 4
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GoalPlatform"]
+shape = SubResource("BoxShape_step")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="GoalPlatform"]
+mesh = SubResource("BoxMesh_step")

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GamePassData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gamepass_data.gd" id="1_gp"]
+[ext_resource type="Texture2D" path="res://assets/icons/gamepasses/speed_pass.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_gp")
+pass_id = "speed_boost"
+title = "2x Speed Pass"
+description = "Run twice as fast across the map!"
+cost_tix = 50
+icon = ExtResource("2_icon")
+creator_username = ""

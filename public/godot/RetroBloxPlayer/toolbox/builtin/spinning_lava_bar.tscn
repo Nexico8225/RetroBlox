@@ -1,0 +1,45 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://toolbox/builtin/spinning_hazard.gd" id="1_script"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_hub"]
+top_radius = 1.0
+bottom_radius = 1.0
+height = 1.6
+
+[sub_resource type="StandardMaterial3D" id="Mat_hub"]
+albedo_color = Color(0.22, 0.24, 0.28, 1)
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_bar"]
+size = Vector3(14, 0.8, 0.8)
+
+[sub_resource type="StandardMaterial3D" id="Mat_lava"]
+albedo_color = Color(1, 0.28, 0.08, 1)
+emission_enabled = true
+emission = Color(1, 0.25, 0.05, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="BoxShape3D" id="BoxShape_bar"]
+size = Vector3(14, 0.9, 0.9)
+
+[node name="SpinningLavaBar" type="Node3D"]
+script = ExtResource("1_script")
+spin_speed_deg = 95.0
+damage_per_touch = 40.0
+
+[node name="CenterHub" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.8, 0)
+mesh = SubResource("CylinderMesh_hub")
+surface_material_override/0 = SubResource("Mat_hub")
+
+[node name="LavaBeam" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.8, 0)
+mesh = SubResource("BoxMesh_bar")
+surface_material_override/0 = SubResource("Mat_lava")
+
+[node name="HazardArea" type="Area3D" parent="."]
+position = Vector3(0, 0.8, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HazardArea"]
+shape = SubResource("BoxShape_bar")

@@ -1,0 +1,39 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="CylinderMesh" id="Mesh_trunk"]
+top_radius = 0.55
+bottom_radius = 0.85
+height = 7.0
+
+[sub_resource type="StandardMaterial3D" id="Mat_trunk"]
+albedo_color = Color(0.4, 0.25, 0.13, 1)
+
+[sub_resource type="CylinderMesh" id="Mesh_foliage1"]
+top_radius = 0.2
+bottom_radius = 4.2
+height = 6.5
+
+[sub_resource type="CylinderMesh" id="Mesh_foliage2"]
+top_radius = 0.05
+bottom_radius = 3.0
+height = 5.5
+
+[sub_resource type="StandardMaterial3D" id="Mat_green"]
+albedo_color = Color(0.24, 0.54, 0.24, 1)
+
+[node name="TallPineTree" type="Node3D"]
+
+[node name="Trunk" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.5, 0)
+mesh = SubResource("Mesh_trunk")
+surface_material_override/0 = SubResource("Mat_trunk")
+
+[node name="CanopyLower" type="MeshInstance3D" parent="."]
+position = Vector3(0, 8.2, 0)
+mesh = SubResource("Mesh_foliage1")
+surface_material_override/0 = SubResource("Mat_green")
+
+[node name="CanopyUpper" type="MeshInstance3D" parent="."]
+position = Vector3(0, 12.2, 0)
+mesh = SubResource("Mesh_foliage2")
+surface_material_override/0 = SubResource("Mat_green")

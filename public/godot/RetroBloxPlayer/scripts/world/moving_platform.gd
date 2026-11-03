@@ -109,7 +109,7 @@ func _recompute_endpoints() -> void:
 		_world_b = point_b * STUD
 	else:
 		_world_a = _origin + point_a * STUD
-		var b_off := point_b if point_b != Vector3.ZERO else target_offset
+		var b_off = point_b if point_b != Vector3.ZERO else target_offset
 		_world_b = _origin + b_off * STUD
 
 

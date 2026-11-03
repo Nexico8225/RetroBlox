@@ -1,5 +1,5 @@
 extends Control
-# In-game Roblox-style chat box where clicking off unfocuses input and inactivity fades only the dark background while keeping chat text visible.
+# In-game Roblox-style chat box with Editable & Custom Quick Chat panel.
 
 signal submitted(text: String)
 signal opened
@@ -9,6 +9,17 @@ signal unread(count: int)
 const MAX_LINES := 60
 const BG_FADE_DELAY := 3.5
 const BG_FADE_SPEED := 3.0
+const QUICK_CHAT_SAVE_PATH := "user://retroblox_quick_chat.json"
+const DEFAULT_QUICK_PHRASES: Array[String] = [
+	"Hello!",
+	"Good game!",
+	"Follow me!",
+	"Watch out!",
+	"Nice build!",
+	"Need help over here!",
+	"Want to team up?",
+	"Thanks!",
+]
 const NAME_COLORS: Array = [
 	"fd2943", "01a2ff", "02b857", "ffd30f", "c963ff",
 	"ff8552", "3ecfff", "a1f24c", "ff6fc7", "f5cd30",
@@ -30,9 +41,47 @@ var _built := false
 var _bg_timer := BG_FADE_DELAY
 var _bg_alpha := 1.0
 
+var _quick_chat_btn: Button
+var _quick_panel: PanelContainer
+var _quick_add_input: LineEdit
+var _quick_list_box: VBoxContainer
+var _edit_mode_btn: Button
+var _is_editing_quick := false
+var _editing_index := -1
+var quick_phrases: Array[String] = []
+
 
 func _ready() -> void:
+	_load_quick_phrases()
 	_ensure_ui()
+
+
+func _load_quick_phrases() -> void:
+	if not FileAccess.file_exists(QUICK_CHAT_SAVE_PATH):
+		quick_phrases = DEFAULT_QUICK_PHRASES.duplicate()
+		_save_quick_phrases()
+		return
+	var f := FileAccess.open(QUICK_CHAT_SAVE_PATH, FileAccess.READ)
+	if f == null:
+		quick_phrases = DEFAULT_QUICK_PHRASES.duplicate()
+		return
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	if parsed is Array:
+		var loaded: Array[String] = []
+		for item in (parsed as Array):
+			var s := String(item).strip_edges()
+			if s != "":
+				loaded.append(s)
+		quick_phrases = loaded
+	else:
+		quick_phrases = DEFAULT_QUICK_PHRASES.duplicate()
+
+
+func _save_quick_phrases() -> void:
+	var f := FileAccess.open(QUICK_CHAT_SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(JSON.stringify(quick_phrases))
 
 
 func _ensure_ui() -> void:
@@ -116,11 +165,19 @@ func _ensure_ui() -> void:
 	isb.content_margin_bottom = 4.0
 	_input_panel.add_theme_stylebox_override("panel", isb)
 
-	_input_box = _input_panel.get_node_or_null("ChatInput") as LineEdit
-	if _input_box == null:
-		_input_box = LineEdit.new()
-		_input_box.name = "ChatInput"
-		_input_panel.add_child(_input_box)
+	var existing_input := _input_panel.get_node_or_null("ChatInput") as LineEdit
+	if existing_input != null:
+		_input_panel.remove_child(existing_input)
+
+	var input_row := HBoxContainer.new()
+	input_row.name = "InputRow"
+	input_row.add_theme_constant_override("separation", 6)
+	_input_panel.add_child(input_row)
+
+	_input_box = existing_input if existing_input != null else LineEdit.new()
+	_input_box.name = "ChatInput"
+	_input_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	input_row.add_child(_input_box)
 
 	_input_box.placeholder_text = "To chat click here or press \"/\" key"
 	_input_box.max_length = 240
@@ -150,6 +207,31 @@ func _ensure_ui() -> void:
 	if not _input_box.gui_input.is_connected(_on_input_gui):
 		_input_box.gui_input.connect(_on_input_gui)
 
+	_quick_chat_btn = Button.new()
+	_quick_chat_btn.name = "QuickChatBtn"
+	_quick_chat_btn.text = "Quick Chat"
+	_quick_chat_btn.custom_minimum_size = Vector2(88, 26)
+	_quick_chat_btn.focus_mode = Control.FOCUS_NONE
+	var qbtn_sb := StyleBoxFlat.new()
+	qbtn_sb.bg_color = Color(0.12, 0.36, 0.68, 0.95)
+	qbtn_sb.border_color = Color(0.45, 0.72, 1.0, 0.95)
+	qbtn_sb.set_border_width_all(1)
+	qbtn_sb.set_corner_radius_all(5)
+	var qbtn_hov := qbtn_sb.duplicate() as StyleBoxFlat
+	qbtn_hov.bg_color = Color(0.18, 0.46, 0.84, 1.0)
+	qbtn_hov.border_color = Color("ffd43b")
+	_quick_chat_btn.add_theme_stylebox_override("normal", qbtn_sb)
+	_quick_chat_btn.add_theme_stylebox_override("hover", qbtn_hov)
+	_quick_chat_btn.add_theme_stylebox_override("pressed", qbtn_sb)
+	_quick_chat_btn.add_theme_color_override("font_color", Color.WHITE)
+	_quick_chat_btn.add_theme_font_size_override("font_size", 12)
+	if RetroUI.gotham(700) != null:
+		_quick_chat_btn.add_theme_font_override("font", RetroUI.gotham(700))
+	_quick_chat_btn.pressed.connect(toggle_quick_chat)
+	input_row.add_child(_quick_chat_btn)
+
+	_build_quick_chat_panel()
+
 	visible = true
 	_panel.visible = true
 	_input_panel.visible = true
@@ -157,11 +239,363 @@ func _ensure_ui() -> void:
 	_apply_bg_alpha(1.0)
 
 
+func _build_quick_chat_panel() -> void:
+	_quick_panel = PanelContainer.new()
+	_quick_panel.name = "QuickChatPanel"
+	_quick_panel.visible = false
+	_quick_panel.position = Vector2(402.0, 0.0)
+	_quick_panel.custom_minimum_size = Vector2(360.0, 300.0)
+	var qpsb := StyleBoxFlat.new()
+	qpsb.bg_color = Color(0.03, 0.04, 0.06, 0.92)
+	qpsb.border_color = Color(0.45, 0.52, 0.64, 0.95)
+	qpsb.set_border_width_all(2)
+	qpsb.set_corner_radius_all(6)
+	qpsb.content_margin_left = 10.0
+	qpsb.content_margin_right = 10.0
+	qpsb.content_margin_top = 8.0
+	qpsb.content_margin_bottom = 8.0
+	_quick_panel.add_theme_stylebox_override("panel", qpsb)
+	add_child(_quick_panel)
+
+	var vcol := VBoxContainer.new()
+	vcol.add_theme_constant_override("separation", 6)
+	_quick_panel.add_child(vcol)
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	vcol.add_child(head)
+
+	var title := Label.new()
+	title.text = "QUICK CHAT"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_color_override("font_color", Color("ffd43b"))
+	title.add_theme_font_size_override("font_size", 13)
+	if RetroUI.gotham(700) != null:
+		title.add_theme_font_override("font", RetroUI.gotham(700))
+	head.add_child(title)
+
+	var btn_sb := StyleBoxFlat.new()
+	btn_sb.bg_color = Color(0.10, 0.12, 0.16, 0.92)
+	btn_sb.border_color = Color(0.48, 0.52, 0.60, 0.90)
+	btn_sb.set_border_width_all(1)
+	btn_sb.set_corner_radius_all(4)
+	btn_sb.content_margin_left = 6.0
+	btn_sb.content_margin_right = 6.0
+
+	_edit_mode_btn = Button.new()
+	_edit_mode_btn.text = "Edit All"
+	_edit_mode_btn.custom_minimum_size = Vector2(62, 22)
+	_edit_mode_btn.focus_mode = Control.FOCUS_NONE
+	_edit_mode_btn.add_theme_stylebox_override("normal", btn_sb)
+	_edit_mode_btn.add_theme_color_override("font_color", Color.WHITE)
+	_edit_mode_btn.add_theme_font_size_override("font_size", 11)
+	_edit_mode_btn.pressed.connect(func() -> void:
+		_is_editing_quick = not _is_editing_quick
+		_editing_index = -1
+		_edit_mode_btn.text = "Done" if _is_editing_quick else "Edit All"
+		if not _is_editing_quick:
+			_save_quick_phrases()
+		_refresh_quick_chat_list()
+	)
+	head.add_child(_edit_mode_btn)
+
+	var reset_btn := Button.new()
+	reset_btn.text = "Defaults"
+	reset_btn.custom_minimum_size = Vector2(60, 22)
+	reset_btn.focus_mode = Control.FOCUS_NONE
+	reset_btn.add_theme_stylebox_override("normal", btn_sb)
+	reset_btn.add_theme_color_override("font_color", Color("74c0fc"))
+	reset_btn.add_theme_font_size_override("font_size", 11)
+	reset_btn.pressed.connect(func() -> void:
+		quick_phrases = DEFAULT_QUICK_PHRASES.duplicate()
+		_is_editing_quick = false
+		_editing_index = -1
+		_edit_mode_btn.text = "Edit All"
+		_save_quick_phrases()
+		_refresh_quick_chat_list()
+	)
+	head.add_child(reset_btn)
+
+	var close_btn := Button.new()
+	close_btn.text = "X"
+	close_btn.custom_minimum_size = Vector2(26, 22)
+	close_btn.focus_mode = Control.FOCUS_NONE
+	close_btn.add_theme_stylebox_override("normal", btn_sb)
+	close_btn.add_theme_color_override("font_color", Color("ff6b6b"))
+	close_btn.add_theme_font_size_override("font_size", 11)
+	close_btn.pressed.connect(func() -> void: _quick_panel.visible = false)
+	head.add_child(close_btn)
+
+	# Direct Quick-Add bar so users can add custom Quick Chat messages anytime
+	var add_row := HBoxContainer.new()
+	add_row.add_theme_constant_override("separation", 5)
+	vcol.add_child(add_row)
+
+	_quick_add_input = LineEdit.new()
+	_quick_add_input.placeholder_text = "Add custom quick chat phrase..."
+	_quick_add_input.max_length = 140
+	_quick_add_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_quick_add_input.custom_minimum_size = Vector2(210, 28)
+	var add_in_sb := StyleBoxFlat.new()
+	add_in_sb.bg_color = Color(0.06, 0.08, 0.12, 0.96)
+	add_in_sb.border_color = Color(0.35, 0.45, 0.60, 0.95)
+	add_in_sb.set_border_width_all(1)
+	add_in_sb.set_corner_radius_all(4)
+	add_in_sb.content_margin_left = 8.0
+	add_in_sb.content_margin_right = 8.0
+	_quick_add_input.add_theme_stylebox_override("normal", add_in_sb)
+	_quick_add_input.add_theme_color_override("font_color", Color.WHITE)
+	_quick_add_input.add_theme_font_size_override("font_size", 12)
+	_quick_add_input.text_submitted.connect(func(_t: String) -> void: _add_custom_quick_phrase())
+	add_row.add_child(_quick_add_input)
+
+	var add_btn := Button.new()
+	add_btn.text = "+ Add"
+	add_btn.custom_minimum_size = Vector2(58, 28)
+	add_btn.focus_mode = Control.FOCUS_NONE
+	var add_btn_sb := StyleBoxFlat.new()
+	add_btn_sb.bg_color = Color(0.14, 0.48, 0.24, 0.96)
+	add_btn_sb.border_color = Color(0.32, 0.82, 0.46, 0.96)
+	add_btn_sb.set_border_width_all(1)
+	add_btn_sb.set_corner_radius_all(4)
+	add_btn.add_theme_stylebox_override("normal", add_btn_sb)
+	add_btn.add_theme_color_override("font_color", Color.WHITE)
+	add_btn.add_theme_font_size_override("font_size", 11)
+	add_btn.pressed.connect(_add_custom_quick_phrase)
+	add_row.add_child(add_btn)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	vcol.add_child(scroll)
+
+	_quick_list_box = VBoxContainer.new()
+	_quick_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_quick_list_box.add_theme_constant_override("separation", 4)
+	scroll.add_child(_quick_list_box)
+
+	# Bottom bar with drag-to-resize grip so players can resize the Quick Chat panel freely
+	var foot := HBoxContainer.new()
+	vcol.add_child(foot)
+	var hint_lbl := Label.new()
+	hint_lbl.text = "Scroll or drag corner to resize"
+	hint_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint_lbl.add_theme_color_override("font_color", Color(0.55, 0.62, 0.72, 0.85))
+	hint_lbl.add_theme_font_size_override("font_size", 10)
+	foot.add_child(hint_lbl)
+
+	var resize_grip := Button.new()
+	resize_grip.text = "[Resize]"
+	resize_grip.custom_minimum_size = Vector2(54, 18)
+	resize_grip.focus_mode = Control.FOCUS_NONE
+	resize_grip.mouse_default_cursor_shape = Control.CURSOR_FDIAGSIZE
+	resize_grip.add_theme_font_size_override("font_size", 10)
+	resize_grip.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			var mm := ev as InputEventMouseMotion
+			var new_sz := _quick_panel.custom_minimum_size + mm.relative
+			new_sz.x = clampf(new_sz.x, 240.0, 680.0)
+			new_sz.y = clampf(new_sz.y, 180.0, 560.0)
+			_quick_panel.custom_minimum_size = new_sz
+			_quick_panel.size = new_sz
+	)
+	foot.add_child(resize_grip)
+
+	_refresh_quick_chat_list()
+
+
+func _add_custom_quick_phrase() -> void:
+	if _quick_add_input == null:
+		return
+	var txt := _quick_add_input.text.strip_edges()
+	if txt == "":
+		quick_phrases.append("New quick chat...")
+		_editing_index = quick_phrases.size() - 1
+	else:
+		quick_phrases.append(txt)
+		_quick_add_input.text = ""
+		_editing_index = -1
+	_save_quick_phrases()
+	_refresh_quick_chat_list()
+
+
+func toggle_quick_chat() -> void:
+	_ensure_ui()
+	if _quick_panel != null:
+		_quick_panel.visible = not _quick_panel.visible
+		if _quick_panel.visible:
+			_wake_bg()
+			_refresh_quick_chat_list()
+
+
+func _refresh_quick_chat_list() -> void:
+	if _quick_list_box == null:
+		return
+	for ch in _quick_list_box.get_children():
+		ch.queue_free()
+
+	if quick_phrases.is_empty():
+		var empty_lbl := Label.new()
+		empty_lbl.text = "No Quick Chat phrases yet. Type a message above and click '+ Add'!"
+		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty_lbl.add_theme_color_override("font_color", Color(0.72, 0.76, 0.84, 0.90))
+		empty_lbl.add_theme_font_size_override("font_size", 12)
+		_quick_list_box.add_child(empty_lbl)
+		return
+
+	for i in range(quick_phrases.size()):
+		var phrase_txt: String = quick_phrases[i]
+		var idx_capture: int = i
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		_quick_list_box.add_child(row)
+
+		if _is_editing_quick or _editing_index == i:
+			var le := LineEdit.new()
+			le.text = phrase_txt
+			le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			le.custom_minimum_size = Vector2(200, 26)
+			var lesb := StyleBoxFlat.new()
+			lesb.bg_color = Color(0.08, 0.10, 0.14, 0.96)
+			lesb.border_color = Color("ffd43b") if _editing_index == i else Color(0.55, 0.58, 0.64, 1.0)
+			lesb.set_border_width_all(1)
+			lesb.set_corner_radius_all(4)
+			lesb.content_margin_left = 6.0
+			lesb.content_margin_right = 6.0
+			le.add_theme_stylebox_override("normal", lesb)
+			le.placeholder_text = "Type quick chat phrase..."
+			le.add_theme_color_override("font_color", Color.WHITE)
+			le.add_theme_font_size_override("font_size", 12)
+			le.text_changed.connect(func(new_t: String) -> void:
+				if idx_capture >= 0 and idx_capture < quick_phrases.size():
+					quick_phrases[idx_capture] = new_t
+					_save_quick_phrases()
+			)
+			le.text_submitted.connect(func(_new_t: String) -> void:
+				_editing_index = -1
+				_save_quick_phrases()
+				_refresh_quick_chat_list()
+			)
+			row.add_child(le)
+
+			if not _is_editing_quick:
+				var save_row_btn := Button.new()
+				save_row_btn.text = "Save"
+				save_row_btn.custom_minimum_size = Vector2(44, 26)
+				save_row_btn.focus_mode = Control.FOCUS_NONE
+				var ssb := StyleBoxFlat.new()
+				ssb.bg_color = Color(0.14, 0.48, 0.24, 0.96)
+				ssb.border_color = Color(0.32, 0.82, 0.46, 0.96)
+				ssb.set_border_width_all(1)
+				ssb.set_corner_radius_all(4)
+				save_row_btn.add_theme_stylebox_override("normal", ssb)
+				save_row_btn.add_theme_color_override("font_color", Color.WHITE)
+				save_row_btn.add_theme_font_size_override("font_size", 11)
+				save_row_btn.pressed.connect(func() -> void:
+					_editing_index = -1
+					_save_quick_phrases()
+					_refresh_quick_chat_list()
+				)
+				row.add_child(save_row_btn)
+
+			var del_btn := Button.new()
+			del_btn.text = "Del"
+			del_btn.custom_minimum_size = Vector2(36, 26)
+			del_btn.focus_mode = Control.FOCUS_NONE
+			var dsb := StyleBoxFlat.new()
+			dsb.bg_color = Color(0.32, 0.10, 0.12, 0.95)
+			dsb.border_color = Color("ff6b6b")
+			dsb.set_border_width_all(1)
+			dsb.set_corner_radius_all(4)
+			del_btn.add_theme_stylebox_override("normal", dsb)
+			del_btn.add_theme_color_override("font_color", Color("ff8787"))
+			del_btn.add_theme_font_size_override("font_size", 11)
+			del_btn.pressed.connect(func() -> void:
+				if idx_capture >= 0 and idx_capture < quick_phrases.size():
+					quick_phrases.remove_at(idx_capture)
+					_editing_index = -1
+					_save_quick_phrases()
+					_refresh_quick_chat_list()
+			)
+			row.add_child(del_btn)
+		else:
+			var p_btn := Button.new()
+			p_btn.text = phrase_txt
+			p_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			p_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			p_btn.custom_minimum_size = Vector2(215, 28)
+			p_btn.focus_mode = Control.FOCUS_NONE
+			var psb := StyleBoxFlat.new()
+			psb.bg_color = Color(0.08, 0.11, 0.16, 0.92)
+			psb.border_color = Color(0.45, 0.52, 0.64, 0.90)
+			psb.set_border_width_all(1)
+			psb.set_corner_radius_all(4)
+			psb.content_margin_left = 8.0
+			psb.content_margin_right = 8.0
+			var phov := psb.duplicate() as StyleBoxFlat
+			phov.bg_color = Color(0.15, 0.24, 0.38, 0.98)
+			phov.border_color = Color("4dabf7")
+			p_btn.add_theme_stylebox_override("normal", psb)
+			p_btn.add_theme_stylebox_override("hover", phov)
+			p_btn.add_theme_stylebox_override("pressed", psb)
+			p_btn.add_theme_color_override("font_color", Color.WHITE)
+			p_btn.add_theme_color_override("font_hover_color", Color("ffd43b"))
+			p_btn.add_theme_font_size_override("font_size", 12)
+			var send_txt: String = phrase_txt
+			p_btn.pressed.connect(func() -> void:
+				var clean := send_txt.strip_edges()
+				if clean != "":
+					_wake_bg()
+					submitted.emit(clean)
+			)
+			row.add_child(p_btn)
+
+			var edit_one_btn := Button.new()
+			edit_one_btn.text = "Edit"
+			edit_one_btn.custom_minimum_size = Vector2(40, 28)
+			edit_one_btn.focus_mode = Control.FOCUS_NONE
+			var esb := StyleBoxFlat.new()
+			esb.bg_color = Color(0.12, 0.15, 0.22, 0.92)
+			esb.border_color = Color(0.42, 0.48, 0.58, 0.90)
+			esb.set_border_width_all(1)
+			esb.set_corner_radius_all(4)
+			edit_one_btn.add_theme_stylebox_override("normal", esb)
+			edit_one_btn.add_theme_color_override("font_color", Color("ced4da"))
+			edit_one_btn.add_theme_font_size_override("font_size", 11)
+			edit_one_btn.pressed.connect(func() -> void:
+				_editing_index = idx_capture
+				_refresh_quick_chat_list()
+			)
+			row.add_child(edit_one_btn)
+
+			var del_one_btn := Button.new()
+			del_one_btn.text = "X"
+			del_one_btn.custom_minimum_size = Vector2(26, 28)
+			del_one_btn.focus_mode = Control.FOCUS_NONE
+			var dsb2 := StyleBoxFlat.new()
+			dsb2.bg_color = Color(0.24, 0.09, 0.11, 0.92)
+			dsb2.border_color = Color(0.65, 0.25, 0.28, 0.90)
+			dsb2.set_border_width_all(1)
+			dsb2.set_corner_radius_all(4)
+			del_one_btn.add_theme_stylebox_override("normal", dsb2)
+			del_one_btn.add_theme_color_override("font_color", Color("ff8787"))
+			del_one_btn.add_theme_font_size_override("font_size", 11)
+			del_one_btn.pressed.connect(func() -> void:
+				if idx_capture >= 0 and idx_capture < quick_phrases.size():
+					quick_phrases.remove_at(idx_capture)
+					_save_quick_phrases()
+					_refresh_quick_chat_list()
+			)
+			row.add_child(del_one_btn)
+
+
 func _process(delta: float) -> void:
 	if not visible:
 		return
-	var hovered := get_global_rect().has_point(get_global_mouse_position())
-	if is_open or hovered:
+	var mp := get_global_mouse_position()
+	var hovered := get_global_rect().has_point(mp) or (_quick_panel != null and _quick_panel.visible and _quick_panel.get_global_rect().has_point(mp))
+	if is_open or hovered or (_quick_panel != null and _quick_panel.visible):
 		_bg_timer = BG_FADE_DELAY
 		_bg_alpha = move_toward(_bg_alpha, 1.0, delta * 6.0)
 	else:
@@ -190,7 +624,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.is_pressed():
 		var mb := event as InputEventMouseButton
 		if mb.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-			var inside := get_global_rect().has_point(mb.global_position)
+			var inside := get_global_rect().has_point(mb.global_position) or (_quick_panel != null and _quick_panel.visible and _quick_panel.get_global_rect().has_point(mb.global_position))
 			if is_open and not inside:
 				unfocus()
 			elif not is_open and inside:
@@ -240,6 +674,8 @@ func close() -> void:
 	is_reading = false
 	_panel.visible = false
 	_input_panel.visible = false
+	if _quick_panel != null:
+		_quick_panel.visible = false
 	visible = false
 
 
@@ -289,11 +725,15 @@ func _on_input_gui(event: InputEvent) -> void:
 			unfocus()
 			get_viewport().set_input_as_handled()
 		elif key.keycode == KEY_SHIFT:
-			# Shift pressed or released while typing in chat — consume it so it never triggers shift lock
 			get_viewport().set_input_as_handled()
 
 
 func is_typing() -> bool:
+	if _quick_panel != null and _quick_panel.visible:
+		if _is_editing_quick or _editing_index >= 0:
+			return true
+		if _quick_add_input != null and is_instance_valid(_quick_add_input) and _quick_add_input.has_focus():
+			return true
 	return is_open or (_input_box != null and is_instance_valid(_input_box) and _input_box.has_focus())
 
 

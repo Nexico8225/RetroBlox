@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "ghost_skin_potion"
+gear_name = "Ghostwalker Skin Potion"
+short_name = "GHOST"
+category = "skins"
+item_type = 26
+color = Color(0.55, 0.92, 1, 1)
+cooldown = 1.5
+rent_tix = 30
+buy_tix = 30
+skin_mode = "ghost"

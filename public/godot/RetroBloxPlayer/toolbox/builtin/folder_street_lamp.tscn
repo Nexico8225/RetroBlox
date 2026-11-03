@@ -1,0 +1,48 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pole"]
+top_radius = 0.22
+bottom_radius = 0.32
+height = 10.0
+
+[sub_resource type="StandardMaterial3D" id="Mat_dark_iron"]
+albedo_color = Color(0.16, 0.18, 0.22, 1)
+metallic = 0.5
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_arm"]
+size = Vector3(2.4, 0.3, 0.3)
+
+[sub_resource type="SphereMesh" id="SphereMesh_bulb"]
+radius = 0.55
+height = 1.1
+
+[sub_resource type="StandardMaterial3D" id="Mat_bulb"]
+albedo_color = Color(1, 0.94, 0.72, 1)
+emission_enabled = true
+emission = Color(1, 0.9, 0.6, 1)
+emission_energy_multiplier = 2.5
+
+[node name="StreetLamp_Folder" type="Node3D"]
+metadata/retroblox_folder = true
+
+[node name="Pole" type="MeshInstance3D" parent="."]
+position = Vector3(0, 5, 0)
+mesh = SubResource("CylinderMesh_pole")
+surface_material_override/0 = SubResource("Mat_dark_iron")
+
+[node name="CrossArm" type="MeshInstance3D" parent="."]
+position = Vector3(1.0, 9.8, 0)
+mesh = SubResource("BoxMesh_arm")
+surface_material_override/0 = SubResource("Mat_dark_iron")
+
+[node name="LampBulb" type="MeshInstance3D" parent="."]
+position = Vector3(2.0, 9.3, 0)
+mesh = SubResource("SphereMesh_bulb")
+surface_material_override/0 = SubResource("Mat_bulb")
+
+[node name="OmniLight3D" type="OmniLight3D" parent="."]
+position = Vector3(2.0, 8.9, 0)
+light_color = Color(1, 0.93, 0.75, 1)
+light_energy = 2.2
+omni_range = 22.0

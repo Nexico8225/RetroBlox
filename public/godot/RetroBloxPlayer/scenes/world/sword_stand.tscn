@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/item_spawner.gd" id="1_spawner"]
+
+[node name="SwordStand" type="StaticBody3D"]
+script = ExtResource("1_spawner")
+item_type = 5
+respawn_seconds = 5.0

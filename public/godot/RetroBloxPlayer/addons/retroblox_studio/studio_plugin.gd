@@ -8,16 +8,26 @@ extends EditorPlugin
 # - Any-number Move & Scale Snap with scale-baking on release
 # - Hierarchy-only Node Hider/Unhider (triggered on demand, never in _process)
 
-const PlayerSettingsDialogScript = preload("res://addons/retroblox_studio/player_settings_dialog.gd")
-const HiderUnhiderDialogScript = preload("res://addons/retroblox_studio/hider_unhider_dialog.gd")
+const PLAYER_SETTINGS_DIALOG_PATH = "res://addons/retroblox_studio/player_settings_dialog.gd"
+const HIDER_DIALOG_PATH = "res://addons/retroblox_studio/hider_unhider_dialog.gd"
+const TOOLBOX_DOCK_PATH = "res://addons/retroblox_studio/toolbox_dock.gd"
+const INTERACTIVE_PAD_PATH = "res://scripts/world/interactive_pad.gd"
 const ITEM_SPAWNER_PATH = "res://scripts/world/item_spawner.gd"
 const STUD_SHADER_PATH = "res://assets/studs/part_studs.gdshader"
 const STUD_TEX_PATH = "res://assets/studs/stud_tile.png"
 const STUD_NORMAL_PATH = "res://assets/Materials/Studs 4x4 Normal Plastic.png"
 
-var _toolbar: HBoxContainer
+var _toolbar: Control
+var _toolbar_scroll: ScrollContainer
 var _settings_dialog: AcceptDialog
 var _hider_dialog: AcceptDialog
+var _toolbox_dock: Control
+var _toolbox_dialog: AcceptDialog
+var _toolbox_window_panel: Control
+var _export_pkg_dialog: FileDialog
+var _fs_context_plugin: RefCounted = null
+var _fs_popups: Array[PopupMenu] = []
+const RBX_FS_MENU_ID: int = 998822
 
 var _snap_enabled: bool = true
 var _move_snap_studs: float = 1.0
@@ -34,13 +44,64 @@ func _enter_tree() -> void:
 	_register_custom_project_settings()
 	_create_toolbar()
 
-	_settings_dialog = PlayerSettingsDialogScript.new()
-	get_editor_interface().get_base_control().add_child(_settings_dialog)
+	var base_ctrl: Control = get_editor_interface().get_base_control()
 
-	_hider_dialog = HiderUnhiderDialogScript.new()
-	_hider_dialog.set("plugin_ref", self)
-	get_editor_interface().get_base_control().add_child(_hider_dialog)
+	if ResourceLoader.exists(PLAYER_SETTINGS_DIALOG_PATH):
+		var ps_scr: Script = load(PLAYER_SETTINGS_DIALOG_PATH) as Script
+		if ps_scr != null:
+			_settings_dialog = ps_scr.new() as AcceptDialog
+			base_ctrl.add_child(_settings_dialog)
 
+	if ResourceLoader.exists(HIDER_DIALOG_PATH):
+		var hd_scr: Script = load(HIDER_DIALOG_PATH) as Script
+		if hd_scr != null:
+			_hider_dialog = hd_scr.new() as AcceptDialog
+			_hider_dialog.set("plugin_ref", self)
+			base_ctrl.add_child(_hider_dialog)
+
+	if ResourceLoader.exists(TOOLBOX_DOCK_PATH):
+		var tb_scr: Script = load(TOOLBOX_DOCK_PATH) as Script
+		if tb_scr != null:
+			# 1. Docked Toolbox in right dock
+			_toolbox_dock = tb_scr.new() as Control
+			_toolbox_dock.set("plugin", self)
+			_toolbox_dock.set("is_window_instance", false)
+			add_control_to_dock(DOCK_SLOT_LEFT_UL, _toolbox_dock)
+
+			# 2. Freely Resizable Popup Window Toolbox (opens when clicking 'Toolbox' on top bar)
+			_toolbox_dialog = AcceptDialog.new()
+			_toolbox_dialog.title = "RetroBlox Toolbox — Marketplace, Inventory & Creations"
+			_toolbox_dialog.ok_button_text = "Close Toolbox"
+			_toolbox_dialog.size = Vector2i(780, 560)
+			_toolbox_dialog.min_size = Vector2i(360, 300)
+			_toolbox_dialog.unresizable = false
+			_toolbox_window_panel = tb_scr.new() as Control
+			_toolbox_window_panel.set("plugin", self)
+			_toolbox_window_panel.set("is_window_instance", true)
+			_toolbox_window_panel.custom_minimum_size = Vector2(740, 480)
+			_toolbox_window_panel.set("peer_toolbox", _toolbox_dock)
+			_toolbox_dock.set("peer_toolbox", _toolbox_window_panel)
+			_toolbox_dialog.close_requested.connect(_on_close_toolbox_window)
+			_toolbox_dialog.canceled.connect(_on_close_toolbox_window)
+			_toolbox_dialog.confirmed.connect(_on_close_toolbox_window)
+			_toolbox_dialog.add_child(_toolbox_window_panel)
+			base_ctrl.add_child(_toolbox_dialog)
+
+	_export_pkg_dialog = FileDialog.new()
+	_export_pkg_dialog.title = "Export Lightweight Web-Ready Game Package (.rbxpkg)"
+	_export_pkg_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_export_pkg_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_export_pkg_dialog.filters = PackedStringArray(["*.rbxpkg ; RetroBlox Web/RAM Stream Package"])
+	_export_pkg_dialog.current_file = "MyGame.rbxpkg"
+	_export_pkg_dialog.file_selected.connect(_on_export_rbxpkg_file_selected)
+	_export_pkg_dialog.close_requested.connect(_export_pkg_dialog.hide)
+	_export_pkg_dialog.canceled.connect(_export_pkg_dialog.hide)
+	base_ctrl.add_child(_export_pkg_dialog)
+
+	add_tool_menu_item("RetroBlox Toolbox...", _on_open_toolbox_window)
+	add_tool_menu_item("RetroBlox Publish to Toolbox...", _on_save_selected_to_toolbox)
+	add_tool_menu_item("RetroBlox Group into Folder...", _on_create_or_group_folder)
+	add_tool_menu_item("RetroBlox Publish Folder to Toolbox...", _on_save_selected_to_toolbox)
 	add_tool_menu_item("RetroBlox Player Settings...", _on_open_player_settings)
 	add_tool_menu_item("RetroBlox Hider/Unhider Node...", _on_open_hider_dialog)
 
@@ -48,11 +109,26 @@ func _enter_tree() -> void:
 	if sel != null and not sel.selection_changed.is_connected(_on_selection_changed):
 		sel.selection_changed.connect(_on_selection_changed)
 
+	call_deferred("_hook_file_system_dock_popups")
+	if has_method("add_context_menu_plugin"):
+		var cmp_scr: Script = load("res://addons/retroblox_studio/fs_context_menu_plugin.gd") as Script
+		if cmp_scr != null:
+			_fs_context_plugin = cmp_scr.new()
+			_fs_context_plugin.set("plugin_ref", self)
+			add_context_menu_plugin(1, _fs_context_plugin)
+
 
 func _exit_tree() -> void:
+	if _fs_context_plugin != null and has_method("remove_context_menu_plugin"):
+		remove_context_menu_plugin(_fs_context_plugin)
+		_fs_context_plugin = null
 	var sel: EditorSelection = get_editor_interface().get_selection()
 	if sel != null and sel.selection_changed.is_connected(_on_selection_changed):
 		sel.selection_changed.disconnect(_on_selection_changed)
+	remove_tool_menu_item("RetroBlox Toolbox...")
+	remove_tool_menu_item("RetroBlox Publish to Toolbox...")
+	remove_tool_menu_item("RetroBlox Group into Folder...")
+	remove_tool_menu_item("RetroBlox Publish Folder to Toolbox...")
 	remove_tool_menu_item("RetroBlox Player Settings...")
 	remove_tool_menu_item("RetroBlox Hider/Unhider Node...")
 	set_all_workspace_nodes_hidden(false)
@@ -60,6 +136,17 @@ func _exit_tree() -> void:
 		remove_control_from_container(CONTAINER_SPATIAL_EDITOR_MENU, _toolbar)
 		_toolbar.queue_free()
 		_toolbar = null
+	if _toolbox_dock != null:
+		remove_control_from_docks(_toolbox_dock)
+		_toolbox_dock.queue_free()
+		_toolbox_dock = null
+	if _toolbox_dialog != null:
+		_toolbox_dialog.queue_free()
+		_toolbox_dialog = null
+		_toolbox_window_panel = null
+	if _export_pkg_dialog != null:
+		_export_pkg_dialog.queue_free()
+		_export_pkg_dialog = null
 	if _settings_dialog != null:
 		_settings_dialog.queue_free()
 		_settings_dialog = null
@@ -159,7 +246,7 @@ func _register_custom_project_settings() -> void:
 	_set_setting_default("player/movement/gravity", 196.2, TYPE_FLOAT, PROPERTY_HINT_RANGE, "0,1000,1")
 	_set_setting_default("player/movement/bunny_hop", true, TYPE_BOOL)
 	_set_setting_default("player/health/max_health", 100.0, TYPE_FLOAT, PROPERTY_HINT_RANGE, "1,10000,1")
-	_set_setting_default("player/health/health_regen_rate", 1.0, TYPE_FLOAT, PROPERTY_HINT_RANGE, "0,50,0.5")
+	_set_setting_default("player/health/health_regen_rate", 0.05, TYPE_FLOAT, PROPERTY_HINT_RANGE, "0,50,0.01")
 	_set_setting_default("player/health/fall_damage_enabled", true, TYPE_BOOL)
 	_set_setting_default("player/features/voice_chat", true, TYPE_BOOL)
 	_set_setting_default("player/features/shift_lock", true, TYPE_BOOL)
@@ -185,11 +272,76 @@ func _set_setting_default(name: String, default_value: Variant, type: int, hint:
 
 
 func _create_toolbar() -> void:
-	_toolbar = HBoxContainer.new()
-	_toolbar.name = "RetroBloxToolbar"
-	_toolbar.add_theme_constant_override("separation", 2)
+	var outer: HBoxContainer = HBoxContainer.new()
+	outer.name = "RetroBloxToolbar"
+	outer.custom_minimum_size = Vector2(390, 30)
+	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.add_theme_constant_override("separation", 3)
 
-	_toolbar.add_child(VSeparator.new())
+	outer.add_child(VSeparator.new())
+
+	# Put Toolbox and +Publish FIRST so they are always immediately visible and clickable!
+	var tb_btn: Button = Button.new()
+	tb_btn.text = "Toolbox"
+	tb_btn.tooltip_text = "Open the Resizable RetroBlox Toolbox (Models, Scripts, UI/GUIs, Folders)"
+	tb_btn.pressed.connect(_on_open_toolbox_window)
+	outer.add_child(tb_btn)
+
+	var save_tb_btn: Button = Button.new()
+	save_tb_btn.text = "+Publish"
+	save_tb_btn.tooltip_text = "Publish any Model, Script, UI/GUI, or Folder from your Scene to the Toolbox"
+	save_tb_btn.pressed.connect(_on_save_selected_to_toolbox)
+	outer.add_child(save_tb_btn)
+
+	var folder_btn: Button = Button.new()
+	folder_btn.text = "+Folder"
+	folder_btn.tooltip_text = "Create a Folder or Group selected nodes into a Folder (Roblox Explorer style)"
+	folder_btn.pressed.connect(_on_create_or_group_folder)
+	outer.add_child(folder_btn)
+
+	var left_scroll_btn: Button = Button.new()
+	left_scroll_btn.text = "<"
+	left_scroll_btn.tooltip_text = "Scroll toolbar left (or use mouse wheel)"
+	left_scroll_btn.custom_minimum_size = Vector2(22, 26)
+	outer.add_child(left_scroll_btn)
+
+	_toolbar_scroll = ScrollContainer.new()
+	# SCROLL_MODE_SHOW_NEVER prevents the horizontal scrollbar from ever overlapping button text!
+	_toolbar_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	_toolbar_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_toolbar_scroll.custom_minimum_size = Vector2(220, 30)
+	_toolbar_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.add_child(_toolbar_scroll)
+
+	var right_scroll_btn: Button = Button.new()
+	right_scroll_btn.text = ">"
+	right_scroll_btn.tooltip_text = "Scroll toolbar right (or use mouse wheel)"
+	right_scroll_btn.custom_minimum_size = Vector2(22, 26)
+	outer.add_child(right_scroll_btn)
+
+	left_scroll_btn.pressed.connect(func() -> void:
+		if _toolbar_scroll != null:
+			_toolbar_scroll.scroll_horizontal = maxi(0, _toolbar_scroll.scroll_horizontal - 140)
+	)
+	right_scroll_btn.pressed.connect(func() -> void:
+		if _toolbar_scroll != null:
+			_toolbar_scroll.scroll_horizontal += 140
+	)
+	_toolbar_scroll.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.is_pressed():
+			var mb := ev as InputEventMouseButton
+			if mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_LEFT]:
+				_toolbar_scroll.scroll_horizontal = maxi(0, _toolbar_scroll.scroll_horizontal - 60)
+				_toolbar_scroll.accept_event()
+			elif mb.button_index in [MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_RIGHT]:
+				_toolbar_scroll.scroll_horizontal += 60
+				_toolbar_scroll.accept_event()
+	)
+
+	var inner: HBoxContainer = HBoxContainer.new()
+	inner.add_theme_constant_override("separation", 4)
+	_toolbar_scroll.add_child(inner)
+	_toolbar = inner
 
 	# 1. + Part Dropdown
 	var part_menu: MenuButton = MenuButton.new()
@@ -211,7 +363,7 @@ func _create_toolbar() -> void:
 	item_menu.text = "+Gear"
 	item_menu.tooltip_text = "Insert an editable Item Spawner pad at the 3D camera look point"
 	var ipop: PopupMenu = item_menu.get_popup()
-	ipop.add_item("🎲 Random Gear Spawner (Cycles res://gears/)", 0)
+	ipop.add_item("Random Gear Spawner (Cycles res://gears/)", 0)
 	ipop.add_separator()
 	ipop.add_item("Speed Coil Spawner", 1)
 	ipop.add_item("Gravity Coil Spawner", 2)
@@ -228,8 +380,13 @@ func _create_toolbar() -> void:
 	ipop.add_item("Hyperlaser Gun (Slow Insta-Kill Orb) Spawner", 13)
 	ipop.add_item("Rocket Launcher Spawner", 14)
 	ipop.add_item("Subspace Tripmine Spawner", 15)
+	ipop.add_item("Medkit (1 Use Fast Heal) Spawner", 16)
+	ipop.add_item("Hamburger (3 Uses Heal) Spawner", 17)
+	ipop.add_item("Spicy Sauce (3x Speed + Fire) Spawner", 18)
+	ipop.add_item("Bloxy Cola (Speed + Lunge Boost) Spawner", 19)
+	ipop.add_item("Classic Timebomb Spawner", 20)
 	ipop.add_separator()
-	ipop.add_item("Spawn All 15 Gears in World", 99)
+	ipop.add_item("Spawn All 20 Gears in World", 99)
 	ipop.id_pressed.connect(_on_item_spawner_selected)
 	_toolbar.add_child(item_menu)
 
@@ -310,14 +467,228 @@ func _create_toolbar() -> void:
 	hider_btn.pressed.connect(_on_open_hider_dialog)
 	_toolbar.add_child(hider_btn)
 
-	# 7. Player Settings Button
+	# 7. +Pad Interactive Pad Menu
+	var pad_menu: MenuButton = MenuButton.new()
+	pad_menu.text = "+Pad"
+	pad_menu.tooltip_text = "Insert an Interactive Gameplay Pad (Jump Pad, Speed Pad, Lava Pad, Ice Pad, Checkpoint, Heal Pad)"
+	var ppop: PopupMenu = pad_menu.get_popup()
+	ppop.add_item("Jump Pad (Yellow Bounce)", 0)
+	ppop.add_item("Speed Boost Pad (Blue Boost)", 1)
+	ppop.add_item("Lava Kill Pad (Red Hazard)", 2)
+	ppop.add_item("Ice Slide Pad (Cyan Low-Friction)", 3)
+	ppop.add_item("Checkpoint Pad (Green Spawn)", 4)
+	ppop.add_item("Heal Pad (Emerald Regen)", 5)
+	ppop.add_separator()
+	ppop.add_item("VIP GamePass Touch Pad (75 Tix Popup)", 6)
+	ppop.id_pressed.connect(_on_interactive_pad_selected)
+	_toolbar.add_child(pad_menu)
+
+	var export_pkg_btn: Button = Button.new()
+	export_pkg_btn.text = "Export .rbxpkg"
+	export_pkg_btn.tooltip_text = "Bundle active .tscn scene, scripts & GamePasses into a lightweight web/RAM .rbxpkg file for retro-blox.vercel.app"
+	export_pkg_btn.pressed.connect(_on_open_export_rbxpkg)
+	_toolbar.add_child(export_pkg_btn)
+
+	# 8. Player Settings Button
 	var settings_btn: Button = Button.new()
 	settings_btn.text = "Settings"
 	settings_btn.tooltip_text = "Edit player walk speed, jump power, gravity, and health"
 	settings_btn.pressed.connect(_on_open_player_settings)
 	_toolbar.add_child(settings_btn)
 
+	_toolbar = outer
 	add_control_to_container(CONTAINER_SPATIAL_EDITOR_MENU, _toolbar)
+	call_deferred("_expand_spatial_menu_container")
+
+
+func _expand_spatial_menu_container() -> void:
+	if _toolbar != null and is_instance_valid(_toolbar) and _toolbar.get_parent() is Control:
+		var p: Control = _toolbar.get_parent() as Control
+		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+func _on_open_toolbox_window() -> void:
+	if _toolbox_window_panel != null and is_instance_valid(_toolbox_window_panel):
+		if _toolbox_window_panel.has_method("reload_catalog"):
+			_toolbox_window_panel.call("reload_catalog")
+	if _toolbox_dialog != null and is_instance_valid(_toolbox_dialog):
+		if _toolbox_dialog.visible:
+			_toolbox_dialog.hide()
+		else:
+			_toolbox_dialog.popup_centered(Vector2i(780, 560))
+
+
+func _on_close_toolbox_window() -> void:
+	if _toolbox_dialog != null and is_instance_valid(_toolbox_dialog):
+		_toolbox_dialog.hide()
+
+
+func _on_open_export_rbxpkg() -> void:
+	if _export_pkg_dialog != null and is_instance_valid(_export_pkg_dialog):
+		_export_pkg_dialog.popup_centered_ratio(0.60)
+
+
+func _on_export_rbxpkg_file_selected(out_path: String) -> void:
+	var scene_root: Node = get_tree().edited_scene_root
+	if scene_root == null:
+		return
+	var loader_scr: Script = load("res://scripts/core/scene_package_loader.gd") as Script
+	if loader_scr != null:
+		loader_scr.call("save_scene_to_rbxpkg_file", scene_root, out_path)
+
+
+func _on_save_selected_to_toolbox() -> void:
+	if get_editor_interface() != null:
+		var paths: PackedStringArray = get_editor_interface().get_selected_paths()
+		for p in paths:
+			var gp: String = ProjectSettings.globalize_path(p)
+			if DirAccess.dir_exists_absolute(gp) and not FileAccess.file_exists(gp):
+				_on_publish_fs_folder_path(p)
+				return
+	if _toolbox_window_panel != null and is_instance_valid(_toolbox_window_panel):
+		if _toolbox_window_panel.has_method("open_publish_dialog_for_selection"):
+			_toolbox_window_panel.call("open_publish_dialog_for_selection")
+			return
+	if _toolbox_dock != null and is_instance_valid(_toolbox_dock):
+		if _toolbox_dock.has_method("open_publish_dialog_for_selection"):
+			_toolbox_dock.call("open_publish_dialog_for_selection")
+
+
+func _on_publish_fs_folder_path(folder_path: String) -> void:
+	if _toolbox_window_panel != null and is_instance_valid(_toolbox_window_panel):
+		if _toolbox_window_panel.has_method("open_publish_dialog_for_fs_folder"):
+			_toolbox_window_panel.call("open_publish_dialog_for_fs_folder", folder_path)
+			return
+	if _toolbox_dock != null and is_instance_valid(_toolbox_dock):
+		if _toolbox_dock.has_method("open_publish_dialog_for_fs_folder"):
+			_toolbox_dock.call("open_publish_dialog_for_fs_folder", folder_path)
+
+
+func _hook_file_system_dock_popups() -> void:
+	if get_editor_interface() == null:
+		return
+	var fsd: Control = get_editor_interface().get_file_system_dock()
+	if fsd == null:
+		return
+	_fs_popups.clear()
+	_collect_popups_recursive(fsd, _fs_popups)
+	for pop in _fs_popups:
+		if not pop.about_to_popup.is_connected(_on_fs_popup_about.bind(pop)):
+			pop.about_to_popup.connect(_on_fs_popup_about.bind(pop))
+		if not pop.id_pressed.is_connected(_on_fs_popup_id_pressed):
+			pop.id_pressed.connect(_on_fs_popup_id_pressed)
+
+
+func _collect_popups_recursive(node: Node, out_popups: Array[PopupMenu]) -> void:
+	if node is PopupMenu:
+		out_popups.append(node as PopupMenu)
+	for ch in node.get_children():
+		_collect_popups_recursive(ch, out_popups)
+
+
+func _on_fs_popup_about(pop: PopupMenu) -> void:
+	var idx: int = pop.get_item_index(RBX_FS_MENU_ID)
+	if idx >= 0:
+		pop.remove_item(idx)
+	if get_editor_interface() == null:
+		return
+	var paths: PackedStringArray = get_editor_interface().get_selected_paths()
+	for p in paths:
+		var gp: String = ProjectSettings.globalize_path(p)
+		if DirAccess.dir_exists_absolute(gp) and not FileAccess.file_exists(gp):
+			pop.add_separator()
+			pop.add_item("📁 Publish Folder to RetroBlox Toolbox...", RBX_FS_MENU_ID)
+			break
+
+
+func _on_fs_popup_id_pressed(id: int) -> void:
+	if id == RBX_FS_MENU_ID:
+		if get_editor_interface() == null:
+			return
+		var paths: PackedStringArray = get_editor_interface().get_selected_paths()
+		for p in paths:
+			var gp: String = ProjectSettings.globalize_path(p)
+			if DirAccess.dir_exists_absolute(gp) and not FileAccess.file_exists(gp):
+				_on_publish_fs_folder_path(p)
+				return
+
+
+func _on_create_or_group_folder() -> void:
+	if get_editor_interface() == null:
+		return
+	var scene_root: Node = get_tree().edited_scene_root
+	if scene_root == null:
+		return
+	var sel: EditorSelection = get_editor_interface().get_selection()
+	var selected_nodes: Array[Node] = sel.get_selected_nodes() if sel != null else []
+
+	var folder: Node3D = Node3D.new()
+	folder.name = "Folder"
+	folder.set_meta("retroblox_folder", true)
+
+	if selected_nodes.is_empty():
+		var parent: Node = scene_root.get_node_or_null("World")
+		if parent == null:
+			parent = scene_root
+		parent.add_child(folder, true)
+		folder.owner = scene_root
+	else:
+		var first_node: Node = selected_nodes[0]
+		var target_parent: Node = first_node.get_parent()
+		if target_parent == null:
+			target_parent = scene_root
+		target_parent.add_child(folder, true)
+		folder.owner = scene_root
+
+		for node in selected_nodes:
+			if node != scene_root and is_instance_valid(node) and node.get_parent() != null:
+				node.owner = null
+				node.reparent(folder, true)
+				node.owner = scene_root
+
+	if sel != null:
+		sel.clear()
+		sel.add_node(folder)
+
+
+func _get_spawn_pos() -> Vector3:
+	return _get_camera_look_spawn_world_pos(0.5)
+
+
+func _on_interactive_pad_selected(pad_id: int) -> void:
+	var scene_root: Node = get_tree().edited_scene_root
+	if scene_root == null:
+		return
+	if pad_id == 6:
+		var gp_ps: PackedScene = load("res://toolbox/builtin/gamepass_vip_pad.tscn") as PackedScene
+		if gp_ps != null:
+			var gp_inst: Node3D = gp_ps.instantiate() as Node3D
+			var gp_parent: Node = _get_selected_or_world_parent(scene_root)
+			gp_parent.add_child(gp_inst, true)
+			gp_inst.global_position = _get_camera_look_spawn_world_pos(0.3)
+			_set_owner_recursive_safe(gp_inst, scene_root)
+			var sel0: EditorSelection = get_editor_interface().get_selection()
+			if sel0 != null:
+				sel0.clear()
+				sel0.add_node(gp_inst)
+		return
+	var pad_scr: Script = load(INTERACTIVE_PAD_PATH) as Script
+	if pad_scr == null:
+		return
+	var pad: StaticBody3D = StaticBody3D.new()
+	var names: Array[String] = ["JumpPad", "SpeedPad", "LavaPad", "IcePad", "CheckpointPad", "HealPad"]
+	pad.name = names[clampi(pad_id, 0, names.size() - 1)]
+	pad.set_script(pad_scr)
+	pad.set("pad_type", pad_id)
+	var parent: Node = _get_selected_or_world_parent(scene_root)
+	var spawn_pos: Vector3 = _get_camera_look_spawn_world_pos(0.25)
+	parent.add_child(pad, true)
+	pad.global_position = spawn_pos
+	pad.owner = scene_root
+	var sel: EditorSelection = get_editor_interface().get_selection()
+	if sel != null:
+		sel.clear()
+		sel.add_node(pad)
 
 
 func _on_open_player_settings() -> void:
@@ -553,7 +924,7 @@ func _spawn_all_starter_gears_in_editor(root: Node, spawner_script: Script) -> v
 		holder.name = "ItemSpawners"
 		parent_node.add_child(holder)
 		holder.owner = root
-	for i in range(1, 16):
+	for i in range(1, 21):
 		var meta: Dictionary = spawner_script.call("get_type_meta", i)
 		var s_name: String = String(meta.get("name", "Item")).replace(" ", "") + "Spawner"
 		if holder.get_node_or_null(s_name) != null:
@@ -844,3 +1215,10 @@ func _apply_surface_studs_recursive(node: Node, id: int) -> void:
 				smat.set_shader_parameter("stud_back", false)
 	for ch in node.get_children():
 		_apply_surface_studs_recursive(ch, id)
+
+
+func _set_owner_recursive_safe(node: Node, new_owner: Node) -> void:
+	if node != new_owner:
+		node.owner = new_owner
+	for ch in node.get_children():
+		_set_owner_recursive_safe(ch, new_owner)

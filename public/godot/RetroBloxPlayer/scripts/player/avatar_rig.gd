@@ -133,15 +133,12 @@ var _applied_tshirt_tex: Texture2D = null
 var _anim_player: AnimationPlayer
 var _current_anim := &""
 var _active_emote := ""
-var _head_scale_mult: float = 1.0
-var _equipped_tool_node: Node3D = null
-var _equipped_item_id: String = ""
-var _has_equipped_tool: bool = false
-var _tool_swing_timer: float = 0.0
-var _tool_swing_duration: float = 0.28
-var _tool_is_lunge: bool = false
-var _tool_anim_mode: String = "slash"
 var _oof_audio: AudioStream
+var _tool_swing_timer := 0.0
+var _tool_is_lunge := false
+var _has_equipped_tool := false
+var _equipped_tool_node: Node3D = null
+var _head_scale_mult := 1.0
 
 
 func _ready() -> void:
@@ -238,7 +235,7 @@ func set_tshirt(tex: Texture2D) -> void:
 	if _tshirt_decal != null and is_instance_valid(_tshirt_decal):
 		_tshirt_decal.queue_free()
 		_tshirt_decal = null
-	var torso_size := _part_sizes[TORSO] if _part_sizes.size() > TORSO else BOX_TORSO
+	var torso_size = _part_sizes[TORSO] if _part_sizes.size() > TORSO else BOX_TORSO
 	var quad := MeshInstance3D.new()
 	quad.name = "TshirtDecal"
 	var mesh := QuadMesh.new()
@@ -266,7 +263,7 @@ func set_face(tex: Texture2D, face_scale: float) -> void:
 	if _face_decal != null and is_instance_valid(_face_decal):
 		_face_decal.queue_free()
 		_face_decal = null
-	var head_size := _part_sizes[HEAD_INDEX] if _part_sizes.size() > HEAD_INDEX else Vector3.ONE * STUD
+	var head_size = _part_sizes[HEAD_INDEX] if _part_sizes.size() > HEAD_INDEX else Vector3.ONE * STUD
 	var w: float = head_size.x * 0.62 * clampf(face_scale, 0.5, 2.0)
 	var quad := MeshInstance3D.new()
 	quad.name = "FaceDecal"
@@ -375,6 +372,33 @@ func on_jump() -> void:
 	if (use_animation_player or custom_walk_anim != null) and _anim_player != null and _anim_player.has_animation(ANIM_JUMP):
 		_current_anim = ANIM_JUMP
 		_anim_player.play(ANIM_JUMP, 0.05, 1.25)
+
+
+func set_head_scale(mult: float) -> void:
+	_ensure_built()
+	_head_scale_mult = clampf(mult, 0.5, 5.0)
+	if _pivots.size() > HEAD and is_instance_valid(_pivots[HEAD]):
+		_pivots[HEAD].scale = Vector3.ONE * _head_scale_mult
+	if _nameplate != null and is_instance_valid(_nameplate):
+		_nameplate.position.y = (RIG_HEIGHT + 0.9 * STUD) + (_head_scale_mult - 1.0) * 1.1 * STUD
+
+
+func set_equipped_hand_model(model: Node3D) -> void:
+	_ensure_built()
+	if _equipped_tool_node != null and is_instance_valid(_equipped_tool_node):
+		_equipped_tool_node.queue_free()
+		_equipped_tool_node = null
+	_has_equipped_tool = (model != null)
+	if model != null and _pivots.size() > ARM_R and is_instance_valid(_pivots[ARM_R]):
+		_equipped_tool_node = model
+		_pivots[ARM_R].add_child(model)
+		model.position = Vector3(0.0, -1.35 * STUD, -0.55 * STUD)
+		model.rotation_degrees = Vector3(-75.0, 0.0, 0.0)
+
+
+func trigger_tool_swing(is_lunge: bool = false) -> void:
+	_tool_is_lunge = is_lunge
+	_tool_swing_timer = 0.45 if is_lunge else 0.26
 
 
 func _animate_pivots(delta: float, speed: float, grounded: bool, climbing: bool) -> void:
@@ -522,42 +546,16 @@ func _animate_pivots(delta: float, speed: float, grounded: bool, climbing: bool)
 		arm_l_z = -idle_arm_sway - absf(sin(_time * idle_breathe_speed)) * 0.025
 		arm_r_z = idle_arm_sway + absf(sin(_time * idle_breathe_speed)) * 0.025
 
-	var is_sword_id: bool = _equipped_item_id in ["sword", "flame_sword", "slow_sword", "super_sword"]
 	if _tool_swing_timer > 0.0:
 		_tool_swing_timer = maxf(0.0, _tool_swing_timer - delta)
-		var swing_p: float = 1.0 - (_tool_swing_timer / maxf(_tool_swing_duration, 0.05))
-		if _tool_anim_mode == "lunge" or _tool_is_lunge:
-			# Forward horizontal lunge thrust (+1.5708 rad = 90 deg forward)
-			arm_r_x = 1.5708
-			arm_r_z = 0.0
-			torso_y = 0.28
-			torso_x = -0.14
-			if _equipped_tool_node != null and is_instance_valid(_equipped_tool_node) and is_sword_id:
-				_equipped_tool_node.rotation_degrees = Vector3(175.0, 0.0, 0.0)
-		elif _tool_anim_mode == "drink":
-			arm_r_x = 2.25 + sin(swing_p * PI) * 0.25
-			arm_r_z = -0.32
-			head_x = 0.28
-		elif _tool_anim_mode == "shoot":
-			arm_r_x = lerpf(1.98, 1.5708, swing_p)
-			torso_x = lerpf(0.08, 0.0, swing_p)
-		elif _tool_anim_mode == "toss":
-			arm_r_x = lerpf(0.65, 1.95, swing_p)
+		if _tool_is_lunge:
+			arm_r_x = -1.57
+			torso_y = 0.22
 		else:
-			# Classic overhead-to-forward sword slash sweep (+2.55 rad overhead down to +0.75 rad forward)
-			arm_r_x = lerpf(2.55, 0.75, swing_p)
-			torso_y = lerpf(-0.22, 0.24, swing_p)
-			if _equipped_tool_node != null and is_instance_valid(_equipped_tool_node) and is_sword_id:
-				_equipped_tool_node.rotation_degrees = Vector3(95.0 + swing_p * 65.0, 0.0, 0.0)
+			var swing_p := 1.0 - (_tool_swing_timer / 0.26)
+			arm_r_x = lerpf(-2.35, -0.65, swing_p)
 	elif _has_equipped_tool:
-		if _equipped_item_id in ["speed_coil", "gravity_coil", "fusion_coil", "heal_coil"]:
-			# Hold right arm forward at ~65 deg so the glowing coil around the forearm is clearly visible!
-			arm_r_x = 1.15
-		else:
-			# Classic R6 90-degree forward tool hold (+1.5708 rad = straight forward)
-			arm_r_x = 1.5708
-			if _equipped_tool_node != null and is_instance_valid(_equipped_tool_node) and is_sword_id:
-				_equipped_tool_node.rotation_degrees = Vector3(80.0, 0.0, 0.0)
+		arm_r_x = -1.35
 
 	_pivots[ARM_L].rotation.x = lerp_angle(_pivots[ARM_L].rotation.x, arm_l_x, k)
 	_pivots[ARM_R].rotation.x = lerp_angle(_pivots[ARM_R].rotation.x, arm_r_x, k)
@@ -598,7 +596,7 @@ func burst(world: Node3D, impulse_seed: int, is_first_person: bool = false) -> v
 		audio.unit_size = 10.0 * STUD
 		debris.add_child(audio)
 		audio.play()
-	var tree := world.get_tree() if (world != null and world.is_inside_tree()) else (get_tree() if is_inside_tree() else null)
+	var tree = world.get_tree() if (world != null and world.is_inside_tree()) else (get_tree() if is_inside_tree() else null)
 	if tree != null:
 		var cleanup := tree.create_timer(5.0)
 		cleanup.timeout.connect(debris.queue_free)
@@ -982,67 +980,3 @@ func _norm_part_name(s: String) -> String:
 	while "  " in out:
 		out = out.replace("  ", " ")
 	return out.strip_edges()
-
-
-func set_head_scale(mult: float) -> void:
-	_ensure_built()
-	_head_scale_mult = clampf(mult, 0.5, 5.0)
-	if _pivots.size() > HEAD and is_instance_valid(_pivots[HEAD]):
-		_pivots[HEAD].scale = Vector3.ONE * _head_scale_mult
-	if _nameplate != null and is_instance_valid(_nameplate):
-		_nameplate.position.y = (RIG_HEIGHT + 0.9 * STUD) + (_head_scale_mult - 1.0) * 1.1 * STUD
-
-
-func set_equipped_hand_model(model: Node3D, item_id: String = "") -> void:
-	_ensure_built()
-	if _equipped_tool_node != null and is_instance_valid(_equipped_tool_node):
-		_equipped_tool_node.queue_free()
-		_equipped_tool_node = null
-	_equipped_item_id = item_id
-	_has_equipped_tool = (model != null)
-	if model != null and _pivots.size() > ARM_R and is_instance_valid(_pivots[ARM_R]):
-		_equipped_tool_node = model
-		_pivots[ARM_R].add_child(model)
-		if item_id in ["speed_coil", "gravity_coil", "fusion_coil", "heal_coil"]:
-			# Center around the R6 Right Arm (which goes from y=+0.5 to y=-1.5 in Pivot_3 space) at full 1.0 scale!
-			model.scale = Vector3.ONE
-			model.position = Vector3(0.0, -0.60 * STUD, 0.0)
-			model.rotation_degrees = Vector3.ZERO
-		elif item_id in ["sword", "flame_sword", "slow_sword", "super_sword"]:
-			model.scale = Vector3.ONE * 0.92
-			model.position = Vector3(0.0, -1.48 * STUD, 0.32 * STUD)
-			model.rotation_degrees = Vector3(80.0, 0.0, 0.0)
-		elif item_id in ["laser_gun", "rocket_launcher"]:
-			model.scale = Vector3.ONE * 0.92
-			model.position = Vector3(0.0, -1.52 * STUD, 0.34 * STUD)
-			model.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
-		elif item_id == "swelling_ball":
-			model.scale = Vector3.ONE * 0.95
-			model.position = Vector3(0.0, -1.75 * STUD, 0.30 * STUD)
-			model.rotation_degrees = Vector3.ZERO
-		else:
-			model.scale = Vector3.ONE * 0.92
-			model.position = Vector3(0.0, -1.52 * STUD, 0.36 * STUD)
-			model.rotation_degrees = Vector3(75.0, 0.0, 0.0)
-
-
-func set_equipped_tool_scale(mult: float) -> void:
-	if _equipped_tool_node != null and is_instance_valid(_equipped_tool_node):
-		_equipped_tool_node.scale = Vector3.ONE * (0.95 * mult)
-
-
-func trigger_tool_swing(is_lunge: bool = false, anim_mode: String = "") -> void:
-	_tool_is_lunge = is_lunge
-	if anim_mode != "":
-		_tool_anim_mode = anim_mode
-	else:
-		_tool_anim_mode = "lunge" if is_lunge else "slash"
-	if _tool_anim_mode == "lunge":
-		_tool_swing_duration = 0.46
-	elif _tool_anim_mode == "drink":
-		_tool_swing_duration = 0.52
-	elif _tool_anim_mode == "shoot":
-		_tool_swing_duration = 0.22
-	else:
-		_tool_swing_duration = 0.28
-	_tool_swing_timer = _tool_swing_duration

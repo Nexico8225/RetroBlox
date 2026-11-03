@@ -32,25 +32,12 @@ extends Node
 #      panel, or open "Hider/Unhider Node" to Hide All, Unhide All, or toggle
 #      specific nodes.
 #
-# 6. 21 EDITABLE ITEMS, ITEM SPAWNERS & INFINITE BACKPACK INVENTORY:
+# 6. 9 EDITABLE ITEMS, ITEM SPAWNERS & INFINITE BACKPACK INVENTORY:
 #    - Select any ItemSpawner under World/ItemSpawners (or insert one via
 #      "+ Item Spawner") to edit all item variables in the Inspector:
-#      Speed/Gravity/Fusion/Heal Coils, Linked/Flame/Slow/Super Sword (with
-#      double-click Lunge!), Healing Potion, Big Head Potion, Flying Carpet,
-#      Laser Gun, Rocket Launcher, Subspace Tripmine, Grappler, Spicy Sauce
-#      (3x speed for health), Ghost Burger (invisibility), Hamburger, Sandwich
-#      and Bloxy Cola.
-#    - Every gear also exists as an editable resource in res://gears/*.tres —
-#      open one and change damage, lunge speed, duration, heal amounts, etc.
-#    - Lunge is now a FLAT dash: same height the whole way (even over a hole),
-#      and you fall normally once the dash ends. Super Sword dashes faster and
-#      pops slightly upward.
-#7. MAP DISTRICTS & WORLD CONFIG:
-#    - World/SafeZone is the big spawn safe zone (no damage, slow heal).
-#    - World/FoodCourt, World/GrappleRange, World/CombatArena, World/ObbyCourse
-#      and World/BuildingYard are ordinary nodes: move them anywhere.
-#    - Select World/WorldConfig to change safe-zone radius/heal, item respawn
-#      timers and plaza distances without touching a script.
+#      Speed Coil, Gravity Coil, Sword (with double-click Lunge!), Healing Potion,
+#      Big Head Potion, Flying Carpet, Laser Gun, Rocket Launcher, and
+#      Subspace Tripmine.
 #    - Toggle "lose_item_when_dead" (default: On) on LocalPlayer, in Player
 #      Settings, or per ItemSpawner.
 #    - Press "," (Comma) or click the Backpack icon in the top-left Topbar

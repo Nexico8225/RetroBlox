@@ -14,7 +14,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="RetroBlox SDK"
+config/name="RetroBlox Player"
 run/main_scene="res://scenes/login.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/RetroBloxLogo.png"
@@ -104,8 +104,8 @@ movement/jump_power=50.0
 movement/gravity=196.2
 movement/bunny_hop=true
 health/max_health=100.0
-health/health_regen_rate=0.25
-health/fall_damage_enabled=false
+health/health_regen_rate=1.0
+health/fall_damage_enabled=true
 features/voice_chat=true
 features/shift_lock=true
 appearance/default_shirt=""

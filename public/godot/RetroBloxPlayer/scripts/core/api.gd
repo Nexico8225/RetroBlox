@@ -253,3 +253,107 @@ func _decode_data_url(url: String) -> Image:
 			err = img.load_jpg_from_buffer(Marshalls.base64_to_raw(payload))
 		return img if err == OK else null
 	return null
+
+
+# ============================================================================
+# TIX WALLET, IN-GAME TIX SPENDING & CLOUD SAVES (DATASTORE) APIs
+# ============================================================================
+
+func put_json(path: String, payload: Dictionary, authed := true) -> Dictionary:
+	var headers := PackedStringArray(["Content-Type: application/json"])
+	if authed:
+		headers.append_array(_auth_headers())
+	else:
+		headers.append("User-Agent: RetroBloxPlayer/2.0")
+	return await request(HTTPClient.METHOD_PUT, path, headers, JSON.stringify(payload))
+
+
+func get_tix_balance_info() -> Dictionary:
+	var res: Dictionary = await get_json("/api/rbx/balance")
+	if res.get("ok", false) and res.has("balance"):
+		return { "ok": true, "balance": int(res.get("balance", 0)) }
+	# Fallback to /api/users/me if needed
+	var me_res: Dictionary = await get_json("/api/users/me")
+	if me_res.get("ok", false) and me_res.has("user") and me_res["user"] is Dictionary:
+		var u: Dictionary = me_res["user"] as Dictionary
+		return { "ok": true, "balance": int(u.get("rbxBalance", 0)) }
+	return res
+
+
+func get_tix_balance() -> int:
+	var info: Dictionary = await get_tix_balance_info()
+	return int(info.get("balance", 0)) if bool(info.get("ok", false)) else 0
+
+
+func spend_tix(amount: int, recipient_username: String = "", note: String = "", game_id: String = "default") -> Dictionary:
+	var clean_amount: int = maxi(1, amount)
+	var clean_note: String = note.strip_edges() if note.strip_edges() != "" else "In-Game Purchase"
+
+	# 1. Try dedicated /api/rbx/spend endpoint first (if deployed on retro-blox.vercel.app)
+	var spend_res: Dictionary = await post_json("/api/rbx/spend", {
+		"amount": clean_amount,
+		"to": recipient_username.strip_edges(),
+		"note": clean_note,
+		"gameId": game_id,
+	})
+	if bool(spend_res.get("ok", false)):
+		await _record_purchase_cloud_save(game_id, clean_note, clean_amount)
+		return spend_res
+
+	# 2. Automatic fallback to /api/rbx/transfer (live on retro-blox.vercel.app right now!)
+	var target_user: String = recipient_username.strip_edges()
+	var my_uname: String = Session.username.strip_edges() if Session != null else saved_username.strip_edges()
+	if target_user == "" or target_user.to_lower() == my_uname.to_lower():
+		# Pick game creator or a valid treasury recipient that isn't self
+		target_user = "nexico8225" if my_uname.to_lower() != "nexico8225" else ""
+		if target_user == "":
+			var users_res: Dictionary = await get_json("/api/users?limit=10")
+			if users_res.get("ok", false) and users_res.get("users") is Array:
+				for u_entry in (users_res["users"] as Array):
+					if u_entry is Dictionary:
+						var cand: String = String((u_entry as Dictionary).get("username", "")).strip_edges()
+						if cand != "" and cand.to_lower() != my_uname.to_lower():
+							target_user = cand
+							break
+
+	if target_user != "":
+		var xfer_res: Dictionary = await post_json("/api/rbx/transfer", {
+			"to": target_user,
+			"amount": clean_amount,
+			"note": clean_note,
+		})
+		if bool(xfer_res.get("ok", false)):
+			await _record_purchase_cloud_save(game_id, clean_note, clean_amount)
+			return xfer_res
+		return xfer_res
+
+	return spend_res
+
+
+func _record_purchase_cloud_save(game_id: String, note: String, amount: int) -> void:
+	var gid: String = game_id if game_id != "" else "default"
+	var existing: Variant = await cloud_load(gid, "purchases", [])
+	var list: Array = existing if existing is Array else []
+	list.append({
+		"note": note,
+		"amount": amount,
+		"time": int(Time.get_unix_time_from_system()),
+	})
+	await cloud_save(gid, "purchases", list)
+
+
+func cloud_save(game_id: String, key: String, value: Variant) -> Dictionary:
+	var gid: String = game_id.strip_edges() if game_id.strip_edges() != "" else "default"
+	var k: String = key.strip_edges() if key.strip_edges() != "" else "save"
+	return await put_json("/api/gamedata/%s/%s" % [gid.uri_encode(), k.uri_encode()], {
+		"value": value
+	})
+
+
+func cloud_load(game_id: String, key: String, default_value: Variant = null) -> Variant:
+	var gid: String = game_id.strip_edges() if game_id.strip_edges() != "" else "default"
+	var k: String = key.strip_edges() if key.strip_edges() != "" else "save"
+	var res: Dictionary = await get_json("/api/gamedata/%s/%s" % [gid.uri_encode(), k.uri_encode()])
+	if bool(res.get("ok", false)) and res.has("value") and res["value"] != null:
+		return res["value"]
+	return default_value

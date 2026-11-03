@@ -15,10 +15,63 @@ var avatar: Dictionary = {}        # own /api/platform/me payload ({} for guests
 var avatar_cache: Dictionary = {}  # userId -> avatar payload (remote players)
 var current_place: Dictionary = {} # legacy hub pick — empty now: login drops you straight into baseplate
 var server_ui_game := ""       # v6.0: the game id whose PUBLISHED UI to fetch (set when a .retroplace with "gameId" opens)
+var place_id: String = "baseplate"
+var launch_game_id: String = ""
+var launch_pkg_url: String = ""
+var streamed_ram_package: Dictionary = {}
 
 
 func _ready() -> void:
 	_apply_window_icon()
+	_register_custom_url_protocol()
+	_parse_launch_protocol_args()
+
+
+func _register_custom_url_protocol() -> void:
+	if Engine.is_editor_hint() or OS.get_name() != "Windows":
+		return
+	var exe_path: String = OS.get_executable_path().replace("/", "\\")
+	if exe_path == "":
+		return
+	OS.execute("reg", ["add", "HKCU\\Software\\Classes\\retroblox", "/ve", "/d", "URL:RetroBlox Protocol", "/f"], [], false)
+	OS.execute("reg", ["add", "HKCU\\Software\\Classes\\retroblox", "/v", "URL Protocol", "/d", "", "/f"], [], false)
+	OS.execute("reg", ["add", "HKCU\\Software\\Classes\\retroblox\\shell\\open\\command", "/ve", "/d", "\"%s\" \"%%1\"" % exe_path, "/f"], [], false)
+
+
+func _parse_launch_protocol_args() -> void:
+	var all_args: PackedStringArray = OS.get_cmdline_args()
+	all_args.append_array(OS.get_cmdline_user_args())
+	for arg in all_args:
+		var s: String = String(arg).strip_edges().trim_prefix('"').trim_suffix('"')
+		if s.begins_with("retroblox://"):
+			var q_idx: int = s.find("?")
+			if q_idx >= 0:
+				var query: String = s.substr(q_idx + 1)
+				for pair in query.split("&", false):
+					var kv: PackedStringArray = pair.split("=", true, 1)
+					if kv.size() == 2:
+						var k: String = kv[0].uri_decode()
+						var v: String = kv[1].uri_decode()
+						if k == "gameId" or k == "game":
+							launch_game_id = v
+							place_id = v
+							server_ui_game = v
+						elif k == "token" and v != "":
+							Api.token = v
+							Api.save_session()
+						elif k == "pkgUrl" or k == "fileUrl":
+							launch_pkg_url = v
+						elif k == "username" and v != "":
+							Api.saved_username = v
+		elif s.begins_with("--game-id="):
+			launch_game_id = s.substr(10)
+			place_id = launch_game_id
+			server_ui_game = launch_game_id
+		elif s.begins_with("--token="):
+			Api.token = s.substr(8)
+			Api.save_session()
+		elif s.begins_with("--pkg-url="):
+			launch_pkg_url = s.substr(10)
 
 
 func _apply_window_icon() -> void:

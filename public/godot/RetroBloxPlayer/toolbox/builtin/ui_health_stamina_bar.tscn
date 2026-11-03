@@ -1,0 +1,45 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://toolbox/builtin/ui_health_stamina.gd" id="1_hp"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_bars"]
+bg_color = Color(0.05, 0.07, 0.1, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.5, 0.65, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
+
+[node name="HealthStaminaHUD" type="PanelContainer"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -92.0
+offset_right = 256.0
+offset_bottom = -16.0
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBox_bars")
+script = ExtResource("1_hp")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HealthBar" type="ProgressBar" parent="VBox"]
+custom_minimum_size = Vector2(210, 22)
+layout_mode = 2
+value = 100.0
+
+[node name="StaminaBar" type="ProgressBar" parent="VBox"]
+custom_minimum_size = Vector2(210, 18)
+layout_mode = 2
+value = 100.0

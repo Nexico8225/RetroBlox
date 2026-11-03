@@ -2,29 +2,28 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ckmkgy6s85y05"
-path.s3tc="res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.s3tc.ctex"
+uid="uid://cja65ilhjc1uo"
+path="res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://assets/Materials/Studs 4x4 Normal Plastic.png"
-dest_files=["res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.s3tc.ctex"]
+dest_files=["res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=1
+compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -38,4 +37,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GamePassData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gamepass_data.gd" id="1_gp"]
+[ext_resource type="Texture2D" path="res://assets/icons/gamepasses/jump_pass.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_gp")
+pass_id = "super_jump"
+title = "Super Jump Pass"
+description = "Jump higher with low-gravity boots!"
+cost_tix = 60
+icon = ExtResource("2_icon")
+creator_username = ""

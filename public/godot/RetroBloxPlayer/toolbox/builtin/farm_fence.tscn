@@ -1,0 +1,45 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="BoxShape3D" id="Shape_fence"]
+size = Vector3(12, 3.6, 0.6)
+
+[sub_resource type="BoxMesh" id="Mesh_post"]
+size = Vector3(0.6, 3.6, 0.6)
+
+[sub_resource type="BoxMesh" id="Mesh_rail"]
+size = Vector3(12, 0.4, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="Mat_wood"]
+albedo_color = Color(0.56, 0.36, 0.18, 1)
+roughness = 0.85
+
+[node name="FarmFence" type="StaticBody3D"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 1.8, 0)
+shape = SubResource("Shape_fence")
+
+[node name="PostLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-5.5, 1.8, 0)
+mesh = SubResource("Mesh_post")
+surface_material_override/0 = SubResource("Mat_wood")
+
+[node name="PostCenter" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.8, 0)
+mesh = SubResource("Mesh_post")
+surface_material_override/0 = SubResource("Mat_wood")
+
+[node name="PostRight" type="MeshInstance3D" parent="."]
+position = Vector3(5.5, 1.8, 0)
+mesh = SubResource("Mesh_post")
+surface_material_override/0 = SubResource("Mat_wood")
+
+[node name="RailTop" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.8, 0)
+mesh = SubResource("Mesh_rail")
+surface_material_override/0 = SubResource("Mat_wood")
+
+[node name="RailBottom" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.4, 0)
+mesh = SubResource("Mesh_rail")
+surface_material_override/0 = SubResource("Mat_wood")

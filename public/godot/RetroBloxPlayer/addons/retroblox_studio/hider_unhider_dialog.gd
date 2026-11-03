@@ -12,7 +12,8 @@ var _status_lbl: Label
 func _init() -> void:
 	title = "Hider / Unhider Node (Hierarchy)"
 	size = Vector2i(440, 310)
-	max_size = Vector2i(500, 380)
+	min_size = Vector2i(280, 220)
+	unresizable = false
 	ok_button_text = "Close"
 
 

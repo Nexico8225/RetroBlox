@@ -12,8 +12,7 @@ const AvatarViewerScript := preload("res://scripts/ui/avatar_viewer.gd")
 const MenuIcons := preload("res://scripts/ui/menu_icons.gd")
 const EmoteWheelScript := preload("res://scripts/ui/emote_wheel.gd")
 const InventoryUIScript := preload("res://scripts/ui/inventory_ui.gd")
-const AvatarRigScript := preload("res://scripts/player/avatar_rig.gd")
-const ITEM_SPAWNER_SCRIPT_PATH := "res://scripts/world/item_spawner.gd"
+const ItemSpawnerScript := preload("res://scripts/world/item_spawner.gd")
 
 const POLL_SECONDS := 2.0
 const HEARTBEAT_SECONDS := 3.5
@@ -99,16 +98,10 @@ var _joystick_mouse_dragging := false
 var _inventory: Control
 var _backpack_topbar_btn: Button
 var _tex_backpack: Texture2D
-var _item_use_cd: float = 0.0
-var _item_use_cd_max: float = 0.4
-var _lunge_cd: float = 0.0
-var _last_sword_click_ms: int = 0
-var _swell_charging: bool = false
-var _swell_charge_time: float = 0.0
+var _item_use_cd := 0.0
+var _last_sword_click_ms := 0
 var _active_rockets: Array[Dictionary] = []
-var _active_lasers: Array[Dictionary] = []
 var _active_tripmines: Array[Dictionary] = []
-var _combat_dummies: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -176,7 +169,8 @@ func _ready() -> void:
 		add_child(player)
 	player.global_position = _spawns[0]
 	player.spawn_point = Transform3D(Basis(), _spawns[0])
-	player.setup(Session.username)
+	var session_uname: String = String(sess.get("username")) if sess != null else "Player"
+	player.setup(session_uname)
 	if not player.health_changed.is_connected(_on_health_changed):
 		player.health_changed.connect(_on_health_changed)
 	if not player.health_depleted.is_connected(_on_health_depleted):
@@ -186,8 +180,16 @@ func _ready() -> void:
 	if player.has_signal("item_picked_up") and not player.is_connected("item_picked_up", _on_player_item_picked_up):
 		player.connect("item_picked_up", _on_player_item_picked_up)
 	if existing_world != null:
+		var ram_pkg: Dictionary = sess.get("streamed_ram_package") if (sess != null and "streamed_ram_package" in sess) else {}
+		if not ram_pkg.is_empty():
+			var loader_scr: Script = load("res://scripts/core/scene_package_loader.gd") as Script
+			if loader_scr != null:
+				var ram_spawns: Array[Vector3] = loader_scr.call("apply_ram_package_to_world", existing_world, ram_pkg)
+				if not ram_spawns.is_empty():
+					_spawns = ram_spawns
+					player.global_position = _spawns[0]
 		_ensure_default_item_spawners(existing_world)
-		_spawn_sfoth_combat_dummies(existing_world)
+		_ensure_default_gamepass_pad(existing_world)
 	_dress_me()
 
 	_setup_audio()
@@ -297,7 +299,7 @@ func _on_setting_changed(key: String, _value: Variant) -> void:
 		"fullscreen":
 			if _fullscreen_switch != null and is_instance_valid(_fullscreen_switch):
 				var settings: Node = get_node_or_null("/root/Settings")
-				var on := bool(settings.get("fullscreen")) if settings != null else false
+				var on = bool(settings.get("fullscreen")) if settings != null else false
 				_fullscreen_switch.set_pressed_no_signal(on)
 				_style_switch(_fullscreen_switch, on)
 		"voice_muted", "voice_enabled", "input_device":
@@ -316,7 +318,7 @@ func _on_setting_changed(key: String, _value: Variant) -> void:
 
 func _apply_ui_opacity() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
-	var a := 1.0 if settings == null else clampf(float(settings.get("ui_opacity")), 0.3, 1.0)
+	var a = 1.0 if settings == null else clampf(float(settings.get("ui_opacity")), 0.3, 1.0)
 	if _menu_panel != null and is_instance_valid(_menu_panel):
 		_menu_panel.modulate = Color(1, 1, 1, a)
 	if chat != null and is_instance_valid(chat):
@@ -345,15 +347,15 @@ func _physics_process(delta: float) -> void:
 	var typing: bool = chat != null and is_instance_valid(chat) and chat.is_open
 	var emote_open: bool = _emote_wheel != null and is_instance_valid(_emote_wheel) and _emote_wheel.visible
 	var block_move: bool = typing or _menu_open or studio_open or emote_open
-	var kb_dir := Vector2.ZERO if block_move else Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var dir := kb_dir + (Vector2.ZERO if block_move else _mobile_move_vec)
+	var kb_dir = Vector2.ZERO if block_move else Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var dir = kb_dir + (Vector2.ZERO if block_move else _mobile_move_vec)
 	if dir.length() > 1.0:
 		dir = dir.normalized()
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings != null and bool(settings.get("invert_movement")):
 		dir = -dir
-	var jump := false if block_move else (Input.is_action_just_pressed("jump") or _mobile_jump_just_pressed)
-	var jump_held := false if block_move else (Input.is_action_pressed("jump") or _mobile_jump_held)
+	var jump = false if block_move else (Input.is_action_just_pressed("jump") or _mobile_jump_just_pressed)
+	var jump_held = false if block_move else (Input.is_action_pressed("jump") or _mobile_jump_held)
 	_mobile_jump_just_pressed = false
 	player.drive(delta, dir, camera_rig.drive_yaw() if camera_rig != null else 0.0, jump, camera_rig.shift_locked if camera_rig != null else false, camera_rig.first_person if camera_rig != null else false, jump_held)
 
@@ -367,16 +369,7 @@ func _process(delta: float) -> void:
 		return
 	if _item_use_cd > 0.0:
 		_item_use_cd = maxf(0.0, _item_use_cd - delta)
-	if _lunge_cd > 0.0:
-		_lunge_cd = maxf(0.0, _lunge_cd - delta)
-	if _inventory != null and is_instance_valid(_inventory) and _inventory.has_method("set_active_cooldown"):
-		_inventory.call("set_active_cooldown", _item_use_cd, _item_use_cd_max)
-	_update_swelling_ball_charge(delta)
-	_update_gear_wall_hover_ui()
-	_check_nearby_item_spawners()
-	_update_playground_and_safezone(delta)
 	_update_rockets_and_tripmines(delta)
-	_update_sfoth_combat_dummies(delta)
 	if _pad_notify_cooldown > 0.0:
 		_pad_notify_cooldown -= delta
 	if not _disco_mats.is_empty():
@@ -402,13 +395,13 @@ func _process(delta: float) -> void:
 		_poll_left = POLL_SECONDS
 		_poll_feed()
 	var vc_beat: Node = get_node_or_null("/root/VoiceChat")
-	var is_sp := false if vc_beat == null else bool(vc_beat.call("is_speaking"))
+	var is_sp = false if vc_beat == null else bool(vc_beat.call("is_speaking"))
 	_beat_left -= delta
 	if _beat_left <= 0.0 or (is_sp and _beat_left > 0.9):
 		_beat_left = 0.9 if is_sp else HEARTBEAT_SECONDS
 		if not Session.is_guest and player != null and is_instance_valid(player):
-			var v_lvl := 0.0 if vc_beat == null else float(vc_beat.call("get_level"))
-			var v_b64 := "" if vc_beat == null else String(vc_beat.call("pop_network_voice_packet"))
+			var v_lvl = 0.0 if vc_beat == null else float(vc_beat.call("get_level"))
+			var v_b64 = "" if vc_beat == null else String(vc_beat.call("pop_network_voice_packet"))
 			Api.place_presence(String(place["id"]), player.global_position, player.heading,
 				_last_ping_ms, int(Engine.get_frames_per_second()), is_sp, v_lvl, v_b64)
 	_stats_tick -= delta
@@ -447,30 +440,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		var emote_vis: bool = _emote_wheel != null and is_instance_valid(_emote_wheel) and _emote_wheel.visible
 		var inv_open: bool = _inventory != null and is_instance_valid(_inventory) and bool(_inventory.get("is_open"))
 		if not _menu_open and not studio_vis and not emote_vis and not inv_open and (chat == null or not chat.is_open):
-			if _try_click_world_item_or_chair((event as InputEventMouseButton).position):
-				get_viewport().set_input_as_handled()
-				return
-			if _use_equipped_item(false):
+			if _use_equipped_item():
 				get_viewport().set_input_as_handled()
 				return
 
 	if event is InputEventKey and event.is_pressed() and not event.is_echo():
-		var ikey: int = (event as InputEventKey).keycode
-		var pkey: int = (event as InputEventKey).physical_keycode
-		var uni: int = (event as InputEventKey).unicode
-		var f_own: Control = get_viewport().gui_get_focus_owner()
+		var ikey := (event as InputEventKey).keycode
+		var pkey := (event as InputEventKey).physical_keycode
+		var uni := (event as InputEventKey).unicode
+		var f_own := get_viewport().gui_get_focus_owner()
 		var typing_now: bool = (f_own is LineEdit or f_own is TextEdit) or (chat != null and is_instance_valid(chat) and chat.is_open)
 		if not _menu_open and not typing_now and _inventory != null and is_instance_valid(_inventory):
-			if ikey == KEY_COMMA or pkey == KEY_COMMA or uni == 44 or ikey == KEY_QUOTELEFT or pkey == KEY_QUOTELEFT:
+			if ikey == KEY_COMMA or pkey == KEY_COMMA or uni == 44:
 				_inventory.call("toggle_backpack")
 				get_viewport().set_input_as_handled()
 				return
-			var chosen_key: int = ikey if ikey != 0 else pkey
-			if chosen_key in [KEY_E, KEY_R]:
-				if _use_equipped_item(true):
-					get_viewport().set_input_as_handled()
-					return
-			if bool(_inventory.call("handle_key_input", chosen_key)):
+			if bool(_inventory.call("handle_key_input", ikey if ikey != 0 else pkey)):
 				get_viewport().set_input_as_handled()
 				return
 
@@ -739,9 +724,9 @@ func _on_voice_device_changed(_dev: String) -> void:
 
 func _sync_voice_ui() -> void:
 	var vc: Node = get_node_or_null("/root/VoiceChat")
-	var muted := false if vc == null else bool(vc.call("is_muted"))
+	var muted = false if vc == null else bool(vc.call("is_muted"))
 	if _voice_topbar_btn != null and is_instance_valid(_voice_topbar_btn):
-		var ic := _tex_mic_muted if muted else _tex_mic_on
+		var ic = _tex_mic_muted if muted else _tex_mic_on
 		if ic != null:
 			_voice_topbar_btn.icon = ic
 		_voice_topbar_btn.tooltip_text = "Voice Chat: Muted (V)" if muted else "Voice Chat: Active (V)"
@@ -944,8 +929,8 @@ func _open_ui_editor_from_settings() -> void:
 
 func _apply_light_taps() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
-	var on := true if settings == null else bool(settings.get("light_taps"))
-	var mode := BaseButton.ACTION_MODE_BUTTON_PRESS if on else BaseButton.ACTION_MODE_BUTTON_RELEASE
+	var on = true if settings == null else bool(settings.get("light_taps"))
+	var mode = BaseButton.ACTION_MODE_BUTTON_PRESS if on else BaseButton.ACTION_MODE_BUTTON_RELEASE
 	if hud != null:
 		for node in hud.find_children("*", "BaseButton", true, false):
 			var btn := node as BaseButton
@@ -980,7 +965,7 @@ func _apply_camera_quality_far() -> void:
 	if cam == null:
 		return
 	var settings: Node = get_node_or_null("/root/Settings")
-	var q := 2 if settings == null else int(settings.get("graphics_quality"))
+	var q = 2 if settings == null else int(settings.get("graphics_quality"))
 	match q:
 		0: cam.far = 160.0
 		1: cam.far = 380.0
@@ -1012,7 +997,7 @@ func _apply_camera_quality_far() -> void:
 
 func _sync_mobile_ui() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
-	var show_mobile := false if settings == null else bool(settings.call("is_mobile_ui_active"))
+	var show_mobile = false if settings == null else bool(settings.call("is_mobile_ui_active"))
 	if _mobile_root != null and is_instance_valid(_mobile_root):
 		_mobile_root.visible = show_mobile
 	if not show_mobile:
@@ -1269,9 +1254,27 @@ func _bind_or_build_center_cursor() -> void:
 	_center_cursor.visible = false
 
 
-func _notify(_text: String, _with_sound := false) -> void:
-	if _toast_box != null and is_instance_valid(_toast_box):
-		_toast_box.visible = false
+func _notify(text: String, with_sound := false) -> void:
+	if _toast_box == null or not is_instance_valid(_toast_box):
+		return
+	var pill := PanelContainer.new()
+	pill.add_theme_stylebox_override("panel", _toast_style())
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", Color.WHITE)
+	if RetroUI.source(400) != null:
+		l.add_theme_font_override("font", RetroUI.source(400))
+	pill.add_child(l)
+	_toast_box.add_child(pill)
+	if with_sound:
+		var sfx: Node = get_node_or_null("/root/Sfx")
+		if sfx != null:
+			sfx.call("play_join")
+	var tween := create_tween()
+	tween.tween_interval(3.0)
+	tween.tween_property(pill, "modulate:a", 0.0, 0.45)
+	tween.tween_callback(pill.queue_free)
 
 
 func _toast_style() -> StyleBox:
@@ -1484,7 +1487,7 @@ func _style_tab(b: Button, on: bool) -> void:
 	b.add_theme_stylebox_override("pressed", sb)
 	b.add_theme_stylebox_override("hover_pressed", sb)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	var ink := Color.WHITE if on else Color(0.68, 0.72, 0.78)
+	var ink = Color.WHITE if on else Color(0.68, 0.72, 0.78)
 	var glyph: Control = b.get_node_or_null("VBoxContainer/Glyph")
 	if glyph == null:
 		glyph = b.find_child("Glyph", true, false) as Control
@@ -1542,7 +1545,7 @@ func _footer_key(key: String, _label: String, _primary: bool, handler: Callable)
 	b.add_theme_stylebox_override("hover", face_hover)
 	b.add_theme_stylebox_override("pressed", face)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	var ink := Color("0a0d12") if key == "ESC" else Color.WHITE
+	var ink = Color("0a0d12") if key == "ESC" else Color.WHITE
 	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(st, ink)
 	if RetroUI.gotham(700) != null:
@@ -1683,8 +1686,8 @@ func _update_live_stats() -> void:
 		_fps_smooth = lerpf(_fps_smooth, float(fps), 0.35)
 	if _corner_stats != null and is_instance_valid(_corner_stats):
 		var settings: Node = get_node_or_null("/root/Settings")
-		var want_fps := true if settings == null else bool(settings.get("show_fps"))
-		var want_ping := true if settings == null else bool(settings.get("show_ping"))
+		var want_fps = true if settings == null else bool(settings.get("show_fps"))
+		var want_ping = true if settings == null else bool(settings.get("show_ping"))
 		var parts: PackedStringArray = []
 		if want_fps:
 			parts.append("FPS %d" % int(roundf(_fps_smooth)))
@@ -1711,8 +1714,8 @@ func _update_live_stats() -> void:
 			else:
 				phys_parts.append("Grav: %.1f (%.2fx)" % [grv, gmult])
 
-		var top_line := "  ·  ".join(parts) if not parts.is_empty() else ""
-		var bottom_line := "  ·  ".join(phys_parts) if not phys_parts.is_empty() else ""
+		var top_line = "  ·  ".join(parts) if not parts.is_empty() else ""
+		var bottom_line = "  ·  ".join(phys_parts) if not phys_parts.is_empty() else ""
 
 		if top_line != "" and bottom_line != "":
 			_corner_stats.text = "%s\n%s" % [top_line, bottom_line]
@@ -1959,7 +1962,7 @@ func _build_settings_tab() -> VBoxContainer:
 				settings.set_key("ladder_auto_rotate", on))
 
 	var studio_row := _row(page, "layers", "UI Editor & Custom HUD Layout")
-	var ui_ed_on := bool(settings.get("ui_editor_enabled")) if settings != null else true
+	var ui_ed_on = bool(settings.get("ui_editor_enabled")) if settings != null else true
 	_ui_editor_switch = Button.new()
 	_ui_editor_switch.toggle_mode = true
 	_ui_editor_switch.button_pressed = ui_ed_on
@@ -2047,7 +2050,7 @@ func _build_settings_tab() -> VBoxContainer:
 			if settings != null:
 				settings.set_key("voice_enabled", on))
 	var vc: Node = get_node_or_null("/root/VoiceChat")
-	var mic_active := true if vc == null else not bool(vc.call("is_muted"))
+	var mic_active = true if vc == null else not bool(vc.call("is_muted"))
 	_voice_mute_switch = _row_toggle(page, "mic", "Microphone Active (V / Click Overhead Icon)",
 		mic_active,
 		func(on: bool) -> void:
@@ -2057,7 +2060,7 @@ func _build_settings_tab() -> VBoxContainer:
 	# Microphone Input Device Selector
 	var dev_row := _row(page, "mic", "Microphone Input Device")
 	_mic_device_btn = Button.new()
-	var current_dev := "Default" if vc == null else String(vc.call("get_input_device"))
+	var current_dev = "Default" if vc == null else String(vc.call("get_input_device"))
 	_mic_device_btn.text = current_dev
 	_mic_device_btn.custom_minimum_size = Vector2(210, 28)
 	_mic_device_btn.clip_text = true
@@ -2280,7 +2283,7 @@ func _style_switch(sw: Button, on: bool) -> void:
 	sw.add_theme_stylebox_override("hover", hv)
 	sw.add_theme_stylebox_override("pressed", face)
 	sw.text = "ON" if on else "OFF"
-	var ink := Color.WHITE if on else RetroUI.NIGHT_INK_MUTED
+	var ink = Color.WHITE if on else RetroUI.NIGHT_INK_MUTED
 	sw.add_theme_color_override("font_color", ink)
 	sw.add_theme_color_override("font_hover_color", Color.WHITE)
 	sw.add_theme_color_override("font_pressed_color", ink)
@@ -2350,7 +2353,7 @@ func _style_chips(btns: Array[Button], value: int) -> void:
 		b.add_theme_stylebox_override("normal", _chip_face(on))
 		b.add_theme_stylebox_override("hover", _chip_face(on, true))
 		b.add_theme_stylebox_override("pressed", _chip_face(on))
-		var ink := Color("0a0d12") if on else RetroUI.NIGHT_INK_MUTED
+		var ink = Color("0a0d12") if on else RetroUI.NIGHT_INK_MUTED
 		for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 			b.add_theme_color_override(st, ink)
 
@@ -2434,7 +2437,7 @@ func _rebuild_settings_tab() -> void:
 
 func _apply_nameplates() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
-	var on := true if settings == null else bool(settings.get("player_names"))
+	var on = true if settings == null else bool(settings.get("player_names"))
 	if player != null and is_instance_valid(player) and player.avatar != null:
 		player.avatar.call("set_display_name", Session.username if on else "")
 	for uid in _remotes.keys():
@@ -2759,7 +2762,7 @@ func _on_chat_submit(text: String) -> void:
 
 	chat.add_chat(Session.username, Session.seq_id, trimmed, "", true, Session.user_id)
 	var settings_node: Node = get_node_or_null("/root/Settings")
-	var allow_bubbles := true if settings_node == null else bool(settings_node.get("chat_bubbles"))
+	var allow_bubbles = true if settings_node == null else bool(settings_node.get("chat_bubbles"))
 	if allow_bubbles and player != null and is_instance_valid(player):
 		player.show_bubble(trimmed)
 
@@ -2783,7 +2786,7 @@ func _handle_command(command: String) -> void:
 		chat.add_system("Commands: /e <dance|dance2|dance3|wave|point|laugh|cheer|sit|stop> · /help")
 		chat.add_system("Press . for Emote Wheel · Press / to chat · SHIFT = shift lock · V = voice mic")
 	elif cmd == "/e" or cmd == "/emote":
-		var emote := String(parts[1]).to_lower() if parts.size() > 1 else ""
+		var emote = String(parts[1]).to_lower() if parts.size() > 1 else ""
 		match emote:
 			"sit":
 				if player != null and is_instance_valid(player):
@@ -2848,7 +2851,7 @@ func _ingest_message(msg: Dictionary) -> void:
 	_seen_messages[id] = true
 	var uid := Api.txt(msg.get("userId", ""))
 	var uname := Api.txt(msg.get("username", "?"), "?")
-	var seq := int(msg.get("seqId", 0)) if msg.get("seqId") != null else 0
+	var seq = int(msg.get("seqId", 0)) if msg.get("seqId") != null else 0
 	var text := Api.txt(msg.get("text", ""))
 	if uid == Session.user_id and _pending_local_texts.has(text):
 		_pending_local_texts.erase(text)
@@ -2956,1043 +2959,206 @@ func _refresh_player_list(players: Array) -> void:
 
 
 # ============================================================================
-# INVENTORY, GEAR WALL, RANDOM SPAWNERS, PLAYGROUND, SAFE ZONE & SFOTH COMBAT
+# INVENTORY, 9 EDITABLE GEAR ITEMS & ITEM SPAWNERS
 # ============================================================================
 
 func _setup_inventory_ui() -> void:
-	if _toast_box != null and is_instance_valid(_toast_box):
-		_toast_box.visible = false
 	if hud == null:
 		return
 	_inventory = InventoryUIScript.new()
 	hud.add_child(_inventory)
 	_inventory.connect("active_item_changed", _on_active_item_changed)
-	var world_n: Node3D = get_node_or_null("World") as Node3D
-	if world_n != null:
-		_ensure_playground_and_safezone(world_n)
 
 
 func _on_active_item_changed(item_data: Dictionary) -> void:
-	_swell_charging = false
-	_swell_charge_time = 0.0
 	if player != null and is_instance_valid(player) and player.has_method("set_equipped_item"):
 		player.call("set_equipped_item", item_data)
+	if not item_data.is_empty():
+		var iname = String(item_data.get("name", "Item"))
+		var iid = String(item_data.get("id", ""))
+		if iid == "sword":
+			_notify("Equipped %s — Click to Slash · Double-Click to Lunge!" % iname, false)
+		elif iid == "flying_carpet":
+			_notify("Equipped %s — WASD to Fly · Space Up · C/Ctrl Down!" % iname, false)
+		else:
+			_notify("Equipped %s" % iname, false)
 
 
 func _on_player_item_picked_up(item_data: Dictionary) -> void:
 	if _inventory == null or not is_instance_valid(_inventory):
 		return
-	var iid: String = String(item_data.get("id", ""))
-	if bool(_inventory.call("has_item_in_hotbar", iid)):
-		return
 	_inventory.call("add_item", item_data)
 	var sfx_node: Node = get_node_or_null("/root/Sfx")
 	if sfx_node != null and sfx_node.has_method("play_click"):
 		sfx_node.call("play_click")
-
-
-func _update_gear_wall_hover_ui() -> void:
-	if _inventory == null or not is_instance_valid(_inventory) or not _inventory.has_method("show_gear_hover_info"):
-		return
-	var studio_vis: bool = _ui_studio != null and is_instance_valid(_ui_studio) and _ui_studio.visible
-	var emote_vis: bool = _emote_wheel != null and is_instance_valid(_emote_wheel) and _emote_wheel.visible
-	var inv_open: bool = bool(_inventory.get("is_open"))
-	if _menu_open or studio_vis or emote_vis or inv_open or (chat != null and chat.is_open):
-		_inventory.call("show_gear_hover_info", 0, "", Vector2.ZERO)
-		return
-	var cam: Camera3D = get_viewport().get_camera_3d()
-	if cam == null:
-		_inventory.call("show_gear_hover_info", 0, "", Vector2.ZERO)
-		return
-	var mp: Vector2 = get_viewport().get_mouse_position()
-	var ray_from: Vector3 = cam.project_ray_origin(mp)
-	var ray_dir: Vector3 = cam.project_ray_normal(mp).normalized()
-	var max_hover_dist: float = 95.0
-
-	var best_spawner: Node3D = null
-	var best_t: float = max_hover_dist
-	for node in get_tree().get_nodes_in_group("item_spawner"):
-		if node is Node3D and is_instance_valid(node):
-			var sp: Node3D = node as Node3D
-			var target_center: Vector3 = sp.global_position + (Vector3(0.0, 0.0, 0.5) if bool(sp.get("wall_mount")) else Vector3(0.0, 1.4, 0.0))
-			var to_sp: Vector3 = target_center - ray_from
-			var proj_t: float = to_sp.dot(ray_dir)
-			if proj_t > 0.5 and proj_t < best_t:
-				var closest_pt: Vector3 = ray_from + ray_dir * proj_t
-				if closest_pt.distance_to(target_center) <= 2.1:
-					best_t = proj_t
-					best_spawner = sp
-
-	if best_spawner != null and best_spawner.has_method("get_item_data"):
-		var d: Dictionary = best_spawner.call("get_item_data")
-		var g_id_num: int = int(d.get("item_type", 1))
-		if g_id_num <= 0:
-			g_id_num = 1
-		var g_name: String = String(d.get("name", "Gear"))
-		_inventory.call("show_gear_hover_info", g_id_num, g_name, mp)
-	else:
-		_inventory.call("show_gear_hover_info", 0, "", Vector2.ZERO)
-
-
-func _try_click_world_item_or_chair(screen_pos: Vector2) -> bool:
-	if player == null or not is_instance_valid(player) or not bool(player.get("alive")):
-		return false
-	if _inventory == null or not is_instance_valid(_inventory):
-		return false
-	var cam: Camera3D = get_viewport().get_camera_3d()
-	if cam == null:
-		return false
-	var ray_from: Vector3 = cam.project_ray_origin(screen_pos)
-	var ray_dir: Vector3 = cam.project_ray_normal(screen_pos).normalized()
-	var max_click_dist: float = 85.0
-
-	# 1. Check ray distance to every ItemSpawner in the world (including all 15 gears on the GearWall!)
-	var best_spawner: Node3D = null
-	var best_t: float = max_click_dist
-	for node in get_tree().get_nodes_in_group("item_spawner"):
-		if node is Node3D and is_instance_valid(node) and node.has_method("can_pickup"):
-			var sp: Node3D = node as Node3D
-			if not bool(sp.call("can_pickup")):
-				continue
-			var target_center: Vector3 = sp.global_position + (Vector3(0.0, 0.0, 0.5) if bool(sp.get("wall_mount")) else Vector3(0.0, 1.4, 0.0))
-			var to_sp: Vector3 = target_center - ray_from
-			var proj_t: float = to_sp.dot(ray_dir)
-			if proj_t > 0.5 and proj_t < best_t:
-				var closest_pt: Vector3 = ray_from + ray_dir * proj_t
-				if closest_pt.distance_to(target_center) <= 2.1:
-					best_t = proj_t
-					best_spawner = sp
-
-	if best_spawner != null:
-		var picked: Dictionary = best_spawner.call("consume_pickup")
-		_on_player_item_picked_up(picked)
-		return true
-
-	# 2. Also check direct physics raycast hit on an ItemSpawner or Chair
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	if space != null:
-		var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(ray_from, ray_from + ray_dir * max_click_dist, 0xFFFFFFFF, [(player as CollisionObject3D).get_rid()])
-		var hit: Dictionary = space.intersect_ray(q)
-		if not hit.is_empty():
-			var col_obj: Variant = hit.get("collider", null)
-			if col_obj is Node3D:
-				var cn: Node3D = col_obj as Node3D
-				if cn.is_in_group("item_spawner") and cn.has_method("can_pickup") and bool(cn.call("can_pickup")):
-					var picked2: Dictionary = cn.call("consume_pickup")
-					_on_player_item_picked_up(picked2)
-					return true
-				if cn.is_in_group("chair") and (player as Node3D).global_position.distance_to(cn.global_position) <= 18.0:
-					if player.has_method("sit_in_chair"):
-						player.call("sit_in_chair", cn)
-						return true
-
-	return false
-
-
-func _check_nearby_item_spawners() -> void:
-	if player == null or not is_instance_valid(player) or not bool(player.get("alive")):
-		return
-	if _inventory == null or not is_instance_valid(_inventory):
-		return
-	var p_pos: Vector3 = (player as Node3D).global_position + Vector3(0.0, 2.0, 0.0)
-	for node in get_tree().get_nodes_in_group("item_spawner"):
-		if node is Node3D and is_instance_valid(node) and node.has_method("can_pickup"):
-			var sp_node: Node3D = node as Node3D
-			var dist_limit: float = 3.4 if bool(sp_node.get("wall_mount")) else 2.9
-			if p_pos.distance_to(sp_node.global_position) <= dist_limit and bool(sp_node.call("can_pickup")):
-				var preview_dict: Dictionary = sp_node.call("get_item_data") if sp_node.has_method("get_item_data") else {}
-				var iid: String = String(preview_dict.get("id", ""))
-				if iid != "" and bool(_inventory.call("has_item_in_hotbar", iid)):
-					continue
-				var picked: Dictionary = sp_node.call("consume_pickup")
-				_on_player_item_picked_up(picked)
-
-
-static func _make_studded_box(parent: Node3D, b_name: String, b_size: Vector3, b_pos: Vector3, b_col: Color, rot_deg: Vector3 = Vector3.ZERO) -> StaticBody3D:
-	var sb: StaticBody3D = StaticBody3D.new()
-	sb.name = b_name
-	sb.position = b_pos
-	sb.rotation_degrees = rot_deg
-	var cs: CollisionShape3D = CollisionShape3D.new()
-	var bshape: BoxShape3D = BoxShape3D.new()
-	bshape.size = b_size
-	cs.shape = bshape
-	sb.add_child(cs)
-	var mi: MeshInstance3D = MeshInstance3D.new()
-	var bmesh: BoxMesh = BoxMesh.new()
-	bmesh.size = b_size
-	mi.mesh = bmesh
-	var sh_path: String = "res://assets/studs/part_studs.gdshader"
-	if ResourceLoader.exists(sh_path):
-		var smat: ShaderMaterial = ShaderMaterial.new()
-		smat.shader = load(sh_path) as Shader
-		smat.set_shader_parameter("albedo", b_col)
-		if ResourceLoader.exists("res://assets/studs/stud_tile.png"):
-			smat.set_shader_parameter("stud_tex", load("res://assets/studs/stud_tile.png"))
-		if ResourceLoader.exists("res://assets/Materials/Studs 4x4 Normal Plastic.png"):
-			smat.set_shader_parameter("stud_normal_tex", load("res://assets/Materials/Studs 4x4 Normal Plastic.png"))
-		smat.set_shader_parameter("stud_density", 1.0)
-		smat.set_shader_parameter("normal_depth", 1.35)
-		smat.set_shader_parameter("roughness_val", 0.38)
-		smat.set_shader_parameter("specular_val", 0.52)
-		smat.set_shader_parameter("stud_full", true)
-		mi.material_override = smat
-	else:
-		var std: StandardMaterial3D = StandardMaterial3D.new()
-		std.albedo_color = b_col
-		mi.material_override = std
-	sb.add_child(mi)
-	parent.add_child(sb)
-	return sb
+	_notify("Picked up %s! (Press ',' for Backpack)" % String(item_data.get("name", "Item")), false)
 
 
 func _ensure_default_item_spawners(world_node: Node3D) -> void:
-	if world_node == null:
+	if world_node == null or world_node.get_node_or_null("ItemSpawners") != null:
 		return
-	_ensure_playground_and_safezone(world_node)
-	if world_node.get_node_or_null("ItemSpawners") != null:
-		return
-	var spawner_scr: Script = load(ITEM_SPAWNER_SCRIPT_PATH) as Script
-	if spawner_scr == null:
-		return
-	var holder: Node3D = Node3D.new()
+	var holder = Node3D.new()
 	holder.name = "ItemSpawners"
 	world_node.add_child(holder)
-
-	for r_idx in range(3):
-		var rsp: StaticBody3D = spawner_scr.new() as StaticBody3D
-		rsp.name = "RandomGearSpawner_%d" % (r_idx + 1)
-		rsp.set("item_type", 0)
-		rsp.set("respawn_cooldown", 1.2)
-		rsp.position = Vector3(-6.0 + float(r_idx) * 6.0, 0.25, -9.0)
-		holder.add_child(rsp)
-
-	var wall_root: Node3D = Node3D.new()
-	wall_root.name = "GearWall"
-	wall_root.position = Vector3(-28.0, 0.0, -6.0)
-	wall_root.rotation_degrees = Vector3(0.0, 65.0, 0.0)
-	holder.add_child(wall_root)
-
-	var wall_w: float = 34.0
-	var wall_h: float = 9.6
-	var blue_col: Color = Color("3b6ea5")
-	var back_col: Color = Color("e9ecef")
-	var step_col: Color = Color("adb5bd")
-
-	_make_studded_box(wall_root, "WallBacking", Vector3(wall_w, wall_h, 0.8), Vector3(0.0, wall_h * 0.5 + 0.6, 0.0), back_col)
-	_make_studded_box(wall_root, "FrameBottom", Vector3(wall_w + 1.6, 0.8, 1.2), Vector3(0.0, 0.4, 0.1), blue_col)
-	_make_studded_box(wall_root, "FrameTop", Vector3(wall_w + 1.6, 0.8, 1.2), Vector3(0.0, wall_h + 0.9, 0.1), blue_col)
-	_make_studded_box(wall_root, "FrameLeft", Vector3(0.9, wall_h + 1.4, 1.2), Vector3(-wall_w * 0.5 - 0.4, wall_h * 0.5 + 0.6, 0.1), blue_col)
-	_make_studded_box(wall_root, "FrameRight", Vector3(0.9, wall_h + 1.4, 1.2), Vector3(wall_w * 0.5 + 0.4, wall_h * 0.5 + 0.6, 0.1), blue_col)
-	_make_studded_box(wall_root, "WalkwayStep1", Vector3(wall_w + 2.0, 0.6, 4.5), Vector3(0.0, 0.3, 2.5), step_col)
-	_make_studded_box(wall_root, "WalkwayStep2", Vector3(wall_w + 1.0, 0.6, 2.6), Vector3(0.0, 0.9, 1.6), step_col.lightened(0.08))
-
-	var wall_sign: Label3D = Label3D.new()
-	wall_sign.name = "GearWallSign"
-	wall_sign.text = "⚔️ RETROBLOX GEAR WALL (Click or Touch Any Gear!) ⚔️"
-	wall_sign.font_size = 44
-	wall_sign.outline_size = 12
-	wall_sign.modulate = Color("ffd43b")
-	wall_sign.position = Vector3(0.0, wall_h + 2.1, 0.6)
-	wall_root.add_child(wall_sign)
-
-	for g_type in range(1, 16):
-		var idx0: int = g_type - 1
-		var row: int = 0 if idx0 < 8 else 1
-		var col_idx: int = idx0 if row == 0 else (idx0 - 8)
-		var cols_in_row: int = 8 if row == 0 else 7
-		var spacing_x: float = 4.0
-		var start_x: float = -float(cols_in_row - 1) * spacing_x * 0.5
-		var gx: float = start_x + float(col_idx) * spacing_x
-		var gy: float = 3.0 if row == 0 else 6.6
-
-		var wsp: StaticBody3D = spawner_scr.new() as StaticBody3D
-		wsp.name = "WallGear_%d" % g_type
-		wsp.set("wall_mount", true)
-		wsp.set("item_type", g_type)
-		wsp.set("respawn_cooldown", 1.2)
-		wsp.position = Vector3(gx, gy, 0.55)
-		wall_root.add_child(wsp)
-
-
-func _ensure_playground_and_safezone(world_node: Node3D) -> void:
-	if world_node == null:
-		return
-	# 1. SAFE ZONE (at Vector3(20, 0, -8))
-	if world_node.get_node_or_null("SafeZone") == null:
-		var sz_root: Node3D = Node3D.new()
-		sz_root.name = "SafeZone"
-		sz_root.position = Vector3(20.0, 0.0, -8.0)
-		world_node.add_child(sz_root)
-		_make_studded_box(sz_root, "SafePad", Vector3(16.0, 0.6, 16.0), Vector3(0.0, 0.3, 0.0), Color("2b8a3e"))
-		for px in [-7.4, 7.4]:
-			for pz in [-7.4, 7.4]:
-				_make_studded_box(sz_root, "Pillar", Vector3(1.0, 8.0, 1.0), Vector3(px, 4.3, pz), Color("22b8cf"))
-		var dome_mi: MeshInstance3D = MeshInstance3D.new()
-		dome_mi.name = "ForcefieldDome"
-		var d_sph: SphereMesh = SphereMesh.new()
-		d_sph.radius = 10.5
-		d_sph.height = 14.0
-		dome_mi.mesh = d_sph
-		dome_mi.position = Vector3(0.0, 3.5, 0.0)
-		var d_mat: StandardMaterial3D = StandardMaterial3D.new()
-		d_mat.albedo_color = Color(0.15, 0.90, 0.65, 0.16)
-		d_mat.emission_enabled = true
-		d_mat.emission = Color("20c997")
-		d_mat.emission_energy_multiplier = 0.8
-		d_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		d_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		dome_mi.material_override = d_mat
-		sz_root.add_child(dome_mi)
-
-		var sz_lbl: Label3D = Label3D.new()
-		sz_lbl.name = "SafeZoneLabel"
-		sz_lbl.text = "🛡️ SAFE ZONE (No Damage Inside)"
-		sz_lbl.font_size = 40
-		sz_lbl.outline_size = 12
-		sz_lbl.modulate = Color("63e6be")
-		sz_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		sz_lbl.position = Vector3(0.0, 9.8, 0.0)
-		sz_root.add_child(sz_lbl)
-
-	# 2. PLAYGROUND (Slide, Merry-Go-Round, Seesaw, and Sit-able Chairs)
-	if world_node.get_node_or_null("Playground") == null:
-		var pg_root: Node3D = Node3D.new()
-		pg_root.name = "Playground"
-		world_node.add_child(pg_root)
-
-		# A. Playground Slide (at Vector3(24, 0, 14))
-		var slide_root: Node3D = Node3D.new()
-		slide_root.name = "PlaygroundSlide"
-		slide_root.position = Vector3(24.0, 0.0, 14.0)
-		pg_root.add_child(slide_root)
-		var lad: StaticBody3D = _make_studded_box(slide_root, "SlideLadder", Vector3(3.2, 11.0, 0.8), Vector3(0.0, 5.5, 6.2), Color("339af0"))
-		lad.add_to_group("climb")
-		lad.add_to_group("ladder")
-		_make_studded_box(slide_root, "SlideTopPlatform", Vector3(5.0, 0.6, 5.0), Vector3(0.0, 11.0, 4.0), Color("fcc419"))
-		var ramp: StaticBody3D = _make_studded_box(slide_root, "SlideRamp", Vector3(4.2, 0.5, 19.0), Vector3(0.0, 5.6, -6.5), Color("ff6b6b"), Vector3(-35.0, 0.0, 0.0))
-		ramp.add_to_group("slide_ramp")
-		_make_studded_box(slide_root, "SlideRailL", Vector3(0.4, 1.2, 19.0), Vector3(-2.1, 6.1, -6.5), Color("fcc419"), Vector3(-35.0, 0.0, 0.0))
-		_make_studded_box(slide_root, "SlideRailR", Vector3(0.4, 1.2, 19.0), Vector3(2.1, 6.1, -6.5), Color("fcc419"), Vector3(-35.0, 0.0, 0.0))
-		var sl_lbl: Label3D = Label3D.new()
-		sl_lbl.text = "🛝 SUPER SLIDE"
-		sl_lbl.font_size = 36
-		sl_lbl.outline_size = 10
-		sl_lbl.modulate = Color("ffd43b")
-		sl_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		sl_lbl.position = Vector3(0.0, 13.2, 4.0)
-		slide_root.add_child(sl_lbl)
-
-		# B. Merry-Go-Round (at Vector3(-20, 0, 14))
-		var mgr_root: Node3D = Node3D.new()
-		mgr_root.name = "MerryGoRound"
-		mgr_root.position = Vector3(-20.0, 0.0, 14.0)
-		pg_root.add_child(mgr_root)
-		var mgr_spinner: Node3D = Node3D.new()
-		mgr_spinner.name = "Spinner"
-		mgr_root.add_child(mgr_spinner)
-		_make_studded_box(mgr_spinner, "DiskBase", Vector3(11.0, 0.5, 11.0), Vector3(0.0, 0.45, 0.0), Color("f06595"))
-		_make_studded_box(mgr_spinner, "DiskCross", Vector3(11.0, 0.52, 11.0), Vector3(0.0, 0.45, 0.0), Color("339af0"), Vector3(0.0, 45.0, 0.0))
-		_make_studded_box(mgr_spinner, "CenterPost", Vector3(1.2, 3.6, 1.2), Vector3(0.0, 2.2, 0.0), Color("fcc419"))
-		_make_studded_box(mgr_spinner, "HandleBarX", Vector3(9.6, 0.35, 0.35), Vector3(0.0, 2.4, 0.0), Color("40c057"))
-		_make_studded_box(mgr_spinner, "HandleBarZ", Vector3(0.35, 0.35, 9.6), Vector3(0.0, 2.4, 0.0), Color("ff922b"))
-		var mgr_lbl: Label3D = Label3D.new()
-		mgr_lbl.text = "🎠 MERRY-GO-ROUND"
-		mgr_lbl.font_size = 36
-		mgr_lbl.outline_size = 10
-		mgr_lbl.modulate = Color("ff85c0")
-		mgr_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		mgr_lbl.position = Vector3(0.0, 5.2, 0.0)
-		mgr_root.add_child(mgr_lbl)
-
-		# C. Seesaw (at Vector3(-6, 0, 16))
-		var ss_root: Node3D = Node3D.new()
-		ss_root.name = "Seesaw"
-		ss_root.position = Vector3(-6.0, 0.0, 16.0)
-		pg_root.add_child(ss_root)
-		_make_studded_box(ss_root, "Fulcrum", Vector3(1.6, 1.8, 3.0), Vector3(0.0, 0.9, 0.0), Color("868e96"))
-		var ss_pivot: Node3D = Node3D.new()
-		ss_pivot.name = "PlankPivot"
-		ss_pivot.position = Vector3(0.0, 1.9, 0.0)
-		ss_root.add_child(ss_pivot)
-		_make_studded_box(ss_pivot, "Plank", Vector3(14.0, 0.45, 2.6), Vector3.ZERO, Color("fcc419"))
-		_make_studded_box(ss_pivot, "SeatLeft", Vector3(2.2, 0.3, 2.4), Vector3(-6.0, 0.35, 0.0), Color("ff3b30"))
-		_make_studded_box(ss_pivot, "SeatRight", Vector3(2.2, 0.3, 2.4), Vector3(6.0, 0.35, 0.0), Color("339af0"))
-		_make_studded_box(ss_pivot, "HandleLeft", Vector3(0.3, 1.2, 1.8), Vector3(-4.8, 0.7, 0.0), Color("495057"))
-		_make_studded_box(ss_pivot, "HandleRight", Vector3(0.3, 1.2, 1.8), Vector3(4.8, 0.7, 0.0), Color("495057"))
-		var ss_lbl: Label3D = Label3D.new()
-		ss_lbl.text = "⚖️ SEESAW"
-		ss_lbl.font_size = 36
-		ss_lbl.outline_size = 10
-		ss_lbl.modulate = Color("fcc419")
-		ss_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		ss_lbl.position = Vector3(0.0, 4.4, 0.0)
-		ss_root.add_child(ss_lbl)
-
-		# D. Sit-able Chairs (near Spawn & inside SafeZone)
-		var chair_positions: Array[Vector3] = [
-			Vector3(9.5, 0.0, -4.0),
-			Vector3(12.5, 0.0, -4.0),
-			Vector3(20.0, 0.6, -8.0),
-		]
-		var chair_cols: Array[Color] = [Color("e8590c"), Color("1971c2"), Color("2f9e44")]
-		for c_i in range(chair_positions.size()):
-			var ch_body: StaticBody3D = _make_studded_box(pg_root, "Chair_%d" % (c_i + 1), Vector3(2.4, 0.4, 2.4), chair_positions[c_i] + Vector3(0.0, 1.2, 0.0), chair_cols[c_i])
-			ch_body.add_to_group("chair")
-			_make_studded_box(ch_body, "Backrest", Vector3(2.4, 2.4, 0.4), Vector3(0.0, 1.4, 1.0), chair_cols[c_i].darkened(0.12))
-			for lx in [-0.9, 0.9]:
-				for lz in [-0.9, 0.9]:
-					_make_studded_box(ch_body, "Leg", Vector3(0.4, 1.0, 0.4), Vector3(lx, -0.7, lz), Color("495057"))
-			var ch_lbl: Label3D = Label3D.new()
-			ch_lbl.text = "🪑 Chair (Touch/Click to Sit)"
-			ch_lbl.font_size = 26
-			ch_lbl.outline_size = 8
-			ch_lbl.modulate = Color.WHITE
-			ch_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			ch_lbl.position = Vector3(0.0, 3.2, 0.0)
-			ch_body.add_child(ch_lbl)
-
-
-func _update_playground_and_safezone(delta: float) -> void:
-	var world_n: Node3D = get_node_or_null("World") as Node3D
-	if world_n == null or player == null or not is_instance_valid(player):
-		return
-	var p_node: CharacterBody3D = player as CharacterBody3D
-	var p_pos: Vector3 = p_node.global_position
-
-	# 1. Safe Zone check (radius / height come from the editable WorldConfig node)
-	var cfg: Node = world_n.get_node_or_null("WorldConfig")
-	var sz_radius: float = 8.8
-	var sz_height: float = 10.0
-	var sz_heal: float = 0.0
-	var sz_clears: bool = true
-	if cfg != null and is_instance_valid(cfg):
-		sz_radius = maxf(float(cfg.get("safe_zone_radius")), 1.0)
-		sz_height = maxf(float(cfg.get("safe_zone_height")), 1.0)
-		sz_heal = float(cfg.get("safe_zone_heal_per_sec"))
-		sz_clears = bool(cfg.get("safe_zone_clears_effects"))
-	var sz: Node3D = world_n.get_node_or_null("SafeZone") as Node3D
-	if sz != null and is_instance_valid(sz):
-		var inside_sz: bool = Vector2(p_pos.x - sz.global_position.x, p_pos.z - sz.global_position.z).length() <= sz_radius and absf(p_pos.y - sz.global_position.y) <= sz_height and bool(player.get("alive"))
-		player.set("in_safe_zone", inside_sz)
-		if inside_sz:
-			if sz_clears:
-				player.set("_burn_timer", 0.0)
-				player.set("_slow_timer", 0.0)
-			if sz_heal > 0.0:
-				player.call("heal", sz_heal * delta)
-	else:
-		player.set("in_safe_zone", false)
-
-	var pg: Node3D = world_n.get_node_or_null("Playground") as Node3D
-	if pg == null:
-		return
-
-	# 2. Merry-Go-Round continuous rotation + player carry
-	var mgr: Node3D = pg.get_node_or_null("MerryGoRound") as Node3D
-	if mgr != null:
-		var spinner: Node3D = mgr.get_node_or_null("Spinner") as Node3D
-		if spinner != null:
-			var ang_spd: float = 1.35
-			spinner.rotation.y += ang_spd * delta
-			var rel: Vector3 = p_pos - mgr.global_position
-			if Vector2(rel.x, rel.z).length() <= 6.2 and rel.y >= 0.2 and rel.y <= 3.2 and bool(player.get("grounded")):
-				var rotated_rel: Vector3 = rel.rotated(Vector3.UP, ang_spd * delta)
-				p_node.global_position.x = mgr.global_position.x + rotated_rel.x
-				p_node.global_position.z = mgr.global_position.z + rotated_rel.z
-				player.set("heading", float(player.get("heading")) + ang_spd * delta)
-
-	# 3. Seesaw dynamic tilt based on player position on plank (or gentle idle rock)
-	var ss: Node3D = pg.get_node_or_null("Seesaw") as Node3D
-	if ss != null:
-		var pivot: Node3D = ss.get_node_or_null("PlankPivot") as Node3D
-		if pivot != null:
-			var rel_ss: Vector3 = p_pos - ss.global_position
-			var target_deg_z: float = sin(float(Time.get_ticks_msec()) * 0.002) * 14.0
-			if absf(rel_ss.x) <= 7.5 and absf(rel_ss.z) <= 2.0 and rel_ss.y >= 0.2 and rel_ss.y <= 4.5:
-				target_deg_z = clampf(-rel_ss.x * 3.2, -18.0, 18.0)
-			pivot.rotation_degrees.z = move_toward(pivot.rotation_degrees.z, target_deg_z, 45.0 * delta)
-
-
-func _spawn_sfoth_combat_dummies(world_node: Node3D) -> void:
-	if world_node == null:
-		return
-	var spawner_scr: Script = load(ITEM_SPAWNER_SCRIPT_PATH) as Script
-	var names: Array[String] = ["SFOTH Noob", "Bloxxer Bot", "BrickBattler"]
-	# Dummies live in the duel arena (north district), never in the spawn safe zone.
-	var positions: Array[Vector3] = [
-		Vector3(-14.0, 0.5, -84.0),
-		Vector3(0.0, 0.5, -88.0),
-		Vector3(14.0, 0.5, -84.0),
-	]
-	for i in range(3):
-		var root_d: Node3D = Node3D.new()
-		root_d.name = "CombatDummy_%d" % (i + 1)
-		world_node.add_child(root_d)
-		root_d.global_position = positions[i]
-
-		var rig: Node3D = AvatarRigScript.new()
-		root_d.add_child(rig)
-		rig.call("set_display_name", "%s (100 HP)" % names[i])
-		if spawner_scr != null:
-			var sw_model: Node3D = spawner_scr.call("build_item_mesh_3d", 5) as Node3D
-			if sw_model != null:
-				rig.call("set_equipped_hand_model", sw_model, "sword")
-
-		var fire_fx: MeshInstance3D = MeshInstance3D.new()
-		fire_fx.name = "FireAura"
-		var f_sph: SphereMesh = SphereMesh.new()
-		f_sph.radius = 1.35
-		f_sph.height = 3.2
-		fire_fx.mesh = f_sph
-		fire_fx.position = Vector3(0.0, 2.6, 0.0)
-		var f_mat: StandardMaterial3D = StandardMaterial3D.new()
-		f_mat.albedo_color = Color(1.0, 0.35, 0.0, 0.48)
-		f_mat.emission_enabled = true
-		f_mat.emission = Color("ff5c00")
-		f_mat.emission_energy_multiplier = 2.2
-		f_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		fire_fx.material_override = f_mat
-		fire_fx.visible = false
-		root_d.add_child(fire_fx)
-
-		var ice_fx: MeshInstance3D = MeshInstance3D.new()
-		ice_fx.name = "IceAura"
-		var i_box: BoxMesh = BoxMesh.new()
-		i_box.size = Vector3(2.6, 4.8, 1.8)
-		ice_fx.mesh = i_box
-		ice_fx.position = Vector3(0.0, 2.5, 0.0)
-		var i_mat: StandardMaterial3D = StandardMaterial3D.new()
-		i_mat.albedo_color = Color(0.2, 0.85, 1.0, 0.42)
-		i_mat.emission_enabled = true
-		i_mat.emission = Color("22b8cf")
-		i_mat.emission_energy_multiplier = 1.2
-		i_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		ice_fx.material_override = i_mat
-		ice_fx.visible = false
-		root_d.add_child(ice_fx)
-
-		_combat_dummies.append({
-			"node": root_d,
-			"rig": rig,
-			"fire_fx": fire_fx,
-			"ice_fx": ice_fx,
-			"name": names[i],
-			"spawn_pos": positions[i],
-			"vel": Vector3.ZERO,
-			"hp": 100.0,
-			"max_hp": 100.0,
-			"alive": true,
-			"respawn_left": 0.0,
-			"phase": float(i) * 2.1,
-			"burn_left": 0.0,
-			"burn_dps": 0.0,
-			"burn_tick": 0.0,
-			"slow_left": 0.0,
-			"slow_mult": 1.0,
-		})
-
-
-func _update_dummy_label(d: Dictionary) -> void:
-	var rig: Node3D = d["rig"]
-	if rig == null or not is_instance_valid(rig):
-		return
-	var rem_hp: int = int(roundf(float(d["hp"])))
-	var tags: String = ""
-	if float(d.get("burn_left", 0.0)) > 0.0:
-		tags += " 🔥BURNING"
-	if float(d.get("slow_left", 0.0)) > 0.0:
-		tags += " ❄️SLOWED"
-	rig.call("set_display_name", "%s (%d HP)%s" % [String(d["name"]), rem_hp, tags])
-
-
-func _update_sfoth_combat_dummies(delta: float) -> void:
-	for d in _combat_dummies:
-		var root_d: Node3D = d["node"]
-		var rig: Node3D = d["rig"]
-		var fire_fx: MeshInstance3D = d["fire_fx"]
-		var ice_fx: MeshInstance3D = d["ice_fx"]
-		if root_d == null or not is_instance_valid(root_d) or rig == null or not is_instance_valid(rig):
-			continue
-		if not bool(d["alive"]):
-			if fire_fx != null:
-				fire_fx.visible = false
-			if ice_fx != null:
-				ice_fx.visible = false
-			d["respawn_left"] = float(d["respawn_left"]) - delta
-			if float(d["respawn_left"]) <= 0.0:
-				d["alive"] = true
-				d["hp"] = float(d["max_hp"])
-				d["vel"] = Vector3.ZERO
-				d["burn_left"] = 0.0
-				d["slow_left"] = 0.0
-				d["slow_mult"] = 1.0
-				root_d.global_position = d["spawn_pos"]
-				rig.visible = true
-				_update_dummy_label(d)
-			continue
-
-		var b_left: float = float(d.get("burn_left", 0.0))
-		if b_left > 0.0:
-			b_left = maxf(0.0, b_left - delta)
-			d["burn_left"] = b_left
-			if fire_fx != null:
-				fire_fx.visible = (b_left > 0.0)
-				fire_fx.scale = Vector3.ONE * (0.92 + sin(float(Time.get_ticks_msec()) * 0.025) * 0.14)
-			var b_tick: float = float(d.get("burn_tick", 0.0)) + delta
-			if b_tick >= 0.35:
-				d["burn_tick"] = 0.0
-				_damage_combat_dummy(d, float(d.get("burn_dps", 12.0)) * b_tick, Vector3.UP * 2.0)
-				if not bool(d["alive"]):
-					continue
-			else:
-				d["burn_tick"] = b_tick
-			if b_left <= 0.0:
-				_update_dummy_label(d)
-		elif fire_fx != null:
-			fire_fx.visible = false
-
-		var s_left: float = float(d.get("slow_left", 0.0))
-		var s_mult: float = 1.0
-		if s_left > 0.0:
-			s_left = maxf(0.0, s_left - delta)
-			d["slow_left"] = s_left
-			s_mult = float(d.get("slow_mult", 0.28)) if s_left > 0.0 else 1.0
-			if ice_fx != null:
-				ice_fx.visible = (s_left > 0.0)
-			if s_left <= 0.0:
-				d["slow_mult"] = 1.0
-				_update_dummy_label(d)
-		elif ice_fx != null:
-			ice_fx.visible = false
-
-		d["phase"] = float(d["phase"]) + delta * 1.4 * s_mult
-		var ph: float = float(d["phase"])
-		var sp_pos: Vector3 = d["spawn_pos"]
-		var vel: Vector3 = d["vel"]
-		if vel.length() > 0.2:
-			root_d.global_position += vel * delta
-			vel = vel.move_toward(Vector3.ZERO, 38.0 * delta)
-			if root_d.global_position.y > sp_pos.y:
-				vel.y -= 90.0 * delta
-			else:
-				root_d.global_position.y = sp_pos.y
-				vel.y = 0.0
-			d["vel"] = vel
-		else:
-			var patrol_x: float = sp_pos.x + sin(ph) * 2.8
-			var dx: float = patrol_x - root_d.global_position.x
-			root_d.global_position.x = move_toward(root_d.global_position.x, patrol_x, 4.5 * s_mult * delta)
-			root_d.global_position.y = sp_pos.y
-			rig.rotation.y = atan2(-dx, 1.0)
-			if rig.has_method("animate"):
-				rig.call("animate", delta, absf(dx) * 3.5 * s_mult, true, false)
-
-
-func _damage_combat_dummy(d: Dictionary, dmg: float, impulse: Vector3, burn_dps: float = 0.0, burn_dur: float = 0.0, slow_mult: float = 1.0, slow_dur: float = 0.0) -> void:
-	if not bool(d["alive"]):
-		return
-	var rig: Node3D = d["rig"]
-	if burn_dur > 0.0 and burn_dps > 0.0:
-		d["burn_left"] = maxf(float(d.get("burn_left", 0.0)), burn_dur)
-		d["burn_dps"] = maxf(float(d.get("burn_dps", 0.0)), burn_dps)
-	if slow_dur > 0.0 and slow_mult < 1.0:
-		d["slow_left"] = maxf(float(d.get("slow_left", 0.0)), slow_dur)
-		d["slow_mult"] = minf(float(d.get("slow_mult", 1.0)), slow_mult)
-	d["hp"] = maxf(0.0, float(d["hp"]) - dmg)
-	d["vel"] = (d["vel"] as Vector3) + impulse
-	var rem_hp: int = int(roundf(float(d["hp"])))
-	if rem_hp <= 0:
-		d["alive"] = false
-		d["respawn_left"] = 3.0
-		rig.visible = false
-		if d["fire_fx"] != null:
-			(d["fire_fx"] as Node3D).visible = false
-		if d["ice_fx"] != null:
-			(d["ice_fx"] as Node3D).visible = false
-		var world_node: Node3D = get_node_or_null("World") as Node3D
-		if world_node != null and rig.has_method("burst"):
-			rig.call("burst", world_node, randi(), false)
-	else:
-		_update_dummy_label(d)
+	for i in range(9):
+		var sp = ItemSpawnerScript.new()
+		var meta = ItemSpawnerScript.get_type_meta(i)
+		sp.name = String(meta["name"]).replace(" ", "") + "Spawner"
+		sp.item_type = i
+		sp.position = Vector3(-20.0 + float(i) * 5.0, 0.25, 14.0)
+		holder.add_child(sp)
 
 
 func _get_aim_ray() -> Dictionary:
-	var cam: Camera3D = get_viewport().get_camera_3d()
+	var cam = get_viewport().get_camera_3d()
 	if cam != null:
-		var mp: Vector2 = get_viewport().get_mouse_position()
-		var from: Vector3 = cam.project_ray_origin(mp)
-		var dir: Vector3 = cam.project_ray_normal(mp).normalized()
+		var mp = get_viewport().get_mouse_position()
+		var from = cam.project_ray_origin(mp)
+		var dir = cam.project_ray_normal(mp).normalized()
 		return {"from": from, "dir": dir}
-	var p_pos: Vector3 = Vector3.ZERO
-	var h: float = 0.0
-	if player != null and is_instance_valid(player):
-		p_pos = (player as Node3D).global_position + Vector3(0.0, 3.5, 0.0)
-		h = float(player.get("heading"))
+	var p_pos: Vector3 = (player.global_position + Vector3(0, 3.5, 0)) if player != null else Vector3.ZERO
+	var h = float(player.get("heading")) if player != null else 0.0
 	return {"from": p_pos, "dir": Vector3(-sin(h), 0.0, -cos(h)).normalized()}
 
 
-func _update_swelling_ball_charge(delta: float) -> void:
-	if _inventory == null or not is_instance_valid(_inventory) or player == null or not is_instance_valid(player) or not bool(player.get("alive")):
-		_swell_charging = false
-		return
-	var item: Dictionary = _inventory.call("get_active_item")
-	if String(item.get("id", "")) != "swelling_ball":
-		if _swell_charging:
-			_swell_charging = false
-			_swell_charge_time = 0.0
-			if player.avatar != null and player.avatar.has_method("set_equipped_tool_scale"):
-				player.avatar.call("set_equipped_tool_scale", 1.0)
-		return
-
-	var lmb_down: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	if _swell_charging:
-		if lmb_down:
-			var max_ct: float = maxf(0.2, float(item.get("max_charge_time", 2.5)))
-			_swell_charge_time = minf(max_ct, _swell_charge_time + delta)
-			var ratio: float = clampf(_swell_charge_time / max_ct, 0.0, 1.0)
-			var max_sc: float = float(item.get("max_swell_scale", 4.5))
-			var cur_sc: float = lerpf(1.0, max_sc, ratio)
-			if player.avatar != null and player.avatar.has_method("set_equipped_tool_scale"):
-				player.avatar.call("set_equipped_tool_scale", cur_sc)
-		else:
-			var held_t: float = _swell_charge_time
-			_swell_charging = false
-			_swell_charge_time = 0.0
-			if player.avatar != null and player.avatar.has_method("set_equipped_tool_scale"):
-				player.avatar.call("set_equipped_tool_scale", 1.0)
-			_launch_swelling_ball(item, held_t)
-
-
-func _launch_swelling_ball(item: Dictionary, held_time: float) -> void:
-	var cd: float = float(item.get("cooldown", 2.8))
-	_item_use_cd = cd
-	_item_use_cd_max = cd
-	if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-		player.avatar.call("trigger_tool_swing", false, "toss")
-	var max_ct: float = maxf(0.2, float(item.get("max_charge_time", 2.5)))
-	var ratio: float = clampf(held_time / max_ct, 0.0, 1.0)
-	var min_dmg: float = float(item.get("min_swell_damage", 25.0))
-	var max_dmg: float = float(item.get("max_swell_damage", 120.0))
-	var max_sc: float = float(item.get("max_swell_scale", 4.5))
-	var ball_scale: float = lerpf(1.0, max_sc, ratio)
-	var ball_dmg: float = lerpf(min_dmg, max_dmg, ratio)
-	# Accurate visual radius of the sphere mesh (base radius 0.52 * ball_scale)
-	var exact_vis_radius: float = 0.52 * ball_scale
-	var spd: float = float(item.get("swell_launch_speed", 38.0))
-
-	var p_node: CharacterBody3D = player as CharacterBody3D
-	var ray: Dictionary = _get_aim_ray()
-	var dir: Vector3 = (ray["dir"] as Vector3).normalized()
-	var start_pos: Vector3 = p_node.global_position + Vector3(0.0, 3.4, 0.0) + dir * (1.5 + exact_vis_radius)
-
-	var spawner_scr: Script = load(ITEM_SPAWNER_SCRIPT_PATH) as Script
-	if spawner_scr == null:
-		return
-	var ball_node: Node3D = spawner_scr.call("build_item_mesh_3d", 9) as Node3D
-	if ball_node == null:
-		return
-	add_child(ball_node)
-	ball_node.global_position = start_pos
-	ball_node.scale = Vector3.ONE * ball_scale
-	_active_rockets.append({
-		"node": ball_node,
-		"vel": dir * spd,
-		"life": 4.0,
-		"is_swell_ball": true,
-		"hit_radius": exact_vis_radius,
-		"radius": exact_vis_radius * 1.25,
-		"damage": ball_dmg,
-		"knockback": lerpf(18.0, 52.0, ratio),
-		"color": Color("ff2a85"),
-		"self_safe": true,
-	})
-
-
-func _use_equipped_item(force_lunge: bool = false) -> bool:
-	if _inventory == null or not is_instance_valid(_inventory) or player == null or not is_instance_valid(player) or not bool(player.get("alive")):
+func _use_equipped_item() -> bool:
+	if _inventory == null or not is_instance_valid(_inventory) or player == null or not is_instance_valid(player) or not player.alive:
 		return false
 	var item: Dictionary = _inventory.call("get_active_item")
 	if item.is_empty():
 		return false
+	if _item_use_cd > 0.0:
+		return true
 
-	var iid: String = String(item.get("id", ""))
-	if iid in ["speed_coil", "gravity_coil", "fusion_coil", "heal_coil", "flying_carpet", "rocket_boots"]:
+	var iid = String(item.get("id", ""))
+	if iid in ["speed_coil", "gravity_coil", "flying_carpet"]:
 		return false
-
-	if iid == "swelling_ball":
-		if _item_use_cd > 0.0:
-			return true
-		_swell_charging = true
-		_swell_charge_time = 0.05
-		return true
-
-	var is_sword: bool = iid in ["sword", "flame_sword", "slow_sword", "super_sword", "venomshank", "icedagger", "windforce", "darkheart", "illumina"]
-	var now_ms: int = Time.get_ticks_msec()
-	var wants_lunge: bool = force_lunge or (is_sword and (now_ms - _last_sword_click_ms) <= 580 and _lunge_cd <= 0.0)
-
-	if _item_use_cd > 0.0 and not wants_lunge:
-		return true
 
 	var sfx_node: Node = get_node_or_null("/root/Sfx")
 	if sfx_node != null and sfx_node.has_method("play_click"):
 		sfx_node.call("play_click")
 
-	var p_node: CharacterBody3D = player as CharacterBody3D
-	if is_sword:
-		var is_lunge: bool = wants_lunge
+	if iid == "sword":
+		var now_ms = Time.get_ticks_msec()
+		var is_lunge = (now_ms - _last_sword_click_ms) <= 380
 		_last_sword_click_ms = 0 if is_lunge else now_ms
-		var base_cd: float = float(item.get("cooldown", 1.1))
-		var l_cd: float = float(item.get("lunge_cooldown", 2.6))
-		_item_use_cd = l_cd if is_lunge else base_cd
-		_item_use_cd_max = _item_use_cd
-		if is_lunge:
-			_lunge_cd = l_cd
-
+		_item_use_cd = float(item.get("sword_cooldown", 0.38))
 		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", is_lunge, "lunge" if is_lunge else "slash")
-
-		var h: float = float(player.get("heading"))
-		var fwd: Vector3 = Vector3(-sin(h), 0.0, -cos(h)).normalized()
-		var fx_col: Color = Color("ffd43b")
-		if iid == "flame_sword":
-			fx_col = Color("ff5c00")
-		elif iid in ["slow_sword", "icedagger"]:
-			fx_col = Color("22b8cf")
-		elif iid == "venomshank":
-			fx_col = Color("51cf66")
-		elif iid == "windforce":
-			fx_col = Color("74c0fc")
-		elif iid == "darkheart":
-			fx_col = Color("ae3ec9")
-		elif iid == "illumina":
-			fx_col = Color("faa2c1")
-		elif iid == "super_sword":
-			fx_col = Color("fcc419")
-
+			player.avatar.call("trigger_tool_swing", is_lunge)
+		var h = float(player.get("heading"))
+		var fwd = Vector3(-sin(h), 0.0, -cos(h)).normalized()
 		if is_lunge:
-			# Super Sword keeps its fast forward dash + upward pop.
-			# All other swords keep your normal walking speed and give a classic Roblox / SFOTH lunge jump-float boost!
-			var is_super: bool = iid == "super_sword"
-			if is_super:
-				var f_boost: float = maxf(float(item.get("lunge_forward_boost", 96.0)), 88.0)
-				var u_boost: float = maxf(float(item.get("lunge_up_boost", 18.0)), 16.0)
-				var f_dur: float = maxf(float(item.get("lunge_duration", 0.52)), 0.46)
-				if player.has_method("apply_lunge_dash"):
-					player.call("apply_lunge_dash", fwd, f_boost, u_boost, f_dur)
-			else:
-				var u_jump: float = float(item.get("lunge_up_boost", 28.0))
-				if u_jump <= 1.0:
-					u_jump = 28.0
-				var f_dur2: float = maxf(float(item.get("lunge_duration", 0.65)), 0.45)
-				if player.has_method("apply_lunge_float"):
-					player.call("apply_lunge_float", u_jump, f_dur2)
-			var ring_sz: float = 5.5 if iid == "super_sword" else 3.8
-			_spawn_beam_effect(p_node.global_position + Vector3(0.0, 3.0, 0.0), p_node.global_position + Vector3(0.0, 3.0, 0.0) + fwd * (6.2 if iid == "super_sword" else 4.5), fx_col, 0.25)
-			_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), ring_sz, fx_col, 0.28)
-		else:
-			_spawn_beam_effect(p_node.global_position + Vector3(0.0, 3.6, 0.0) + fwd * 1.2, p_node.global_position + Vector3(0.0, 2.0, 0.0) + fwd * 3.8, fx_col, 0.16)
-
-		var dmg: float = float(item.get("lunge_damage", 55.0)) if is_lunge else float(item.get("slash_damage", 35.0))
-		var s_range: float = float(item.get("sword_range", 6.8 if iid == "super_sword" else 5.2))
-		var kb_val: float = (34.0 if iid in ["super_sword", "windforce"] else 22.0) if is_lunge else (24.0 if iid == "windforce" else 14.0)
-		var b_dps: float = float(item.get("burn_damage_per_sec", 16.0 if iid == "venomshank" else (12.0 if iid == "flame_sword" else 0.0)))
-		var b_dur: float = float(item.get("burn_duration", 5.5 if iid == "venomshank" else (4.5 if iid == "flame_sword" else 0.0)))
-		var s_mult: float = float(item.get("slow_multiplier", 0.15 if iid == "icedagger" else (0.28 if iid == "slow_sword" else 1.0)))
-		var s_dur: float = float(item.get("slow_duration", 4.5 if iid == "icedagger" else (5.0 if iid == "slow_sword" else 0.0)))
-		_apply_melee_hit(p_node.global_position + Vector3(0.0, 3.0, 0.0), fwd, s_range, dmg, kb_val, b_dps, b_dur, s_mult, s_dur)
-		if iid == "darkheart":
-			player.call("heal", float(item.get("heal_amount", 25.0)) if is_lunge else 12.0)
+			var l_boost = float(item.get("lunge_forward_boost", 34.0))
+			var u_boost = float(item.get("lunge_up_boost", 10.0))
+			player.velocity.x = fwd.x * l_boost
+			player.velocity.z = fwd.z * l_boost
+			player.velocity.y = maxf(player.velocity.y, u_boost)
+			_spawn_beam_effect(player.global_position + Vector3(0, 3.0, 0), player.global_position + Vector3(0, 3.0, 0) + fwd * 4.5, Color("ffd43b"), 0.22)
+		var dmg = float(item.get("lunge_damage", 45.0)) if is_lunge else float(item.get("slash_damage", 25.0))
+		var s_range = float(item.get("sword_range", 5.5))
+		_apply_melee_hit(player.global_position + Vector3(0, 3.0, 0), fwd, s_range, dmg, 22.0 if is_lunge else 12.0)
 		return true
 
-	elif iid in ["healing_potion", "medkit"]:
-		var cd_p: float = float(item.get("cooldown", 2.0 if iid == "medkit" else 3.0))
-		_item_use_cd = cd_p
-		_item_use_cd_max = cd_p
-		var h_amt: float = float(item.get("heal_amount", 85.0 if iid == "medkit" else 65.0))
+	elif iid == "healing_potion":
+		_item_use_cd = float(item.get("potion_cooldown", 1.5))
+		var h_amt = float(item.get("heal_amount", 50.0))
 		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "drink")
-		player.call("heal", h_amt)
-		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 3.8, Color("f03e3e") if iid == "medkit" else Color("40c057"), 0.35)
-		return true
-
-	elif iid == "slateskin_potion":
-		var cd_sl: float = float(item.get("cooldown", 3.0))
-		_item_use_cd = cd_sl
-		_item_use_cd_max = cd_sl
-		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "drink")
-		player.call("heal", float(item.get("heal_amount", 25.0)))
-		if player.has_method("activate_slateskin"):
-			player.call("activate_slateskin", float(item.get("big_head_duration", 12.0)))
-		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 4.0, Color("adb5bd"), 0.35)
+			player.avatar.call("trigger_tool_swing", false)
+		player.heal(h_amt)
+		_notify("Drank Healing Potion (+%d HP)!" % int(roundf(h_amt)), false)
+		if not bool(item.get("unlimited_potion_uses", true)):
+			_inventory.call("consume_active_item")
 		return true
 
 	elif iid == "big_head_potion":
-		var cd_bh: float = float(item.get("cooldown", 3.0))
-		_item_use_cd = cd_bh
-		_item_use_cd_max = cd_bh
-		var h_mult: float = float(item.get("head_scale_multiplier", 2.6))
-		var h_dur: float = float(item.get("big_head_duration", 18.0))
+		_item_use_cd = float(item.get("potion_cooldown", 1.5))
+		var h_mult = float(item.get("head_scale_multiplier", 2.6))
+		var h_dur = float(item.get("big_head_duration", 18.0))
 		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "drink")
+			player.avatar.call("trigger_tool_swing", false)
 		player.call("activate_big_head", h_mult, h_dur)
-		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 4.5, 0.0), 4.0, Color("be4bdb"), 0.35)
-		return true
-
-	elif iid in ["grappler", "grappler_v2"]:
-		# V1 Grappler: very fast reel (165 studs/s). V2 Grappler: hyper 235 studs/s, 150 range + upward arc!
-		var is_v2: bool = (iid == "grappler_v2")
-		var cd_gr: float = float(item.get("cooldown", 0.65 if is_v2 else 1.1))
-		_item_use_cd = cd_gr
-		_item_use_cd_max = cd_gr
-		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "shoot")
-		var ray_g: Dictionary = _get_aim_ray()
-		var g_dir: Vector3 = (ray_g["dir"] as Vector3).normalized()
-		var g_from: Vector3 = p_node.global_position + Vector3(0.0, 3.2, 0.0)
-		var g_range: float = maxf(float(item.get("grapple_range", 150.0 if is_v2 else 95.0)), 140.0 if is_v2 else 90.0)
-		var g_spd: float = maxf(float(item.get("grapple_speed", 235.0 if is_v2 else 165.0)), 220.0 if is_v2 else 155.0)
-		var g_dur: float = float(item.get("grapple_duration", 0.95 if is_v2 else 0.85))
-		var g_end: Vector3 = g_from + g_dir * g_range
-		var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-		if space != null:
-			var q := PhysicsRayQueryParameters3D.create(g_from, g_end, 1, [p_node.get_rid()])
-			var hit: Dictionary = space.intersect_ray(q)
-			if not hit.is_empty():
-				g_end = hit["position"] as Vector3
-		var beam_col: Color = Color("00e5ff") if is_v2 else Color("c0eb75")
-		_spawn_beam_effect(g_from, g_end, beam_col, 0.22)
-		if is_v2:
-			_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 4.0, beam_col, 0.25)
-		if player.has_method("start_grapple"):
-			player.call("start_grapple", g_end, g_spd, g_dur, 18.0 if is_v2 else 0.0)
-		return true
-
-	elif iid == "spicy_sauce":
-		# Infinite use: 3x speed burst, paid for with health.
-		var cd_ss: float = float(item.get("cooldown", 1.2))
-		_item_use_cd = cd_ss
-		_item_use_cd_max = cd_ss
-		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "drink")
-		player.call("apply_speed_surge", float(item.get("speed_surge_multiplier", 3.0)), float(item.get("speed_surge_duration", 10.0)), float(item.get("health_cost_per_sec", 4.0)))
-		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 4.2, Color("ff6b35"), 0.35)
-		return true
-
-	elif iid == "ghost_burger":
-		# Infinite use: invisibility + small heal
-		var cd_gb: float = float(item.get("cooldown", 1.0))
-		_item_use_cd = cd_gb
-		_item_use_cd_max = cd_gb
-		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "drink")
-		player.call("set_ghost", float(item.get("invisible_duration", 8.0)))
-		player.call("heal", float(item.get("heal_amount", 10.0)))
-		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.5, 0.0), 3.4, Color("9be7ff"), 0.3)
-		return true
-
-	elif iid in ["hamburger", "sandwich", "bloxy_cola"]:
-		# Infinite food & Bloxy Cola (slight 1.22x speed boost)
-		var cd_f: float = float(item.get("cooldown", 1.2))
-		_item_use_cd = cd_f
-		_item_use_cd_max = cd_f
-		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "drink")
-		player.call("heal", float(item.get("heal_amount", 30.0)))
-		if iid == "bloxy_cola":
-			player.call("apply_speed_surge", float(item.get("speed_surge_multiplier", 1.22)), float(item.get("speed_surge_duration", 8.0)), 0.0)
-		_spawn_shockwave_ring(p_node.global_position + Vector3(0.0, 2.2, 0.0), 2.6, Color("ffd8a8"), 0.25)
+		_notify("Big Head Potion Active (%.1fx Head Size for %ds)!" % [h_mult, int(roundf(h_dur))], false)
+		if not bool(item.get("unlimited_potion_uses", true)):
+			_inventory.call("consume_active_item")
 		return true
 
 	elif iid == "laser_gun":
-		var cd_l: float = float(item.get("cooldown", 3.2))
-		_item_use_cd = cd_l
-		_item_use_cd_max = cd_l
+		_item_use_cd = float(item.get("laser_cooldown", 0.25))
 		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "shoot")
-		var ray: Dictionary = _get_aim_ray()
-		var l_dir: Vector3 = (ray["dir"] as Vector3).normalized()
-		var start_pos: Vector3 = p_node.global_position + Vector3(0.0, 3.4, 0.0) + l_dir * 2.2
-		_spawn_hyperlaser_projectile(start_pos, l_dir, item)
+			player.avatar.call("trigger_tool_swing", false)
+		var ray = _get_aim_ray()
+		var start_pos: Vector3 = player.global_position + Vector3(0.0, 3.4, 0.0)
+		var max_r = float(item.get("laser_range", 140.0))
+		var end_pos: Vector3 = (ray["from"] as Vector3) + (ray["dir"] as Vector3) * max_r
+		var space = get_world_3d().direct_space_state
+		if space != null:
+			var q = PhysicsRayQueryParameters3D.create(ray["from"], end_pos, 0xFFFFFFFF, [player.get_rid()])
+			var hit = space.intersect_ray(q)
+			if not hit.is_empty():
+				end_pos = hit["position"]
+				var col_obj: Variant = hit.get("collider", null)
+				if col_obj is Node3D:
+					_damage_or_push_node(col_obj as Node3D, float(item.get("laser_damage", 40.0)), (ray["dir"] as Vector3) * float(item.get("laser_knockback", 18.0)))
+		_spawn_beam_effect(start_pos, end_pos, Color("00e5ff"), 0.18)
 		return true
 
 	elif iid == "rocket_launcher":
-		var cd_r: float = float(item.get("cooldown", 3.5))
-		_item_use_cd = cd_r
-		_item_use_cd_max = cd_r
+		_item_use_cd = float(item.get("rocket_reload", 1.2))
 		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "shoot")
-		var r_ray: Dictionary = _get_aim_ray()
+			player.avatar.call("trigger_tool_swing", false)
+		var r_ray = _get_aim_ray()
 		var r_dir: Vector3 = (r_ray["dir"] as Vector3).normalized()
-		var r_start: Vector3 = p_node.global_position + Vector3(0.0, 3.5, 0.0) + r_dir * 2.2
+		var r_start: Vector3 = player.global_position + Vector3(0.0, 3.5, 0.0) + r_dir * 2.2
 		_spawn_rocket_projectile(r_start, r_dir, item)
 		return true
 
 	elif iid == "subspace_tripmine":
-		var cd_m: float = float(item.get("cooldown", 4.0))
-		_item_use_cd = cd_m
-		_item_use_cd_max = cd_m
+		_item_use_cd = 1.0
 		if player.avatar != null and player.avatar.has_method("trigger_tool_swing"):
-			player.avatar.call("trigger_tool_swing", false, "toss")
-		var h_yaw: float = float(player.get("heading"))
-		var fwd_m: Vector3 = Vector3(-sin(h_yaw), 0.0, -cos(h_yaw)).normalized()
-		var m_pos: Vector3 = p_node.global_position + fwd_m * 4.2 + Vector3(0.0, 1.2, 0.0)
+			player.avatar.call("trigger_tool_swing", false)
+		var h_yaw = float(player.get("heading"))
+		var fwd_m = Vector3(-sin(h_yaw), 0.0, -cos(h_yaw)).normalized()
+		var m_pos: Vector3 = player.global_position + fwd_m * 3.2 + Vector3(0.0, 1.2, 0.0)
 		_spawn_subspace_tripmine(m_pos, item)
+		_notify("Placed Subspace Tripmine! Arms in %.1fs..." % float(item.get("tripmine_arm_delay", 2.0)), false)
 		return true
 
 	return false
 
 
-func _apply_melee_hit(origin: Vector3, fwd: Vector3, max_dist: float, dmg: float, kb: float, burn_dps: float = 0.0, burn_dur: float = 0.0, slow_mult: float = 1.0, slow_dur: float = 0.0) -> void:
-	# Accurate blade hitbox directly in front of the player (forward cone >= 0.50 and vertical diff <= 3.0 studs)
+func _apply_melee_hit(origin: Vector3, fwd: Vector3, max_dist: float, dmg: float, kb: float) -> void:
 	for ch in get_children():
 		if ch == player or not (ch is Node3D):
 			continue
-		var n3: Node3D = ch as Node3D
-		var to_t: Vector3 = n3.global_position - origin
-		var horiz_t: Vector3 = Vector3(to_t.x, 0.0, to_t.z)
-		if horiz_t.length() <= max_dist and absf(to_t.y) <= 3.2 and horiz_t.normalized().dot(fwd) >= 0.50:
-			_damage_or_push_node(n3, dmg, fwd * kb + Vector3.UP * 8.0, burn_dps, burn_dur, slow_mult, slow_dur)
-
-	for d in _combat_dummies:
-		if bool(d["alive"]) and is_instance_valid(d["node"]):
-			var d_node: Node3D = d["node"]
-			var to_d: Vector3 = (d_node.global_position + Vector3(0.0, 2.5, 0.0)) - origin
-			var horiz_d: Vector3 = Vector3(to_d.x, 0.0, to_d.z)
-			if horiz_d.length() <= max_dist and absf(to_d.y) <= 3.2 and horiz_d.normalized().dot(fwd) >= 0.50:
-				_damage_combat_dummy(d, dmg, fwd * kb + Vector3.UP * 10.0, burn_dps, burn_dur, slow_mult, slow_dur)
+		var n3 = ch as Node3D
+		var to_t = n3.global_position - origin
+		if to_t.length() <= max_dist and to_t.normalized().dot(fwd) > -0.25:
+			_damage_or_push_node(n3, dmg, fwd * kb + Vector3.UP * 8.0)
 
 
-func _damage_or_push_node(target_node: Node3D, dmg: float, impulse: Vector3, burn_dps: float = 0.0, burn_dur: float = 0.0, slow_mult: float = 1.0, slow_dur: float = 0.0) -> void:
-	if target_node == null or not is_instance_valid(target_node):
+func _damage_or_push_node(target: Node3D, dmg: float, impulse: Vector3) -> void:
+	if target == null or not is_instance_valid(target):
 		return
-	if target_node.get("in_safe_zone") == true:
-		return
-	if target_node is CharacterBody3D:
-		(target_node as CharacterBody3D).velocity += impulse
-	if burn_dur > 0.0 and target_node.has_method("apply_burn"):
-		target_node.call("apply_burn", burn_dps, burn_dur)
-	if slow_dur > 0.0 and target_node.has_method("apply_slow"):
-		target_node.call("apply_slow", slow_mult, slow_dur)
-	if target_node.has_method("hurt"):
-		target_node.call("hurt", dmg)
-	elif target_node is RigidBody3D:
-		(target_node as RigidBody3D).apply_central_impulse(impulse)
+	if target is CharacterBody3D:
+		(target as CharacterBody3D).velocity += impulse
+	if target.has_method("hurt"):
+		target.call("hurt", dmg)
+	elif target is RigidBody3D:
+		(target as RigidBody3D).apply_central_impulse(impulse)
 
 
 func _spawn_beam_effect(from_pos: Vector3, to_pos: Vector3, col: Color, duration: float) -> void:
-	var diff: Vector3 = to_pos - from_pos
-	var dist: float = diff.length()
+	var diff = to_pos - from_pos
+	var dist = diff.length()
 	if dist < 0.05:
 		return
-	var beam: MeshInstance3D = MeshInstance3D.new()
-	var cyl: CylinderMesh = CylinderMesh.new()
-	cyl.top_radius = 0.14
-	cyl.bottom_radius = 0.14
+	var beam = MeshInstance3D.new()
+	var cyl = CylinderMesh.new()
+	cyl.top_radius = 0.12
+	cyl.bottom_radius = 0.12
 	cyl.height = dist
 	beam.mesh = cyl
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	var mat = StandardMaterial3D.new()
 	mat.albedo_color = col
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -4001,300 +3167,149 @@ func _spawn_beam_effect(from_pos: Vector3, to_pos: Vector3, col: Color, duration
 	beam.global_position = (from_pos + to_pos) * 0.5
 	beam.look_at_from_position(beam.global_position, to_pos, Vector3.UP)
 	beam.rotate_object_local(Vector3.RIGHT, PI * 0.5)
-	var tw: Tween = create_tween()
+	var tw = create_tween()
 	tw.tween_property(mat, "albedo_color:a", 0.0, duration)
 	tw.tween_callback(beam.queue_free)
 
 
-func _spawn_shockwave_ring(center: Vector3, max_radius: float, col: Color, duration: float) -> void:
-	var ring_mi: MeshInstance3D = MeshInstance3D.new()
-	var torus: TorusMesh = TorusMesh.new()
-	torus.inner_radius = 0.72
-	torus.outer_radius = 1.0
-	ring_mi.mesh = torus
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = Color(col.r, col.g, col.b, 0.88)
-	mat.emission_enabled = true
-	mat.emission = col
-	mat.emission_energy_multiplier = 2.0
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	ring_mi.material_override = mat
-	add_child(ring_mi)
-	ring_mi.global_position = center
-	ring_mi.scale = Vector3(0.2, 0.2, 0.2)
-	var tw: Tween = create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(ring_mi, "scale", Vector3(max_radius, 0.5, max_radius), duration)
-	tw.tween_property(mat, "albedo_color:a", 0.0, duration)
-	tw.chain().tween_callback(ring_mi.queue_free)
-
-
-func _spawn_hyperlaser_projectile(start_pos: Vector3, dir: Vector3, item: Dictionary) -> void:
-	var orb_root: Node3D = Node3D.new()
-	orb_root.name = "HyperlaserProjectile"
-	var core_mi: MeshInstance3D = MeshInstance3D.new()
-	var sph: SphereMesh = SphereMesh.new()
-	sph.radius = 0.58
-	sph.height = 1.16
-	core_mi.mesh = sph
-	var c_mat: StandardMaterial3D = StandardMaterial3D.new()
-	c_mat.albedo_color = Color("00e5ff")
-	c_mat.emission_enabled = true
-	c_mat.emission = Color("00e5ff")
-	c_mat.emission_energy_multiplier = 2.8
-	core_mi.material_override = c_mat
-	orb_root.add_child(core_mi)
-
-	var ring_mi: MeshInstance3D = MeshInstance3D.new()
-	var tor: TorusMesh = TorusMesh.new()
-	tor.inner_radius = 0.68
-	tor.outer_radius = 0.82
-	ring_mi.mesh = tor
-	ring_mi.material_override = c_mat
-	orb_root.add_child(ring_mi)
-
-	add_child(orb_root)
-	orb_root.global_position = start_pos
-	var p_spd: float = float(item.get("projectile_speed", 18.0))
-	_active_lasers.append({
-		"node": orb_root,
-		"vel": dir * p_spd,
-		"life": 8.0,
-		"age": 0.0,
-		"damage": float(item.get("projectile_damage", 9999.0)),
-	})
-
-
 func _spawn_rocket_projectile(start_pos: Vector3, dir: Vector3, item: Dictionary) -> void:
-	var spawner_scr: Script = load(ITEM_SPAWNER_SCRIPT_PATH) as Script
-	if spawner_scr == null:
-		return
-	var mesh_node: Node3D = spawner_scr.call("build_item_mesh_3d", 14) as Node3D
-	if mesh_node == null:
-		return
+	var mesh_node = ItemSpawnerScript.build_item_mesh_3d(7)
 	add_child(mesh_node)
 	mesh_node.global_position = start_pos
 	if absf(dir.y) < 0.99:
 		mesh_node.look_at(start_pos + dir, Vector3.UP)
 	_active_rockets.append({
 		"node": mesh_node,
-		"vel": dir * float(item.get("projectile_speed", 52.0)),
+		"vel": dir * float(item.get("rocket_speed", 58.0)),
 		"life": 5.0,
-		"is_swell_ball": false,
-		"hit_radius": 0.95,
-		"radius": float(item.get("explosion_radius", 10.0)),
-		"damage": float(item.get("explosion_damage", 120.0)),
-		"knockback": float(item.get("explosion_knockback", 42.0)),
-		"color": Color("ff6b35"),
-		"self_safe": false,
+		"radius": float(item.get("explosion_radius", 12.0)),
+		"damage": float(item.get("explosion_damage", 85.0)),
+		"knockback": float(item.get("explosion_knockback", 52.0)),
 	})
 
 
 func _spawn_subspace_tripmine(pos: Vector3, item: Dictionary) -> void:
-	var spawner_scr: Script = load(ITEM_SPAWNER_SCRIPT_PATH) as Script
-	if spawner_scr == null:
-		return
-	var mine_node: Node3D = spawner_scr.call("build_item_mesh_3d", 15) as Node3D
-	if mine_node == null:
-		return
+	var mine_node = ItemSpawnerScript.build_item_mesh_3d(8)
 	add_child(mine_node)
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	var final_pos: Vector3 = pos
+	var space = get_world_3d().direct_space_state
+	var final_pos = pos
 	if space != null:
-		var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(pos + Vector3.UP * 2.0, pos + Vector3.DOWN * 20.0, 1)
-		var hit: Dictionary = space.intersect_ray(q)
+		var q = PhysicsRayQueryParameters3D.create(pos + Vector3.UP * 2.0, pos + Vector3.DOWN * 20.0, 1)
+		var hit = space.intersect_ray(q)
 		if not hit.is_empty():
-			final_pos = (hit["position"] as Vector3) + Vector3(0.0, 0.72, 0.0)
+			final_pos = (hit["position"] as Vector3) + Vector3(0.0, 0.65, 0.0)
 	mine_node.global_position = final_pos
 	_active_tripmines.append({
 		"node": mine_node,
-		"arm_left": float(item.get("tripmine_arm_delay", 1.5)),
+		"arm_left": float(item.get("tripmine_arm_delay", 2.0)),
 		"armed": false,
-		"cloak": true,
-		"radius": float(item.get("explosion_radius", 12.0)),
-		"damage": float(item.get("explosion_damage", 150.0)),
-		"knockback": float(item.get("explosion_knockback", 55.0)),
+		"cloak": bool(item.get("tripmine_cloak_when_armed", true)),
+		"radius": float(item.get("explosion_radius", 14.0)),
+		"damage": float(item.get("explosion_damage", 100.0)),
+		"knockback": float(item.get("explosion_knockback", 64.0)),
 	})
 
 
 func _update_rockets_and_tripmines(delta: float) -> void:
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-
-	# 1. Slow Insta-Kill Hyperlaser Projectiles (accurate 1.35 stud touch radius)
-	for i in range(_active_lasers.size() - 1, -1, -1):
-		var l: Dictionary = _active_lasers[i]
-		var l_node: Node3D = l["node"]
-		if l_node == null or not is_instance_valid(l_node):
-			_active_lasers.remove_at(i)
-			continue
-		var cur_lp: Vector3 = l_node.global_position
-		var next_lp: Vector3 = cur_lp + (l["vel"] as Vector3) * delta
-		l["life"] = float(l["life"]) - delta
-		l["age"] = float(l["age"]) + delta
-		l_node.rotation.y += delta * 6.0
-		l_node.rotation.x += delta * 4.0
-		var hit_laser: bool = (float(l["life"]) <= 0.0)
-		var hit_lpos: Vector3 = next_lp
-
-		for d in _combat_dummies:
-			if bool(d["alive"]) and is_instance_valid(d["node"]):
-				var d_pos: Vector3 = (d["node"] as Node3D).global_position + Vector3(0.0, 2.5, 0.0)
-				if next_lp.distance_to(d_pos) <= 1.45:
-					_damage_combat_dummy(d, 9999.0, (l["vel"] as Vector3).normalized() * 45.0 + Vector3.UP * 16.0)
-					hit_lpos = d_pos
-					hit_laser = true
-					break
-
-		if not hit_laser and float(l["age"]) > 0.55 and player != null and is_instance_valid(player) and bool(player.get("alive")) and not bool(player.get("in_safe_zone")):
-			var p_pos: Vector3 = (player as Node3D).global_position + Vector3(0.0, 2.5, 0.0)
-			if next_lp.distance_to(p_pos) <= 1.35:
-				player.call("hurt", 9999.0)
-				hit_lpos = p_pos
-				hit_laser = true
-
-		if not hit_laser and space != null:
-			var ex_l: Array[RID] = []
-			if player != null and is_instance_valid(player):
-				ex_l.append((player as CollisionObject3D).get_rid())
-			var ql: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(cur_lp, next_lp, 0xFFFFFFFF, ex_l)
-			var hit_d: Dictionary = space.intersect_ray(ql)
-			if not hit_d.is_empty():
-				hit_lpos = hit_d["position"]
-				var col_o: Variant = hit_d.get("collider", null)
-				if col_o is Node3D and col_o != player:
-					_damage_or_push_node(col_o as Node3D, 9999.0, (l["vel"] as Vector3).normalized() * 40.0)
-				hit_laser = true
-
-		if hit_laser:
-			_spawn_shockwave_ring(hit_lpos, 4.0, Color("00e5ff"), 0.30)
-			l_node.queue_free()
-			_active_lasers.remove_at(i)
-		else:
-			l_node.global_position = next_lp
-
-	# 2. Rockets & Swelling Balls (accurate hit_radius matching exact 3D ball size!)
+	var space = get_world_3d().direct_space_state
 	for i in range(_active_rockets.size() - 1, -1, -1):
 		var r: Dictionary = _active_rockets[i]
 		var r_node: Node3D = r["node"]
 		if r_node == null or not is_instance_valid(r_node):
 			_active_rockets.remove_at(i)
 			continue
-		var cur_p: Vector3 = r_node.global_position
-		var next_p: Vector3 = cur_p + (r["vel"] as Vector3) * delta
+		var cur_p = r_node.global_position
+		var next_p = cur_p + (r["vel"] as Vector3) * delta
 		r["life"] = float(r["life"]) - delta
-		var hit_r: float = float(r.get("hit_radius", 0.95))
-		var hit_pos: Vector3 = next_p
-		var detonated: bool = (float(r["life"]) <= 0.0)
+		var hit_pos = next_p
+		var detonated = (float(r["life"]) <= 0.0)
 		if space != null and not detonated:
-			var ex_rids: Array[RID] = []
-			if player != null and is_instance_valid(player):
-				ex_rids.append((player as CollisionObject3D).get_rid())
-			var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(cur_p, next_p, 0xFFFFFFFF, ex_rids)
-			var hit: Dictionary = space.intersect_ray(q)
+			var q = PhysicsRayQueryParameters3D.create(cur_p, next_p, 0xFFFFFFFF, [player.get_rid()] if player != null else [])
+			var hit = space.intersect_ray(q)
 			if not hit.is_empty():
 				hit_pos = hit["position"]
 				detonated = true
-		if not detonated:
-			for d in _combat_dummies:
-				if bool(d["alive"]) and is_instance_valid(d["node"]):
-					var d_pos: Vector3 = (d["node"] as Node3D).global_position + Vector3(0.0, 2.5, 0.0)
-					# Exact surface-to-surface hitbox: ball's visual radius + dummy torso radius (0.80)
-					if next_p.distance_to(d_pos) <= (hit_r + 0.80):
-						hit_pos = next_p
-						detonated = true
-						break
 		if detonated:
-			var b_col: Color = r.get("color", Color("ff6b35"))
-			var self_safe: bool = bool(r.get("self_safe", false))
-			_trigger_explosion(hit_pos, float(r["radius"]), float(r["damage"]), float(r["knockback"]), b_col, false, self_safe)
+			_trigger_explosion(hit_pos, float(r["radius"]), float(r["damage"]), float(r["knockback"]), Color("ff6b35"), false)
 			r_node.queue_free()
 			_active_rockets.remove_at(i)
 		else:
 			r_node.global_position = next_p
 
-	# 3. Subspace Tripmines
 	for i in range(_active_tripmines.size() - 1, -1, -1):
 		var m: Dictionary = _active_tripmines[i]
 		var m_node: Node3D = m["node"]
 		if m_node == null or not is_instance_valid(m_node):
 			_active_tripmines.remove_at(i)
 			continue
-		m_node.rotation.y += delta * 1.6
 		if not bool(m["armed"]):
 			m["arm_left"] = float(m["arm_left"]) - delta
 			if float(m["arm_left"]) <= 0.0:
 				m["armed"] = true
-				_spawn_shockwave_ring(m_node.global_position, 2.8, Color("ff00aa"), 0.28)
 				if bool(m["cloak"]):
 					for ch in m_node.get_children():
 						if ch is MeshInstance3D and (ch as MeshInstance3D).material_override is StandardMaterial3D:
-							var sm: StandardMaterial3D = ((ch as MeshInstance3D).material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
+							var sm = ((ch as MeshInstance3D).material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
 							sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-							sm.albedo_color.a = 0.16
+							sm.albedo_color.a = 0.14
 							(ch as MeshInstance3D).material_override = sm
 		else:
-			var m_pos: Vector3 = m_node.global_position
-			var triggered: bool = false
-			if player != null and is_instance_valid(player) and bool(player.get("alive")) and (player as Node3D).global_position.distance_to(m_pos) <= 2.6:
+			var m_pos = m_node.global_position
+			var triggered = false
+			if player != null and is_instance_valid(player) and player.alive and player.global_position.distance_to(m_pos) <= 3.6:
 				triggered = true
-			if not triggered:
-				for d in _combat_dummies:
-					if bool(d["alive"]) and is_instance_valid(d["node"]) and (d["node"] as Node3D).global_position.distance_to(m_pos) <= 2.6:
-						triggered = true
-						break
 			if not triggered:
 				for uid in _remotes.keys():
 					var rp: Node3D = _remotes[uid]
-					if rp != null and is_instance_valid(rp) and rp.global_position.distance_to(m_pos) <= 2.6:
+					if rp != null and is_instance_valid(rp) and rp.global_position.distance_to(m_pos) <= 3.6:
 						triggered = true
 						break
 			if triggered:
-				_trigger_explosion(m_pos, float(m["radius"]), float(m["damage"]), float(m["knockback"]), Color("ff00aa"), true, false)
+				_trigger_explosion(m_pos, float(m["radius"]), float(m["damage"]), float(m["knockback"]), Color("ff00aa"), true)
 				m_node.queue_free()
 				_active_tripmines.remove_at(i)
 
 
-func _trigger_explosion(center: Vector3, radius: float, max_dmg: float, max_kb: float, blast_col: Color, is_subspace: bool, self_safe: bool = false) -> void:
-	var sphere_mi: MeshInstance3D = MeshInstance3D.new()
-	var sph: SphereMesh = SphereMesh.new()
+func _trigger_explosion(center: Vector3, radius: float, max_dmg: float, max_kb: float, blast_col: Color, is_subspace: bool) -> void:
+	var sphere_mi = MeshInstance3D.new()
+	var sph = SphereMesh.new()
 	sph.radius = 1.0
 	sph.height = 2.0
 	sphere_mi.mesh = sph
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = Color(blast_col.r, blast_col.g, blast_col.b, 0.84)
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(blast_col.r, blast_col.g, blast_col.b, 0.78)
 	mat.emission_enabled = true
 	mat.emission = blast_col
-	mat.emission_energy_multiplier = 3.2 if is_subspace else 2.0
+	mat.emission_energy_multiplier = 2.4 if is_subspace else 1.6
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	sphere_mi.material_override = mat
 	add_child(sphere_mi)
 	sphere_mi.global_position = center
 
-	var tw: Tween = create_tween()
+	var tw = create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(sphere_mi, "scale", Vector3.ONE * radius, 0.34)
-	tw.tween_property(mat, "albedo_color:a", 0.0, 0.42)
+	tw.tween_property(sphere_mi, "scale", Vector3.ONE * radius, 0.32)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.38)
 	tw.chain().tween_callback(sphere_mi.queue_free)
 
-	_spawn_shockwave_ring(center, radius * 1.25, blast_col, 0.42)
-	if is_subspace:
-		_spawn_shockwave_ring(center + Vector3(0.0, 1.0, 0.0), radius * 1.55, Color("ff66cc"), 0.52)
+	if player != null and is_instance_valid(player) and player.alive:
+		var d: float = player.global_position.distance_to(center)
+		if d <= radius:
+			var falloff = clampf(1.0 - (d / maxf(radius, 0.1)) * 0.65, 0.25, 1.0)
+			var away: Vector3 = (player.global_position + Vector3(0, 2.5, 0) - center).normalized()
+			player.velocity += away * (max_kb * falloff) + Vector3.UP * (max_kb * 0.45 * falloff)
+			if d <= radius * 0.75:
+				player.hurt(max_dmg * falloff)
 
-	for d in _combat_dummies:
-		if bool(d["alive"]) and is_instance_valid(d["node"]):
-			var d_node: Node3D = d["node"]
-			var dist_d: float = (d_node.global_position + Vector3(0.0, 2.5, 0.0)).distance_to(center)
-			if dist_d <= (radius + 0.85):
-				var away_d: Vector3 = (d_node.global_position + Vector3(0.0, 2.5, 0.0) - center).normalized()
-				_damage_combat_dummy(d, max_dmg, away_d * max_kb + Vector3.UP * (max_kb * 0.5))
 
-	if not self_safe and player != null and is_instance_valid(player) and bool(player.get("alive")) and not bool(player.get("in_safe_zone")):
-		var p_body: CharacterBody3D = player as CharacterBody3D
-		var d: float = (p_body.global_position + Vector3(0.0, 2.5, 0.0)).distance_to(center)
-		if d <= (radius + 0.85):
-			var falloff: float = clampf(1.0 - (d / maxf(radius, 0.1)) * 0.5, 0.4, 1.0)
-			var away: Vector3 = (p_body.global_position + Vector3(0.0, 2.5, 0.0) - center).normalized()
-			p_body.velocity += away * (max_kb * falloff) + Vector3.UP * (max_kb * 0.48 * falloff)
-			if d <= radius * 0.85:
-				var lethal_dmg: float = maxf(max_dmg, float(player.get("max_health")) + 50.0)
-				player.call("hurt", lethal_dmg)
+func _ensure_default_gamepass_pad(world_node: Node3D) -> void:
+	if world_node == null or world_node.get_node_or_null("VIPGamePassPad") != null:
+		return
+	var pad_path: String = "res://toolbox/builtin/gamepass_vip_pad.tscn"
+	if ResourceLoader.exists(pad_path):
+		var ps: PackedScene = load(pad_path) as PackedScene
+		if ps != null:
+			var inst: Node3D = ps.instantiate() as Node3D
+			if inst != null:
+				inst.position = Vector3(12.0, 0.5, -10.0)
+				world_node.add_child(inst)

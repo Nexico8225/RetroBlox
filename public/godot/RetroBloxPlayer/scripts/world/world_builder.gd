@@ -180,7 +180,7 @@ static func prepare_scene_world(world_root: Node3D) -> Array[Vector3]:
 					var mat_kind := String(sb.get_meta("mat", "plastic"))
 					var no_studs := bool(sb.get_meta("no_studs", false))
 					var col_hex := String(sb.get_meta("color", ""))
-					var col := Color(col_hex) if col_hex != "" else Color("8f8f8f")
+					var col = Color(col_hex) if col_hex != "" else Color("8f8f8f")
 					if col_hex == "":
 						var mat_src: Material = mi.material_override
 						if mat_src == null:
@@ -491,7 +491,7 @@ static func _fence(root: Node3D, pos: Vector3, size: Vector3, yaw_deg: float) ->
 		group.add_child(rail)
 	var posts := int(rail_len / 2.4) + 1
 	for i in range(posts):
-		var px := -rail_len * 0.5 + (rail_len * float(i) / float(posts - 1)) if posts > 1 else 0.0
+		var px = -rail_len * 0.5 + (rail_len * float(i) / float(posts - 1)) if posts > 1 else 0.0
 		var post := MeshInstance3D.new()
 		var pm := BoxMesh.new()
 		pm.size = Vector3(0.26, size.y + 0.3, 0.26)
@@ -815,7 +815,7 @@ static func stud_texture() -> Texture2D:
 	for y in range(n):
 		for x in range(n):
 			var edge_d := mini(mini(x, y), mini(n - 1 - x, n - 1 - y))
-			var col := 0.80 if edge_d == 0 else (0.88 if edge_d == 1 else 0.94)
+			var col = 0.80 if edge_d == 0 else (0.88 if edge_d == 1 else 0.94)
 			var dx := float(x) + 0.5 - center
 			var dy := float(y) + 0.5 - center
 			var d := sqrt(dx * dx + dy * dy)

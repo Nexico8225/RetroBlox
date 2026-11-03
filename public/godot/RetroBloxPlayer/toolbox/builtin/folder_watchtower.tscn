@@ -1,0 +1,84 @@
+[gd_scene load_steps=8 format=3]
+
+[sub_resource type="BoxShape3D" id="BoxShape_post"]
+size = Vector3(1.2, 14, 1.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_post"]
+size = Vector3(1.2, 14, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="Mat_wood"]
+albedo_color = Color(0.55, 0.36, 0.2, 1)
+roughness = 0.8
+
+[sub_resource type="BoxShape3D" id="BoxShape_deck"]
+size = Vector3(12, 1, 12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_deck"]
+size = Vector3(12, 1, 12)
+
+[sub_resource type="StandardMaterial3D" id="Mat_deck"]
+albedo_color = Color(0.68, 0.48, 0.28, 1)
+roughness = 0.75
+
+[sub_resource type="BoxShape3D" id="BoxShape_ladder"]
+size = Vector3(2, 14, 0.5)
+
+[node name="Watchtower_Folder" type="Node3D"]
+metadata/retroblox_folder = true
+
+[node name="PostNW" type="StaticBody3D" parent="."]
+position = Vector3(-5, 7, -5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PostNW"]
+shape = SubResource("BoxShape_post")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PostNW"]
+mesh = SubResource("BoxMesh_post")
+surface_material_override/0 = SubResource("Mat_wood")
+
+[node name="PostNE" type="StaticBody3D" parent="."]
+position = Vector3(5, 7, -5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PostNE"]
+shape = SubResource("BoxShape_post")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PostNE"]
+mesh = SubResource("BoxMesh_post")
+surface_material_override/0 = SubResource("Mat_wood")
+
+[node name="PostSW" type="StaticBody3D" parent="."]
+position = Vector3(-5, 7, 5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PostSW"]
+shape = SubResource("BoxShape_post")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PostSW"]
+mesh = SubResource("BoxMesh_post")
+surface_material_override/0 = SubResource("Mat_wood")
+
+[node name="PostSE" type="StaticBody3D" parent="."]
+position = Vector3(5, 7, 5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PostSE"]
+shape = SubResource("BoxShape_post")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PostSE"]
+mesh = SubResource("BoxMesh_post")
+surface_material_override/0 = SubResource("Mat_wood")
+
+[node name="TopDeck" type="StaticBody3D" parent="."]
+position = Vector3(0, 14.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TopDeck"]
+shape = SubResource("BoxShape_deck")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="TopDeck"]
+mesh = SubResource("BoxMesh_deck")
+surface_material_override/0 = SubResource("Mat_deck")
+
+[node name="ClimbLadder" type="StaticBody3D" parent="."]
+position = Vector3(0, 7, 6.1)
+collision_layer = 17
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClimbLadder"]
+shape = SubResource("BoxShape_ladder")

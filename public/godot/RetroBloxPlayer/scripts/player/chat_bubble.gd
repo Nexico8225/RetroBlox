@@ -46,7 +46,7 @@ func show_text(message: String) -> void:
 		return
 
 	# Match perspective distance scale immediately on creation
-	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	var cam = get_viewport().get_camera_3d() if is_inside_tree() else null
 	var dist := REF_DISTANCE
 	if cam != null and is_instance_valid(cam):
 		dist = cam.global_position.distance_to(global_position)
@@ -106,7 +106,7 @@ func _process(delta: float) -> void:
 	if _entries.is_empty():
 		return
 
-	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	var cam = get_viewport().get_camera_3d() if is_inside_tree() else null
 	var dist := REF_DISTANCE
 	if cam != null and is_instance_valid(cam):
 		dist = cam.global_position.distance_to(global_position)
@@ -218,7 +218,7 @@ func _wrap(text: String) -> Array[String]:
 				return _cut(lines)
 		if piece.is_empty():
 			continue
-		var candidate := piece if current.is_empty() else current + " " + piece
+		var candidate = piece if current.is_empty() else current + " " + piece
 		if _line_width(font, candidate) <= WRAP_WIDTH:
 			current = candidate
 		else:
@@ -278,7 +278,7 @@ static func _plate_texture(line_count: int, w := 256) -> ImageTexture:
 			if not inside:
 				continue
 			var edge := _near_edge(p, rect, rad, tail_l, tail_r, tail_tip)
-			var col := Color(0.78, 0.81, 0.86) if edge else Color(0.985, 0.99, 1.0)
+			var col = Color(0.78, 0.81, 0.86) if edge else Color(0.985, 0.99, 1.0)
 			img.set_pixel(x, y, col)
 
 	var tex := ImageTexture.create_from_image(img)

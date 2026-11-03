@@ -1,0 +1,40 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://toolbox/builtin/teleport_pads.gd" id="1_tp"]
+
+[sub_resource type="BoxMesh" id="Mesh_pad"]
+size = Vector3(4, 0.5, 4)
+
+[sub_resource type="StandardMaterial3D" id="Mat_green"]
+albedo_color = Color(0.18, 0.78, 0.34, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_red"]
+albedo_color = Color(0.95, 0.28, 0.28, 1)
+
+[sub_resource type="BoxShape3D" id="Shape_trigger"]
+size = Vector3(3.6, 2.0, 3.6)
+
+[node name="EasyTeleportPads" type="Node3D"]
+script = ExtResource("1_tp")
+
+[node name="PadGreen" type="MeshInstance3D" parent="."]
+position = Vector3(-4, 0.25, 0)
+mesh = SubResource("Mesh_pad")
+surface_material_override/0 = SubResource("Mat_green")
+
+[node name="AreaA" type="Area3D" parent="PadGreen"]
+position = Vector3(0, 1.0, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PadGreen/AreaA"]
+shape = SubResource("Shape_trigger")
+
+[node name="PadRed" type="MeshInstance3D" parent="."]
+position = Vector3(4, 0.25, 0)
+mesh = SubResource("Mesh_pad")
+surface_material_override/0 = SubResource("Mat_red")
+
+[node name="AreaB" type="Area3D" parent="PadRed"]
+position = Vector3(0, 1.0, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PadRed/AreaB"]
+shape = SubResource("Shape_trigger")

@@ -21,7 +21,8 @@ var _pants_edit: LineEdit
 func _init() -> void:
 	title = "RetroBlox - Player & Game Settings"
 	size = Vector2i(430, 340)
-	max_size = Vector2i(500, 420)
+	min_size = Vector2i(280, 220)
+	unresizable = false
 	ok_button_text = "Save & Close"
 
 
@@ -34,7 +35,8 @@ func _ready() -> void:
 
 func _build_ui() -> void:
 	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(390, 240)
+	scroll.custom_minimum_size = Vector2(240, 180)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(scroll)
 
@@ -146,7 +148,7 @@ func _load_values() -> void:
 	if _health_spin != null:
 		_health_spin.value = float(ProjectSettings.get_setting("player/health/max_health", 100.0))
 	if _regen_spin != null:
-		_regen_spin.value = float(ProjectSettings.get_setting("player/health/health_regen_rate", 1.0))
+		_regen_spin.value = float(ProjectSettings.get_setting("player/health/health_regen_rate", 0.05))
 	if _fall_damage_check != null:
 		_fall_damage_check.button_pressed = bool(ProjectSettings.get_setting("player/health/fall_damage_enabled", true))
 	if _shiftlock_check != null:

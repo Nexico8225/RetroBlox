@@ -1014,7 +1014,7 @@ static func make_theme() -> Theme:
 ## One key: raised (normal) or sunken (pressed) bevel in `face`, with the
 ## chunky content margins the old keys wore.
 static func _key(pushed: bool, face: Color) -> StyleBox:
-        var sb := sunken(4, face) if pushed else raised(4, face)
+        var sb = sunken(4, face) if pushed else raised(4, face)
         sb.content_margin_left = 14.0
         sb.content_margin_right = 14.0
         sb.content_margin_top = 8.0

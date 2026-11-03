@@ -81,7 +81,7 @@ func push_voice_audio(pcm: PackedVector2Array, level: float) -> void:
 	_voice_speak_timer = 0.65
 	_voice_level = clampf(level, 0.08, 1.0)
 	var settings: Node = get_node_or_null("/root/Settings")
-	var vc_enabled := true if settings == null else bool(settings.get("voice_enabled"))
+	var vc_enabled = true if settings == null else bool(settings.get("voice_enabled"))
 	if not vc_enabled or not voice_active or pcm.is_empty():
 		return
 	var vc: Node = get_node_or_null("/root/VoiceChat")
@@ -133,7 +133,7 @@ func _process(delta: float) -> void:
 		dist_fade = 0.0 if dist >= VOICE_MAX_DISTANCE else (1.0 - t) * (1.0 - t)
 
 	var settings: Node = get_node_or_null("/root/Settings")
-	var vc_enabled := true if settings == null else bool(settings.get("voice_enabled"))
+	var vc_enabled = true if settings == null else bool(settings.get("voice_enabled"))
 	if voice_indicator != null and is_instance_valid(voice_indicator):
 		var is_speaking := _voice_speak_timer > 0.0
 		voice_indicator.visible = vc_enabled and voice_active and dist_fade > 0.02 and is_speaking

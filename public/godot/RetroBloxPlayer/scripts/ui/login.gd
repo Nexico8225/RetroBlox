@@ -292,8 +292,8 @@ func _sign_in_local_account(uname: String) -> void:
 	var clean_name := uname.strip_edges()
 	if clean_name == "":
 		clean_name = "Nexico8225"
-	var uid := NEXICO_UID if clean_name.to_lower() == "nexico8225" else ("local_" + clean_name.to_lower())
-	var role := "dev" if clean_name.to_lower() == "nexico8225" else "user"
+	var uid = NEXICO_UID if clean_name.to_lower() == "nexico8225" else ("local_" + clean_name.to_lower())
+	var role = "dev" if clean_name.to_lower() == "nexico8225" else "user"
 	Api.save_session(clean_name)
 	var av_res: Dictionary = await Api.avatar_of(uid)
 	var me_payload := {
@@ -308,6 +308,8 @@ func _sign_in_local_account(uname: String) -> void:
 
 func _try_auto_login() -> void:
 	if Api.token == "":
+		if Session.launch_game_id != "":
+			await _sign_in_local_account(Api.saved_username if Api.saved_username != "" else "Player")
 		return
 	_working = true
 	_set_info("Logging you in…")
@@ -377,17 +379,24 @@ func _finish_login(me: Dictionary) -> void:
 	Session.sign_in(me, Api.txt(me.get("userId", "")), Api.txt(me.get("username", ""), "Player"),
 		Api.txt(me.get("role", ""), "user"),
 		int(me.get("seqId", 0)))
-	var target := MAIN_GAME_SCENE if ResourceLoader.exists(MAIN_GAME_SCENE) else "res://scenes/game.tscn"
+	if Session.launch_game_id != "":
+		_set_info("Streaming game #%s straight into RAM…" % Session.launch_game_id)
+		var loader_scr: Script = load("res://scripts/core/scene_package_loader.gd") as Script
+		if loader_scr != null:
+			var pkg: Dictionary = await loader_scr.call("stream_game_into_ram", Api, Session.launch_game_id, Session.launch_pkg_url)
+			if not pkg.is_empty():
+				Session.streamed_ram_package = pkg
+	var target = MAIN_GAME_SCENE if ResourceLoader.exists(MAIN_GAME_SCENE) else "res://scenes/game.tscn"
 	get_tree().change_scene_to_file(target)
 
 
 func _on_offline() -> void:
 	if _working:
 		return
-	var entered := _user.text.strip_edges() if _user != null else ""
+	var entered = _user.text.strip_edges() if _user != null else ""
 	if entered.to_lower() == "nexico8225":
 		await _sign_in_local_account("Nexico8225")
 		return
 	Session.set_guest()
-	var target := MAIN_GAME_SCENE if ResourceLoader.exists(MAIN_GAME_SCENE) else "res://scenes/game.tscn"
+	var target = MAIN_GAME_SCENE if ResourceLoader.exists(MAIN_GAME_SCENE) else "res://scenes/game.tscn"
 	get_tree().change_scene_to_file(target)

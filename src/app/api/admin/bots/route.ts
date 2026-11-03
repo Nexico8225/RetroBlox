@@ -72,136 +72,136 @@ export async function GET(req: NextRequest) {
   })
 }
 
-async function purgeUsersBulk(tx: Prisma.TransactionClient, targetIds: string[]): Promise<number> {
+async function purgeUsersChunk(targetIds: string[]): Promise<number> {
   if (targetIds.length === 0) return 0
 
-  // 1. UGC listings messages & offers & listings where target is buyer/seller
-  await tx.ugcListingMessage.deleteMany({ where: { senderId: { in: targetIds } } }).catch(() => {})
-  await tx.ugcOffer.deleteMany({ where: { buyerId: { in: targetIds } } }).catch(() => {})
-  await tx.ugcListing.updateMany({ where: { buyerId: { in: targetIds } }, data: { buyerId: null } }).catch(() => {})
+  // 1. UGC listings where target is seller/buyer, plus offers & messages
+  await db.ugcListingMessage.deleteMany({ where: { senderId: { in: targetIds } } }).catch(() => {})
+  await db.ugcOffer.deleteMany({ where: { buyerId: { in: targetIds } } }).catch(() => {})
+  await db.ugcListing.updateMany({ where: { buyerId: { in: targetIds } }, data: { buyerId: null } }).catch(() => {})
 
-  const userListings = await tx.ugcListing.findMany({ where: { sellerId: { in: targetIds } }, select: { id: true } })
+  const userListings = await db.ugcListing.findMany({ where: { sellerId: { in: targetIds } }, select: { id: true } })
   const userListingIds = userListings.map((l) => l.id)
   if (userListingIds.length > 0) {
-    await tx.ugcOffer.deleteMany({ where: { listingId: { in: userListingIds } } }).catch(() => {})
-    await tx.ugcListingMessage.deleteMany({ where: { listingId: { in: userListingIds } } }).catch(() => {})
-    await tx.ugcListing.deleteMany({ where: { id: { in: userListingIds } } }).catch(() => {})
+    await db.ugcOffer.deleteMany({ where: { listingId: { in: userListingIds } } }).catch(() => {})
+    await db.ugcListingMessage.deleteMany({ where: { listingId: { in: userListingIds } } }).catch(() => {})
+    await db.ugcListing.deleteMany({ where: { id: { in: userListingIds } } }).catch(() => {})
   }
 
   // 2. Trades
-  await tx.trade.deleteMany({ where: { OR: [{ fromUserId: { in: targetIds } }, { toUserId: { in: targetIds } }] } }).catch(() => {})
+  await db.trade.deleteMany({ where: { OR: [{ fromUserId: { in: targetIds } }, { toUserId: { in: targetIds } }] } }).catch(() => {})
 
-  // 3. Notifications, Inventory, Sessions, Transactions, Presence, Chat
-  await tx.notification.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.inventoryEntry.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.session.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.rbxTransaction.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.payment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.avatarConfig.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.gameData.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.placeChatMessage.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.placeChat.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.placePresence.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.playerPresence.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.chatMessage.deleteMany({ where: { OR: [{ senderId: { in: targetIds } }, { recipientId: { in: targetIds } }] } }).catch(() => {})
-  await tx.friendship.deleteMany({ where: { OR: [{ requesterId: { in: targetIds } }, { addresseeId: { in: targetIds } }] } }).catch(() => {})
-  await tx.follow.deleteMany({ where: { OR: [{ followerId: { in: targetIds } }, { followingId: { in: targetIds } }] } }).catch(() => {})
-  await tx.itemComment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.ugcPricePoint.deleteMany({ where: { OR: [{ buyerId: { in: targetIds } }, { sellerId: { in: targetIds } }] } }).catch(() => {})
+  // 3. User related entities: Notifications, Inventory, Sessions, Transactions, Presence, Chat
+  await db.notification.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.inventoryEntry.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.session.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.rbxTransaction.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.payment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.avatarConfig.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.gameData.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.placeChatMessage.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.placeChat.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.placePresence.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.playerPresence.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.chatMessage.deleteMany({ where: { OR: [{ senderId: { in: targetIds } }, { recipientId: { in: targetIds } }] } }).catch(() => {})
+  await db.friendship.deleteMany({ where: { OR: [{ requesterId: { in: targetIds } }, { addresseeId: { in: targetIds } }] } }).catch(() => {})
+  await db.follow.deleteMany({ where: { OR: [{ followerId: { in: targetIds } }, { followingId: { in: targetIds } }] } }).catch(() => {})
+  await db.itemComment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.ugcPricePoint.deleteMany({ where: { OR: [{ buyerId: { in: targetIds } }, { sellerId: { in: targetIds } }] } }).catch(() => {})
 
   // 4. UGC items created by any of these users
-  const userItems = await tx.avatarItem.findMany({ where: { creatorId: { in: targetIds } }, select: { id: true } })
+  const userItems = await db.avatarItem.findMany({ where: { creatorId: { in: targetIds } }, select: { id: true } })
   const userItemIds = userItems.map((i) => i.id)
   let itemsDeleted = 0
   if (userItemIds.length > 0) {
     const itemListingIds = (
-      await tx.ugcListing.findMany({ where: { itemId: { in: userItemIds } }, select: { id: true } })
+      await db.ugcListing.findMany({ where: { itemId: { in: userItemIds } }, select: { id: true } })
     ).map((l) => l.id)
     if (itemListingIds.length > 0) {
-      await tx.ugcOffer.deleteMany({ where: { listingId: { in: itemListingIds } } }).catch(() => {})
-      await tx.ugcListingMessage.deleteMany({ where: { listingId: { in: itemListingIds } } }).catch(() => {})
-      await tx.ugcListing.deleteMany({ where: { id: { in: itemListingIds } } }).catch(() => {})
+      await db.ugcOffer.deleteMany({ where: { listingId: { in: itemListingIds } } }).catch(() => {})
+      await db.ugcListingMessage.deleteMany({ where: { listingId: { in: itemListingIds } } }).catch(() => {})
+      await db.ugcListing.deleteMany({ where: { id: { in: itemListingIds } } }).catch(() => {})
     }
-    await tx.inventoryEntry.deleteMany({ where: { itemId: { in: userItemIds } } }).catch(() => {})
-    await tx.ugcPricePoint.deleteMany({ where: { itemId: { in: userItemIds } } }).catch(() => {})
-    await tx.itemComment.deleteMany({ where: { itemId: { in: userItemIds } } }).catch(() => {})
-    const ugc = await tx.avatarItem.deleteMany({ where: { id: { in: userItemIds } } }).catch(() => ({ count: 0 }))
+    await db.inventoryEntry.deleteMany({ where: { itemId: { in: userItemIds } } }).catch(() => {})
+    await db.ugcPricePoint.deleteMany({ where: { itemId: { in: userItemIds } } }).catch(() => {})
+    await db.itemComment.deleteMany({ where: { itemId: { in: userItemIds } } }).catch(() => {})
+    const ugc = await db.avatarItem.deleteMany({ where: { id: { in: userItemIds } } }).catch(() => ({ count: 0 }))
     itemsDeleted = ugc.count
   }
 
   // 5. Groups
-  await tx.groupPostReply.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
-  await tx.groupPost.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
-  await tx.groupMember.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  const ownedGroups = await tx.group.findMany({ where: { ownerId: { in: targetIds } }, select: { id: true } })
+  await db.groupPostReply.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
+  await db.groupPost.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
+  await db.groupMember.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  const ownedGroups = await db.group.findMany({ where: { ownerId: { in: targetIds } }, select: { id: true } })
   const ownedGroupIds = ownedGroups.map((g) => g.id)
   if (ownedGroupIds.length > 0) {
-    await tx.groupPostReply.deleteMany({ where: { post: { groupId: { in: ownedGroupIds } } } }).catch(() => {})
-    await tx.groupPost.deleteMany({ where: { groupId: { in: ownedGroupIds } } }).catch(() => {})
-    await tx.groupRole.deleteMany({ where: { groupId: { in: ownedGroupIds } } }).catch(() => {})
-    await tx.groupMember.deleteMany({ where: { groupId: { in: ownedGroupIds } } }).catch(() => {})
-    await tx.avatarItem.updateMany({ where: { groupId: { in: ownedGroupIds } }, data: { groupId: null } }).catch(() => {})
-    await tx.game.updateMany({ where: { groupId: { in: ownedGroupIds } }, data: { groupId: null } }).catch(() => {})
-    await tx.group.deleteMany({ where: { id: { in: ownedGroupIds } } }).catch(() => {})
+    await db.groupPostReply.deleteMany({ where: { post: { groupId: { in: ownedGroupIds } } } }).catch(() => {})
+    await db.groupPost.deleteMany({ where: { groupId: { in: ownedGroupIds } } }).catch(() => {})
+    await db.groupRole.deleteMany({ where: { groupId: { in: ownedGroupIds } } }).catch(() => {})
+    await db.groupMember.deleteMany({ where: { groupId: { in: ownedGroupIds } } }).catch(() => {})
+    await db.avatarItem.updateMany({ where: { groupId: { in: ownedGroupIds } }, data: { groupId: null } }).catch(() => {})
+    await db.game.updateMany({ where: { groupId: { in: ownedGroupIds } }, data: { groupId: null } }).catch(() => {})
+    await db.group.deleteMany({ where: { id: { in: ownedGroupIds } } }).catch(() => {})
   }
 
   // 6. Community, Videos, Labs, Subs, Music
-  await tx.communityComment.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
-  const userPosts = await tx.communityPost.findMany({ where: { authorId: { in: targetIds } }, select: { id: true } })
+  await db.communityComment.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
+  const userPosts = await db.communityPost.findMany({ where: { authorId: { in: targetIds } }, select: { id: true } })
   const postIds = userPosts.map((p) => p.id)
   if (postIds.length > 0) {
-    await tx.communityComment.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {})
-    await tx.communityPost.deleteMany({ where: { id: { in: postIds } } }).catch(() => {})
+    await db.communityComment.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {})
+    await db.communityPost.deleteMany({ where: { id: { in: postIds } } }).catch(() => {})
   }
 
-  await tx.videoComment.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
-  const userVideos = await tx.video.findMany({ where: { authorId: { in: targetIds } }, select: { id: true } })
+  await db.videoComment.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
+  const userVideos = await db.video.findMany({ where: { authorId: { in: targetIds } }, select: { id: true } })
   const videoIds = userVideos.map((v) => v.id)
   if (videoIds.length > 0) {
-    await tx.videoComment.deleteMany({ where: { videoId: { in: videoIds } } }).catch(() => {})
-    await tx.video.deleteMany({ where: { id: { in: videoIds } } }).catch(() => {})
+    await db.videoComment.deleteMany({ where: { videoId: { in: videoIds } } }).catch(() => {})
+    await db.video.deleteMany({ where: { id: { in: videoIds } } }).catch(() => {})
   }
 
-  await tx.labReply.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
-  const labPosts = await tx.labPost.findMany({ where: { authorId: { in: targetIds } }, select: { id: true } })
+  await db.labReply.deleteMany({ where: { authorId: { in: targetIds } } }).catch(() => {})
+  const labPosts = await db.labPost.findMany({ where: { authorId: { in: targetIds } }, select: { id: true } })
   const labPostIds = labPosts.map((p) => p.id)
   if (labPostIds.length > 0) {
-    await tx.labReply.deleteMany({ where: { postId: { in: labPostIds } } }).catch(() => {})
-    await tx.labPost.deleteMany({ where: { id: { in: labPostIds } } }).catch(() => {})
+    await db.labReply.deleteMany({ where: { postId: { in: labPostIds } } }).catch(() => {})
+    await db.labPost.deleteMany({ where: { id: { in: labPostIds } } }).catch(() => {})
   }
 
-  const subs = await tx.sub.findMany({ where: { creatorId: { in: targetIds } }, select: { id: true } })
+  const subs = await db.sub.findMany({ where: { creatorId: { in: targetIds } }, select: { id: true } })
   const subIds = subs.map((s) => s.id)
   if (subIds.length > 0) {
-    await tx.communityPost.updateMany({ where: { subId: { in: subIds } }, data: { subId: null } }).catch(() => {})
-    await tx.sub.deleteMany({ where: { id: { in: subIds } } }).catch(() => {})
+    await db.communityPost.updateMany({ where: { subId: { in: subIds } }, data: { subId: null } }).catch(() => {})
+    await db.sub.deleteMany({ where: { id: { in: subIds } } }).catch(() => {})
   }
-  await tx.musicTrack.deleteMany({ where: { creatorId: { in: targetIds } } }).catch(() => {})
+  await db.musicTrack.deleteMany({ where: { creatorId: { in: targetIds } } }).catch(() => {})
 
   // 7. Games & Plays
-  await tx.playerBadge.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.gameDownload.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.gameLike.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.favorite.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.comment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.gamePlay.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await tx.playSession.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.playerBadge.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.gameDownload.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.gameLike.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.favorite.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.comment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.gamePlay.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await db.playSession.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
 
-  const userGames = await tx.game.findMany({ where: { creatorId: { in: targetIds } }, select: { id: true } })
+  const userGames = await db.game.findMany({ where: { creatorId: { in: targetIds } }, select: { id: true } })
   const gameIds = userGames.map((g) => g.id)
   if (gameIds.length > 0) {
-    await tx.gameLike.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
-    await tx.favorite.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
-    await tx.comment.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
-    await tx.gamePlay.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
-    await tx.playSession.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
-    await tx.gameDownload.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
-    await tx.gameData.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
-    await tx.game.deleteMany({ where: { id: { in: gameIds } } }).catch(() => {})
+    await db.gameLike.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
+    await db.favorite.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
+    await db.comment.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
+    await db.gamePlay.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
+    await db.playSession.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
+    await db.gameDownload.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
+    await db.gameData.deleteMany({ where: { gameId: { in: gameIds } } }).catch(() => {})
+    await db.game.deleteMany({ where: { id: { in: gameIds } } }).catch(() => {})
   }
 
   // 8. Delete user records in bulk!
-  await tx.user.deleteMany({ where: { id: { in: targetIds } } })
+  await db.user.deleteMany({ where: { id: { in: targetIds } } })
   return itemsDeleted
 }
 
@@ -252,9 +252,13 @@ export async function POST(req: NextRequest) {
 
   let itemsDeleted = 0
   try {
-    itemsDeleted = await db.$transaction(async (tx) => {
-      return await purgeUsersBulk(tx, targetIds)
-    })
+    // Process in chunks of 50 accounts to keep queries fast and avoid SQLite statement limits
+    const CHUNK_SIZE = 50
+    for (let i = 0; i < targetIds.length; i += CHUNK_SIZE) {
+      const chunk = targetIds.slice(i, i + CHUNK_SIZE)
+      const count = await purgeUsersChunk(chunk)
+      itemsDeleted += count
+    }
   } catch (err: unknown) {
     console.error('Bulk bot purge failed:', err)
     return NextResponse.json(

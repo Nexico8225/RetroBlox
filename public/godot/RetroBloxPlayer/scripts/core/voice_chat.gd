@@ -138,7 +138,7 @@ func _process(delta: float) -> void:
 	else:
 		_speaking = false
 
-	var target_lvl := raw_energy if _speaking else 0.0
+	var target_lvl = raw_energy if _speaking else 0.0
 	current_level = lerpf(current_level, target_lvl, 1.0 - exp(-20.0 * delta))
 	speaking_changed.emit(_speaking, current_level)
 
@@ -184,7 +184,7 @@ func _broadcast_udp_chunk(chunk: PackedFloat32Array) -> void:
 	if _udp_tx == null:
 		return
 	var sess: Node = get_node_or_null("/root/Session")
-	var uid := "" if sess == null else String(sess.get("user_id"))
+	var uid = "" if sess == null else String(sess.get("user_id"))
 	if uid == "":
 		return
 	var uid_bytes := uid.to_utf8_buffer()
@@ -212,7 +212,7 @@ func _poll_udp_rx() -> void:
 	if _udp_rx == null:
 		return
 	var sess: Node = get_node_or_null("/root/Session")
-	var my_uid := "" if sess == null else String(sess.get("user_id"))
+	var my_uid = "" if sess == null else String(sess.get("user_id"))
 	while _udp_rx.get_available_packet_count() > 0:
 		var raw := _udp_rx.get_packet()
 		if raw.size() < 12:

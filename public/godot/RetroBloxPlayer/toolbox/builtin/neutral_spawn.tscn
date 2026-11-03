@@ -1,0 +1,35 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="BoxShape3D" id="Shape_spawn"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="BoxMesh" id="Mesh_spawn"]
+size = Vector3(6, 1, 6)
+
+[sub_resource type="StandardMaterial3D" id="Mat_spawn"]
+albedo_color = Color(0.72, 0.74, 0.78, 1)
+
+[sub_resource type="CylinderMesh" id="Mesh_ring"]
+top_radius = 2.2
+bottom_radius = 2.2
+height = 0.05
+
+[sub_resource type="StandardMaterial3D" id="Mat_ring"]
+albedo_color = Color(0.18, 0.2, 0.24, 1)
+
+[node name="NeutralSpawnLocation" type="StaticBody3D"]
+metadata/is_spawn_location = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.5, 0)
+shape = SubResource("Shape_spawn")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, 0)
+mesh = SubResource("Mesh_spawn")
+surface_material_override/0 = SubResource("Mat_spawn")
+
+[node name="SpawnSunRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.03, 0)
+mesh = SubResource("Mesh_ring")
+surface_material_override/0 = SubResource("Mat_ring")

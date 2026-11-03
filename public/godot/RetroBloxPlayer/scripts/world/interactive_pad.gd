@@ -177,7 +177,7 @@ func _sync_groups_and_meta() -> void:
 		add_to_group("bounce")
 	elif pad_type == 7:
 		add_to_group("checkpoint")
-		var spawn_pos := (global_position if is_inside_tree() else position) + Vector3(0.0, brick_size.y * 0.5 + 1.2 * STUD, 0.0)
+		var spawn_pos = (global_position if is_inside_tree() else position) + Vector3(0.0, brick_size.y * 0.5 + 1.2 * STUD, 0.0)
 		set_meta("spawn", spawn_pos)
 		if label_text == "DAMAGE BRICK (-20 HP)":
 			label_text = "CHECKPOINT"
