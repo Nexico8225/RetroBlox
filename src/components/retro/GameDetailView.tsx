@@ -186,8 +186,9 @@ export function GameDetailView({ id }: { id: string }) {
       }
 
       // 4. Construct protocol URI per Argon's SDK contract
-      const pkgUrl = `/api/files/${game.fileId}`
-      const uri = `retroblox://play?gameId=${encodeURIComponent(game.id)}&token=${encodeURIComponent(token)}&pkgUrl=${encodeURIComponent(pkgUrl)}&username=${encodeURIComponent(username)}`
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://retro-blox.vercel.app'
+      const pkgUrl = game.fileId.startsWith('http') ? game.fileId : `${origin}/api/files/${game.fileId}`
+      const uri = `retroblox://play?gameId=${encodeURIComponent(game.id)}&gameName=${encodeURIComponent(game.name)}&token=${encodeURIComponent(token)}&pkgUrl=${encodeURIComponent(pkgUrl)}&username=${encodeURIComponent(username)}`
       setLastLaunchUri(uri)
 
       // 5. Trigger the desktop launcher via custom protocol
@@ -1414,13 +1415,14 @@ export function GameDetailView({ id }: { id: string }) {
                     Relaunch Game
                   </button>
                 )}
-                <Link
-                  href="/sdk"
-                  className="rb-btn"
-                  style={{ display: 'block', width: '100%', padding: '8px 0', fontSize: 12, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
+                <a
+                  href="/godot/retroblox-godot-player.zip"
+                  download="RetroBloxPlayer.zip"
+                  className="rb-btn rb-btn-blue"
+                  style={{ display: 'block', width: '100%', padding: '9px 0', fontSize: 13, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
                 >
-                  Download RetroBlox Launcher (One-time setup)
-                </Link>
+                  📥 Download RetroBlox Launcher (Fixed ~50MB)
+                </a>
                 <button
                   type="button"
                   className="rb-link"

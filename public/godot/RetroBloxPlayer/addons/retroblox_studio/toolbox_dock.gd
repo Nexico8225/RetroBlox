@@ -544,19 +544,28 @@ func _load_texture_from_any_path(icon_p: String) -> Texture2D:
 		return null
 	if _thumb_cache.has("file:" + icon_p):
 		return _thumb_cache["file:" + icon_p] as Texture2D
-	if icon_p.begins_with("res://") and ResourceLoader.exists(icon_p):
-		var r: Resource = load(icon_p)
-		if r is Texture2D:
-			_thumb_cache["file:" + icon_p] = r
-			return r as Texture2D
 	var glob_p: String = ProjectSettings.globalize_path(icon_p)
-	if FileAccess.file_exists(icon_p) or FileAccess.file_exists(glob_p):
-		var load_p: String = glob_p if FileAccess.file_exists(glob_p) else icon_p
+	var load_p: String = glob_p if FileAccess.file_exists(glob_p) else icon_p
+	if FileAccess.file_exists(load_p):
 		var img: Image = Image.load_from_file(load_p)
 		if img != null and not img.is_empty():
+			if img.get_width() != 128 or img.get_height() != 128:
+				img.resize(128, 128, Image.INTERPOLATE_LANCZOS)
 			var tex: ImageTexture = ImageTexture.create_from_image(img)
 			_thumb_cache["file:" + icon_p] = tex
 			return tex
+	if icon_p.begins_with("res://") and ResourceLoader.exists(icon_p):
+		var r: Resource = load(icon_p)
+		if r is Texture2D:
+			var r_img: Image = (r as Texture2D).get_image()
+			if r_img != null and not r_img.is_empty():
+				if r_img.get_width() != 128 or r_img.get_height() != 128:
+					r_img.resize(128, 128, Image.INTERPOLATE_LANCZOS)
+				var tex: ImageTexture = ImageTexture.create_from_image(r_img)
+				_thumb_cache["file:" + icon_p] = tex
+				return tex
+			_thumb_cache["file:" + icon_p] = r
+			return r as Texture2D
 	return null
 
 
@@ -1794,15 +1803,20 @@ func _on_custom_icon_file_selected(src_path: String) -> void:
 	_ensure_dirs()
 	var ext: String = src_path.get_extension().to_lower()
 	var slug: String = _slugify(_icon_target_item_id)
-	var dst_proj: String = "%s/%s_icon.%s" % [PROJECT_PUBLISHED_DIR, slug, ext]
-	var dst_user: String = "%s/%s_icon.%s" % [USER_SAVED_DIR, slug, ext]
+	var dst_proj: String = "%s/%s_icon.png" % [PROJECT_PUBLISHED_DIR, slug]
+	var dst_user: String = "%s/%s_icon.png" % [USER_SAVED_DIR, slug]
 
-	var wf1: FileAccess = FileAccess.open(dst_proj, FileAccess.WRITE)
-	if wf1 != null:
-		wf1.store_buffer(bytes)
-	var wf2: FileAccess = FileAccess.open(dst_user, FileAccess.WRITE)
-	if wf2 != null:
-		wf2.store_buffer(bytes)
+	var src_load_p: String = global_src if FileAccess.file_exists(global_src) else src_path
+	var img: Image = Image.load_from_file(src_load_p)
+	if img != null and not img.is_empty():
+		img.resize(128, 128, Image.INTERPOLATE_LANCZOS)
+		img.save_png(ProjectSettings.globalize_path(dst_proj))
+		img.save_png(ProjectSettings.globalize_path(dst_user))
+	else:
+		var wf1: FileAccess = FileAccess.open(dst_proj, FileAccess.WRITE)
+		if wf1 != null: wf1.store_buffer(bytes)
+		var wf2: FileAccess = FileAccess.open(dst_user, FileAccess.WRITE)
+		if wf2 != null: wf2.store_buffer(bytes)
 
 	_thumb_cache.erase("file:" + dst_proj)
 	_thumb_cache.erase("file:" + dst_user)
@@ -2690,6 +2704,19 @@ func _on_upload_pressed() -> void:
 
 
 func _on_files_uploaded(paths: PackedStringArray) -> void:
+	if paths.size() == 1:
+		var single_p: String = paths[0]
+		var fname: String = single_p.get_file()
+		open_publish_dialog_for_selection()
+		_pub_title_input.text = fname.get_basename().replace("_", " ").capitalize()
+		var ext: String = fname.get_extension().to_lower()
+		if ext == "gd":
+			_pub_cat_option.selected = 1 # Scripts
+			_pub_mode_option.selected = 1 # Script only
+		elif ext in ["mp3", "wav", "ogg", "png", "jpg", "jpeg"]:
+			_pub_cat_option.selected = 3 # Audio & Decals
+		_set_status("Selected '%s' for publishing. Snapshot or choose an icon, then click OK!" % fname, Color(0.45, 0.88, 1.0))
+		return
 	_ensure_dirs()
 	var imported_count: int = 0
 	for src_path in paths:

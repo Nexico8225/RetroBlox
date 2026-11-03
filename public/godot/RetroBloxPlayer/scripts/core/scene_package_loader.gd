@@ -164,6 +164,12 @@ static func parse_rbxpkg_bytes_in_ram(raw_bytes: PackedByteArray) -> Dictionary:
 		var parsed: Variant = JSON.parse_string(text)
 		if parsed is Dictionary:
 			return parsed as Dictionary
+	elif text.begins_with("[gd_scene") or text.contains("[node name=") or text.contains("[ext_resource"):
+		# Native Godot .tscn file stream!
+		return {
+			"format": "tscn_raw",
+			"raw_text": text
+		}
 	return {}
 
 
@@ -198,6 +204,15 @@ static func stream_game_into_ram(api_node: Node, game_id: String, explicit_pkg_u
 	if not pkg.is_empty():
 		pkg["game_id"] = gid
 		pkg["creator_username"] = creator_uname
+		if String(pkg.get("format", "")) == "tscn_raw":
+			# Save to user cache dir for seamless Godot Resource loading
+			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://games_cache"))
+			var cache_path: String = "user://games_cache/%s.tscn" % gid.validate_filename()
+			var f: FileAccess = FileAccess.open(cache_path, FileAccess.WRITE)
+			if f != null:
+				f.store_string(String(pkg.get("raw_text", "")))
+				pkg["format"] = "tscn"
+				pkg["scene_path"] = cache_path
 	return pkg
 
 
@@ -206,7 +221,22 @@ static func apply_ram_package_to_world(world_node: Node3D, pkg: Dictionary) -> A
 	if world_node == null or pkg.is_empty():
 		return spawns
 
-	# Compile any bundled custom GDScripts directly in RAM (no disk writes!)
+	# A) Native Godot .tscn scene loading
+	if String(pkg.get("format", "")) == "tscn":
+		var scene_path: String = String(pkg.get("scene_path", ""))
+		if scene_path != "" and FileAccess.file_exists(scene_path):
+			var packed_sc: PackedScene = load(scene_path) as PackedScene
+			if packed_sc != null:
+				var inst: Node = packed_sc.instantiate()
+				if inst != null:
+					_strip_duplicate_controllers(inst)
+					world_node.add_child(inst)
+					_collect_spawns_from_node(inst, spawns)
+					_apply_scene_lighting(inst, world_node)
+					print("[RetroBlox Launcher] Instantiated native Godot scene '%s' with %d spawn(s)!" % [scene_path, spawns.size()])
+		return spawns
+
+	# B) Compact .rbxpkg in-RAM world reconstruction
 	var compiled_scripts: Dictionary = {}
 	if pkg.get("scripts") is Dictionary:
 		var smap: Dictionary = pkg["scripts"] as Dictionary
@@ -300,3 +330,70 @@ static func apply_ram_package_to_world(world_node: Node3D, pkg: Dictionary) -> A
 		world_node.add_child(sb)
 
 	return spawns
+
+
+static func _strip_duplicate_controllers(root_n: Node) -> void:
+	if root_n == null:
+		return
+	var s: Variant = root_n.get_script()
+	if s != null and (s is Script):
+		var sp: String = (s as Script).resource_path.to_lower()
+		if sp.ends_with("game.gd") or sp.ends_with("main.gd") or sp.ends_with("client.gd"):
+			root_n.set_script(null)
+
+	var to_remove: Array[Node] = []
+	var stack: Array[Node] = [root_n]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		for c in cur.get_children():
+			stack.append(c)
+		var cname: String = cur.name.to_lower()
+		var cs: Variant = cur.get_script()
+		if cs != null and (cs is Script):
+			var csp: String = (cs as Script).resource_path.to_lower()
+			if csp.ends_with("game.gd") or csp.ends_with("chat_box.gd") or csp.ends_with("color_world_ui.gd"):
+				cur.set_script(null)
+		if cur is CanvasLayer or cname == "hud" or cname == "chatbox" or cname == "topbar":
+			to_remove.append(cur)
+		elif cur is Camera3D:
+			(cur as Camera3D).current = false
+			to_remove.append(cur)
+		elif cname == "localplayer" or cname == "camerarig":
+			to_remove.append(cur)
+
+	for rem in to_remove:
+		if is_instance_valid(rem):
+			rem.queue_free()
+
+
+static func _collect_spawns_from_node(root_n: Node, out_spawns: Array[Vector3]) -> void:
+	var stack: Array[Node] = [root_n]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		for c in cur.get_children():
+			stack.append(c)
+		var cname: String = cur.name.to_lower()
+		if cur is Node3D and (cname.contains("spawn") or cur.has_meta("is_spawn_location")):
+			out_spawns.append((cur as Node3D).global_position + Vector3(0, 1.5, 0))
+
+
+static func _apply_scene_lighting(scene_inst: Node, world_ref: Node3D) -> void:
+	var root_env: WorldEnvironment = world_ref.get_node_or_null("WorldEnvironment") as WorldEnvironment
+	var root_sun: DirectionalLight3D = world_ref.get_node_or_null("Sun") as DirectionalLight3D
+	var stack: Array[Node] = [scene_inst]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		for c in cur.get_children():
+			stack.append(c)
+		if cur is WorldEnvironment and cur != root_env:
+			var w: WorldEnvironment = cur as WorldEnvironment
+			if w.environment != null and root_env != null:
+				root_env.environment = w.environment
+				if root_env.environment.tonemap_mode == Environment.TONE_MAPPER_LINEAR:
+					root_env.environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+				if root_env.environment.tonemap_exposure > 1.05:
+					root_env.environment.tonemap_exposure = 0.95
+			w.environment = null
+		elif cur is DirectionalLight3D and cur != root_sun:
+			if root_sun != null:
+				root_sun.visible = false

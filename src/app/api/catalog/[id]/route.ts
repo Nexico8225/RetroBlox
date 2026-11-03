@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserFromReq } from '@/lib/auth'
+import { getUserFromReq, isUserAdmin } from '@/lib/auth'
 import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson } from '@/lib/avatarAssets'
 import { buyPrice, RbxError } from '@/lib/rbx'
 import { saveUpload, resolveUpload } from '@/lib/uploads'
@@ -86,7 +86,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       // the price THAT buyer paid (sale #k paid ladder[k-1])
       paid: item.isLimited ? buyPrice(item, Math.max(0, sold - sales.indexOf(s) - 1)) : buyPrice(item, sold),
     })),
-    canDelete: !!viewer && (viewer.role === 'admin' || viewer.id === item.creatorId || (item.groupId && viewer.id === (await db.group.findUnique({ where: { id: item.groupId }, select: { ownerId: true } }))?.ownerId)),
+    canDelete: !!viewer && (isUserAdmin(viewer) || viewer.id === item.creatorId || (item.groupId && viewer.id === (await db.group.findUnique({ where: { id: item.groupId }, select: { ownerId: true } }))?.ownerId)),
   })
 }
 
@@ -104,7 +104,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const isCreator = item.creatorId === user.id
   const isGroupOwner = !!item.group && item.group.ownerId === user.id
-  const isAdmin = user.role === 'admin'
+  const isAdmin = isUserAdmin(user)
   if (!isCreator && !isGroupOwner && !isAdmin) {
     return NextResponse.json({ error: 'Only the owner of this item can edit it.' }, { status: 403 })
   }
@@ -362,7 +362,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const isCreator = item.creatorId === user.id
   const isGroupOwner = !!item.group && item.group.ownerId === user.id
-  const isAdmin = user.role === 'admin'
+  const isAdmin = isUserAdmin(user)
   if (!isCreator && !isGroupOwner && !isAdmin) {
     return NextResponse.json({ error: 'Only the creator, the group owner, or an admin can delete UGC.' }, { status: 403 })
   }

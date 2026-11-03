@@ -188,6 +188,7 @@ func _ready() -> void:
 				if not ram_spawns.is_empty():
 					_spawns = ram_spawns
 					player.global_position = _spawns[0]
+					player.spawn_point = Transform3D(Basis(), _spawns[0])player.global_position = _spawns[0]
 		_ensure_default_item_spawners(existing_world)
 		_ensure_default_gamepass_pad(existing_world)
 	_dress_me()
