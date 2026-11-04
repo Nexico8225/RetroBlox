@@ -59,13 +59,24 @@ function createClient(): PrismaClient {
       url,
       ...(authToken ? { authToken } : {}),
     })
-    return new PrismaClient({ log: ['error'], adapter })
+    return new PrismaClient({
+      log: ['error'],
+      adapter,
+      transactionOptions: {
+        maxWait: 20000,
+        timeout: 60000,
+      },
+    })
   }
 
   // LOCAL FILE — bundled / dev / self-hosted SQLite.
   return new PrismaClient({
     log: ['error'],
     datasourceUrl: resolveDatasourceUrl(),
+    transactionOptions: {
+      maxWait: 20000,
+      timeout: 60000,
+    },
   })
 }
 

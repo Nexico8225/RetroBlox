@@ -92,22 +92,24 @@ async function purgeUsersChunk(targetIds: string[]): Promise<number> {
   await db.trade.deleteMany({ where: { OR: [{ fromUserId: { in: targetIds } }, { toUserId: { in: targetIds } }] } }).catch(() => {})
 
   // 3. User related entities: Notifications, Inventory, Sessions, Transactions, Presence, Chat
-  await db.notification.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.inventoryEntry.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.session.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.rbxTransaction.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.payment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.avatarConfig.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.gameData.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.placeChatMessage.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.placeChat.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.placePresence.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.playerPresence.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.chatMessage.deleteMany({ where: { OR: [{ senderId: { in: targetIds } }, { recipientId: { in: targetIds } }] } }).catch(() => {})
-  await db.friendship.deleteMany({ where: { OR: [{ requesterId: { in: targetIds } }, { addresseeId: { in: targetIds } }] } }).catch(() => {})
-  await db.follow.deleteMany({ where: { OR: [{ followerId: { in: targetIds } }, { followingId: { in: targetIds } }] } }).catch(() => {})
-  await db.itemComment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.ugcPricePoint.deleteMany({ where: { OR: [{ buyerId: { in: targetIds } }, { sellerId: { in: targetIds } }] } }).catch(() => {})
+  await Promise.allSettled([
+    db.notification.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.inventoryEntry.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.session.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.rbxTransaction.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.payment.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.avatarConfig.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.gameData.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.placeChatMessage.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.placeChat.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.placePresence.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.playerPresence.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.chatMessage.deleteMany({ where: { OR: [{ senderId: { in: targetIds } }, { recipientId: { in: targetIds } }] } }),
+    db.friendship.deleteMany({ where: { OR: [{ requesterId: { in: targetIds } }, { addresseeId: { in: targetIds } }] } }),
+    db.follow.deleteMany({ where: { OR: [{ followerId: { in: targetIds } }, { followingId: { in: targetIds } }] } }),
+    db.itemComment.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.ugcPricePoint.deleteMany({ where: { OR: [{ buyerId: { in: targetIds } }, { sellerId: { in: targetIds } }] } }),
+  ])
 
   // 4. UGC items created by any of these users
   const userItems = await db.avatarItem.findMany({ where: { creatorId: { in: targetIds } }, select: { id: true } })
@@ -179,13 +181,15 @@ async function purgeUsersChunk(targetIds: string[]): Promise<number> {
   await db.musicTrack.deleteMany({ where: { creatorId: { in: targetIds } } }).catch(() => {})
 
   // 7. Games & Plays
-  await db.playerBadge.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.gameDownload.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.gameLike.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.favorite.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.comment.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.gamePlay.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
-  await db.playSession.deleteMany({ where: { userId: { in: targetIds } } }).catch(() => {})
+  await Promise.allSettled([
+    db.playerBadge.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.gameDownload.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.gameLike.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.favorite.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.comment.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.gamePlay.deleteMany({ where: { userId: { in: targetIds } } }),
+    db.playSession.deleteMany({ where: { userId: { in: targetIds } } }),
+  ])
 
   const userGames = await db.game.findMany({ where: { creatorId: { in: targetIds } }, select: { id: true } })
   const gameIds = userGames.map((g) => g.id)
@@ -252,8 +256,8 @@ export async function POST(req: NextRequest) {
 
   let itemsDeleted = 0
   try {
-    // Process in chunks of 50 accounts to keep queries fast and avoid SQLite statement limits
-    const CHUNK_SIZE = 50
+    // Process in chunks of 10 accounts to keep queries fast and stay well within transaction limits
+    const CHUNK_SIZE = 10
     for (let i = 0; i < targetIds.length; i += CHUNK_SIZE) {
       const chunk = targetIds.slice(i, i + CHUNK_SIZE)
       const count = await purgeUsersChunk(chunk)
