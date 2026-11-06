@@ -33,6 +33,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           },
           requestsSent: { where: { status: 'accepted' }, select: { addresseeId: true } },
           requestsRecv: { where: { status: 'accepted' }, select: { requesterId: true } },
+          inventory: {
+            include: { item: true },
+            orderBy: { acquiredAt: 'desc' },
+          },
         },
       })
     : null
@@ -150,5 +154,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     friendState,
     friendshipId,
     isMe,
+    inventory: user.inventory.map((entry) => ({
+      id: entry.item.id,
+      assetId: entry.item.assetId,
+      name: entry.item.name,
+      description: entry.item.description,
+      type: entry.item.type,
+      price: entry.item.price,
+      isLimited: entry.item.isLimited,
+      imageFileId: entry.item.imageFileId,
+      stock: entry.item.stock,
+      acquiredAt: entry.acquiredAt,
+    })),
   })
 }
