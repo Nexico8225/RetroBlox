@@ -71,6 +71,11 @@ export async function GET(req: NextRequest) {
   if (creatorId) where.creatorId = creatorId
   if (sort === 'gems') where.gem = true
 
+  const viewer = await getUserFromReq(req)
+  if (!creatorId || !viewer || creatorId !== viewer.id) {
+    where.visibility = { not: 'private' }
+  }
+
   const orderBy: Prisma.GameOrderByWithRelationInput[] =
     sort === 'recent'
       ? [{ createdAt: 'desc' }]
@@ -186,6 +191,7 @@ export async function POST(req: NextRequest) {
     const subgenre = String(form.get('subgenre') || '').trim()
     const engine = String(form.get('engine') || 'Other')
     const maturity = String(form.get('maturity') || 'Minimal')
+    const visibility = String(form.get('visibility') || 'public') // 'public' | 'private' | 'friends'
 
     if (name.length < 3 || name.length > 60) {
       return NextResponse.json({ error: 'Game name must be 3-60 characters.' }, { status: 400 })
@@ -291,6 +297,7 @@ export async function POST(req: NextRequest) {
         subgenre,
         engine,
         maturity,
+        visibility,
         iconUrl,
         thumbnailUrl,
         ...(saved ? { fileId: saved.id, fileName: saved.filename || (gameFile instanceof File ? gameFile.name : 'game.exe') } : {}),

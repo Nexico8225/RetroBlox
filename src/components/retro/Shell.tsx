@@ -81,6 +81,7 @@ const NAV = [
   { label: 'Catalog', href: '/catalog' },
   { label: 'Avatar', href: '/avatar' },
   { label: 'Create', href: '/create' },
+  { label: 'Launcher', href: '/downloads/RetroBloxLauncher.exe' },
   { label: 'SDK', href: '/sdk' },
   { label: 'Videos', href: '/videos' },
   { label: 'Groups', href: '/groups' },
@@ -181,6 +182,28 @@ export function Header() {
         {/* Right side — guests get Log In + Sign Up (logo LEFT, Sign Up RIGHT);
             members get the wallet chip, chat and profile actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          <a
+            href="/downloads/RetroBloxLauncher.exe"
+            download="RetroBloxLauncher.exe"
+            title="Download the RetroBlox Universal Game Launcher for Windows"
+            className="rb-header-chip"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              background: 'linear-gradient(180deg, #2ecc71, #27ae60)',
+              border: '1px solid #1e8449',
+              borderRadius: 4,
+              padding: '3px 9px',
+              color: '#fff',
+              textDecoration: 'none',
+              fontSize: 11,
+              fontWeight: 'bold',
+              boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+            }}
+          >
+            <span>📥 Get Launcher</span>
+          </a>
           {user ? (
             <>
               <Link

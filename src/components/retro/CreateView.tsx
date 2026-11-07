@@ -26,6 +26,7 @@ export function CreateView() {
   const [subgenre, setSubgenre] = useState('')
   const [engine, setEngine] = useState('Godot')
   const [maturity, setMaturity] = useState('Minimal')
+  const [visibility, setVisibility] = useState<'public' | 'private' | 'friends'>('public')
   // Web studio: the game's code + which starter template is loaded + test play
   const [webCode, setWebCode] = useState('')
   const [webTemplate, setWebTemplate] = useState('blank')
@@ -145,6 +146,7 @@ export function CreateView() {
       fd.append('subgenre', subgenre.trim())
       fd.append('engine', engine)
       fd.append('maturity', maturity)
+      fd.append('visibility', visibility)
       if (groupId) fd.append('groupId', groupId)
       if (icon) fd.append('icon', icon)
       if (thumb) fd.append('thumbnail', thumb)
@@ -260,6 +262,22 @@ export function CreateView() {
           </select>
           <div style={{ fontSize: 10, color: '#7b8896', marginTop: 4 }}>
             Publishing into a group shows the game on that group&apos;s page too.
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle} htmlFor="g-visibility">Privacy &amp; Visibility</label>
+          <select id="g-visibility" className="rb-select" value={visibility} onChange={(e) => setVisibility(e.target.value as any)} style={{ width: '100%' }}>
+            <option value="public">🌐 Public — listed on Browse Games &amp; Home for everyone</option>
+            <option value="private">🔒 Private (Cloud Drive Mode) — only YOU can see &amp; play</option>
+            <option value="friends">👥 Friends Only — only your friends can see &amp; play</option>
+          </select>
+          <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 4 }}>
+            {visibility === 'private'
+              ? '🔒 Private Cloud Drive: Stored in your library for you to play anytime. It will NOT appear in public browse or search!'
+              : visibility === 'friends'
+              ? '👥 Only your friends can see and launch this game.'
+              : '🌐 Public: Anyone on RetroBlox can discover, download, and play your game.'}
           </div>
         </div>
 
