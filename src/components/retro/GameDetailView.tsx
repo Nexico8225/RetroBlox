@@ -1550,12 +1550,12 @@ export function GameDetailView({ id }: { id: string }) {
                   </button>
                 )}
                 <a
-                  href="/godot/retroblox-godot-player.zip"
-                  download="RetroBloxPlayer.zip"
+                  href="/downloads/RetroBloxLauncher.exe"
+                  download="RetroBloxLauncher.exe"
                   className="rb-btn rb-btn-blue"
                   style={{ display: 'block', width: '100%', padding: '9px 0', fontSize: 12, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
                 >
-                  📥 Download RetroBlox Launcher (One-time Setup)
+                  📥 Download RetroBlox Launcher (.exe)
                 </a>
               </div>
             </div>
