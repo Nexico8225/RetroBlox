@@ -64,6 +64,7 @@ model User {
   rbxBalance    Int           @default(0) // server-side RBX wallet — only the ledger moves it
   rbxTransactions RbxTransaction[]
   payments      Payment[]
+  gameSaves     GameSave[]
 }
 
 model Session {
@@ -121,6 +122,21 @@ model Game {
   plays          GamePlay[]
   playSessions   PlaySession[]
   downloadsBy    GameDownload[]
+  saves          GameSave[]
+}
+
+model GameSave {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Bytes    // raw zipped or binary save files (10KB - 5MB)
+  size      Int
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([gameId, userId])
 }
 
 model GameLike {
