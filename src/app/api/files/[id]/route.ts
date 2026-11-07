@@ -20,7 +20,9 @@ export const maxDuration = 60
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const file = await db.uploadedFile.findUnique({ where: { id } })
-  if (!file) {
+  const hasDisk = Boolean(file?.path && existsSync(file.path))
+
+  if (!file || (!file.data && !hasDisk)) {
     // big game builds live as KEPT CHUNK ROWS (never one giant blob) —
     // stream the chunks one row at a time so the function never holds the
     // whole file in memory and the browser sees a real Content-Length
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const total = rows.reduce((s, r) => s + (r.size || 0), 0)
     const download = new URL(req.url).searchParams.get('dl') === '1'
     const headers: Record<string, string> = {
-      'Content-Type': rows[0].mimeType || 'application/zip',
+      'Content-Type': rows[0].mimeType || 'application/octet-stream',
       'Content-Length': String(total),
       'Accept-Ranges': 'none',
       'Access-Control-Allow-Origin': '*',
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       'Access-Control-Allow-Headers': '*',
     }
     if (download) {
-      headers['Content-Disposition'] = `attachment; filename="${path.basename(rows[0].filename || 'game.zip')}"`
+      headers['Content-Disposition'] = `attachment; filename="${path.basename(rows[0].filename || 'game.exe')}"`
     }
     const ids = rows.map((r) => r.id)
     const stream = new ReadableStream({

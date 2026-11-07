@@ -270,7 +270,7 @@ export async function resolveGameUpload(
   const uploadId = typeof idField === 'string' ? idField.trim() : ''
   const customName = typeof fileNameField === 'string' ? fileNameField.trim() : ''
 
-  if (uploadId && /^[a-zA-Z0-9]{8,64}$/.test(uploadId)) {
+  if (uploadId && /^[a-zA-Z0-9_-]{8,64}$/.test(uploadId)) {
     // 1. Rename chunk: -> keep: in database (universal across Vercel, Turso cloud DB, and local)
     const keptCount = await keepChunks(uploadId)
     if (keptCount > 0) {

@@ -96,7 +96,7 @@ export function CreateView() {
 
       // For files larger than 2MB, slice into ~2MB chunks so requests stay under Vercel's 4.5MB limit
       if (engine !== 'Web' && gameFile && gameFile.size > 2 * 1024 * 1024) {
-        gameUploadId = 'up_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36)
+        gameUploadId = 'up' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36)
         const CHUNK_SIZE = 2 * 1024 * 1024 // 2MB binary -> ~2.7MB base64
         const totalChunks = Math.ceil(gameFile.size / CHUNK_SIZE)
 
@@ -128,6 +128,8 @@ export function CreateView() {
               mime: gameFile.type || 'application/octet-stream',
               b64,
             }),
+          }).catch((err) => {
+            throw new Error(`Upload failed at chunk ${i + 1}/${totalChunks}: ${err?.message || 'Server error'}`)
           })
         }
         setUploadStatus('Finalizing upload and publishing...')

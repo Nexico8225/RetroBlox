@@ -310,9 +310,9 @@ export async function POST(req: NextRequest) {
     await db.game.update({ where: { id: game.id }, data: { seqId: (maxSeq._max.seqId ?? 0) + 1 } }).catch(() => {})
 
     return NextResponse.json({ game: { id: game.id, name: game.name, seqId: (maxSeq._max.seqId ?? 0) + 1 } })
-  } catch (e) {
+  } catch (e: any) {
     console.error('publish error', e)
-    return NextResponse.json({ error: 'Failed to publish game. Try again.' }, { status: 500 })
+    return NextResponse.json({ error: e?.message || 'Failed to publish game. Try again.' }, { status: 500 })
   }
 }
 

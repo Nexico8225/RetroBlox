@@ -1161,6 +1161,26 @@ export function GameDetailView({ id }: { id: string }) {
                       </div>
                     </>
                   )}
+                  <button
+                    type="button"
+                    className="rb-btn"
+                    onClick={downloadDirectFile}
+                    style={{
+                      width: '100%',
+                      marginTop: 8,
+                      fontSize: 12,
+                      padding: '7px 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      background: 'linear-gradient(180deg,#ffffff,#edf3f8)',
+                      borderColor: '#9cb0c1',
+                    }}
+                  >
+                    💾 Download to Drive ({game.fileName || 'Game Build'})
+                  </button>
+
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 7, flexWrap: 'wrap' }}>
                     <button
                       type="button"
@@ -1517,6 +1537,16 @@ export function GameDetailView({ id }: { id: string }) {
                     }}
                   >
                     ▶ Open in RetroBlox Launcher
+                  </button>
+                )}
+                {game?.fileId && (
+                  <button
+                    type="button"
+                    className="rb-btn"
+                    onClick={downloadDirectFile}
+                    style={{ width: '100%', padding: '9px 0', fontSize: 12, fontWeight: 'bold', background: '#fff' }}
+                  >
+                    💾 Download Game to Drive ({game.fileName || 'Game Build'})
                   </button>
                 )}
                 <a
