@@ -23,9 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const hasDisk = Boolean(file?.path && existsSync(file.path))
 
   if (!file || (!file.data && !hasDisk)) {
-    // big game builds live as KEPT CHUNK ROWS (never one giant blob) —
-    // stream the chunks one row at a time so the function never holds the
-    // whole file in memory and the browser sees a real Content-Length
+    // big game builds live as KEPT CHUNK ROWS (never one giant blob)
     const prefix = `keep:${id}:`
     const rows = await db.uploadedFile.findMany({
       where: { path: { startsWith: prefix } },
@@ -41,7 +39,54 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
     const total = rows.reduce((s, r) => s + (r.size || 0), 0)
-    const download = new URL(req.url).searchParams.get('dl') === '1'
+    const urlObj = new URL(req.url)
+
+    // 1. Info query for Launcher high-speed parallel chunking
+    if (urlObj.searchParams.get('info') === '1') {
+      return NextResponse.json({
+        ok: true,
+        id,
+        filename: rows[0].filename || 'game.bin',
+        totalSize: total,
+        totalChunks: rows.length,
+        mimeType: rows[0].mimeType || 'application/octet-stream',
+        chunkSizes: rows.map((r) => r.size || 0),
+      }, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+        }
+      })
+    }
+
+    // 2. Individual chunk fetch for the Launcher
+    const chunkParam = urlObj.searchParams.get('chunk')
+    if (chunkParam !== null) {
+      const idx = Number(chunkParam)
+      if (!Number.isInteger(idx) || idx < 0 || idx >= rows.length) {
+        return NextResponse.json({ error: 'Chunk index out of bounds' }, { status: 400 })
+      }
+      const targetRow = rows[idx]
+      const chunkData = await db.uploadedFile.findUnique({
+        where: { id: targetRow.id },
+        select: { data: true, size: true },
+      })
+      if (!chunkData?.data) {
+        return NextResponse.json({ error: 'Chunk data missing' }, { status: 404 })
+      }
+      return new NextResponse(chunkData.data, {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': String(chunkData.data.length),
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+        },
+      })
+    }
+
+    const download = urlObj.searchParams.get('dl') === '1'
     const headers: Record<string, string> = {
       'Content-Type': rows[0].mimeType || 'application/octet-stream',
       'Content-Length': String(total),

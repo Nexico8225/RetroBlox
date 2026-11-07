@@ -94,44 +94,47 @@ export function CreateView() {
     try {
       let gameUploadId = ''
 
-      // For files larger than 2MB, slice into ~2MB chunks so requests stay under Vercel's 4.5MB limit
+      // High-speed chunked upload for files > 2MB: raw binary chunks, 3.5MB slices, 3x parallel streams
       if (engine !== 'Web' && gameFile && gameFile.size > 2 * 1024 * 1024) {
         gameUploadId = 'up' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36)
-        const CHUNK_SIZE = 2 * 1024 * 1024 // 2MB binary -> ~2.7MB base64
+        const CHUNK_SIZE = 3.5 * 1024 * 1024 // 3.5MB raw binary (fast, fits under Vercel 4.5MB body limit)
         const totalChunks = Math.ceil(gameFile.size / CHUNK_SIZE)
+        let uploadedChunks = 0
 
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * CHUNK_SIZE
-          const end = Math.min(gameFile.size, start + CHUNK_SIZE)
-          const chunkBlob = gameFile.slice(start, end)
+        // Process with concurrency of 3 parallel uploads
+        const queue: number[] = Array.from({ length: totalChunks }, (_, i) => i)
+        const worker = async () => {
+          while (queue.length > 0) {
+            const i = queue.shift()!
+            const start = i * CHUNK_SIZE
+            const end = Math.min(gameFile.size, start + CHUNK_SIZE)
+            const chunkBlob = gameFile.slice(start, end)
 
-          const b64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = () => {
-              const res = String(reader.result || '')
-              resolve(res.includes(',') ? res.split(',')[1] : res)
-            }
-            reader.onerror = () => reject(new Error(`Failed to read chunk ${i + 1}`))
-            reader.readAsDataURL(chunkBlob)
-          })
+            const chunkFd = new FormData()
+            chunkFd.append('uploadId', gameUploadId)
+            chunkFd.append('idx', String(i))
+            chunkFd.append('name', gameFile.name)
+            chunkFd.append('mime', gameFile.type || 'application/octet-stream')
+            chunkFd.append('file', chunkBlob, 'chunk.bin')
 
-          const pct = Math.round(((i + 1) / totalChunks) * 100)
-          setUploadProgress(pct)
-          setUploadStatus(`Uploading ${gameFile.name}: ${pct}% (${(end / (1024 * 1024)).toFixed(1)} MB / ${(gameFile.size / (1024 * 1024)).toFixed(1)} MB)...`)
+            await api('/api/uploads/chunk', {
+              method: 'POST',
+              body: chunkFd,
+            }).catch((err) => {
+              throw new Error(`Upload failed at chunk ${i + 1}/${totalChunks}: ${err?.message || 'Server error'}`)
+            })
 
-          await api('/api/uploads/chunk', {
-            method: 'POST',
-            body: JSON.stringify({
-              uploadId: gameUploadId,
-              idx: i,
-              name: gameFile.name,
-              mime: gameFile.type || 'application/octet-stream',
-              b64,
-            }),
-          }).catch((err) => {
-            throw new Error(`Upload failed at chunk ${i + 1}/${totalChunks}: ${err?.message || 'Server error'}`)
-          })
+            uploadedChunks++
+            const pct = Math.round((uploadedChunks / totalChunks) * 100)
+            const uploadedMB = (Math.min(gameFile.size, uploadedChunks * CHUNK_SIZE) / (1024 * 1024)).toFixed(1)
+            const totalMB = (gameFile.size / (1024 * 1024)).toFixed(1)
+            setUploadProgress(pct)
+            setUploadStatus(`Uploading ${gameFile.name}: ${pct}% (${uploadedMB} MB / ${totalMB} MB)...`)
+          }
         }
+
+        // Run 3 workers in parallel
+        await Promise.all([worker(), worker(), worker()])
         setUploadStatus('Finalizing upload and publishing...')
       }
 
