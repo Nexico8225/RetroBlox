@@ -1,43 +1,70 @@
 import { randomBytes } from 'crypto'
-import { writeFile, mkdir } from 'fs/promises'
+import { writeFile, mkdir, rm, readdir, stat } from 'fs/promises'
+import { createReadStream, createWriteStream, existsSync, statSync, mkdirSync } from 'fs'
+import { pipeline } from 'stream/promises'
+import { Readable } from 'stream'
 import { tmpdir } from 'os'
 import path from 'path'
 import { db } from '@/lib/db'
 
-const UPLOAD_DIR = '/home/z/my-project/uploads/games'
-const TMP_UPLOAD_DIR = 'retroblox-uploads'
+export const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'upload', 'games')
+export const TMP_UPLOAD_DIR = path.join(tmpdir(), 'retroblox-uploads')
+
+// Ensure upload root dirs exist
+try {
+  mkdirSync(UPLOAD_DIR, { recursive: true })
+} catch {}
+try {
+  mkdirSync(TMP_UPLOAD_DIR, { recursive: true })
+} catch {}
 
 /**
  * Save an uploaded file to DISK (fast local cache / large-file streaming)
- * AND into the DATABASE as a BLOB (source of truth for serving).
+ * AND into the DATABASE as a BLOB if small enough (source of truth for serving).
  *
- * Why both? The live domain (retroblox.space-z.ai) runs the app with the
- * database but WITHOUT this server's disk — disk-only files 404 there.
- * Bytes in the DB travel wherever the DB goes, so images/models/audio
- * always resolve on every host.
+ * Supports files up to 5 GB: for large files (>16MB), data is streamed
+ * directly to disk and the database row stores { path, size, data: null }.
  */
-export async function saveUpload(file: File, userId: string) {
+export async function saveUpload(file: File, userId?: string) {
   const id = randomBytes(12).toString('hex')
   const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(-80) || 'game.bin'
   const diskName = `${id}_${safeName}`
-  const buf = Buffer.from(await file.arrayBuffer())
 
-  // Best-effort disk copy (streaming fallback + easy debugging) — the DB row
-  // below is the source of truth. Serverless hosts (Vercel) have a READ-ONLY
-  // filesystem outside /tmp: the unguarded `mkdir(UPLOAD_DIR)` used to THROW
-  // there and kill every publish with a bare "Something went wrong". Now we
-  // try the project dir first (self-hosted), then /tmp (serverless), and give
-  // up silently if even that fails — publishing still works from the DB blob.
   let diskPath = path.join(UPLOAD_DIR, diskName)
-  for (const dir of [UPLOAD_DIR, path.join(tmpdir(), TMP_UPLOAD_DIR)]) {
+  const isLarge = file.size > 16 * 1024 * 1024
+
+  for (const dir of [UPLOAD_DIR, TMP_UPLOAD_DIR]) {
     try {
       await mkdir(dir, { recursive: true })
       diskPath = path.join(dir, diskName)
-      await writeFile(diskPath, buf)
+      if (isLarge) {
+        // Stream directly to disk to prevent RAM exhaustion on 100MB-5GB files
+        const webStream = file.stream()
+        const nodeStream = Readable.fromWeb(webStream as any)
+        await pipeline(nodeStream, createWriteStream(diskPath))
+      } else {
+        const buf = Buffer.from(await file.arrayBuffer())
+        await writeFile(diskPath, buf)
+      }
       break
     } catch {
-      continue // read-only host — DB blob is what the file API serves
+      continue
     }
+  }
+
+  let finalSize = file.size
+  try {
+    if (existsSync(diskPath)) {
+      finalSize = statSync(diskPath).size
+    }
+  } catch {}
+
+  // For small files, also keep the Buffer in SQLite for host portability
+  let dbBuf: Buffer | null = null
+  if (!isLarge) {
+    try {
+      dbBuf = Buffer.from(await file.arrayBuffer())
+    } catch {}
   }
 
   return db.uploadedFile.create({
@@ -46,35 +73,122 @@ export async function saveUpload(file: File, userId: string) {
       filename: file.name,
       path: diskPath,
       mimeType: file.type || 'application/octet-stream',
-      size: buf.length,
-      data: buf,
+      size: finalSize,
+      data: dbBuf,
     },
   })
 }
 
 /* ------------------------------------------------------------------
-   CHUNKED UPLOADS — Vercel serverless functions reject request
-   bodies over 4.5MB, but creators can publish models up to 24MB
-   (a GLB with embedded textures crosses that line easily). Big
-   files go up first as ~2.5MB chunks via /api/uploads/chunk, then
-   the API route assembles them. Zero new schema: chunks are
-   ordinary UploadedFile rows tagged with a `chunk:<id>:<idx>` path.
+   CHUNKED UPLOADS — Supports UGC models and games up to 5 GB.
+   Chunks are streamed directly to disk in temporary upload folders,
+   then concatenated with 0 RAM spikes when completed.
 ------------------------------------------------------------------ */
 
-const CHUNK_PREFIX = 'chunk:'
+export const CHUNK_PREFIX = 'chunk:'
 
-/* ------------------------------------------------------------------
-   KEPT CHUNKS — big game builds never re-assemble into one row (a
-   60MB+ blob write would blow the DB statement limit). The games API
-   "keeps" the freshly uploaded chunks by renaming their path prefix
-   chunk: -> keep:, and /api/files/{id} streams the concatenation for
-   that id. purgeStaleChunks only sweeps the chunk: prefix, so kept
-   rows live as long as the game does.
------------------------------------------------------------------- */
+/** Save a raw chunk to disk in a dedicated upload temp folder */
+export async function saveDiskChunk(
+  uploadId: string,
+  idx: number,
+  chunkBuf: Buffer,
+  name: string = 'game.bin',
+  mime: string = 'application/octet-stream'
+): Promise<number> {
+  const uploadDir = path.join(TMP_UPLOAD_DIR, uploadId)
+  await mkdir(uploadDir, { recursive: true })
 
-/** rename a chunk set to its kept form; returns the chunk count (0 = no set).
- *  Selects ONLY id+path — pulling the blobs here would drag the whole
- *  multi-MB file into memory for a rename. */
+  const chunkPath = path.join(uploadDir, `${String(idx).padStart(6, '0')}.chunk`)
+  await writeFile(chunkPath, chunkBuf)
+
+  // Write a small meta file so we remember the original name and mime
+  const metaPath = path.join(uploadDir, 'meta.json')
+  await writeFile(metaPath, JSON.stringify({ name, mime }), 'utf8').catch(() => {})
+
+  return chunkBuf.length
+}
+
+/**
+ * Assemble disk-based chunks into a single file in UPLOAD_DIR and create
+ * an UploadedFile database row with data: null and the final size (up to 5 GB).
+ */
+export async function finalizeDiskChunkUpload(
+  uploadId: string,
+  customName?: string,
+  customMime?: string
+): Promise<{ id: string; filename: string; path: string; size: number } | null> {
+  const uploadDir = path.join(TMP_UPLOAD_DIR, uploadId)
+  if (!existsSync(uploadDir)) return null
+
+  let filename = customName || 'game.bin'
+  let mimeType = customMime || 'application/octet-stream'
+
+  const metaPath = path.join(uploadDir, 'meta.json')
+  if (existsSync(metaPath)) {
+    try {
+      const meta = JSON.parse(await import('fs/promises').then((m) => m.readFile(metaPath, 'utf8')))
+      if (!customName && meta.name) filename = meta.name
+      if (!customMime && meta.mime) mimeType = meta.mime
+    } catch {}
+  }
+
+  const entries = await readdir(uploadDir)
+  const chunkFiles = entries
+    .filter((f) => f.endsWith('.chunk'))
+    .sort()
+
+  if (chunkFiles.length === 0) return null
+
+  // Verify indices are contiguous
+  for (let i = 0; i < chunkFiles.length; i++) {
+    const chunkNum = parseInt(chunkFiles[i].replace('.chunk', ''), 10)
+    if (chunkNum !== i) {
+      console.error(`Chunk missing at index ${i} for upload ${uploadId}`)
+      return null
+    }
+  }
+
+  const id = uploadId.slice(0, 24)
+  const safeName = filename.replace(/[^A-Za-z0-9._-]/g, '_').slice(-80) || 'game.bin'
+  const diskName = `${id}_${safeName}`
+  const finalDiskPath = path.join(UPLOAD_DIR, diskName)
+
+  await mkdir(UPLOAD_DIR, { recursive: true })
+
+  const outStream = createWriteStream(finalDiskPath)
+  for (const chunkFile of chunkFiles) {
+    const chunkPath = path.join(uploadDir, chunkFile)
+    const inStream = createReadStream(chunkPath)
+    await pipeline(inStream, outStream, { end: false })
+  }
+  outStream.end()
+  await new Promise((resolve) => outStream.on('finish', resolve))
+
+  const finalStats = statSync(finalDiskPath)
+
+  // Clean up temp directory
+  rm(uploadDir, { recursive: true, force: true }).catch(() => {})
+
+  const row = await db.uploadedFile.create({
+    data: {
+      id,
+      filename,
+      path: finalDiskPath,
+      mimeType,
+      size: finalStats.size,
+      data: null,
+    },
+  })
+
+  return {
+    id: row.id,
+    filename: row.filename,
+    path: row.path,
+    size: row.size,
+  }
+}
+
+/** rename a chunk set to its kept form; returns the chunk count (0 = no set). */
 export async function keepChunks(uploadId: string): Promise<number> {
   const prefix = CHUNK_PREFIX + uploadId + ':'
   const chunks = await db.uploadedFile.findMany({
@@ -85,38 +199,13 @@ export async function keepChunks(uploadId: string): Promise<number> {
   if (chunks.length === 0) return 0
   for (let i = 0; i < chunks.length; i++) {
     const idx = chunks[i].path.slice(prefix.length)
-    if (Number(idx) !== i) return 0 // a hole in the sequence = broken file
+    if (Number(idx) !== i) return 0
     await db.uploadedFile.update({
       where: { id: chunks[i].id },
       data: { path: `keep:${uploadId}:${idx}` },
     })
   }
   return chunks.length
-}
-
-/** stream-source for kept chunk sets (null when the id is not one) */
-export async function loadKeptFile(id: string): Promise<{ filename: string; mimeType: string; data: Buffer } | null> {
-  const prefix = 'keep:' + id + ':'
-  const chunks = await db.uploadedFile.findMany({
-    where: { path: { startsWith: prefix } },
-    orderBy: { path: 'asc' },
-  })
-  if (chunks.length === 0) return null
-  for (let i = 0; i < chunks.length; i++) {
-    if (Number(chunks[i].path.slice(prefix.length)) !== i) return null
-  }
-  const parts: Buffer[] = []
-  let total = 0
-  for (const c of chunks) {
-    const buf = Buffer.from(c.data ?? new Uint8Array())
-    parts.push(buf)
-    total += buf.length
-  }
-  return {
-    filename: chunks[0].filename || 'game.zip',
-    mimeType: chunks[0].mimeType || 'application/zip',
-    data: Buffer.concat(parts, total),
-  }
 }
 
 /** hygiene — remove chunk rows from failed/abandoned publishes (older than a day) */
@@ -128,16 +217,10 @@ export async function purgeStaleChunks(): Promise<void> {
         createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
     })
-  } catch {
-    // hygiene only — never block an upload
-  }
+  } catch {}
 }
 
-/** assemble the chunks of one upload into ONE UploadedFile row (and delete
- *  the chunks). Returns null when nothing was uploaded under that id.
- *  The zero-padded idx inside the path makes lexicographic order numeric;
- *  contiguity is verified so a dropped chunk can never publish a broken
- *  file — it fails loudly instead. */
+/** assemble small UGC model chunks into ONE UploadedFile row (and delete the chunks) */
 export async function assembleUpload(uploadId: string): Promise<{ filename: string; mimeType: string; data: Buffer } | null> {
   const prefix = CHUNK_PREFIX + uploadId + ':'
   const chunks = await db.uploadedFile.findMany({
@@ -164,10 +247,7 @@ export async function assembleUpload(uploadId: string): Promise<{ filename: stri
   }
 }
 
-/** resolve a form file field: either the direct File, or an uploadId that
- *  references chunks uploaded via /api/uploads/chunk. Returns null when
- *  neither is present (the caller's existing "field is required" errors
- *  keep working unchanged). */
+/** resolve a form file field: direct File or uploadId */
 export async function resolveUpload(field: FormDataEntryValue | null, idField: FormDataEntryValue | null): Promise<File | null> {
   if (field instanceof File && field.size > 0) return field
   const uploadId = typeof idField === 'string' ? idField.trim() : ''
@@ -175,4 +255,53 @@ export async function resolveUpload(field: FormDataEntryValue | null, idField: F
   const row = await assembleUpload(uploadId)
   if (!row || row.data.length === 0) return null
   return new File([row.data as unknown as BlobPart], row.filename, { type: row.mimeType })
+}
+
+/**
+ * Universal Game File Resolver: handles direct Files (up to 5GB) or chunked uploadIds.
+ * Returns the saved UploadedFile record.
+ */
+export async function resolveGameUpload(
+  field: FormDataEntryValue | null,
+  idField: FormDataEntryValue | null,
+  fileNameField?: FormDataEntryValue | null,
+  userId?: string
+): Promise<{ id: string; filename: string; size: number } | null> {
+  const uploadId = typeof idField === 'string' ? idField.trim() : ''
+  const customName = typeof fileNameField === 'string' ? fileNameField.trim() : ''
+
+  if (uploadId && /^[a-zA-Z0-9]{8,64}$/.test(uploadId)) {
+    // 1. Check if finalized on disk
+    const diskResult = await finalizeDiskChunkUpload(uploadId, customName)
+    if (diskResult) return diskResult
+
+    // 2. Check if already exists in uploadedFile table
+    const existing = await db.uploadedFile.findUnique({ where: { id: uploadId.slice(0, 24) } })
+    if (existing) {
+      return { id: existing.id, filename: existing.filename, size: existing.size }
+    }
+
+    // 3. Fallback to DB-backed chunks
+    const assembled = await assembleUpload(uploadId)
+    if (assembled) {
+      const saved = await db.uploadedFile.create({
+        data: {
+          id: uploadId.slice(0, 24),
+          filename: customName || assembled.filename,
+          path: path.join(UPLOAD_DIR, `${uploadId.slice(0, 24)}_${customName || assembled.filename}`),
+          mimeType: assembled.mimeType,
+          size: assembled.data.length,
+          data: assembled.data,
+        },
+      })
+      return { id: saved.id, filename: saved.filename, size: saved.size }
+    }
+  }
+
+  if (field instanceof File && field.size > 0) {
+    const saved = await saveUpload(field, userId)
+    return { id: saved.id, filename: saved.filename, size: saved.size }
+  }
+
+  return null
 }

@@ -40,6 +40,8 @@ export function CreateView() {
   const [thumbPreview, setThumbPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [uploadStatus, setUploadStatus] = useState('')
 
   const iconRef = useRef<HTMLInputElement>(null)
 
@@ -79,11 +81,53 @@ export function CreateView() {
       }
     }
     if (engine !== 'Web' && !gameFile) {
-      setError('Attach your game package or build file! (.rbxpkg package, Godot pack, Unity build, .zip...)')
+      setError('Attach your game package or build file (.exe, .zip, .rbxpkg, Godot pack, etc.)')
+      return
+    }
+    if (gameFile && gameFile.size > 5 * 1024 * 1024 * 1024) {
+      setError('Game file is too large (maximum 5 GB).')
       return
     }
     setBusy(true)
+    setUploadProgress(null)
+    setUploadStatus('')
     try {
+      let gameUploadId = ''
+
+      // For files larger than 12MB, upload via chunked stream to handle up to 5GB without timeout
+      if (engine !== 'Web' && gameFile && gameFile.size > 12 * 1024 * 1024) {
+        gameUploadId = 'up_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36)
+        const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB chunks
+        const totalChunks = Math.ceil(gameFile.size / CHUNK_SIZE)
+
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE
+          const end = Math.min(gameFile.size, start + CHUNK_SIZE)
+          const chunkBlob = gameFile.slice(start, end)
+
+          const chunkFd = new FormData()
+          chunkFd.append('uploadId', gameUploadId)
+          chunkFd.append('idx', String(i))
+          chunkFd.append('name', gameFile.name)
+          chunkFd.append('mime', gameFile.type || 'application/octet-stream')
+          chunkFd.append('file', chunkBlob, gameFile.name)
+
+          const pct = Math.round(((i + 1) / totalChunks) * 100)
+          setUploadProgress(pct)
+          setUploadStatus(`Uploading ${gameFile.name}: ${pct}% (${(end / (1024 * 1024)).toFixed(1)} MB / ${(gameFile.size / (1024 * 1024)).toFixed(1)} MB)...`)
+
+          const chunkRes = await fetch('/api/uploads/chunk', {
+            method: 'POST',
+            body: chunkFd,
+          })
+          if (!chunkRes.ok) {
+            const errData = await chunkRes.json().catch(() => ({}))
+            throw new Error(errData.error || `Upload error on chunk ${i + 1}/${totalChunks}`)
+          }
+        }
+        setUploadStatus('Finalizing upload and publishing...')
+      }
+
       const fd = new FormData()
       fd.append('name', name.trim())
       fd.append('description', description.trim())
@@ -94,8 +138,16 @@ export function CreateView() {
       if (groupId) fd.append('groupId', groupId)
       if (icon) fd.append('icon', icon)
       if (thumb) fd.append('thumbnail', thumb)
-      if (engine === 'Web') fd.append('webCode', webCode)
-      else if (gameFile) fd.append('gameFile', gameFile)
+
+      if (engine === 'Web') {
+        fd.append('webCode', webCode)
+      } else if (gameUploadId) {
+        fd.append('gameUploadId', gameUploadId)
+        fd.append('gameFileName', gameFile!.name)
+      } else if (gameFile) {
+        fd.append('gameFile', gameFile)
+      }
+
       if (sourceFile) fd.append('sourceFile', sourceFile)
       for (const m of mediaFiles) fd.append('media', m)
 
@@ -106,6 +158,8 @@ export function CreateView() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Publish failed')
       setBusy(false)
+      setUploadProgress(null)
+      setUploadStatus('')
     }
   }
 
@@ -221,14 +275,20 @@ export function CreateView() {
           <div>
             <label style={labelStyle} htmlFor="g-engine">Engine *</label>
             <select id="g-engine" className="rb-select" value={engine} onChange={(e) => { setEngine(e.target.value); setTestOpen(false) }} style={{ width: '100%' }}>
-              <option>Unity</option>
-              <option>Godot</option>
-              <option>Unreal</option>
-              <option>GameMaker</option>
-              <option>RetroBlox Studio</option>
+              <option value="Standalone">Standalone Executable (.exe)</option>
+              <option value="Godot">Godot</option>
+              <option value="Unity">Unity</option>
+              <option value="Unreal">Unreal</option>
+              <option value="GameMaker">GameMaker</option>
+              <option value="RetroBlox Studio">RetroBlox Studio</option>
               <option value="Web">Web — code it right here!</option>
-              <option>Other</option>
+              <option value="Other">Other / Custom</option>
             </select>
+            {engine === 'Standalone' && (
+              <div style={{ fontSize: 10, color: '#0d69ac', marginTop: 4 }}>
+                Standalone Windows game (.exe) — players can install it straight through the web library and play seamlessly via the RetroBlox Launcher!
+              </div>
+            )}
             {engine === 'Unity' && (
               <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 4 }}>
                 Made in Unity? Grab the <a href="/sdk" className="rb-link">RetroBlox Player System</a> — players sign in once and spawn wearing their own avatar.
@@ -338,17 +398,39 @@ export function CreateView() {
             </div>
           </div>
         ) : (
-          <div style={{ background: '#f4f8fb', border: '1px dashed #9db2c4', borderRadius: 4, padding: 10 }}>
-            <label style={labelStyle}>Game Package / Build File * <span style={{ color: '#7b8896' }}>(max 60MB)</span></label>
+          <div style={{ background: '#f4f8fb', border: '1px dashed #9db2c4', borderRadius: 4, padding: 12 }}>
+            <label style={labelStyle}>
+              Game Package / Executable (.exe, .zip, .rbxpkg, .pck) *{' '}
+              <span style={{ color: '#008a32', fontWeight: 'bold' }}>(up to 5 GB supported)</span>
+            </label>
             <input
               type="file"
-              accept=".rbxpkg,.zip,.pck,.exe,.retroplace,*"
+              accept=".rbxpkg,.zip,.pck,.exe,.retroplace,application/x-msdownload,*"
               className="rb-input"
-              style={{ width: '100%', fontSize: 10 }}
-              onChange={(e) => setGameFile(e.target.files?.[0] || null)}
+              style={{ width: '100%', fontSize: 11 }}
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null
+                setGameFile(f)
+                if (f && f.name.toLowerCase().endsWith('.exe')) {
+                  if (engine === 'Godot' || engine === 'Other') {
+                    setEngine('Standalone')
+                  }
+                }
+              }}
             />
-            <div style={{ fontSize: 10, color: '#7b8896', marginTop: 4 }}>
-              <strong>RetroBlox Package (.rbxpkg)</strong>, Godot pack (.pck / .zip), or executable — .rbxpkg packages stream straight into RAM for 1-click instant play without saving to disk!
+            {gameFile && (
+              <div style={{ marginTop: 6, fontSize: 11, color: '#1c3a5c', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>📁 <strong>{gameFile.name}</strong></span>
+                <span style={{ color: '#667788' }}>({(gameFile.size / (1024 * 1024)).toFixed(1)} MB)</span>
+                {gameFile.name.toLowerCase().endsWith('.exe') && (
+                  <span style={{ fontSize: 9, padding: '2px 6px', background: '#e1f5fe', color: '#0277bd', borderRadius: 3, fontWeight: 'bold' }}>
+                    WINDOWS EXECUTABLE
+                  </span>
+                )}
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 6, lineHeight: 1.5 }}>
+              Upload any game! Supports non-Godot games, custom executables (.exe), Unity/Unreal builds (.zip), or RetroBlox packages. Large builds stream seamlessly up to <strong>5 GB</strong>.
             </div>
           </div>
         )}
@@ -396,8 +478,27 @@ export function CreateView() {
           </div>
         </div>
 
+        {uploadProgress !== null && (
+          <div style={{ background: '#f0f7fc', border: '1px solid #7cb5ec', borderRadius: 4, padding: '10px 12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 5, color: '#0d69ac', fontWeight: 'bold' }}>
+              <span>{uploadStatus || 'Uploading build...'}</span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <div style={{ width: '100%', height: 12, background: '#d8eaf8', borderRadius: 6, overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${uploadProgress}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #0288d1, #00c853)',
+                  transition: 'width 0.2s ease',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         <button className="rb-btn rb-btn-red" type="submit" disabled={busy} style={{ fontSize: 14, padding: '10px 0' }}>
-          {busy ? 'Publishing...' : 'Publish Game'}
+          {busy ? (uploadProgress !== null ? `Uploading (${uploadProgress}%)...` : 'Publishing...') : 'Publish Game'}
         </button>
         <div style={{ fontSize: 10, color: '#7b8896', textAlign: 'center' }}>
           New games start with 0 downloads — share the link with friends!

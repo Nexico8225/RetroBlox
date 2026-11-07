@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { saveUpload } from '@/lib/uploads'
+import { saveUpload, resolveGameUpload } from '@/lib/uploads'
 import { Prisma } from '@prisma/client'
 import { genreShelf } from '@/lib/genres'
 import { healGameSeqs } from '@/lib/seq'
@@ -207,15 +207,27 @@ export async function POST(req: NextRequest) {
     }
 
     const gameFile = form.get('gameFile')
-    if (engine !== 'Web' && (!(gameFile instanceof File) || gameFile.size === 0)) {
-      return NextResponse.json({ error: 'Please attach your game package or build file (.rbxpkg, .zip, .exe, .retroplace, etc.)' }, { status: 400 })
-    }
-    let saved: { id: string } | null = null
-    if (gameFile instanceof File && gameFile.size > 0) {
-      if (gameFile.size > 60 * 1024 * 1024) {
-        return NextResponse.json({ error: 'Game file is too large (max 60MB).' }, { status: 400 })
+    const gameUploadId = form.get('gameUploadId')
+    const gameFileName = form.get('gameFileName')
+
+    let saved: { id: string; filename: string; size: number } | null = null
+
+    if (engine !== 'Web') {
+      const hasDirect = gameFile instanceof File && gameFile.size > 0
+      const hasChunked = typeof gameUploadId === 'string' && gameUploadId.trim().length > 0
+
+      if (!hasDirect && !hasChunked) {
+        return NextResponse.json({ error: 'Please attach your game package, executable (.exe), or build file (.zip, .rbxpkg, .pck, etc.)' }, { status: 400 })
       }
-      saved = await saveUpload(gameFile, user.id)
+
+      if (hasDirect && (gameFile as File).size > 5 * 1024 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Game file is too large (max 5 GB).' }, { status: 400 })
+      }
+
+      saved = await resolveGameUpload(gameFile, gameUploadId, gameFileName, user.id)
+      if (!saved) {
+        return NextResponse.json({ error: 'Could not process game upload. Please try again.' }, { status: 400 })
+      }
     }
 
     const icon = form.get('icon')
@@ -281,7 +293,7 @@ export async function POST(req: NextRequest) {
         maturity,
         iconUrl,
         thumbnailUrl,
-        ...(saved ? { fileId: saved.id, fileName: gameFile instanceof File ? gameFile.name : null } : {}),
+        ...(saved ? { fileId: saved.id, fileName: saved.filename || (gameFile instanceof File ? gameFile.name : 'game.exe') } : {}),
         ...(webCode ? { webCode } : {}),
         sourceFileId,
         sourceFileName,

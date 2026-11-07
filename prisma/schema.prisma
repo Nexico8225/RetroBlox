@@ -79,7 +79,7 @@ model UploadedFile {
   filename  String
   path      String
   mimeType  String
-  size      Int
+  size      Float
   // bytes stored IN the database so files survive on any host
   // (the deployed domain has the DB but not the server's disk)
   data      Bytes?

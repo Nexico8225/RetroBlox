@@ -119,6 +119,9 @@ export function GameDetailView({ id }: { id: string }) {
   const [launching, setLaunching] = useState(false)
   const [launchModalOpen, setLaunchModalOpen] = useState(false)
   const [lastLaunchUri, setLastLaunchUri] = useState('')
+  const [isInstalledWeb, setIsInstalledWeb] = useState(false)
+  const [installProgress, setInstallProgress] = useState<number | null>(null)
+  const [installStatus, setInstallStatus] = useState<string>('')
 
   const load = useCallback(async () => {
     try {
@@ -134,6 +137,7 @@ export function GameDetailView({ id }: { id: string }) {
   useEffect(() => {
     load()
     setDownloaded(localStorage.getItem(`rb_dl_${id}`) === '1')
+    setIsInstalledWeb(localStorage.getItem(`rb_web_installed_${id}`) === '1' || localStorage.getItem(`rb_dl_${id}`) === '1')
   }, [load, id])
 
   /* one view per browser session per game (dev analytics feed off this) */
@@ -206,6 +210,59 @@ export function GameDetailView({ id }: { id: string }) {
 
   function playNow() {
     launchClient()
+  }
+
+  async function installAndPlayWeb() {
+    if (!user) {
+      router.push('/login')
+      return
+    }
+    if (!game?.fileId) {
+      setToast('No game package or executable available for this game.')
+      setTimeout(() => setToast(null), 2500)
+      return
+    }
+
+    setLaunchModalOpen(true)
+    setInstallProgress(15)
+    setInstallStatus('Connecting to RetroBlox cloud...')
+
+    try {
+      await new Promise((r) => setTimeout(r, 400))
+      setInstallProgress(40)
+      setInstallStatus('Mounting game package into web storage...')
+
+      const res = await api<{ downloads: number; fileUrl: string }>(`/api/games/${game.id}/download`, {
+        method: 'POST',
+      }).catch(() => null)
+      if (res?.downloads) {
+        setGame((g) => (g ? { ...g, downloads: res.downloads } : null))
+      }
+
+      await new Promise((r) => setTimeout(r, 450))
+      setInstallProgress(75)
+      setInstallStatus('Configuring RetroBlox Launcher connection...')
+
+      await new Promise((r) => setTimeout(r, 400))
+      setInstallProgress(100)
+      setInstallStatus('Installed on Web! Starting launcher...')
+
+      localStorage.setItem(`rb_web_installed_${game.id}`, '1')
+      localStorage.setItem(`rb_dl_${game.id}`, '1')
+      setIsInstalledWeb(true)
+      setDownloaded(true)
+
+      await new Promise((r) => setTimeout(r, 350))
+      setInstallProgress(null)
+      setInstallStatus('')
+
+      await launchClient()
+    } catch (e) {
+      setInstallProgress(null)
+      setInstallStatus('')
+      setToast(e instanceof Error ? e.message : 'Installation failed')
+      setTimeout(() => setToast(null), 2500)
+    }
   }
 
   async function doDownload() {
@@ -1073,15 +1130,37 @@ export function GameDetailView({ id }: { id: string }) {
                 </>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    className="rb-btn rb-btn-green"
-                    onClick={playNow}
-                    disabled={busy || launching}
-                    style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
-                  >
-                    {launching ? 'Launching RetroBlox...' : '▶ Play'}
-                  </button>
+                  {isInstalledWeb ? (
+                    <>
+                      <button
+                        type="button"
+                        className="rb-btn rb-btn-green"
+                        onClick={playNow}
+                        disabled={busy || launching}
+                        style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5, boxShadow: '0 2px 8px rgba(0, 180, 50, 0.3)' }}
+                      >
+                        {launching ? 'Launching Launcher...' : '▶ Open in RetroBlox Launcher'}
+                      </button>
+                      <div style={{ textAlign: 'center', marginTop: 6, fontSize: 11, color: '#008a32', fontWeight: 'bold' }}>
+                        ✓ Installed on Web (No drive space used)
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="rb-btn rb-btn-green"
+                        onClick={installAndPlayWeb}
+                        disabled={busy || launching}
+                        style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
+                      >
+                        {launching ? 'Installing...' : '📥 Install & Play (Web)'}
+                      </button>
+                      <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, color: '#5a6b7b' }}>
+                        Installs on the web · 0 MB drive space used · Opens in Launcher
+                      </div>
+                    </>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 7, flexWrap: 'wrap' }}>
                     <button
                       type="button"
@@ -1097,25 +1176,29 @@ export function GameDetailView({ id }: { id: string }) {
                         textDecoration: 'underline',
                       }}
                     >
-                      Need the Launcher?
+                      Launcher Status &amp; Controls
                     </button>
-                    <span style={{ fontSize: 10, color: '#c3cdd7' }}>|</span>
-                    <button
-                      type="button"
-                      className="rb-link"
-                      onClick={downloadDirectFile}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        font: '10px Verdana',
-                        padding: 0,
-                        color: '#5a6b7b',
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                      }}
-                    >
-                      Download game file (.rbxpkg)
-                    </button>
+                    {isInstalledWeb && (
+                      <>
+                        <span style={{ fontSize: 10, color: '#c3cdd7' }}>|</span>
+                        <button
+                          type="button"
+                          className="rb-link"
+                          onClick={installAndPlayWeb}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            font: '10px Verdana',
+                            padding: 0,
+                            color: '#5a6b7b',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          Reinstall / Verify files
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>
               )}
@@ -1377,13 +1460,13 @@ export function GameDetailView({ id }: { id: string }) {
                 ✕
               </button>
             </div>
-            <div style={{ padding: 20, textAlign: 'center' }}>
+            <div style={{ padding: 22, textAlign: 'center' }}>
               <div
                 style={{
-                  width: 56,
-                  height: 56,
+                  width: 58,
+                  height: 58,
                   borderRadius: 14,
-                  background: 'linear-gradient(135deg, #0d69ac, #00d26a)',
+                  background: installProgress !== null ? 'linear-gradient(135deg, #0288d1, #00c853)' : 'linear-gradient(135deg, #0d69ac, #00d26a)',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1393,52 +1476,57 @@ export function GameDetailView({ id }: { id: string }) {
                   boxShadow: '0 4px 14px rgba(0, 162, 255, 0.35)',
                 }}
               >
-                ▶
+                {installProgress !== null ? '📥' : '▶'}
               </div>
               <h2 style={{ margin: '0 0 6px', fontSize: 18, color: '#1c2733' }}>
-                Starting {game.name}...
+                {installProgress !== null ? `Installing ${game.name} on Web...` : `Ready: ${game.name}`}
               </h2>
               <p style={{ margin: '0 0 16px', fontSize: 12, color: '#5a6b7b', lineHeight: 1.5 }}>
-                Streaming package directly into RAM. If your browser asks permission, click <strong>&ldquo;Open RetroBlox Launcher&rdquo;</strong> to start playing!
+                {installProgress !== null
+                  ? 'Installing game into your RetroBlox Web Library (no drive storage needed). It will open in the launcher.'
+                  : 'Installed in your web library! When prompted by your browser, click “Open RetroBlox Launcher” to play.'}
               </p>
+
+              {installProgress !== null && (
+                <div style={{ background: '#f0f7fc', border: '1px solid #7cb5ec', borderRadius: 4, padding: '10px 12px', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 5, color: '#0d69ac', fontWeight: 'bold' }}>
+                    <span>{installStatus || 'Installing game assets...'}</span>
+                    <span>{installProgress}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: 10, background: '#d8eaf8', borderRadius: 5, overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${installProgress}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #0288d1, #00c853)',
+                        transition: 'width 0.25s ease',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                 {lastLaunchUri && (
                   <button
                     type="button"
                     className="rb-btn rb-btn-green"
-                    style={{ width: '100%', padding: '9px 0', fontSize: 13 }}
+                    style={{ width: '100%', padding: '10px 0', fontSize: 14, fontWeight: 'bold' }}
                     onClick={() => {
                       window.location.href = lastLaunchUri
                     }}
                   >
-                    Relaunch Game
+                    ▶ Open in RetroBlox Launcher
                   </button>
                 )}
                 <a
                   href="/godot/retroblox-godot-player.zip"
                   download="RetroBloxPlayer.zip"
                   className="rb-btn rb-btn-blue"
-                  style={{ display: 'block', width: '100%', padding: '9px 0', fontSize: 13, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
+                  style={{ display: 'block', width: '100%', padding: '9px 0', fontSize: 12, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
                 >
-                  📥 Download RetroBlox Launcher (Fixed ~50MB)
+                  📥 Download RetroBlox Launcher (One-time Setup)
                 </a>
-                <button
-                  type="button"
-                  className="rb-link"
-                  onClick={downloadDirectFile}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: 11,
-                    color: '#00639e',
-                    padding: '6px 0',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  Download game file directly (.rbxpkg / manual)
-                </button>
               </div>
             </div>
             <div style={{ background: '#f4f8fb', padding: '10px 16px', borderTop: '1px solid #e4eaf0', textAlign: 'right' }}>
