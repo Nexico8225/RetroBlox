@@ -207,8 +207,8 @@ export async function POST(req: NextRequest) {
     }
 
     const gameFile = form.get('gameFile')
-    const gameUploadId = form.get('gameUploadId')
-    const gameFileName = form.get('gameFileName')
+    const gameUploadId = form.get('gameUploadId') || form.get('gameFileUploadId')
+    const gameFileName = form.get('gameFileName') || (gameFile instanceof File ? gameFile.name : null)
 
     let saved: { id: string; filename: string; size: number } | null = null
 

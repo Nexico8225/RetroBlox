@@ -94,10 +94,10 @@ export function CreateView() {
     try {
       let gameUploadId = ''
 
-      // For files larger than 12MB, upload via chunked stream to handle up to 5GB without timeout
-      if (engine !== 'Web' && gameFile && gameFile.size > 12 * 1024 * 1024) {
+      // For files larger than 2MB, slice into ~2MB chunks so requests stay under Vercel's 4.5MB limit
+      if (engine !== 'Web' && gameFile && gameFile.size > 2 * 1024 * 1024) {
         gameUploadId = 'up_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36)
-        const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB chunks
+        const CHUNK_SIZE = 2 * 1024 * 1024 // 2MB binary -> ~2.7MB base64
         const totalChunks = Math.ceil(gameFile.size / CHUNK_SIZE)
 
         for (let i = 0; i < totalChunks; i++) {
@@ -105,25 +105,30 @@ export function CreateView() {
           const end = Math.min(gameFile.size, start + CHUNK_SIZE)
           const chunkBlob = gameFile.slice(start, end)
 
-          const chunkFd = new FormData()
-          chunkFd.append('uploadId', gameUploadId)
-          chunkFd.append('idx', String(i))
-          chunkFd.append('name', gameFile.name)
-          chunkFd.append('mime', gameFile.type || 'application/octet-stream')
-          chunkFd.append('file', chunkBlob, gameFile.name)
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const res = String(reader.result || '')
+              resolve(res.includes(',') ? res.split(',')[1] : res)
+            }
+            reader.onerror = () => reject(new Error(`Failed to read chunk ${i + 1}`))
+            reader.readAsDataURL(chunkBlob)
+          })
 
           const pct = Math.round(((i + 1) / totalChunks) * 100)
           setUploadProgress(pct)
           setUploadStatus(`Uploading ${gameFile.name}: ${pct}% (${(end / (1024 * 1024)).toFixed(1)} MB / ${(gameFile.size / (1024 * 1024)).toFixed(1)} MB)...`)
 
-          const chunkRes = await fetch('/api/uploads/chunk', {
+          await api('/api/uploads/chunk', {
             method: 'POST',
-            body: chunkFd,
+            body: JSON.stringify({
+              uploadId: gameUploadId,
+              idx: i,
+              name: gameFile.name,
+              mime: gameFile.type || 'application/octet-stream',
+              b64,
+            }),
           })
-          if (!chunkRes.ok) {
-            const errData = await chunkRes.json().catch(() => ({}))
-            throw new Error(errData.error || `Upload error on chunk ${i + 1}/${totalChunks}`)
-          }
         }
         setUploadStatus('Finalizing upload and publishing...')
       }

@@ -271,27 +271,61 @@ export async function resolveGameUpload(
   const customName = typeof fileNameField === 'string' ? fileNameField.trim() : ''
 
   if (uploadId && /^[a-zA-Z0-9]{8,64}$/.test(uploadId)) {
-    // 1. Check if finalized on disk
+    // 1. Rename chunk: -> keep: in database (universal across Vercel, Turso cloud DB, and local)
+    const keptCount = await keepChunks(uploadId)
+    if (keptCount > 0) {
+      finalizeDiskChunkUpload(uploadId, customName).catch(() => {})
+      const chunkRow = await db.uploadedFile.findFirst({
+        where: { path: { startsWith: `keep:${uploadId}:` } },
+        select: { filename: true, mimeType: true },
+      })
+      const totalAgg = await db.uploadedFile.aggregate({
+        where: { path: { startsWith: `keep:${uploadId}:` } },
+        _sum: { size: true },
+      })
+      const totalSize = totalAgg._sum.size || 0
+      const resolvedName = customName || chunkRow?.filename || 'game.exe'
+
+      await db.uploadedFile.upsert({
+        where: { id: uploadId },
+        create: {
+          id: uploadId,
+          filename: resolvedName,
+          path: path.join(UPLOAD_DIR, `${uploadId}_${resolvedName}`),
+          mimeType: chunkRow?.mimeType || 'application/octet-stream',
+          size: totalSize,
+          data: null,
+        },
+        update: {
+          filename: resolvedName,
+          size: totalSize,
+        },
+      }).catch(() => {})
+
+      return { id: uploadId, filename: resolvedName, size: totalSize }
+    }
+
+    // 2. Check if finalized on disk
     const diskResult = await finalizeDiskChunkUpload(uploadId, customName)
     if (diskResult) return diskResult
 
-    // 2. Check if already exists in uploadedFile table
-    const existing = await db.uploadedFile.findUnique({ where: { id: uploadId.slice(0, 24) } })
+    // 3. Check if already exists in uploadedFile table
+    const existing = await db.uploadedFile.findUnique({ where: { id: uploadId } })
     if (existing) {
       return { id: existing.id, filename: existing.filename, size: existing.size }
     }
 
-    // 3. Fallback to DB-backed chunks
+    // 4. Fallback to DB-backed chunks
     const assembled = await assembleUpload(uploadId)
     if (assembled) {
       const saved = await db.uploadedFile.create({
         data: {
-          id: uploadId.slice(0, 24),
+          id: uploadId,
           filename: customName || assembled.filename,
-          path: path.join(UPLOAD_DIR, `${uploadId.slice(0, 24)}_${customName || assembled.filename}`),
+          path: path.join(UPLOAD_DIR, `${uploadId}_${customName || assembled.filename}`),
           mimeType: assembled.mimeType,
           size: assembled.data.length,
-          data: assembled.data,
+          data: assembled.data.length < 16 * 1024 * 1024 ? assembled.data : null,
         },
       })
       return { id: saved.id, filename: saved.filename, size: saved.size }

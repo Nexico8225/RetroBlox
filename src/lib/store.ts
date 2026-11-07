@@ -119,7 +119,8 @@ export async function attachUpload(
   blob: Blob,
   name: string,
   mime: string,
-  onNote?: (note: string) => void
+  onNote?: (note: string) => void,
+  onProgress?: (pct: number) => void
 ): Promise<void> {
   if (blob.size <= DIRECT_UPLOAD_MAX) {
     fd.append(field, blob, name)
@@ -131,8 +132,10 @@ export async function attachUpload(
   } catch {
     uploadId = `u${Date.now().toString(16)}${Math.random().toString(16).slice(2).padEnd(12, '0')}`.slice(0, 40)
   }
+  if (blob.size > 5 * 1024 * 1024 * 1024) {
+    throw new Error(`"${name}" is too large (max 5 GB).`)
+  }
   const total = Math.ceil(blob.size / CHUNK_BYTES)
-  if (total > 99) throw new Error(`"${name}" is too large (max 24MB).`)
   for (let idx = 0; idx < total; idx++) {
     const b64 = await new Promise<string>((resolve, reject) => {
       const r = new FileReader()
@@ -141,13 +144,16 @@ export async function attachUpload(
       r.readAsDataURL(blob.slice(idx * CHUNK_BYTES, (idx + 1) * CHUNK_BYTES))
     })
     if (!b64) throw new Error(`Could not read "${name}".`)
-    onNote?.(`Uploading ${name} — part ${idx + 1} of ${total}…`)
+    const pct = Math.round(((idx + 1) / total) * 100)
+    onProgress?.(pct)
+    onNote?.(`Uploading ${name} — part ${idx + 1} of ${total} (${pct}%)…`)
     await api(`/api/uploads/chunk`, {
       method: 'POST',
       body: JSON.stringify({ uploadId, idx, name, mime, b64 }),
     })
   }
   fd.append(`${field}UploadId`, uploadId)
+  fd.append(`${field}Name`, name)
 }
 
 export function timeAgo(date: string | Date): string {

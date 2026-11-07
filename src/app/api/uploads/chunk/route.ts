@@ -81,17 +81,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Chunk too large (max 25MB per chunk).' }, { status: 413 })
   }
 
-  // 1. Save chunk to disk for streaming assembly (vital for large games up to 5GB)
-  await saveDiskChunk(uploadId, idx, buf, name, mime)
+  // 1. Save chunk to disk for local streaming assembly
+  await saveDiskChunk(uploadId, idx, buf, name, mime).catch(() => {})
 
-  // 2. Also keep in database for small UGC model chunks (<30 chunks)
-  if (idx < 50) {
-    const path = `chunk:${uploadId}:${String(idx).padStart(4, '0')}`
-    await db.uploadedFile.deleteMany({ where: { path } }).catch(() => {})
-    await db.uploadedFile.create({
-      data: { filename: name, path, mimeType: mime, size: buf.length, data: new Uint8Array(buf) },
-    }).catch(() => {})
-  }
+  // 2. Keep in database for multi-host / cloud streaming via /api/files/[id]
+  const path = `chunk:${uploadId}:${String(idx).padStart(4, '0')}`
+  await db.uploadedFile.deleteMany({ where: { path } }).catch(() => {})
+  await db.uploadedFile.create({
+    data: { filename: name, path, mimeType: mime, size: buf.length, data: new Uint8Array(buf) },
+  }).catch(() => {})
 
   purgeStaleChunks().catch(() => {})
 
