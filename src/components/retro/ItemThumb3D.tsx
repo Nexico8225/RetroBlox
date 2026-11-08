@@ -14,14 +14,45 @@ import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.j
 import { attachPlacedModel, applyModelSurface, loadGltfModel } from '@/lib/three/rig'
 import type { Placement } from '@/lib/avatarAssets'
 
-/* One cache per browser session: model url + placement -> white data-url.
-   WebGL contexts are scarce (browsers cap them ~8-16) — every render
-   force-loses its context so a catalog full of 3D items can never exhaust
-   the pool and blank out thumbnails (the "ugc images dont show up" bug). */
+/* Fallback SVG generator so broken/missing models or files NEVER show a blank white box */
+function thumbPlaceholder(label: string): string {
+  const cleanLabel = (label || 'UGC').toUpperCase().slice(0, 14)
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'>`
+    + `<rect width='220' height='220' fill='#f5f8fb'/>`
+    + `<rect x='10' y='10' width='200' height='200' fill='none' stroke='#d0dbe5' stroke-width='3' stroke-dasharray='8 6' rx='12'/>`
+    + `<circle cx='110' cy='85' r='30' fill='none' stroke='#b0c2d2' stroke-width='4'/>`
+    + `<path d='M65 160 L95 115 L115 138 L135 110 L160 160 Z' fill='#d8e3ed'/>`
+    + `<text x='110' y='194' font-family='Verdana,sans-serif' font-size='15' font-weight='bold' fill='#8da0b2' text-anchor='middle'>${cleanLabel}</text>`
+    + `</svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+/* One cache per browser session: model url + placement -> white data-url. */
 const thumbCache = new Map<string, string>()
 const inflight = new Map<string, Promise<string>>()
 
-function cacheKey(modelUrl: string, placement: Placement | null, zoom: number, textureUrl?: string, color?: string, roughness?: number | null, metallic?: number | null) {
+/* QUEUE RENDERING: Browsers strictly cap active WebGL contexts (~8 to 16).
+   If 20 catalog cards render simultaneously, contexts get destroyed by the browser,
+   causing cards to turn into blank white boxes.
+   Running them through a serialized queue guarantees at most 1 active context at any time. */
+let renderQueue: Promise<unknown> = Promise.resolve()
+
+function queueRender<T>(task: () => Promise<T>): Promise<T> {
+  const run = () => task()
+  const p = renderQueue.then(run, run)
+  renderQueue = p.then(() => {}, () => {})
+  return p
+}
+
+function cacheKey(
+  modelUrl: string,
+  placement: Placement | null,
+  zoom: number,
+  textureUrl?: string,
+  color?: string,
+  roughness?: number | null,
+  metallic?: number | null
+) {
   return `${modelUrl}|${placement ? JSON.stringify(placement) : 'none'}|${zoom}|${textureUrl || ''}|${color || ''}|${roughness ?? ''}|${metallic ?? ''}`
 }
 
@@ -43,41 +74,52 @@ async function renderItemThumb(
 
   const scene = new THREE.Scene()
   scene.background = null // composited onto white by the 2d canvas below
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.15))
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.25))
   const sun = new THREE.DirectionalLight(0xffffff, 1.6)
-  sun.position.set(4, 9, 6)
+  sun.position.set(5, 10, 7)
   scene.add(sun)
-  const sun2 = new THREE.DirectionalLight(0xffffff, 0.7)
-  sun2.position.set(-6, 3, -4)
+  const sun2 = new THREE.DirectionalLight(0xffffff, 0.75)
+  sun2.position.set(-7, 4, -5)
   scene.add(sun2)
 
-  // the item, exactly where its creator left it (placement wraps the
-  // normalized model — never overrides the model's own scale)
+  // Load the model
   const src = await loadGltfModel(modelUrl)
   const inst = skeletonClone(src)
-  // the creator's texture / color / finish, exactly as published
   await applyModelSurface(inst, { textureUrl, color, roughness, metallic })
   const holder = attachPlacedModel(inst, placement)
   scene.add(holder)
   scene.updateMatrixWorld(true)
 
-  // frame ONLY the item (a touch of headroom so nothing clips)
+  // CALCULATE PROPER BOUNDS & CAMERA DISTANCE:
+  // Using bounding sphere radius + trigonometric field-of-view formula ensures
+  // wide items (like Traffic Cone, wide hats, crowns) never clip out of the frame!
   const box = new THREE.Box3().setFromObject(holder)
   if (box.isEmpty()) throw new Error('empty model')
   const center = box.getCenter(new THREE.Vector3())
   const size = box.getSize(new THREE.Vector3())
   const maxDim = Math.max(size.x, size.y, size.z, 0.001)
-  const fov = 32 // narrow fov = the flat "product shot" look
-  const dist = (maxDim / 2) / Math.tan((fov * Math.PI) / 360) * 1.12 * zoom
 
-  // a friendly three-quarter view of the item (front-right, slightly above)
+  const sphere = new THREE.Sphere()
+  box.getBoundingSphere(sphere)
+  const radius = Math.max(sphere.radius, maxDim * 0.6)
+
+  const fov = 32 // narrow fov = clean orthographic-like product shot
+  const fovRad = (fov * Math.PI) / 180
+  // Standard sphere-in-frustum distance with ~35% safety margin:
+  const dist = (radius / Math.sin(fovRad / 2)) * 1.35 * zoom
+
+  // Three-quarter angle: front-right, slightly elevated
   const cam = new THREE.PerspectiveCamera(fov, 1, 0.01, 500)
-  cam.position.set(center.x + dist * 0.42, center.y + dist * 0.34, center.z + dist * 0.86)
+  cam.position.set(
+    center.x + dist * 0.42,
+    center.y + dist * 0.35,
+    center.z + dist * 0.85
+  )
   cam.lookAt(center)
 
   renderer.render(scene, cam)
 
-  // composite onto WHITE — the user asked for white, not transparency
+  // Composite onto crisp white background
   const out = document.createElement('canvas')
   out.width = SIZE
   out.height = SIZE
@@ -86,8 +128,7 @@ async function renderItemThumb(
   ctx.fillRect(0, 0, SIZE, SIZE)
   ctx.drawImage(renderer.domElement, 0, 0, SIZE, SIZE)
 
-  // free the GPU + CPU copies before returning — forceContextLoss releases
-  // the WebGL context IMMEDIATELY (dispose alone leaves it to the GC)
+  // Immediately release WebGL resources to preserve GPU contexts
   renderer.dispose()
   renderer.forceContextLoss()
   holder.traverse((o) => {
@@ -102,13 +143,23 @@ async function renderItemThumb(
   return out.toDataURL('image/png')
 }
 
-function getThumb(modelUrl: string, placement: Placement | null, zoom: number, textureUrl?: string, color?: string, roughness?: number | null, metallic?: number | null): Promise<string> {
+function getThumb(
+  modelUrl: string,
+  placement: Placement | null,
+  zoom: number,
+  textureUrl?: string,
+  color?: string,
+  roughness?: number | null,
+  metallic?: number | null
+): Promise<string> {
   const key = cacheKey(modelUrl, placement, zoom, textureUrl, color, roughness, metallic)
   const hit = thumbCache.get(key)
   if (hit) return Promise.resolve(hit)
   let p = inflight.get(key)
   if (!p) {
-    p = renderItemThumb(modelUrl, placement, zoom, textureUrl, color, roughness, metallic)
+    p = queueRender(() =>
+      renderItemThumb(modelUrl, placement, zoom, textureUrl, color, roughness, metallic)
+    )
       .then((url) => {
         thumbCache.set(key, url)
         inflight.delete(key)
@@ -152,42 +203,70 @@ export default function ItemThumb3D({
   roughness?: number | null
   metallic?: number | null
 }) {
-  const [src, setSrc] = useState<string | null>(() => thumbCache.get(cacheKey(modelUrl, placement || null, zoom, textureUrl, color, roughness, metallic)) || null)
+  const [src, setSrc] = useState<string | null>(() =>
+    thumbCache.get(cacheKey(modelUrl, placement || null, zoom, textureUrl, color, roughness, metallic)) || null
+  )
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let alive = true
-    // async 3D render -> can only resolve client-side after mount, so the
-    // result legitimately lands in state from this effect. `failed` is only
-    // ever set asynchronously — never synchronously in the effect body.
     getThumb(modelUrl, placement || null, zoom, textureUrl, color, roughness, metallic)
-      .then((url) => { if (alive) { setSrc(url); setFailed(false) } })
-      .catch(() => { if (alive) setFailed(true) })
-    return () => { alive = false }
+      .then((url) => {
+        if (alive) {
+          setSrc(url)
+          setFailed(false)
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setFailed(true)
+        }
+      })
+    return () => {
+      alive = false
+    }
   }, [modelUrl, placement, zoom, textureUrl, color, roughness, metallic])
 
-  if (failed || !src) {
-    // rendering, or the live render failed — the saved thumbnail stands in
-    if (fallbackSrc) return <img src={fallbackSrc} alt={alt} style={style} />
+  // If live 3D thumbnail finished successfully:
+  if (src) {
+    return <img src={src} alt={alt} style={style} />
   }
 
+  // If render failed: show fallbackSrc or retro placeholder SVG (never a white void)
   if (failed) {
-    // no fallback provided — fall back to whatever is behind us (callers keep the stored image underneath)
-    return null
+    const defaultPlaceholder = thumbPlaceholder(alt)
+    return (
+      <img
+        src={fallbackSrc || defaultPlaceholder}
+        alt={alt}
+        style={style}
+        onError={(e) => {
+          if (!e.currentTarget.src.startsWith('data:')) {
+            e.currentTarget.src = defaultPlaceholder
+          }
+        }}
+      />
+    )
   }
 
-  return src ? (
-    <img src={src} alt={alt} style={style} />
-  ) : (
-    <span
-      aria-label={alt}
-      style={{
-        ...style,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: '#fff', color: '#9aa7b4', fontSize: 10, fontFamily: 'Verdana, sans-serif',
+  // Still rendering: show fallback image or placeholder while 3D queues
+  return fallbackSrc ? (
+    <img
+      src={fallbackSrc}
+      alt={alt}
+      style={style}
+      onError={(e) => {
+        const ph = thumbPlaceholder(alt)
+        if (!e.currentTarget.src.startsWith('data:')) {
+          e.currentTarget.src = ph
+        }
       }}
-    >
-      ...
-    </span>
+    />
+  ) : (
+    <img
+      src={thumbPlaceholder(alt)}
+      alt={alt}
+      style={style}
+    />
   )
 }

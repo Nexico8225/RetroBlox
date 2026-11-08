@@ -500,7 +500,8 @@ model AvatarItem {
   description String   @default("")
   type        String // hat | face | tshirt | shirt | pants | gear | accessory
   price       Int      @default(0) // starting price in RBX — 0 = free item
-  isLimited   Boolean  @default(false) // classic rare: buyers pay 2x the starting price
+  isLimited      Boolean  @default(false) // classic rare: finite stock, goes off-sale, resells & trades on market
+  isSuperLimited Boolean  @default(false) // super limited: price doubles (2x) every time someone buys it!
   imageFileId String // image served via /api/files/{id} — for 3D UGC this is the try-on thumbnail captured in the placement editor
   modelFileId String? // 3D UGC only: the GLB model (converted client-side at publish) served via /api/files/{id}
   placementJson String? // 3D UGC only: creator-placed transform {p:[x,y,z], r:[x,y,z] deg, s:[x,y,z]} — rendered EXACTLY as placed, never auto-corrected
