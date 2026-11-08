@@ -1000,9 +1000,38 @@ export function FriendsView() {
   const [outgoing, setOutgoing] = useState<{ id: string; user: RetroUser }[]>([])
   const [suggested, setSuggested] = useState<SuggestedUser[]>([])
   const [addName, setAddName] = useState('')
+  const [searchResults, setSearchResults] = useState<{
+    user: RetroUser
+    online: boolean
+    friendState: 'none' | 'friends' | 'request_sent' | 'request_received'
+    friendshipId: string | null
+    score: number
+  }[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
   const [sessionError, setSessionError] = useState(false)
+
+  useEffect(() => {
+    const q = addName.trim()
+    if (!q) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+    setSearchLoading(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await api<{ results: any[] }>(`/api/friends/search?q=${encodeURIComponent(q)}`)
+        setSearchResults(res.results || [])
+      } catch {
+        setSearchResults([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [addName])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1070,7 +1099,7 @@ export function FriendsView() {
         </div>
       )}
 
-      {/* add friend */}
+      {/* add friend with live closest player search */}
       <div className="rb-box" style={{ marginBottom: 12 }}>
         <div className="rb-panel-head"><span>Add Friends</span></div>
         <div style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1086,6 +1115,118 @@ export function FriendsView() {
           <button className="rb-btn rb-btn-green" onClick={addFriend}>Send Friend Request</button>
         </div>
         {msg && <div style={{ padding: '0 12px 10px', color: '#a81a13', fontSize: 11 }}>{msg}</div>}
+
+        {addName.trim() && (
+          <div style={{ padding: '0 12px 12px', borderTop: '1px solid #e2e8f0', marginTop: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c', margin: '8px 0 6px' }}>
+              {searchLoading ? 'Searching players...' : `Closest players matching "${addName.trim()}":`}
+            </div>
+            {searchResults.length === 0 && !searchLoading ? (
+              <div style={{ fontSize: 11, color: '#7b8896', fontStyle: 'italic', padding: '4px 0' }}>
+                No players found matching "{addName.trim()}".
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+                {searchResults.map((r) => (
+                  <div
+                    key={r.user.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '6px 10px',
+                      background: '#f8fafc',
+                      border: '1px solid #dbe4ec',
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ position: 'relative' }}>
+                      <Avatar user={r.user} size={32} />
+                      <span
+                        title={r.online ? 'Online' : 'Offline'}
+                        style={{
+                          position: 'absolute',
+                          bottom: -2,
+                          right: -2,
+                          width: 9,
+                          height: 9,
+                          borderRadius: '50%',
+                          background: r.online ? '#02b757' : '#94a3b8',
+                          border: '2px solid #fff',
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Link href={`/users/${r.user.id}`} className="rb-link" style={{ fontSize: 12, fontWeight: 'bold' }}>
+                          {r.user.username}
+                        </Link>
+                        {r.user.seqId && (
+                          <span style={{ fontSize: 10, color: '#7b8896' }}>#{r.user.seqId}</span>
+                        )}
+                      </div>
+                      {r.user.bio && (
+                        <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {r.user.bio}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <Link href={`/users/${r.user.id}`} className="rb-btn" style={{ fontSize: 10, textDecoration: 'none' }}>
+                        View Profile
+                      </Link>
+                      {r.user.id === user?.id ? (
+                        <span style={{ fontSize: 10, color: '#7b8896' }}>(You)</span>
+                      ) : r.friendState === 'friends' ? (
+                        <span style={{ fontSize: 10, color: '#029a4a', fontWeight: 'bold' }}>✓ Friends</span>
+                      ) : r.friendState === 'request_sent' ? (
+                        <span style={{ fontSize: 10, color: '#e67e22', fontWeight: 'bold' }}>⏳ Request Sent</span>
+                      ) : r.friendState === 'request_received' ? (
+                        <button
+                          className="rb-btn rb-btn-green"
+                          style={{ fontSize: 10 }}
+                          onClick={async () => {
+                            if (r.friendshipId) await act(r.friendshipId, 'accept')
+                          }}
+                        >
+                          Accept Request
+                        </button>
+                      ) : (
+                        <button
+                          className="rb-btn rb-btn-green"
+                          style={{ fontSize: 10 }}
+                          onClick={async () => {
+                            try {
+                              const res = await api<{ autoAccepted?: boolean }>('/api/friends', {
+                                method: 'POST',
+                                body: JSON.stringify({ username: r.user.username }),
+                              })
+                              flash(
+                                setToast,
+                                res.autoAccepted
+                                  ? `You and ${r.user.username} are now friends!`
+                                  : `Friend request sent to ${r.user.username}!`,
+                                2400
+                              )
+                              // Refresh search & friend lists
+                              const updated = await api<{ results: any[] }>(`/api/friends/search?q=${encodeURIComponent(addName.trim())}`)
+                              setSearchResults(updated.results || [])
+                              await load()
+                            } catch (e) {
+                              setMsg(e instanceof Error ? e.message : 'Failed')
+                            }
+                          }}
+                        >
+                          + Add Friend
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* incoming requests */}

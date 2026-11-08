@@ -43,7 +43,27 @@ export async function POST(req: NextRequest) {
   const username = String(body.username || '').trim()
   if (!username) return NextResponse.json({ error: 'Type a username!' }, { status: 400 })
 
-  const target = await db.user.findUnique({ where: { username } })
+  // Case-insensitive exact match first, then closest prefix/contains match
+  let target = await db.user.findFirst({
+    where: {
+      OR: [
+        { username: { equals: username } },
+        { usernameLower: { equals: username.toLowerCase() } },
+      ],
+    },
+  })
+
+  if (!target) {
+    target = await db.user.findFirst({
+      where: {
+        OR: [
+          { usernameLower: { contains: username.toLowerCase() } },
+          { username: { contains: username } },
+        ],
+      },
+    })
+  }
+
   if (!target) return NextResponse.json({ error: `No user named "${username}" found.` }, { status: 404 })
   if (target.id === me.id) return NextResponse.json({ error: "You can't friend yourself!" }, { status: 400 })
 

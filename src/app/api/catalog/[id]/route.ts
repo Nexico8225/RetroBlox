@@ -230,6 +230,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.price = price
     data.isLimited = limited
   }
+  if (body.superLimited !== undefined) {
+    data.isSuperLimited = body.superLimited === true || body.superLimited === '1'
+    if (data.isSuperLimited) data.isLimited = true
+  }
+  if (body.placement !== undefined) {
+    data.placementJson = String(body.placement).slice(0, 500)
+  }
   // limited stock — the total print run. The creator OR an admin can set it;
   // lowering it below the copies already sold instantly means SOLD OUT.
   if (body.stock !== undefined) {

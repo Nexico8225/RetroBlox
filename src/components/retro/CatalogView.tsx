@@ -352,22 +352,8 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
             const owned = ownedIds.includes(item.id)
             return (
               <div key={item.id} className="rb-box rb-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ background: '#ffffff', borderBottom: '1px solid #dbe4ec', position: 'relative' }}>
-                  {/* the SAVED thumbnail always paints first — the live 3D render (if any)
-                      covers it, and if that render ever fails the saved shot still shows:
-                      this slot can never end up blank */}
-                  <img
-                    src={`/api/files/${item.imageFileId}`}
-                    alt={item.name}
-                    loading="lazy"
-                    onError={(e) => {
-                      // dead file id / truncated upload -> draw the type placeholder instead of a white hole
-                      const ph = thumbPlaceholder(item.type)
-                      if (!e.currentTarget.src.startsWith('data:')) e.currentTarget.src = ph
-                    }}
-                    style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
-                  />
-                  {item.modelFileId && (
+                <div style={{ background: '#ffffff', borderBottom: '1px solid #dbe4ec', position: 'relative', aspectRatio: '1' }}>
+                  {item.modelFileId ? (
                     <ItemThumb3D
                       modelUrl={`/api/files/${item.modelFileId}`}
                       placement={item.placement}
@@ -375,7 +361,19 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       fallbackSrc={`/api/files/${item.imageFileId}`}
                       textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
                       color={item.baseColor || undefined}
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: 'transparent' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#ffffff' }}
+                    />
+                  ) : (
+                    <img
+                      src={`/api/files/${item.imageFileId}`}
+                      alt={item.name}
+                      loading="lazy"
+                      onError={(e) => {
+                        // dead file id / truncated upload -> draw the type placeholder instead of a white hole
+                        const ph = thumbPlaceholder(item.type)
+                        if (!e.currentTarget.src.startsWith('data:')) e.currentTarget.src = ph
+                      }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                     />
                   )}
                   <span
@@ -668,12 +666,17 @@ function EditItemModal({
   const [priceMode, setPriceMode] = useState<'free' | 'paid'>(item.price > 0 ? 'paid' : 'free')
   const [price, setPrice] = useState(item.price > 0 ? String(item.price) : '')
   const [limited, setLimited] = useState(item.isLimited)
+  const [superLimited, setSuperLimited] = useState(item.isSuperLimited || false)
   // limited economy: the print run + the displayed-buyers boost (admin only)
   const [stock, setStock] = useState(item.stock != null ? String(item.stock) : '')
   const [ownersBoost, setOwnersBoost] = useState(item.ownersBoost ? String(item.ownersBoost) : '0')
   const [newImage, setNewImage] = useState<File | null>(null)
   const [newImagePreview, setNewImagePreview] = useState<string | null>(null)
-  // 3D items: owner can also swap the texture or repaint the tint color
+  // 3D items: placement editor, texture or tint
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [modelBlob, setModelBlob] = useState<Blob | null>(null)
+  const [loadingModel, setLoadingModel] = useState(false)
+  const [curPlacement, setCurPlacement] = useState<Placement | null>(item.placement || null)
   const [newTexture, setNewTexture] = useState<File | null>(null)
   const [newTexturePreview, setNewTexturePreview] = useState<string | null>(null)
   const [clearTexture, setClearTexture] = useState(false)
@@ -684,6 +687,30 @@ function EditItemModal({
   const imageRef = useRef<HTMLInputElement>(null)
   const textureRef = useRef<HTMLInputElement>(null)
   const priceNum = Math.floor(Number(price) || 0)
+
+  async function openPlacementEditor() {
+    if (!item.modelFileId) return
+    setLoadingModel(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/files/${item.modelFileId}`)
+      if (!res.ok) throw new Error('Could not download 3D model')
+      const b = await res.blob()
+      setModelBlob(b)
+      setEditorOpen(true)
+    } catch {
+      setError('Failed to load 3D model for editing.')
+    } finally {
+      setLoadingModel(false)
+    }
+  }
+
+  function onPlaced(result: { placement: Placement; thumb: Blob }) {
+    setCurPlacement(result.placement)
+    setNewImage(new File([result.thumb], 'thumbnail.png', { type: 'image/png' }))
+    setNewImagePreview(URL.createObjectURL(result.thumb))
+    setEditorOpen(false)
+  }
 
   function pickImage(f: File | null) {
     setNewImage(f)
@@ -730,8 +757,10 @@ function EditItemModal({
       fd.append('description', description.trim())
       fd.append('price', String(finalPrice))
       fd.append('limited', limited ? '1' : '0')
+      fd.append('superLimited', superLimited ? '1' : '0')
       if (limited) fd.append('stock', stock.trim())
       if (isAdmin) fd.append('ownersBoost', ownersBoost.trim() === '' ? '0' : ownersBoost.trim())
+      if (curPlacement) fd.append('placement', JSON.stringify(curPlacement))
       if (newImage) await attachUpload(fd, 'image', newImage, newImage.name || 'image.png', newImage.type || 'image/png')
       if (item.modelFileId) {
         // texture / tint — only sent for 3D items; the API ignores them otherwise
@@ -807,6 +836,17 @@ function EditItemModal({
               <button type="button" className="rb-btn" style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => imageRef.current?.click()}>
                 {newImage ? '↺ Choose a different image' : '✎ Replace image'}
               </button>
+              {item.modelFileId && (
+                <button
+                  type="button"
+                  className="rb-btn rb-btn-green"
+                  style={{ fontSize: 10, padding: '3px 9px', marginLeft: 6 }}
+                  onClick={openPlacementEditor}
+                  disabled={loadingModel}
+                >
+                  {loadingModel ? 'Loading 3D...' : '📐 Adjust 3D Placement & Frame'}
+                </button>
+              )}
               {newImage && (
                 <button
                   type="button"
@@ -939,6 +979,21 @@ function EditItemModal({
                 <input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} />
                 ★ Limited
               </label>
+              <label
+                style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c' }}
+                title="Super Limited — price doubles (2x) with every single sale!"
+              >
+                <input
+                  type="checkbox"
+                  checked={superLimited}
+                  onChange={(e) => {
+                    const c = e.target.checked
+                    setSuperLimited(c)
+                    if (c) setLimited(true)
+                  }}
+                />
+                🔥 Super Limited (2x on buy)
+              </label>
             </div>
             <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
               {limited && item.isLimited && !isAdmin
@@ -1000,6 +1055,16 @@ function EditItemModal({
           </div>
         </div>
       </div>
+      {editorOpen && modelBlob && (
+        <PlacementEditor
+          glb={modelBlob}
+          textureUrl={newTexturePreview || (item.textureFileId ? `/api/files/${item.textureFileId}` : undefined)}
+          color={tintOn ? tint : undefined}
+          initialPlacement={curPlacement}
+          onCancel={() => setEditorOpen(false)}
+          onSave={onPlaced}
+        />
+      )}
     </div>
   )
 }
@@ -2109,6 +2174,21 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               >
                 <input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} />
                 ★ Limited
+              </label>
+              <label
+                style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c' }}
+                title="Super Limited — price doubles (2x) with every single sale!"
+              >
+                <input
+                  type="checkbox"
+                  checked={superLimited}
+                  onChange={(e) => {
+                    const c = e.target.checked
+                    setSuperLimited(c)
+                    if (c) setLimited(true)
+                  }}
+                />
+                🔥 Super Limited (2x on buy)
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: '#9b51e0', fontWeight: 'bold' }}>
                 <input type="checkbox" checked={superLimited} onChange={(e) => { setSuperLimited(e.target.checked); if (e.target.checked) setLimited(true); }} />

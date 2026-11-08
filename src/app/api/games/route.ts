@@ -71,7 +71,6 @@ export async function GET(req: NextRequest) {
   if (creatorId) where.creatorId = creatorId
   if (sort === 'gems') where.gem = true
 
-  const viewer = await getUserFromReq(req)
   if (!creatorId || !viewer || creatorId !== viewer.id) {
     where.visibility = { not: 'private' }
   }

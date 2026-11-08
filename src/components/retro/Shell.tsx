@@ -79,6 +79,7 @@ const NAV = [
   { label: 'Games', href: '/games' },
   { label: 'Webs', href: '/webs' },
   { label: 'Catalog', href: '/catalog' },
+  { label: 'Trade Market', href: '/trades' },
   { label: 'Avatar', href: '/avatar' },
   { label: 'Create', href: '/create' },
   { label: 'Launcher', href: '/downloads/RetroBloxLauncher.exe' },

@@ -137,6 +137,7 @@ async function renderItemThumb(
   cam.position.set(dist * 0.45, dist * 0.35, dist * 0.85)
   cam.lookAt(0, 0, 0)
 
+  renderer.clear()
   renderer.render(scene, cam)
 
   // Composite onto crisp white background
@@ -148,15 +149,8 @@ async function renderItemThumb(
   ctx.fillRect(0, 0, SIZE, SIZE)
   ctx.drawImage(renderer.domElement, 0, 0, SIZE, SIZE)
 
-  // Clean up scene resources without destroying the shared WebGL context
-  holder.traverse((o) => {
-    const m = o as THREE.Mesh
-    if (!m.isMesh) return
-    m.geometry?.dispose()
-    const mat = m.material as THREE.Material | THREE.Material[]
-    if (Array.isArray(mat)) mat.forEach((x) => x.dispose())
-    else mat?.dispose()
-  })
+  // Clean up scene without destroying shared geometry/materials from cache
+  scene.remove(holder)
   scene.clear()
 
   return out.toDataURL('image/png')

@@ -63,6 +63,7 @@ export const DEFAULT_SITE_UI: SiteUiConfig = {
     { label: 'Games', href: '/games', show: true },
     { label: 'Webs', href: '/webs', show: true },
     { label: 'Catalog', href: '/catalog', show: true },
+    { label: 'Trade Market', href: '/trades', show: true },
     { label: 'Avatar', href: '/avatar', show: true },
     { label: 'Create', href: '/create', show: true },
     { label: 'SDK', href: '/sdk', show: true },
@@ -100,6 +101,7 @@ export const DEFAULT_SITE_UI: SiteUiConfig = {
       title: 'Me',
       links: [
         { label: 'My Profile', href: '/users/{me}', show: true },
+        { label: 'Trade Market', href: '/trades', show: true },
         { label: 'Friends', href: '/friends', show: true },
         { label: 'Chat', href: '/chat', show: true },
         { label: 'Favorites', href: '/favorites', show: true },
@@ -185,6 +187,22 @@ export function normalizeSiteUi(raw: unknown): SiteUiConfig {
   const c = (r.colors && typeof r.colors === 'object' ? r.colors : {}) as Record<string, unknown>
   const h = (r.hero && typeof r.hero === 'object' ? r.hero : {}) as Record<string, unknown>
   const f = (r.footer && typeof r.footer === 'object' ? r.footer : {}) as Record<string, unknown>
+  const resolvedLinks = links(r.links, d.links)
+  if (!resolvedLinks.some((l) => l.href === '/trades')) {
+    const catalogIdx = resolvedLinks.findIndex((l) => l.href === '/catalog')
+    if (catalogIdx !== -1) {
+      resolvedLinks.splice(catalogIdx + 1, 0, { label: 'Trade Market', href: '/trades', show: true })
+    } else {
+      resolvedLinks.push({ label: 'Trade Market', href: '/trades', show: true })
+    }
+  }
+
+  const resolvedSidebar = groups(r.sidebar, d.sidebar)
+  const meGroup = resolvedSidebar.find((g) => g.title === 'Me')
+  if (meGroup && !meGroup.links.some((l) => l.href === '/trades')) {
+    meGroup.links.splice(1, 0, { label: 'Trade Market', href: '/trades', show: true })
+  }
+
   return {
     siteName: str(r.siteName, d.siteName, 40),
     colors: {
@@ -197,7 +215,7 @@ export function normalizeSiteUi(raw: unknown): SiteUiConfig {
       greenDark: hex(c.greenDark, d.colors.greenDark),
       pageBg: hex(c.pageBg, d.colors.pageBg),
     },
-    links: links(r.links, d.links),
+    links: resolvedLinks,
     hero: {
       show: h.show !== false,
       guestTitle: str(h.guestTitle, d.hero.guestTitle, 80),
@@ -212,7 +230,7 @@ export function normalizeSiteUi(raw: unknown): SiteUiConfig {
     headerLogoUrl: imgUrl(r.headerLogoUrl),
     headerWordmarkUrl: imgUrl(r.headerWordmarkUrl),
     footerLogoUrl: imgUrl(r.footerLogoUrl),
-    sidebar: groups(r.sidebar, d.sidebar),
+    sidebar: resolvedSidebar,
     customCss: typeof r.customCss === 'string' ? r.customCss.slice(0, 24000) : d.customCss,
   }
 }
