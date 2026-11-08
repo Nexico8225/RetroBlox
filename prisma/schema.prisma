@@ -482,6 +482,7 @@ model AvatarConfig {
   shirtAssetId    String   @default("shirt_01")
   pantsAssetId    String   @default("pants_01")
   accessoriesJson String   @default("[]") // JSON array of worn accessory asset IDs (hats, gear...)
+  placementsJson  String   @default("{}") // JSON map of customized UGC placement { [assetId]: { p, r, s } }
   colorsJson      String   @default("{}") // JSON per-part body colors {head,torso,armL,armR,legL,legR} -> "#RRGGBB"
   faceScale       Float    @default(1) // face decal size multiplier (0.5 = tiny, 2 = huge; 1 = the classic look)
   bundleAssetId   String?  // worn bundle — replaces body parts (null = the classic blocky body)

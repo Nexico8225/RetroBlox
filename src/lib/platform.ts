@@ -14,7 +14,7 @@
 ------------------------------------------------------------------ */
 
 import { db } from '@/lib/db'
-import { DEFAULT_AVATAR, resolveDefaultAsset, parsePlacement, sanitizePartColors, sanitizeFaceScale, ACCESSORY_KINDS, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson, type AvatarConfigT, type AssetInfo, type AnimClipsT, type AnimTargetT } from '@/lib/avatarAssets'
+import { DEFAULT_AVATAR, resolveDefaultAsset, parsePlacement, sanitizePartColors, sanitizeFaceScale, sanitizeCustomPlacements, ACCESSORY_KINDS, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson, type AvatarConfigT, type AssetInfo, type AnimClipsT, type AnimTargetT } from '@/lib/avatarAssets'
 
 /** Load a user's avatar config from the database (defaults if they never customized). */
 export async function getAvatarConfig(userId: string): Promise<AvatarConfigT> {
@@ -37,6 +37,7 @@ export async function getAvatarConfig(userId: string): Promise<AvatarConfigT> {
     faceScale: sanitizeFaceScale((cfg as { faceScale?: unknown }).faceScale),
     bundleAssetId: cfg.bundleAssetId || null,
     animPackAssetId: cfg.animPackAssetId || null,
+    placements: sanitizeCustomPlacements(safeJson((cfg as { placementsJson?: string }).placementsJson)),
   }
 }
 
@@ -64,6 +65,7 @@ export function avatarPayload(userId: string, username: string, cfg: AvatarConfi
       faceScale: sanitizeFaceScale(cfg.faceScale),
       bundle: cfg.bundleAssetId || null,
       animPack: cfg.animPackAssetId || null,
+      placements: cfg.placements && Object.keys(cfg.placements).length > 0 ? cfg.placements : null,
     },
   }
 }
@@ -234,7 +236,7 @@ export async function validateAvatarConfig(userId: string, cfg: AvatarConfigT): 
       return `${assetId} is not a ${slot} asset`
     }
   }
-  if (cfg.accessories.length > 6) return 'Too many accessories (6 max)'
+  if (cfg.accessories.length > 20) return 'Too many accessories (20 max)'
   for (const acc of cfg.accessories) {
     const info = await resolveAsset(acc)
     if (!info) return `Unknown accessory asset: ${acc}`

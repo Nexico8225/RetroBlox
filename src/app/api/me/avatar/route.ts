@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
 import { getAvatarConfig, avatarPayload, enrichAvatarPayload, validateAvatarConfig } from '@/lib/platform'
-import { parsePlacement, parseAnimClipsJson, parseBundlePartsJson, sanitizePartColors, sanitizeFaceScale, type AvatarConfigT } from '@/lib/avatarAssets'
+import { parsePlacement, parseAnimClipsJson, parseBundlePartsJson, sanitizePartColors, sanitizeFaceScale, sanitizeCustomPlacements, type AvatarConfigT } from '@/lib/avatarAssets'
 
 /**
  * Own avatar config (website editor):
@@ -68,6 +68,7 @@ export async function PUT(req: NextRequest) {
     faceScale: sanitizeFaceScale((body as { faceScale?: unknown }).faceScale),
     bundleAssetId: String((body as { bundleAssetId?: unknown }).bundleAssetId || '') || null,
     animPackAssetId: String((body as { animPackAssetId?: unknown }).animPackAssetId || '') || null,
+    placements: sanitizeCustomPlacements((body as { placements?: unknown }).placements),
   }
   const err = await validateAvatarConfig(user.id, cfg)
   if (err) return NextResponse.json({ error: err }, { status: 400 })
@@ -79,6 +80,7 @@ export async function PUT(req: NextRequest) {
     shirtAssetId: cfg.shirtAssetId,
     pantsAssetId: cfg.pantsAssetId,
     accessoriesJson: JSON.stringify(cfg.accessories),
+    placementsJson: JSON.stringify(cfg.placements || {}),
     colorsJson,
     faceScale: sanitizeFaceScale(cfg.faceScale),
     bundleAssetId: cfg.bundleAssetId,

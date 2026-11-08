@@ -117,6 +117,32 @@ export interface AvatarConfigT {
   bundleAssetId?: string | null
   /** active animation pack — clips replace idle/walk/jump/climb in realtime (null/'' = classic anims) */
   animPackAssetId?: string | null
+  /** custom UGC placement overrides: assetId -> { p, r, s } */
+  placements?: CustomPlacements
+}
+
+export type CustomPlacements = Record<string, Placement>
+
+export function sanitizeCustomPlacements(raw: unknown): CustomPlacements {
+  if (!raw || typeof raw !== 'object') return {}
+  const res: CustomPlacements = {}
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (!val || typeof val !== 'object') continue
+    const v = val as Placement
+    if (
+      Array.isArray(v.p) && v.p.length === 3 &&
+      Array.isArray(v.r) && v.r.length === 3 &&
+      Array.isArray(v.s) && v.s.length === 3 &&
+      [...v.p, ...v.r, ...v.s].every((n) => typeof n === 'number' && Number.isFinite(n))
+    ) {
+      res[key] = {
+        p: [Number(v.p[0]), Number(v.p[1]), Number(v.p[2])],
+        r: [Number(v.r[0]), Number(v.r[1]), Number(v.r[2])],
+        s: [Number(v.s[0]), Number(v.s[1]), Number(v.s[2])],
+      }
+    }
+  }
+  return res
 }
 
 /** face decal scale limits + the classic default */

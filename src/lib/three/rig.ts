@@ -289,7 +289,7 @@ export function buildLook3D(cfg: AvatarConfigT, resolve: (id: string) => AssetIn
       .map((a) => ({
         url: a.modelUrl || '',
         imageUrl: a.imageUrl,
-        placement: a.placement || null,
+        placement: (cfg.placements && cfg.placements[a.assetId]) ? cfg.placements[a.assetId] : (a.placement || null),
         textureUrl: a.textureUrl,
         color: a.color,
         animClips: a.animClips?.clips,

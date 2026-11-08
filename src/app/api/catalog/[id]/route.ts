@@ -464,28 +464,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             sellerId: item.creatorId,
           },
         })
-          return { message: cost <= 0 ? `"${item.name}" is yours — it was free!` : `"${item.name}" is in your inventory now.`, balanceAfter: null as number | null }
-        }
-
-        const buyer = await tx.user.findUnique({ where: { id: user.id }, select: { rbxBalance: true } })
-        if (!buyer) throw new RbxError('NO_USER', 'That account does not exist.')
-        if (buyer.rbxBalance < cost) {
-          throw new RbxError('INSUFFICIENT', `Not enough Tix — this costs T$ ${cost.toLocaleString('en-US')}${item.isLimited && item.stock != null ? ` (only ${Math.max(0, item.stock - sold - 1)} left!)` : ''}. Top up in the Tix Store!`)
-        }
-
-        const after = buyer.rbxBalance - cost
-        await tx.user.update({ where: { id: user.id }, data: { rbxBalance: after } })
-        await tx.rbxTransaction.create({
-          data: {
-            userId: user.id,
-            amount: -cost,
-            type: 'spend',
-            balanceBefore: buyer.rbxBalance,
-            balanceAfter: after,
-            note: `Bought "${item.name}" (${item.assetId})${item.isLimited ? ` — LIMITED #${sold + 1}${item.stock != null ? `/${item.stock}` : ''}` : ''}`,
-          },
-        })
-        await tx.inventoryEntry.create({ data: { userId: user.id, itemId: id } })
         return { message: `"${item.name}" is yours! T$ ${after.toLocaleString('en-US')} left.`, balanceAfter: after }
       })
       return NextResponse.json({ ok: true, message: result.message, balanceAfter: result.balanceAfter ?? undefined })

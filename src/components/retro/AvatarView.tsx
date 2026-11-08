@@ -67,12 +67,27 @@ export function AvatarView() {
   // editor sections live in two tabs — Colors (paint) / UGC (owned items).
   // Inside UGC there are category sub-tabs like the Catalog's (All, Faces,
   // Hats, Back, ...).
-  const [pickTab, setPickTab] = useState<'colors' | 'ugc'>('colors')
+  const [pickTab, setPickTab] = useState<'colors' | 'ugc' | 'adjust'>('colors')
+  const [selectedAdjId, setSelectedAdjId] = useState<string>('')
   const [ugcSub, setUgcSub] = useState<string>('all')
 
   const load = useCallback(async () => {
     try {
-      const res = await api<{ avatar: { body: string; head: string; shirt: string; pants: string; accessories: string[]; colors?: AvatarPartColors | null; faceScale?: number; bundle?: string | null; animPack?: string | null }; inventory: InvEntry[] }>('/api/me/avatar')
+      const res = await api<{
+        avatar: {
+          body: string
+          head: string
+          shirt: string
+          pants: string
+          accessories: string[]
+          colors?: AvatarPartColors | null
+          faceScale?: number
+          bundle?: string | null
+          animPack?: string | null
+          placements?: Record<string, Placement> | null
+        }
+        inventory: InvEntry[]
+      }>('/api/me/avatar')
       setCfg({
         bodyAssetId: res.avatar.body,
         headAssetId: res.avatar.head,
@@ -83,6 +98,7 @@ export function AvatarView() {
         faceScale: typeof res.avatar.faceScale === 'number' ? res.avatar.faceScale : FACE_SCALE_DEFAULT,
         bundleAssetId: res.avatar.bundle || '',
         animPackAssetId: res.avatar.animPack || '',
+        placements: res.avatar.placements || {},
       })
       setInventory((res.inventory || []).map((e: InvEntry) => ({
         ...e,
@@ -197,7 +213,7 @@ export function AvatarView() {
   function toggleAccessory(assetId: string) {
     const worn = cfg!.accessories.includes(assetId)
     if (worn) patch({ accessories: cfg!.accessories.filter((a) => a !== assetId) })
-    else if (cfg!.accessories.length >= 6) flash(setToast, 'Six accessories max — take one off first.')
+    else if (cfg!.accessories.length >= 20) flash(setToast, 'Twenty accessories max — take one off first.')
     else patch({ accessories: [...cfg!.accessories, assetId] })
   }
 
@@ -421,22 +437,35 @@ export function AvatarView() {
                 Bundle worn — the classic body parts it replaces are hidden.
               </div>
             )}
-            <div style={{ fontSize: 10, color: '#7b8896', marginTop: 2, fontFamily: 'monospace' }}>
-              body:{cfg.bodyAssetId} head:{cfg.headAssetId}
+            <div style={{ fontSize: 10, color: '#1c4e7c', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+              <span>Worn Hats: <b>{cfg.accessories.length} / 20</b></span>
+              <span style={{ color: '#7b8896', fontFamily: 'monospace' }}>face: {(cfg.faceScale || 1).toFixed(2)}×</span>
             </div>
             <button className="rb-btn rb-btn-green" style={{ width: '100%', marginTop: 8 }} disabled={busy} onClick={save}>
               {busy ? 'Saving...' : savedFlash ? '✓ Saved' : 'Save Avatar'}
             </button>
+            {cfg.accessories.length > 0 && (
+              <button
+                className="rb-btn"
+                style={{
+                  width: '100%', marginTop: 6, fontSize: 11,
+                  background: pickTab === 'adjust' ? '#dbeaf7' : '#fff',
+                  border: '1px solid #2a6cad', color: '#1c4e7c',
+                }}
+                onClick={() => setPickTab('adjust')}
+              >
+                🎛 Adjust Hats & UGC ({cfg.accessories.length})
+              </button>
+            )}
           </div>
         </div>
 
-        {/* pickers — two tabs: Colors (paint) / UGC (owned items, with
-            category sub-tabs like the Catalog: All, Faces, Hats, Back...) */}
+        {/* pickers — three tabs: Colors (paint) / UGC (owned items) / Adjust (move, rotate, scale hats) */}
         <div className="rb-box" style={{ flex: 1, minWidth: 280 }}>
           <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>Customize</span>
             <span style={{ display: 'flex', gap: 3 }} role="tablist" aria-label="Editor sections">
-              {([['colors', 'Colors'], ['ugc', 'UGC']] as const).map(([t, label]) => (
+              {([['colors', 'Colors'], ['ugc', 'UGC'], ['adjust', `Adjust Hats (${cfg.accessories.length})`]] as const).map(([t, label]) => (
                 <button
                   key={t}
                   type="button"
@@ -621,7 +650,7 @@ export function AvatarView() {
               ) : ugcSub === 'emote' ? (
                 <span style={{ color: '#8ba0b3' }}> — click to PLAY it on your avatar right now</span>
               ) : ACCESSORY_KINDS.includes(ugcSub) || ugcSub === 'all' ? (
-                <span style={{ color: '#8ba0b3' }}> — click to wear, click again to take off (6 accessories max)</span>
+                <span style={{ color: '#8ba0b3' }}> — click to wear, click again to take off (20 accessories max)</span>
               ) : (
                 <span style={{ color: '#8ba0b3' }}> — click to wear, click again for the classic one</span>
               )}
@@ -646,6 +675,255 @@ export function AvatarView() {
               </div>
             )}
             </>
+            )}
+
+            {pickTab === 'adjust' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontSize: 11, color: '#1c4e7c' }}>
+                  <b>Move, Rotate & Scale Your Equipped Hats</b>
+                  <span style={{ color: '#8ba0b3', display: 'block', marginTop: 2 }}>
+                    Click any equipped hat below to customize its position, rotation, and size. Updates live in 3D!
+                  </span>
+                </div>
+
+                {cfg.accessories.length === 0 ? (
+                  <div style={{ padding: '18px 12px', background: '#f5f7fa', border: '1px solid #d5dfe6', fontSize: 12, color: '#687887', textAlign: 'center' }}>
+                    You don't have any hats or accessories equipped yet!
+                    <div style={{ marginTop: 8 }}>
+                      <button type="button" className="rb-btn rb-btn-blue" style={{ fontSize: 11 }} onClick={() => setPickTab('ugc')}>
+                        Equip Hats from UGC Tab
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Horizontal carousel of equipped hats */}
+                    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
+                      {cfg.accessories.map((accId, idx) => {
+                        const itemInfo = resolve(accId)
+                        const isSelected = (selectedAdjId || cfg.accessories[0]) === accId
+                        return (
+                          <button
+                            key={accId}
+                            type="button"
+                            onClick={() => setSelectedAdjId(accId)}
+                            style={{
+                              position: 'relative', width: 62, height: 62, minWidth: 62,
+                              border: isSelected ? '2px solid #2a6cad' : '1px solid #c0cdd8',
+                              background: isSelected ? '#eaf3fb' : '#fff',
+                              borderRadius: 4, cursor: 'pointer', padding: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                            }}
+                            title={itemInfo?.name || accId}
+                          >
+                            <span style={{ position: 'absolute', top: 2, left: 3, fontSize: 8, background: '#1c4e7c', color: '#fff', padding: '0 3px', borderRadius: 2 }}>
+                              #{idx + 1}
+                            </span>
+                            {itemInfo?.imageUrl ? (
+                              <img src={itemInfo.imageUrl} alt={itemInfo.name} style={{ width: 44, height: 44, objectFit: 'contain' }} />
+                            ) : (
+                              <span style={{ fontSize: 9, color: '#1c4e7c', textAlign: 'center', wordBreak: 'break-all' }}>{itemInfo?.name || accId}</span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Active Accessory Transform Controls */}
+                    {(() => {
+                      const activeAccId = (selectedAdjId && cfg.accessories.includes(selectedAdjId)) ? selectedAdjId : cfg.accessories[0]
+                      const activeInfo = resolve(activeAccId)
+                      const defPl: Placement = activeInfo?.placement || { p: [0, 0, 0], r: [0, 0, 0], s: [1, 1, 1] }
+                      const curPl: Placement = cfg.placements?.[activeAccId] || defPl
+
+                      const updateCur = (updated: Placement) => {
+                        patch({
+                          placements: {
+                            ...(cfg.placements || {}),
+                            [activeAccId]: updated,
+                          }
+                        })
+                      }
+
+                      const resetCur = () => {
+                        const next = { ...(cfg.placements || {}) }
+                        delete next[activeAccId]
+                        patch({ placements: next })
+                      }
+
+                      return (
+                        <div style={{ background: '#f8fafc', border: '1px solid #d0dce5', padding: 12, borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 6 }}>
+                            <div>
+                              <b style={{ color: '#1c4e7c', fontSize: 12 }}>{activeInfo?.name || activeAccId}</b>
+                              <span style={{ fontSize: 10, color: '#8ba0b3', marginLeft: 6 }}>({activeInfo?.kind || 'accessory'})</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="rb-btn"
+                              style={{ fontSize: 10, padding: '2px 8px' }}
+                              onClick={resetCur}
+                              title="Revert back to creator default position"
+                            >
+                              ↺ Reset to Default
+                            </button>
+                          </div>
+
+                          {/* 1. POSITION / MOVE */}
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 5 }}>
+                              Move Position (Studs)
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {/* X */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 85, fontSize: 10, color: '#41586c' }}>Left / Right (X):</span>
+                                <input
+                                  type="range"
+                                  min={-3.0}
+                                  max={3.0}
+                                  step={0.05}
+                                  value={curPl.p[0]}
+                                  onChange={(e) => updateCur({ ...curPl, p: [Number(e.target.value), curPl.p[1], curPl.p[2]] })}
+                                  style={{ flex: 1, accentColor: '#2a6cad' }}
+                                />
+                                <span style={{ width: 42, fontFamily: 'monospace', fontSize: 10, textAlign: 'right' }}>{curPl.p[0].toFixed(2)}</span>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, p: [Math.round((curPl.p[0] - 0.1) * 100) / 100, curPl.p[1], curPl.p[2]] })}>◀</button>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, p: [Math.round((curPl.p[0] + 0.1) * 100) / 100, curPl.p[1], curPl.p[2]] })}>▶</button>
+                              </div>
+                              {/* Y */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 85, fontSize: 10, color: '#41586c' }}>Down / Up (Y):</span>
+                                <input
+                                  type="range"
+                                  min={-3.0}
+                                  max={3.0}
+                                  step={0.05}
+                                  value={curPl.p[1]}
+                                  onChange={(e) => updateCur({ ...curPl, p: [curPl.p[0], Number(e.target.value), curPl.p[2]] })}
+                                  style={{ flex: 1, accentColor: '#2a6cad' }}
+                                />
+                                <span style={{ width: 42, fontFamily: 'monospace', fontSize: 10, textAlign: 'right' }}>{curPl.p[1].toFixed(2)}</span>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, p: [curPl.p[0], Math.round((curPl.p[1] - 0.1) * 100) / 100, curPl.p[2]] })}>▼</button>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, p: [curPl.p[0], Math.round((curPl.p[1] + 0.1) * 100) / 100, curPl.p[2]] })}>▲</button>
+                              </div>
+                              {/* Z */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 85, fontSize: 10, color: '#41586c' }}>Back / Front (Z):</span>
+                                <input
+                                  type="range"
+                                  min={-3.0}
+                                  max={3.0}
+                                  step={0.05}
+                                  value={curPl.p[2]}
+                                  onChange={(e) => updateCur({ ...curPl, p: [curPl.p[0], curPl.p[1], Number(e.target.value)] })}
+                                  style={{ flex: 1, accentColor: '#2a6cad' }}
+                                />
+                                <span style={{ width: 42, fontFamily: 'monospace', fontSize: 10, textAlign: 'right' }}>{curPl.p[2].toFixed(2)}</span>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, p: [curPl.p[0], curPl.p[1], Math.round((curPl.p[2] - 0.1) * 100) / 100] })}>◀</button>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, p: [curPl.p[0], curPl.p[1], Math.round((curPl.p[2] + 0.1) * 100) / 100] })}>▶</button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2. ROTATION */}
+                          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 5 }}>
+                              Rotate (Degrees)
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {/* Pitch X */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 85, fontSize: 10, color: '#41586c' }}>Pitch X (Tilt):</span>
+                                <input
+                                  type="range"
+                                  min={-180}
+                                  max={180}
+                                  step={5}
+                                  value={curPl.r[0]}
+                                  onChange={(e) => updateCur({ ...curPl, r: [Number(e.target.value), curPl.r[1], curPl.r[2]] })}
+                                  style={{ flex: 1, accentColor: '#2a6cad' }}
+                                />
+                                <span style={{ width: 42, fontFamily: 'monospace', fontSize: 10, textAlign: 'right' }}>{Math.round(curPl.r[0])}°</span>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, r: [0, curPl.r[1], curPl.r[2]] })}>0°</button>
+                              </div>
+                              {/* Yaw Y */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 85, fontSize: 10, color: '#41586c' }}>Yaw Y (Turn):</span>
+                                <input
+                                  type="range"
+                                  min={-180}
+                                  max={180}
+                                  step={5}
+                                  value={curPl.r[1]}
+                                  onChange={(e) => updateCur({ ...curPl, r: [curPl.r[0], Number(e.target.value), curPl.r[2]] })}
+                                  style={{ flex: 1, accentColor: '#2a6cad' }}
+                                />
+                                <span style={{ width: 42, fontFamily: 'monospace', fontSize: 10, textAlign: 'right' }}>{Math.round(curPl.r[1])}°</span>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, r: [curPl.r[0], (curPl.r[1] + 90) % 360, curPl.r[2]] })}>+90°</button>
+                              </div>
+                              {/* Roll Z */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 85, fontSize: 10, color: '#41586c' }}>Roll Z (Spin):</span>
+                                <input
+                                  type="range"
+                                  min={-180}
+                                  max={180}
+                                  step={5}
+                                  value={curPl.r[2]}
+                                  onChange={(e) => updateCur({ ...curPl, r: [curPl.r[0], curPl.r[1], Number(e.target.value)] })}
+                                  style={{ flex: 1, accentColor: '#2a6cad' }}
+                                />
+                                <span style={{ width: 42, fontFamily: 'monospace', fontSize: 10, textAlign: 'right' }}>{Math.round(curPl.r[2])}°</span>
+                                <button type="button" className="rb-btn" style={{ fontSize: 9, padding: '1px 6px' }} onClick={() => updateCur({ ...curPl, r: [curPl.r[0], curPl.r[1], 0] })}>0°</button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 3. SCALE */}
+                          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 5 }}>
+                              Scale & Size
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {/* Uniform Scale */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 85, fontSize: 10, color: '#41586c' }}>Size (All):</span>
+                                <input
+                                  type="range"
+                                  min={0.1}
+                                  max={3.0}
+                                  step={0.05}
+                                  value={curPl.s[0]}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value)
+                                    updateCur({ ...curPl, s: [val, val, val] })
+                                  }}
+                                  style={{ flex: 1, accentColor: '#2a6cad' }}
+                                />
+                                <span style={{ width: 42, fontFamily: 'monospace', fontSize: 10, textAlign: 'right' }}>{curPl.s[0].toFixed(2)}×</span>
+                              </div>
+                              {/* Quick Presets */}
+                              <div style={{ display: 'flex', gap: 5, marginLeft: 93, flexWrap: 'wrap' }}>
+                                {[0.5, 0.8, 1.0, 1.3, 1.8, 2.5].map((preset) => (
+                                  <button
+                                    key={preset}
+                                    type="button"
+                                    className="rb-btn"
+                                    style={{ fontSize: 9, padding: '2px 8px' }}
+                                    onClick={() => updateCur({ ...curPl, s: [preset, preset, preset] })}
+                                  >
+                                    {preset}×
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
