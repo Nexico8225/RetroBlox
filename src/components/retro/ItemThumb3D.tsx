@@ -104,6 +104,10 @@ async function renderItemThumb(
   const inst = skeletonClone(src)
   await applyModelSurface(inst, { textureUrl, color, roughness, metallic })
   const holder = attachPlacedModel(inst, placement)
+  // If no custom placement transform was passed, default to facing front (+Z)
+  if (!placement) {
+    inst.rotation.y = Math.PI
+  }
   scene.add(holder)
   scene.updateMatrixWorld(true)
 

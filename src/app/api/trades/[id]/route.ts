@@ -11,6 +11,26 @@ import { getUserFromReq } from '@/lib/auth'
  *          missing copy (traded away elsewhere in the meantime) fails the
  *          whole trade — half-trades can never happen.
  */
+function safeParseIds(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const val = JSON.parse(raw)
+    return Array.isArray(val) ? val.map(String) : []
+  } catch {
+    return String(raw).split(',').map((s) => s.trim()).filter(Boolean)
+  }
+}
+
+function safeParseNotes(raw: string | null | undefined): { userId: string; text: string; at: string }[] {
+  if (!raw) return []
+  try {
+    const val = JSON.parse(raw)
+    return Array.isArray(val) ? val : []
+  } catch {
+    return []
+  }
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const user = await getUserFromReq(req)
@@ -32,13 +52,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       status: t.status,
       tix: t.tix,
       message: t.message,
-      notes: JSON.parse(t.notesJson || '[]'),
+      notes: safeParseNotes(t.notesJson),
       createdAt: t.createdAt,
       respondedAt: t.respondedAt,
       from: t.fromUser,
       to: t.toUser,
-      give: JSON.parse(t.giveItemIds || '[]'),
-      take: JSON.parse(t.takeItemIds || '[]'),
+      give: safeParseIds(t.giveItemIds),
+      take: safeParseIds(t.takeItemIds),
       isIncoming: t.toUserId === user.id,
     },
   })
@@ -61,8 +81,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: `This trade was already ${t.status}.` }, { status: 400 })
   }
 
-  const giveIds = JSON.parse(t.giveItemIds || '[]') as string[]
-  const takeIds = JSON.parse(t.takeItemIds || '[]') as string[]
+  const giveIds = safeParseIds(t.giveItemIds)
+  const takeIds = safeParseIds(t.takeItemIds)
 
   // ---------------- message (both sides, while pending) ----------------
   if (body.action === 'message') {
@@ -71,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (t.status !== 'pending') {
       return NextResponse.json({ error: 'The trade is closed — no more messages.' }, { status: 400 })
     }
-    const notes = JSON.parse(t.notesJson || '[]') as { userId: string; text: string; at: string }[]
+    const notes = safeParseNotes(t.notesJson)
     notes.push({ userId: user.id, text, at: new Date().toISOString() })
     await db.trade.update({ where: { id }, data: { notesJson: JSON.stringify(notes.slice(-30)) } })
     // notify the other side

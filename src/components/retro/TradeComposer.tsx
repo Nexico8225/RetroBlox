@@ -13,7 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { api, useRetro } from '@/lib/store'
 import { Avatar } from './Shell'
 import { FxText } from '@/lib/textfx'
-import { UGC_TYPE_LABELS } from '@/lib/avatarAssets'
+import { UGC_TYPE_LABELS, type Placement } from '@/lib/avatarAssets'
 
 const ItemThumb3D = dynamic(() => import('./ItemThumb3D'), { ssr: false })
 
@@ -23,6 +23,9 @@ export interface ShelfEntry {
   type: string
   imageFileId: string
   modelFileId?: string | null
+  placement?: Placement | null
+  textureFileId?: string | null
+  baseColor?: string | null
   isLimited: boolean
   isSuperLimited?: boolean
   price: number
@@ -387,14 +390,13 @@ function TradeComposerInner() {
                   style={{
                     border: it ? '1px solid #029a4a' : '1px dashed #c9d6e2',
                     background: it ? '#f4faf5' : '#fafbfc',
-                    aspectRatio: '1',
+                    minHeight: 92,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 4,
+                    justifyContent: 'space-between',
+                    padding: '4px 2px 2px',
                     position: 'relative',
-                    overflow: 'hidden',
                   }}
                 >
                   {it ? (
@@ -412,10 +414,13 @@ function TradeComposerInner() {
                       >
                         X
                       </button>
-                      <div style={{ width: '100%', flex: 1, position: 'relative' }}>
+                      <div style={{ width: '100%', height: 50, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {it.modelFileId ? (
                           <ItemThumb3D
                             modelUrl={`/api/files/${it.modelFileId}`}
+                            placement={it.placement}
+                            textureUrl={it.textureFileId ? `/api/files/${it.textureFileId}` : undefined}
+                            color={it.baseColor || undefined}
                             alt={it.name}
                             fallbackSrc={`/api/files/${it.imageFileId}`}
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
@@ -428,10 +433,10 @@ function TradeComposerInner() {
                           />
                         )}
                       </div>
-                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center', padding: '0 2px', lineHeight: 1.2 }}>
                         {it.name}
                       </div>
-                      <div style={{ fontSize: 8.5, color: '#5a6b7b', fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: 8.5, color: '#2c6e31', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1, paddingBottom: 2 }}>
                         T$ {tixShort(it.price)}
                       </div>
                     </>
@@ -549,14 +554,13 @@ function TradeComposerInner() {
                   style={{
                     border: it ? '1px solid #0070b6' : '1px dashed #c9d6e2',
                     background: it ? '#f0f7fc' : '#fafbfc',
-                    aspectRatio: '1',
+                    minHeight: 92,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 4,
+                    justifyContent: 'space-between',
+                    padding: '4px 2px 2px',
                     position: 'relative',
-                    overflow: 'hidden',
                   }}
                 >
                   {it ? (
@@ -574,10 +578,13 @@ function TradeComposerInner() {
                       >
                         X
                       </button>
-                      <div style={{ width: '100%', flex: 1, position: 'relative' }}>
+                      <div style={{ width: '100%', height: 50, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {it.modelFileId ? (
                           <ItemThumb3D
                             modelUrl={`/api/files/${it.modelFileId}`}
+                            placement={it.placement}
+                            textureUrl={it.textureFileId ? `/api/files/${it.textureFileId}` : undefined}
+                            color={it.baseColor || undefined}
                             alt={it.name}
                             fallbackSrc={`/api/files/${it.imageFileId}`}
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
@@ -590,10 +597,10 @@ function TradeComposerInner() {
                           />
                         )}
                       </div>
-                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center', padding: '0 2px', lineHeight: 1.2 }}>
                         {it.name}
                       </div>
-                      <div style={{ fontSize: 8.5, color: '#5a6b7b', fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: 8.5, color: '#0070b6', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1, paddingBottom: 2 }}>
                         T$ {tixShort(it.price)}
                       </div>
                     </>
@@ -679,6 +686,9 @@ function TradeComposerInner() {
                     {item.modelFileId ? (
                       <ItemThumb3D
                         modelUrl={`/api/files/${item.modelFileId}`}
+                        placement={item.placement}
+                        textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
+                        color={item.baseColor || undefined}
                         alt={item.name}
                         fallbackSrc={`/api/files/${item.imageFileId}`}
                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}

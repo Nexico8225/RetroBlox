@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromReq, publicUser, isOnline, resolveUserIdParam } from '@/lib/auth'
 import { ensureUserSeq } from '@/lib/seq'
+import { parsePlacement } from '@/lib/avatarAssets'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -165,6 +166,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       isSuperLimited: entry.item.isSuperLimited ?? false,
       imageFileId: entry.item.imageFileId,
       modelFileId: entry.item.modelFileId,
+      placement: parsePlacement(entry.item.placementJson),
+      textureFileId: entry.item.textureFileId,
+      baseColor: entry.item.baseColor,
       stock: entry.item.stock,
       acquiredAt: entry.acquiredAt,
     })),
