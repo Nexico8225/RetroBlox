@@ -61,7 +61,9 @@ model User {
   avatarConfig  AvatarConfig?
   inventory     InventoryEntry[]
   ugcItems      AvatarItem[]
-  rbxBalance    Int           @default(0) // server-side RBX wallet — only the ledger moves it
+  rbxBalance    Int           @default(10) // server-side RBX wallet — fair start with 10 Tix
+  bankBalance   Int           @default(0) // RetroBank savings account
+  bankLoans     BankLoan[]
   rbxTransactions RbxTransaction[]
   payments      Payment[]
   gameSaves     GameSave[]
@@ -821,4 +823,18 @@ model SiteUi {
   id        Int      @id @default(1)
   config    String // JSON blob of the web UI editor settings (owner edits at /site-ui)
   updatedAt DateTime @updatedAt
+}
+
+model BankLoan {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String
+  amount    Int
+  repaid    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  repaidAt  DateTime?
+
+  @@index([ipAddress, repaid])
+  @@index([userId, repaid])
 }

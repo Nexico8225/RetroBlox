@@ -167,5 +167,5 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  return NextResponse.json({ ok: true, trade: { id: trade.id } })
+  return NextResponse.json({ ok: true, trade: { id: trade.id }, tradeId: trade.id })
 }

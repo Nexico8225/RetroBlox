@@ -116,7 +116,7 @@ export default function TradeModal({
       <div className="rb-box" style={{ width: 'min(680px, 100%)', background: '#fff', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
         <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Trade for: {target.name}</span>
-          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
+          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>X</button>
         </div>
         <div style={{ padding: 12, overflowY: 'auto' }}>
           {/* what you want */}
@@ -155,7 +155,7 @@ export default function TradeModal({
                   >
                     <img src={`/api/files/${it.imageFileId}`} alt={it.name} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block', background: '#fff' }} />
                     {on && (
-                      <span style={{ position: 'absolute', top: 2, right: 2, fontSize: 9, background: '#2e9e3e', color: '#fff', padding: '0 4px', borderRadius: 2 }}>✓</span>
+                      <span style={{ position: 'absolute', top: 2, right: 2, fontSize: 8, background: '#2e9e3e', color: '#fff', padding: '0 3px', borderRadius: 2 }}>[OK]</span>
                     )}
                   </button>
                 )

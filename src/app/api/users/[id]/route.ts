@@ -164,6 +164,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       isLimited: entry.item.isLimited,
       isSuperLimited: entry.item.isSuperLimited ?? false,
       imageFileId: entry.item.imageFileId,
+      modelFileId: entry.item.modelFileId,
       stock: entry.item.stock,
       acquiredAt: entry.acquiredAt,
     })),

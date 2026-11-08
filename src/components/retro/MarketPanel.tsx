@@ -91,7 +91,7 @@ export function OfferItemChips({ ids, itemMap }: { ids: string[]; itemMap: Recor
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`/api/files/${it.imageFileId}`} alt={it.name} width={18} height={18} style={{ objectFit: 'cover', border: '1px solid #dbe4ec', display: 'block' }} />
             <span style={{ maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
-            {it.isLimited && <span style={{ color: '#b8860b', fontWeight: 'bold' }}>★</span>}
+            {it.isLimited && <span style={{ color: '#b8860b', fontWeight: 'bold' }}>[L]</span>}
           </span>
         )
       })}
@@ -405,7 +405,7 @@ export function ProfileTradeModal({
               <span style={{ fontSize: 9, color: '#1c2733', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.name}</span>
               {i.isLimited && (
                 <span style={{ position: 'absolute', top: 2, left: 3, fontSize: 8, fontWeight: 'bold', color: '#b8860b' }}>
-                  ★{typeof i.serial === 'number' ? `#${i.serial}` : ''}
+                  [L]{typeof i.serial === 'number' ? `#${i.serial}` : ''}
                 </span>
               )}
             </button>

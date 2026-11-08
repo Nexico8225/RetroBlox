@@ -14,16 +14,17 @@ export function Avatar({
   size = 40,
   rounded = 6,
 }: {
-  user: { username: string; avatarUrl?: string | null }
+  user?: { username?: string | null; avatarUrl?: string | null } | null
   size?: number
   rounded?: number | string
 }) {
   const [err, setErr] = useState(false)
-  const src = !user.avatarUrl || err ? letterAvatar(user.username) : user.avatarUrl
+  const username = user?.username || 'User'
+  const src = !user?.avatarUrl || err ? letterAvatar(username) : user.avatarUrl
   return (
     <img
       src={src}
-      alt={`${user.username}'s avatar`}
+      alt={`${username}'s avatar`}
       width={size}
       height={size}
       onError={() => setErr(true)}
@@ -34,6 +35,7 @@ export function Avatar({
         border: '1px solid #8ba0b3',
         background: '#dde5ec',
         objectFit: 'cover',
+        display: 'inline-block',
         flexShrink: 0,
       }}
     />
@@ -203,7 +205,7 @@ export function Header() {
               boxShadow: '0 1px 3px rgba(0,0,0,.2)',
             }}
           >
-            <span>📥 Get Launcher</span>
+            <span>Get Launcher</span>
           </a>
           {user ? (
             <>
@@ -307,7 +309,7 @@ export function Header() {
                     fontWeight: 'bold',
                   }}
                 >
-                  🧹 Bot Cleanup
+                  Bot Cleanup
                 </Link>
               )}
             </>
@@ -443,7 +445,7 @@ export function Sidebar() {
         )}
         {/* Account + Log Out are ALWAYS here — the owner can't lock themselves out */}
         {sec('Account')}
-        {isClientAdmin(user) && item('🧹 Bot Cleanup', '/admin/bots')}
+        {isClientAdmin(user) && item('Bot Cleanup', '/admin/bots')}
         {isClientAdmin(user) && item('Admin Panel', '/admin')}
         {isClientAdmin(user) && item('Site UI Editor', '/site-ui')}
         {item('Settings', '/settings')}
@@ -626,7 +628,7 @@ function MobileDrawer() {
             </span>
           </div>
           <button type="button" className="rb-drawer-x" aria-label="Close menu" onClick={close}>
-            ✕
+            X
           </button>
         </div>
 
@@ -645,7 +647,7 @@ function MobileDrawer() {
         {link('Favorites', '/favorites')}
         {link('Friends', '/friends', pendingRequests || undefined)}
         {link('Tix Store', '/store')}
-        {isClientAdmin(user) && link('🧹 Bot Cleanup', '/admin/bots')}
+        {isClientAdmin(user) && link('Bot Cleanup', '/admin/bots')}
         {isClientAdmin(user) && link('Tix Admin', '/admin')}
         {isClientAdmin(user) && link('Site UI Editor', '/site-ui')}
         {link('Analytics', '/analytics')}

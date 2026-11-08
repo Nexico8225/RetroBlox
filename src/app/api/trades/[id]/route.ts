@@ -267,9 +267,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               },
             })
 
-            // Update item price valuation if limited/super limited
-            if (it && (it.isLimited || it.isSuperLimited)) {
-              await tx.avatarItem.update({ where: { id: gid }, data: { price: newPriceVal } })
+            // Update item price valuation: limiteds fluctuate, but super limiteds NEVER lose value
+            if (it) {
+              if (it.isSuperLimited) {
+                const superVal = Math.max(it.price, newPriceVal)
+                await tx.avatarItem.update({ where: { id: gid }, data: { price: superVal } })
+              } else if (it.isLimited) {
+                await tx.avatarItem.update({ where: { id: gid }, data: { price: newPriceVal } })
+              }
             }
           }
 
@@ -291,9 +296,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               },
             })
 
-            // Update item price valuation if limited/super limited
-            if (it && (it.isLimited || it.isSuperLimited)) {
-              await tx.avatarItem.update({ where: { id: tid }, data: { price: newPriceVal } })
+            // Update item price valuation: limiteds fluctuate, but super limiteds NEVER lose value
+            if (it) {
+              if (it.isSuperLimited) {
+                const superVal = Math.max(it.price, newPriceVal)
+                await tx.avatarItem.update({ where: { id: tid }, data: { price: superVal } })
+              } else if (it.isLimited) {
+                await tx.avatarItem.update({ where: { id: tid }, data: { price: newPriceVal } })
+              }
             }
           }
         }

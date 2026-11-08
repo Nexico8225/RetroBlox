@@ -1,37 +1,30 @@
 'use client'
 
-/* ================= Trade composer (/trades/new) =================
-   The classic Roblox trade window, rebuilt for RetroBlox:
-
-     ┌──────────────────────────────┬───────────────────┐
-     │  THEIR inventory (pick what  │  YOU ARE ASKING FOR│
-     │  you want, checkboxes)       │  ...their items    │
-     │                              │                    │
-     │  YOUR inventory (pick what   │  YOU ARE GIVING    │
-     │  you'll hand over)           │  ...your items + Tix│
-     └──────────────────────────────┴───────────────────┘
-                     [ Make Offer ]
-
-   Opened by the "Trade" button beside any UGC item, or from a
-   profile. Works for every item — even FREE ones (a trade never
-   looks at the price tag). Sending drops you straight into the
-   trade room, where the other player can chat, counter, accept
-   or decline. ------------------------------------------------ */
+/* TradeComposer — The Authentic Classic Roblox Trade Window.
+   Two-sided item exchange:
+   [ Your Offer (Giving) ]  <== [ PROFIT / WIN-LOSS ] ==>  [ Their Offer (Receiving) ]
+   Below: full inventory cards with clean catalog styling to pick from.
+   Strictly NO emojis. Clean retro aesthetic. */
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { api, useRetro } from '@/lib/store'
 import { Avatar } from './Shell'
 import { FxText } from '@/lib/textfx'
 import { UGC_TYPE_LABELS } from '@/lib/avatarAssets'
 
-interface ShelfEntry {
+const ItemThumb3D = dynamic(() => import('./ItemThumb3D'), { ssr: false })
+
+export interface ShelfEntry {
   id: string
   name: string
   type: string
   imageFileId: string
+  modelFileId?: string | null
   isLimited: boolean
+  isSuperLimited?: boolean
   price: number
   stock: number | null
   serial: number | null
@@ -39,81 +32,15 @@ interface ShelfEntry {
 
 const tixShort = (n: number) => n.toLocaleString('en-US')
 
-function ShelfGrid({
-  entries,
-  picked,
-  onToggle,
-  accent,
-}: {
-  entries: ShelfEntry[]
-  picked: Set<string>
-  onToggle: (id: string) => void
-  accent: string
-}) {
-  if (entries.length === 0) {
-    return (
-      <div style={{ fontSize: 11, color: '#8ba0b3', padding: '12px 10px', border: '1px dashed #c9d6e2', textAlign: 'center', fontStyle: 'italic' }}>
-        nothing here
-      </div>
-    )
-  }
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))', gap: 7 }}>
-      {entries.map((e) => {
-        const on = picked.has(e.id)
-        return (
-          <button
-            key={e.id}
-            type="button"
-            onClick={() => onToggle(e.id)}
-            aria-pressed={on}
-            title={`${e.name}${e.serial ? ` · copy #${e.serial}` : ''} — ${on ? 'click to remove' : 'click to pick'}`}
-            style={{
-              padding: 5, cursor: 'pointer', textAlign: 'center', position: 'relative',
-              border: on ? `2px solid ${accent}` : '1px solid #b7c6d4',
-              background: on ? '#f2fbf3' : '#fff',
-            }}
-          >
-            {on && (
-              <span
-                style={{
-                  position: 'absolute', top: 2, right: 2, width: 15, height: 15, fontSize: 10, lineHeight: '15px',
-                  background: accent, color: '#fff', borderRadius: 2, fontWeight: 'bold',
-                }}
-                aria-hidden
-              >
-                ✓
-              </span>
-            )}
-            {e.serial != null && (
-              <span
-                style={{
-                  position: 'absolute', top: 2, left: 2, fontSize: 8, fontWeight: 'bold', color: '#8a6d1a',
-                  background: '#fffdf4', border: '1px solid #e0c98a', padding: '0 3px', borderRadius: 2,
-                }}
-                title={`Limited copy #${e.serial}`}
-              >
-                ✦#{e.serial}
-              </span>
-            )}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/files/${e.imageFileId}`} alt={e.name} width={64} height={64} style={{ objectFit: 'cover', display: 'block', margin: '0 auto 3px', border: '1px solid #dbe4ec' }} />
-            <span style={{ fontSize: 9, color: '#1c2733', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <FxText text={e.name} />
-            </span>
-            <span style={{ fontSize: 9, color: '#5a6b7b', fontFamily: 'monospace' }}>
-              {e.price > 0 ? `T$ ${tixShort(e.price)}` : 'free'}
-            </span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 function TypeFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <select className="rb-input" value={value} onChange={(e) => onChange(e.target.value)} style={{ fontSize: 11, height: 28, width: 'auto', minWidth: 150 }} aria-label="Filter by type">
+    <select
+      className="rb-input"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ fontSize: 11, height: 26, width: 'auto', minWidth: 130 }}
+      aria-label="Filter by type"
+    >
       <option value="">All types</option>
       {Object.entries(UGC_TYPE_LABELS).map(([k, v]) => (
         <option key={k} value={k}>{v}</option>
@@ -124,7 +51,7 @@ function TypeFilter({ value, onChange }: { value: string; onChange: (v: string) 
 
 export function TradeComposer() {
   return (
-    <Suspense fallback={<div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Opening the trade window…</div>}>
+    <Suspense fallback={<div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Opening trade window...</div>}>
       <TradeComposerInner />
     </Suspense>
   )
@@ -136,9 +63,6 @@ function TradeComposerInner() {
   const params = useSearchParams()
   const withParam = params.get('with') || ''
   const itemParam = params.get('item') || ''
-  // ?give=<itemId> — the OWNER's flow: give your own UGC away (even a free
-  // one) by picking a player; ?item=<itemId> — the BUYER's flow: offer
-  // something for another player's item (or just buy it outright).
   const giveParam = params.get('give') || ''
   const counterParam = params.get('counter') || ''
 
@@ -149,8 +73,10 @@ function TradeComposerInner() {
   const [give, setGive] = useState<Set<string>>(new Set())
   const [tix, setTix] = useState('')
   const [msg, setMsg] = useState('')
-  const [typeFilterTheirs, setTypeFilterTheirs] = useState('')
-  const [typeFilterMine, setTypeFilterMine] = useState('')
+  const [showNote, setShowNote] = useState(false)
+  const [fullWidth, setFullWidth] = useState(false)
+  const [invTab, setInvTab] = useState<'mine' | 'theirs'>('theirs')
+  const [typeFilter, setTypeFilter] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -158,13 +84,19 @@ function TradeComposerInner() {
   const [pickerQ, setPickerQ] = useState('')
   const [pickerResults, setPickerResults] = useState<{ id: string; username: string; playerNo: number }[]>([])
   const [pickerBusy, setPickerBusy] = useState(false)
-  const [buyBusy, setBuyBusy] = useState(false)
-  const [buyMsg, setBuyMsg] = useState('')
 
-  // resolve WHO we're trading with, and WHAT item sits in the window:
-  //   ?with=<userId>  -> that player
-  //   ?item=<itemId>  -> the item's current owner (listing seller ?? creator)
-  //   ?give=<itemId>  -> nobody yet — the owner picks the recipient below
+  // Toggle global sidebar visibility via body class
+  useEffect(() => {
+    if (fullWidth) {
+      document.body.classList.add('hide-sidebar')
+    } else {
+      document.body.classList.remove('hide-sidebar')
+    }
+    return () => {
+      document.body.classList.remove('hide-sidebar')
+    }
+  }, [fullWidth])
+
   useEffect(() => {
     let dead = false
     async function resolve() {
@@ -199,7 +131,6 @@ function TradeComposerInner() {
             remaining: res.item.remaining,
             owned: res.owned,
           }
-          // give-mode starts recipient-less; item-mode targets the owner
           if (itemParam) t = res.tradeTarget
         }
         if (dead) return
@@ -209,7 +140,6 @@ function TradeComposerInner() {
           const shelf = await api<{ inventory: ShelfEntry[] }>(`/api/users/${t.id}`)
           if (dead) return
           setTheirShelf(shelf.inventory || [])
-          // the item that opened the window is what the buyer wants — tick it
           if (itemParam && shelf.inventory.some((e) => e.id === itemParam)) {
             setWant(new Set([itemParam]))
           }
@@ -224,7 +154,6 @@ function TradeComposerInner() {
     return () => { dead = true }
   }, [withParam, itemParam, giveParam, counterParam])
 
-  // my own shelf — in give-mode the gifted item ticks itself
   useEffect(() => {
     if (!user?.id) return
     let dead = false
@@ -241,7 +170,7 @@ function TradeComposerInner() {
     return () => { dead = true }
   }, [user?.id, giveParam])
 
-  // give-mode people picker — find the player who should receive your item
+  // give-mode recipient search
   useEffect(() => {
     if (!giveParam) return
     const q = pickerQ.trim()
@@ -249,86 +178,57 @@ function TradeComposerInner() {
       setPickerResults([])
       return
     }
-    let cancelled = false
-    setPickerBusy(true)
-    const timer = setTimeout(async () => {
+    const t = setTimeout(async () => {
+      setPickerBusy(true)
       try {
-        const res = await api<{ users: { id: string; username: string; playerNo: number }[] }>(`/api/users?q=${encodeURIComponent(q)}`)
-        if (cancelled) return
-        setPickerResults((res.users || []).filter((u) => u.id !== user?.id))
+        const res = await api<{ results: { id: string; username: string; playerNo: number }[] }>(`/api/users/similar?q=${encodeURIComponent(q)}`)
+        setPickerResults(res.results || [])
       } catch {
-        if (!cancelled) setPickerResults([])
+        setPickerResults([])
       } finally {
-        if (!cancelled) setPickerBusy(false)
+        setPickerBusy(false)
       }
-    }, 250)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [pickerQ, giveParam, user?.id])
-
-  // give-mode: after the recipient is picked, load their shelf so the owner
-  // can still ask something back if they want
-  useEffect(() => {
-    if (!target || target.id === user?.id) return
-    if (theirShelf.length > 0) return
-    let dead = false
-    api<{ inventory: ShelfEntry[] }>(`/api/users/${target.id}`)
-      .then((res) => { if (!dead) setTheirShelf(res.inventory || []) })
-      .catch(() => {})
-    return () => { dead = true }
-  }, [target, user?.id, theirShelf.length])
-
-  // "just buy the offer" — skip the haggling and pay the price tag
-  async function buyOutright() {
-    if (!itemData) return
-    setBuyBusy(true)
-    setBuyMsg('')
-    try {
-      const res = await api<{ message?: string }>(`/api/catalog/${itemData.id}`, {
-        method: 'POST',
-        body: JSON.stringify({ action: itemData.buyPrice > 0 ? 'buy' : 'get' }),
-      })
-      setBuyMsg(res.message || 'It is yours!')
-      router.push(`/catalog/${itemData.id}`)
-    } catch (e) {
-      setBuyMsg(e instanceof Error ? e.message : 'That did not work.')
-    } finally {
-      setBuyBusy(false)
-    }
-  }
-
-  const toggle = (set: Set<string>, apply: (n: Set<string>) => void, max: number) => (id: string) => {
-    const n = new Set(set)
-    if (n.has(id)) n.delete(id)
-    else if (n.size < max) n.add(id)
-    apply(n)
-  }
-
-  const filterShelf = useCallback((shelf: ShelfEntry[], f: string) => (f ? shelf.filter((e) => e.type === f) : shelf), [])
-
-  const wantValue = useMemo(() => {
-    let v = 0
-    for (const id of want) v += theirShelf.find((e) => e.id === id)?.price ?? 0
-    return v
-  }, [want, theirShelf])
-  const giveValue = useMemo(() => {
-    let v = 0
-    for (const id of give) v += myShelf.find((e) => e.id === id)?.price ?? 0
-    return v
-  }, [give, myShelf])
+    }, 200)
+    return () => clearTimeout(t)
+  }, [pickerQ, giveParam])
 
   const tixNum = Math.max(0, Math.floor(Number(tix) || 0))
-  const canSend = !!target && !!user && target.id !== user.id && (want.size > 0 || give.size > 0 || tixNum > 0)
+  const giveValue = useMemo(() => {
+    return [...give].reduce((sum, id) => {
+      const e = myShelf.find((x) => x.id === id)
+      return sum + (e?.price || 0)
+    }, 0)
+  }, [give, myShelf])
+
+  const wantValue = useMemo(() => {
+    return [...want].reduce((sum, id) => {
+      const e = theirShelf.find((x) => x.id === id)
+      return sum + (e?.price || 0)
+    }, 0)
+  }, [want, theirShelf])
+
+  const totalMyValue = giveValue + tixNum
+  const totalTheirValue = wantValue
+  const profitLoss = totalTheirValue - totalMyValue
+
+  const canSend = (give.size > 0 || want.size > 0 || tixNum > 0) && !!target
+
+  const toggle = (set: Set<string>, setFn: React.Dispatch<React.SetStateAction<Set<string>>>, max = 8) => (id: string) => {
+    setFn((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else if (next.size < max) next.add(id)
+      return next
+    })
+  }
 
   async function makeOffer() {
     if (!target || !canSend) return
-    setBusy(true)
     setError('')
+    setBusy(true)
     try {
       if (counterParam) {
-        const res = await api<{ ok: boolean; newTradeId?: string }>(`/api/trades/${counterParam}`, {
+        const res = await api<{ ok: boolean; newTradeId?: string; tradeId?: string }>(`/api/trades/${counterParam}`, {
           method: 'POST',
           body: JSON.stringify({
             action: 'counter',
@@ -338,10 +238,11 @@ function TradeComposerInner() {
             message: msg.trim() || undefined,
           }),
         })
-        router.push(`/trades/${res.newTradeId || counterParam}`)
+        router.push(`/trades/${res.newTradeId || res.tradeId || counterParam}`)
         return
       }
-      const res = await api<{ tradeId: string; message?: string }>('/api/trades', {
+
+      const res = await api<{ ok?: boolean; tradeId?: string; trade?: { id: string } }>('/api/trades', {
         method: 'POST',
         body: JSON.stringify({
           toUserId: target.id,
@@ -351,7 +252,13 @@ function TradeComposerInner() {
           message: msg.trim() || undefined,
         }),
       })
-      router.push(`/trades/${res.tradeId}`)
+
+      const finalId = res.tradeId || res.trade?.id
+      if (finalId) {
+        router.push(`/trades/${finalId}`)
+      } else {
+        router.push('/trades')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The trade could not be sent.')
       setBusy(false)
@@ -359,7 +266,7 @@ function TradeComposerInner() {
   }
 
   if (loading) {
-    return <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Opening the trade window…</div>
+    return <div className="rb-box" style={{ padding: 40, textAlign: 'center', color: '#5a6b7b' }}>Opening trade window...</div>
   }
 
   if (!user) {
@@ -375,244 +282,448 @@ function TradeComposerInner() {
     return (
       <div className="rb-box" style={{ padding: 30, textAlign: 'center', display: 'grid', gap: 10, justifyItems: 'center' }}>
         <div style={{ fontSize: 13, fontWeight: 'bold', color: '#a81a13' }}>{error}</div>
-        <Link href="/catalog" className="rb-btn" style={{ textDecoration: 'none', fontSize: 12 }}>Back to the catalog</Link>
+        <Link href="/catalog" className="rb-btn" style={{ textDecoration: 'none', fontSize: 12 }}>Back to Catalog</Link>
       </div>
     )
   }
 
-  if (!target) {
+  if (!target && !giveParam) {
     return (
       <div className="rb-box" style={{ padding: 30, textAlign: 'center', fontSize: 13, color: '#5a6b7b' }}>
-        Nothing to trade yet — open someone&apos;s profile or an item page and press <b>Trade</b>.
+        Select a player or a catalog item to initiate a trade.
       </div>
     )
   }
 
-  if (target.id === user.id) {
-    return (
-      <div className="rb-box" style={{ padding: 30, textAlign: 'center', fontSize: 13, color: '#5a6b7b', display: 'grid', gap: 10, justifyItems: 'center' }}>
-        <div>That&apos;s your own item — you already have it! Give it away from here, or check the <b>Trades</b> page for incoming offers.</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link href={`/trades/new?give=${itemParam}`} className="rb-btn rb-btn-green" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 14px' }}>
-            Give it to someone
-          </Link>
-          <Link href="/trades" className="rb-btn" style={{ textDecoration: 'none', fontSize: 12, padding: '7px 14px' }}>Open Trades</Link>
-        </div>
-      </div>
-    )
-  }
+  const activeShelf = invTab === 'theirs' ? theirShelf : myShelf
+  const filteredActiveShelf = typeFilter ? activeShelf.filter((e) => e.type === typeFilter) : activeShelf
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
-      {/* header */}
-      <div className="rb-box" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <Link href="/trades" className="rb-link" style={{ fontSize: 11.5 }}>← Trades</Link>
-        <h1 style={{ fontSize: 20, color: '#1c2733', margin: 0 }}>
+      <style>{`
+        body.hide-sidebar .rb-sidebar { display: none !important; }
+        body.hide-sidebar .rb-main { max-width: 100% !important; width: 100% !important; }
+      `}</style>
+
+      {/* Top Bar */}
+      <div className="rb-box" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <Link href="/trades" className="rb-link" style={{ fontSize: 11.5 }}>
+          [Back to Trades]
+        </Link>
+        <div style={{ fontSize: 14, fontWeight: 'bold', color: '#1c2733' }}>
           {giveParam ? (
-            <>Give away <FxText text={itemData?.name || 'your item'} /></>
+            <>Give Item to Player</>
           ) : (
-            <>Trade with <FxText text={target.username} /></>
+            <>Trading with {target?.username || 'Player'}</>
           )}
-        </h1>
+        </div>
         {target && (
-          <Link href={`/users/${target.id}`} className="rb-link" style={{ fontSize: 11 }}>view profile</Link>
+          <Link href={`/users/${target.id}`} className="rb-link" style={{ fontSize: 11 }}>
+            [View Profile]
+          </Link>
         )}
-        {target && (
-          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Avatar user={{ username: target.username, avatarUrl: null }} size={30} rounded={5} />
-          </span>
-        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            className="rb-btn"
+            style={{ fontSize: 10 }}
+            onClick={() => setFullWidth((w) => !w)}
+            title="Toggle the left sidebar to expand trade window"
+          >
+            {fullWidth ? '[Show Sidebar]' : '[Hide Sidebar / Expand]'}
+          </button>
+          <button
+            type="button"
+            className="rb-btn"
+            style={{ fontSize: 10 }}
+            onClick={() => setShowNote((n) => !n)}
+          >
+            {showNote ? '[Hide Note]' : '[Add Note / Chat]'}
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div className="rb-box" style={{ padding: 10, color: '#a81a13', fontSize: 12 }}>{error}</div>
+        <div className="rb-box" style={{ padding: 10, color: '#a81a13', fontSize: 12, background: '#fdf3f2', border: '1px solid #eecbc9' }}>
+          {error}
+        </div>
       )}
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* ---------- LEFT: the two inventories ---------- */}
-        <div style={{ flex: '1 1 420px', display: 'grid', gap: 12, minWidth: 0 }}>
-          {giveParam && !target ? (
-            <div className="rb-box" style={{ padding: 12 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 3 }}>Who should get it?</div>
-              <div style={{ fontSize: 10.5, color: '#8ba0b3', marginBottom: 8 }}>
-                Search players by name or #number, pick one, and the offer window opens with your item already on your side.
-              </div>
+      {/* Optional Note / Message input */}
+      {showNote && (
+        <div className="rb-box" style={{ padding: 10, background: '#f8fafc' }}>
+          <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 4 }}>Trade Note:</div>
+          <textarea
+            className="rb-input"
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            rows={2}
+            maxLength={300}
+            placeholder="Type a message or note for this trade offer..."
+            style={{ width: '100%', fontSize: 12 }}
+          />
+        </div>
+      )}
+
+      {/* ========================================================
+          THE CLASSIC ROBLOX TRADE EXCHANGE (2 SIDES + MIDDLE VALUE)
+         ======================================================== */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) auto minmax(280px, 1fr)', gap: 10, alignItems: 'stretch' }}>
+
+        {/* LEFT: YOUR OFFER (GIVING) */}
+        <div className="rb-box" style={{ padding: 10, display: 'flex', flexDirection: 'column' }}>
+          <div className="rb-panel-head" style={{ margin: '-10px -10px 10px -10px' }}>
+            <span>Your Offer (You Give)</span>
+            <span style={{ fontSize: 10, color: '#2c6e31' }}>{give.size}/8 items</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, minHeight: 140, marginBottom: 8 }}>
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
+              const id = [...give][idx]
+              const it = id ? myShelf.find((x) => x.id === id) : null
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    border: it ? '1px solid #029a4a' : '1px dashed #c9d6e2',
+                    background: it ? '#f4faf5' : '#fafbfc',
+                    aspectRatio: '1',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 4,
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {it ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => toggle(give, setGive)(it.id)}
+                        title="Remove from trade"
+                        style={{
+                          position: 'absolute', top: 2, right: 2, zIndex: 5,
+                          background: '#c81c14', color: '#fff', border: 'none',
+                          borderRadius: 2, width: 16, height: 16, fontSize: 10,
+                          cursor: 'pointer', lineHeight: '16px', textAlign: 'center', padding: 0,
+                        }}
+                      >
+                        X
+                      </button>
+                      <div style={{ width: '100%', flex: 1, position: 'relative' }}>
+                        {it.modelFileId ? (
+                          <ItemThumb3D
+                            modelUrl={`/api/files/${it.modelFileId}`}
+                            alt={it.name}
+                            fallbackSrc={`/api/files/${it.imageFileId}`}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          />
+                        ) : (
+                          <img
+                            src={`/api/files/${it.imageFileId}`}
+                            alt={it.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          />
+                        )}
+                      </div>
+                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+                        {it.name}
+                      </div>
+                      <div style={{ fontSize: 8.5, color: '#5a6b7b', fontFamily: 'monospace' }}>
+                        T$ {tixShort(it.price)}
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 10, color: '#cbd5e1' }}>Empty</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ marginTop: 'auto', borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{ fontSize: 11, color: '#5a6b7b' }}>Add Tix to offer:</span>
               <input
                 className="rb-input"
-                type="search"
-                placeholder="Search players…"
-                value={pickerQ}
-                onChange={(e) => setPickerQ(e.target.value)}
-                style={{ width: '100%', fontSize: 12.5, height: 32 }}
-                aria-label="Search players"
-              />
-              <div style={{ display: 'grid', gap: 5, marginTop: 9 }}>
-                {pickerBusy && <div style={{ fontSize: 11, color: '#8ba0b3', fontStyle: 'italic' }}>searching…</div>}
-                {!pickerBusy && pickerQ.trim() && pickerResults.length === 0 && (
-                  <div style={{ fontSize: 11, color: '#8ba0b3', fontStyle: 'italic' }}>no players found — try another name</div>
-                )}
-                {pickerResults.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    className="rb-btn"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', textAlign: 'left' }}
-                    onClick={() => setTarget({ id: u.id, username: u.username })}
-                  >
-                    <Avatar user={{ username: u.username, avatarUrl: null }} size={24} rounded={4} />
-                    <span style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c2733' }}><FxText text={u.username} /></span>
-                    <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#9aa7b4' }}>#{u.playerNo || '?'}</span>
-                    <span style={{ marginLeft: 'auto', fontSize: 11, color: '#2c8e31', fontWeight: 'bold' }}>choose</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="rb-box" style={{ padding: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c4e7c' }}>{target?.username}&apos;s Inventory</span>
-                <span style={{ fontSize: 10, color: '#8ba0b3' }}>check what you want</span>
-                <span style={{ marginLeft: 'auto' }}><TypeFilter value={typeFilterTheirs} onChange={setTypeFilterTheirs} /></span>
-              </div>
-              <ShelfGrid
-                entries={filterShelf(theirShelf, typeFilterTheirs)}
-                picked={want}
-                onToggle={toggle(want, setWant, 8)}
-                accent="#1c4e7c"
+                type="number"
+                min={0}
+                placeholder="0"
+                value={tix}
+                onChange={(e) => setTix(e.target.value.replace(/[^0-9]/g, ''))}
+                style={{ width: 80, fontSize: 11, padding: '2px 6px' }}
               />
             </div>
-          )}
-
-          <div className="rb-box" style={{ padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 'bold', color: '#2c6e31' }}>Your Inventory</span>
-              <span style={{ fontSize: 10, color: '#8ba0b3' }}>check what you&apos;ll give</span>
-              <span style={{ marginLeft: 'auto' }}><TypeFilter value={typeFilterMine} onChange={setTypeFilterMine} /></span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 'bold', color: '#1c2733' }}>
+              <span>Total Your Value:</span>
+              <span style={{ fontFamily: 'monospace', color: '#2c6e31' }}>T$ {tixShort(totalMyValue)}</span>
             </div>
-            <ShelfGrid
-              entries={filterShelf(myShelf, typeFilterMine)}
-              picked={give}
-              onToggle={toggle(give, setGive, 8)}
-              accent="#2c8e31"
-            />
           </div>
         </div>
 
-        {/* ---------- RIGHT: request / offer panels ---------- */}
-        <div style={{ flex: '0 1 300px', display: 'grid', gap: 12, minWidth: 260 }}>
-          {itemParam && itemData && !itemData.owned && !(itemData.isLimited && itemData.remaining === 0) && (
-            <div className="rb-box" style={{ padding: 12, background: '#fffdf4', border: '1px solid #e0c98a' }}>
-              <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#8a6d1a', marginBottom: 4 }}>Don&apos;t want to trade?</div>
-              <div style={{ fontSize: 10.5, color: '#5a6b7b', marginBottom: 8 }}>
-                Skip the haggling — take it at the price tag instead.
-              </div>
-              <button
-                type="button"
-                className="rb-btn rb-btn-green"
-                disabled={buyBusy}
-                onClick={buyOutright}
-                style={{ width: '100%', fontSize: 12.5, padding: '8px 0', fontWeight: 'bold' }}
-              >
-                {buyBusy ? 'Working…' : itemData.buyPrice > 0 ? `Just buy it — T$ ${tixShort(itemData.buyPrice)}` : 'Just take it — free'}
-              </button>
-              {buyMsg && <div style={{ fontSize: 11, color: '#2c6e31', marginTop: 6 }}>{buyMsg}</div>}
-            </div>
-          )}
-
-          <div className="rb-box" style={{ padding: 12 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 7 }}>
-              {giveParam ? 'You are asking for (optional)' : 'You are asking for'}
-            </div>
-            <PickList ids={[...want]} shelf={theirShelf} emptyText="Nothing yet — check items on the left." />
-            <div style={{ borderTop: '1px solid #e8eef4', marginTop: 8, paddingTop: 6, fontSize: 10.5, color: '#5a6b7b', display: 'flex', justifyContent: 'space-between' }}>
-              <span>value</span>
-              <span style={{ fontFamily: 'monospace' }}>T$ {tixShort(wantValue)}</span>
-            </div>
+        {/* MIDDLE: THE DEAL & PROFIT / LOSS CALCULATION */}
+        <div
+          className="rb-box"
+          style={{
+            width: 170,
+            padding: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'linear-gradient(180deg, #f8fafc, #edf2f7)',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+            Trade Difference
           </div>
 
-          <div className="rb-box" style={{ padding: 12 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#2c6e31', marginBottom: 7 }}>You are giving</div>
-            <PickList ids={[...give]} shelf={myShelf} emptyText="Nothing yet — check items on the left." />
-            <label style={{ display: 'block', fontSize: 10.5, color: '#5a6b7b', marginTop: 9, marginBottom: 3 }}>
-              Tix you add on top:
-            </label>
-            <input
-              className="rb-input"
-              type="number"
-              min={0}
-              max={1000000}
-              placeholder="0 — any amount, e.g. 6000"
-              value={tix}
-              onChange={(e) => setTix(e.target.value.replace(/[^0-9]/g, ''))}
-              style={{ width: '100%', fontSize: 12, height: 28 }}
-            />
-            <div style={{ borderTop: '1px solid #e8eef4', marginTop: 8, paddingTop: 6, fontSize: 10.5, color: '#5a6b7b', display: 'flex', justifyContent: 'space-between' }}>
-              <span>value + Tix</span>
-              <span style={{ fontFamily: 'monospace' }}>T$ {tixShort(giveValue + tixNum)}</span>
-            </div>
+          {/* Win / Loss Display */}
+          <div
+            style={{
+              padding: '6px 10px',
+              borderRadius: 4,
+              border: `1px solid ${profitLoss > 0 ? '#029a4a' : profitLoss < 0 ? '#c81c14' : '#084672'}`,
+              background: profitLoss > 0 ? '#edfbf1' : profitLoss < 0 ? '#fdf2f2' : '#f0f7fc',
+              width: '100%',
+              marginBottom: 10,
+            }}
+          >
+            {profitLoss > 0 ? (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 'bold', color: '#029a4a' }}>PROFIT (WIN)</div>
+                <div style={{ fontSize: 15, fontWeight: 'bold', color: '#029a4a', fontFamily: 'monospace' }}>
+                  +T$ {tixShort(profitLoss)}
+                </div>
+              </>
+            ) : profitLoss < 0 ? (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 'bold', color: '#c81c14' }}>LOSS</div>
+                <div style={{ fontSize: 15, fontWeight: 'bold', color: '#c81c14', fontFamily: 'monospace' }}>
+                  -T$ {tixShort(Math.abs(profitLoss))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 'bold', color: '#084672' }}>EQUAL DEAL</div>
+                <div style={{ fontSize: 15, fontWeight: 'bold', color: '#084672', fontFamily: 'monospace' }}>
+                  T$ 0
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="rb-box" style={{ padding: 12 }}>
-            <label style={{ display: 'block', fontSize: 10.5, color: '#5a6b7b', marginBottom: 3 }}>
-              Say something with the offer:
-            </label>
-            <textarea
-              className="rb-input"
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-              rows={2}
-              maxLength={300}
-              placeholder="throw in the Dominus and it's a deal [wiggle]deal?[/wiggle]"
-              style={{ fontSize: 12, resize: 'vertical', width: '100%' }}
-            />
-            <button
-              type="button"
-              className="rb-btn rb-btn-green"
-              disabled={busy || !canSend}
-              onClick={makeOffer}
-              style={{ width: '100%', marginTop: 9, fontSize: 13, padding: '8px 0', fontWeight: 'bold' }}
-              title={canSend ? 'Send it — they can chat, counter, accept or decline' : 'Pick at least one item or some Tix'}
-            >
-              {busy ? 'Sending…' : 'Make Offer'}
-            </button>
-            <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 6, lineHeight: 1.5 }}>
-              They get a notification instantly. You land in the trade room where you can chat and counter while you wait.
+          <div style={{ fontSize: 10, color: '#7b8896', marginBottom: 12 }}>
+            <div>Give: T$ {tixShort(totalMyValue)}</div>
+            <div>Get: T$ {tixShort(totalTheirValue)}</div>
+          </div>
+
+          <button
+            type="button"
+            className="rb-btn rb-btn-green"
+            disabled={busy || !canSend}
+            onClick={makeOffer}
+            style={{ width: '100%', fontSize: 12, padding: '8px 0', fontWeight: 'bold' }}
+          >
+            {busy ? 'Sending...' : counterParam ? 'Send Counter' : 'Make Offer'}
+          </button>
+        </div>
+
+        {/* RIGHT: THEIR OFFER (REQUESTING) */}
+        <div className="rb-box" style={{ padding: 10, display: 'flex', flexDirection: 'column' }}>
+          <div className="rb-panel-head" style={{ margin: '-10px -10px 10px -10px' }}>
+            <span>Their Offer (You Receive)</span>
+            <span style={{ fontSize: 10, color: '#1c4e7c' }}>{want.size}/8 items</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, minHeight: 140, marginBottom: 8 }}>
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
+              const id = [...want][idx]
+              const it = id ? theirShelf.find((x) => x.id === id) : null
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    border: it ? '1px solid #0070b6' : '1px dashed #c9d6e2',
+                    background: it ? '#f0f7fc' : '#fafbfc',
+                    aspectRatio: '1',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 4,
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {it ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => toggle(want, setWant)(it.id)}
+                        title="Remove from trade"
+                        style={{
+                          position: 'absolute', top: 2, right: 2, zIndex: 5,
+                          background: '#c81c14', color: '#fff', border: 'none',
+                          borderRadius: 2, width: 16, height: 16, fontSize: 10,
+                          cursor: 'pointer', lineHeight: '16px', textAlign: 'center', padding: 0,
+                        }}
+                      >
+                        X
+                      </button>
+                      <div style={{ width: '100%', flex: 1, position: 'relative' }}>
+                        {it.modelFileId ? (
+                          <ItemThumb3D
+                            modelUrl={`/api/files/${it.modelFileId}`}
+                            alt={it.name}
+                            fallbackSrc={`/api/files/${it.imageFileId}`}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          />
+                        ) : (
+                          <img
+                            src={`/api/files/${it.imageFileId}`}
+                            alt={it.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          />
+                        )}
+                      </div>
+                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+                        {it.name}
+                      </div>
+                      <div style={{ fontSize: 8.5, color: '#5a6b7b', fontFamily: 'monospace' }}>
+                        T$ {tixShort(it.price)}
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 10, color: '#cbd5e1' }}>Empty</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ marginTop: 'auto', borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 'bold', color: '#1c2733' }}>
+              <span>Total Request Value:</span>
+              <span style={{ fontFamily: 'monospace', color: '#0070b6' }}>T$ {tixShort(totalTheirValue)}</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  )
-}
 
-function PickList({ ids, shelf, emptyText }: { ids: string[]; shelf: ShelfEntry[]; emptyText: string }) {
-  if (ids.length === 0) {
-    return <div style={{ fontSize: 10.5, color: '#8ba0b3', fontStyle: 'italic' }}>{emptyText}</div>
-  }
-  return (
-    <div style={{ display: 'grid', gap: 4 }}>
-      {ids.map((id) => {
-        const e = shelf.find((x) => x.id === id)
-        return (
-          <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #dbe4ec', padding: '3px 6px' }}>
-            {e ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/api/files/${e.imageFileId}`} alt="" width={26} height={26} style={{ border: '1px solid #dbe4ec', objectFit: 'cover' }} />
-                <span style={{ fontSize: 11, fontWeight: 'bold', color: '#1c2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  <FxText text={e.name} />
-                </span>
-                {e.isLimited && <span title="Limited" style={{ color: '#2c8e31', fontWeight: 'bold', fontSize: 10.5 }}>★</span>}
-                <span style={{ marginLeft: 'auto', fontSize: 9.5, fontFamily: 'monospace', color: '#5a6b7b' }}>
-                  {e.price > 0 ? `T$ ${tixShort(e.price)}` : 'free'}
-                </span>
-              </>
-            ) : (
-              <span style={{ fontSize: 10.5, color: '#a81a13' }}>item gone</span>
-            )}
+      {/* ========================================================
+          INVENTORY PICKER — CLEAN CATALOG CARDS (NO TINY BROKEN ICONS)
+         ======================================================== */}
+      <div className="rb-box" style={{ padding: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid #dbe4ec', paddingBottom: 8, marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              className="rb-btn"
+              onClick={() => setInvTab('theirs')}
+              style={{
+                fontSize: 11,
+                fontWeight: 'bold',
+                ...(invTab === 'theirs' ? { background: '#0070b6', color: '#fff', borderColor: '#005f9c' } : {}),
+              }}
+            >
+              {target?.username || 'Their'}&apos;s Inventory ({theirShelf.length})
+            </button>
+            <button
+              type="button"
+              className="rb-btn"
+              onClick={() => setInvTab('mine')}
+              style={{
+                fontSize: 11,
+                fontWeight: 'bold',
+                ...(invTab === 'mine' ? { background: '#029a4a', color: '#fff', borderColor: '#028540' } : {}),
+              }}
+            >
+              Your Inventory ({myShelf.length})
+            </button>
           </div>
-        )
-      })}
+
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, color: '#5a6b7b' }}>Filter:</span>
+            <TypeFilter value={typeFilter} onChange={setTypeFilter} />
+          </div>
+        </div>
+
+        {filteredActiveShelf.length === 0 ? (
+          <div style={{ padding: 30, textAlign: 'center', color: '#7b8896', fontStyle: 'italic', fontSize: 12 }}>
+            No items in this inventory view.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+            {filteredActiveShelf.map((item) => {
+              const isSelected = invTab === 'theirs' ? want.has(item.id) : give.has(item.id)
+              const toggleFn = invTab === 'theirs' ? toggle(want, setWant) : toggle(give, setGive)
+              return (
+                <div
+                  key={item.id}
+                  className="rb-box"
+                  style={{
+                    padding: 8,
+                    textAlign: 'center',
+                    border: isSelected ? `2px solid ${invTab === 'theirs' ? '#0070b6' : '#029a4a'}` : '1px solid #dbe4ec',
+                    background: isSelected ? (invTab === 'theirs' ? '#f0f7fc' : '#f0fbf4') : '#fff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    position: 'relative',
+                  }}
+                >
+                  <div style={{ width: '100%', aspectRatio: '1', position: 'relative', background: '#fff', border: '1px solid #eef2f6', marginBottom: 6 }}>
+                    {item.modelFileId ? (
+                      <ItemThumb3D
+                        modelUrl={`/api/files/${item.modelFileId}`}
+                        alt={item.name}
+                        fallbackSrc={`/api/files/${item.imageFileId}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <img
+                        src={`/api/files/${item.imageFileId}`}
+                        alt={item.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    )}
+
+                    {item.isSuperLimited ? (
+                      <span style={{ position: 'absolute', bottom: 2, left: 2, fontSize: 8, padding: '1px 4px', background: '#9b51e0', color: '#fff', fontWeight: 'bold', borderRadius: 2 }}>
+                        SUPER
+                      </span>
+                    ) : item.isLimited ? (
+                      <span style={{ position: 'absolute', bottom: 2, left: 2, fontSize: 8, padding: '1px 4px', background: '#2c6e31', color: '#fff', fontWeight: 'bold', borderRadius: 2 }}>
+                        LIMITED
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1c2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
+                    <FxText text={item.name} />
+                  </div>
+
+                  <div style={{ fontSize: 10, color: '#5a6b7b', fontFamily: 'monospace', marginBottom: 6 }}>
+                    {item.price > 0 ? `T$ ${tixShort(item.price)}` : 'free'}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleFn(item.id)}
+                    className={`rb-btn ${isSelected ? '' : 'rb-btn-green'}`}
+                    style={{ fontSize: 10, padding: '3px 6px', marginTop: 'auto' }}
+                  >
+                    {isSelected ? '[Remove]' : '[+ Add to Offer]'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -69,6 +69,8 @@ export async function POST(req: NextRequest) {
         bio,
         avatarUrl,
         role: userCount === 0 ? 'admin' : 'user',
+        rbxBalance: 10,
+        bankBalance: 0,
         lastSeen: new Date(),
       },
     })

@@ -442,7 +442,7 @@ export function AvatarView() {
               <span style={{ color: '#7b8896', fontFamily: 'monospace' }}>face: {(cfg.faceScale || 1).toFixed(2)}×</span>
             </div>
             <button className="rb-btn rb-btn-green" style={{ width: '100%', marginTop: 8 }} disabled={busy} onClick={save}>
-              {busy ? 'Saving...' : savedFlash ? '✓ Saved' : 'Save Avatar'}
+              {busy ? 'Saving...' : savedFlash ? '[Saved]' : 'Save Avatar'}
             </button>
             {cfg.accessories.length > 0 && (
               <button
@@ -454,7 +454,7 @@ export function AvatarView() {
                 }}
                 onClick={() => setPickTab('adjust')}
               >
-                🎛 Adjust Hats & UGC ({cfg.accessories.length})
+                Adjust Hats & UGC ({cfg.accessories.length})
               </button>
             )}
           </div>
@@ -944,7 +944,7 @@ export function AvatarView() {
           <div className="rb-box" style={{ width: 'min(560px, 100%)', background: '#fff' }}>
             <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Playing: {playingEmote.name}</span>
-              <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => setPlayingEmote(null)}>✕</button>
+              <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => setPlayingEmote(null)}>X</button>
             </div>
             <div style={{ padding: 12 }}>
               <Player3DView

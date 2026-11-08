@@ -378,7 +378,7 @@ export function ItemDetailView({ id }: { id: string }) {
                     borderRadius: 3, boxShadow: '1px 1px 3px rgba(0,0,0,.25)',
                   }}
                 >
-                  ★ Limited
+                  [LIMITED]
                 </span>
               )}
               {soldOut && (
@@ -455,7 +455,7 @@ export function ItemDetailView({ id }: { id: string }) {
                   <Link href="/avatar" className="rb-btn rb-btn-green" style={{ fontSize: 13, padding: '8px 22px', textDecoration: 'none' }}>
                     Wear it now
                   </Link>
-                  <span style={{ fontSize: 12, color: '#2c6e31', fontWeight: 'bold' }}>✓ In your inventory</span>
+                  <span style={{ fontSize: 12, color: '#2c6e31', fontWeight: 'bold' }}>In your inventory</span>
                 </>
               ) : soldOut ? (
                 <button className="rb-btn" style={{ fontSize: 13, padding: '8px 22px' }} disabled>

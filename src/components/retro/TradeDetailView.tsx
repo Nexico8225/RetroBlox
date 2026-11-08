@@ -118,7 +118,7 @@ function TradeSection({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={`/api/files/${it.imageFileId}`} alt={it.name} width={56} height={56} style={{ objectFit: 'contain', display: 'block' }} />
                       {it.isLimited && (
-                        <span title="Limited item" style={{ position: 'absolute', top: 3, left: 4, color: '#2c8e31', fontWeight: 'bold', fontSize: 11 }}>★</span>
+                        <span title="Limited item" style={{ position: 'absolute', top: 3, left: 4, color: '#2c8e31', fontWeight: 'bold', fontSize: 9 }}>[L]</span>
                       )}
                     </>
                   ) : (
@@ -342,7 +342,7 @@ export function TradeDetailView({ id }: { id: string }) {
                     className="rb-btn rb-btn-blue"
                     style={{ fontSize: 11.5, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
                   >
-                    ⚡ Counter Trade
+                    Counter Trade
                   </Link>
                 </>
               )}

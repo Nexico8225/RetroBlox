@@ -313,7 +313,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
               color: onlyLimited ? '#fff' : '#1f9e33',
             }}
           >
-            ★ Limiteds
+            Limiteds
           </button>
           {['', ...UGC_TYPES].map((t) => (
             <button
@@ -394,7 +394,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                         borderRadius: 3, boxShadow: '1px 1px 3px rgba(0,0,0,.35)',
                       }}
                     >
-                      ★ Limited
+                      LIMITED
                     </span>
                   )}
                   {item.isLimited && item.remaining != null && (
@@ -492,7 +492,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       <>
                         <Link href={`/catalog/${item.id}`} className="rb-btn" style={{ fontSize: 10, textDecoration: 'none', padding: '3px 8px' }}>View</Link>
                         <Link href="/avatar" className="rb-btn" style={{ fontSize: 10, textDecoration: 'none', padding: '3px 8px' }}>Wear</Link>
-                        <span style={{ fontSize: 10, color: '#3e8e41', alignSelf: 'center' }}>✓ In inventory</span>
+                        <span style={{ fontSize: 10, color: '#3e8e41', alignSelf: 'center' }}>In inventory</span>
                       </>
                     ) : (
                       <button
@@ -605,7 +605,7 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
       <div className="rb-box" style={{ width: 'min(640px, 100%)', background: '#fff' }}>
         <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Trying on: {item.name}</span>
-          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
+          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>X</button>
         </div>
         <div style={{ padding: 12 }}>
           <Player3DView look={look} height={380} anim={anim} selfAnim={item.type === 'emote'} />
@@ -795,7 +795,7 @@ function EditItemModal({
       <div className="rb-box" style={{ width: 'min(460px, 100%)', background: '#fff' }}>
         <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Edit: {item.name}</span>
-          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>✕</button>
+          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onClose}>X</button>
         </div>
         <div style={{ padding: 12 }}>
           <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#7b8896', marginBottom: 10 }}>
@@ -834,7 +834,7 @@ function EditItemModal({
                   : 'Upload a new image if you want a different look.'}
               </div>
               <button type="button" className="rb-btn" style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => imageRef.current?.click()}>
-                {newImage ? '↺ Choose a different image' : '✎ Replace image'}
+                {newImage ? 'Choose a different image' : 'Replace image'}
               </button>
               {item.modelFileId && (
                 <button
@@ -844,7 +844,7 @@ function EditItemModal({
                   onClick={openPlacementEditor}
                   disabled={loadingModel}
                 >
-                  {loadingModel ? 'Loading 3D...' : '📐 Adjust 3D Placement & Frame'}
+                  {loadingModel ? 'Loading 3D...' : 'Adjust 3D Placement & Frame'}
                 </button>
               )}
               {newImage && (
@@ -977,7 +977,7 @@ function EditItemModal({
                 title="Limited — a collectible badge for rare items"
               >
                 <input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} />
-                ★ Limited
+                Limited
               </label>
               <label
                 style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c' }}
@@ -992,16 +992,14 @@ function EditItemModal({
                     if (c) setLimited(true)
                   }}
                 />
-                🔥 Super Limited (2x on buy)
+                Super Limited (2x price on buy)
               </label>
             </div>
             <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
               {limited && item.isLimited && !isAdmin
-                ? 'Limited prices are LOCKED — the price rises automatically as copies sell. Only a site admin can change the original price.'
+                ? 'Limited prices are locked — the price rises automatically as copies sell.'
                 : limited
-                  ? isAdmin
-                    ? 'Admin: you can adjust the original price. The rising sale price is computed from it automatically.'
-                    : 'Limiteds are collectibles — buyers pay exactly this price.'
+                  ? 'Limiteds are collectibles — buyers pay exactly this price.'
                   : priceMode === 'paid'
                     ? 'Buyers pay this price in Tix from their wallet.'
                     : 'Anyone can grab it for free.'}
@@ -1028,26 +1026,11 @@ function EditItemModal({
                 </span>
               </div>
             )}
-            {isAdmin && (
-              <div style={{ marginTop: 8, fontSize: 11, color: '#1c4e7c', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span title="Added to the REAL owners count on display — the ledger itself never changes">Displayed owners boost (admin):</span>
-                <input
-                  className="rb-input"
-                  type="number"
-                  min={0}
-                  value={ownersBoost}
-                  onChange={(e) => setOwnersBoost(e.target.value)}
-                  style={{ width: 90, fontSize: 11 }}
-                  aria-label="Owners count boost"
-                />
-                <span style={{ fontSize: 10, color: '#8ba0b3' }}>shows as {item.sold + Math.max(0, Math.floor(Number(ownersBoost) || 0)).toLocaleString('en-US')} owned</span>
-              </div>
-            )}
           </div>
           {error && <div style={{ fontSize: 11, color: '#a81a13', marginBottom: 6 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 6 }}>
             <button className="rb-btn rb-btn-green" style={{ fontSize: 11, flex: 1 }} disabled={busy} onClick={save}>
-              {busy ? 'Saving...' : '✓ Save changes'}
+              {busy ? 'Saving...' : 'Save changes'}
             </button>
             <button className="rb-btn" style={{ fontSize: 11 }} onClick={onClose} disabled={busy}>
               Cancel
@@ -1760,7 +1743,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   style={{ fontSize: 10, width: '100%', marginTop: 6 }}
                   onClick={() => setEditorOpen(true)}
                 >
-                  {thumbUrl ? '✎ Edit thumbnail' : '≡ Place it in 3D'}
+                  {thumbUrl ? 'Edit thumbnail' : 'Place it in 3D'}
                 </button>
               )}
               {is3D && modelNotice && (
@@ -1796,7 +1779,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               )}
               {thumbUrl && (
                 <div style={{ fontSize: 9, color: '#3e8e41', marginTop: 4, lineHeight: 1.4 }}>
-                  ✓ Thumbnail saved — just the item on a transparent background. Re-open any time to re-frame it.
+                  [Saved] Thumbnail saved — just the item on a transparent background. Re-open any time to re-frame it.
                 </div>
               )}
             </>
@@ -1943,7 +1926,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                   )}
                   {clipNames.length > 0 && (
                     <div style={{ fontSize: 10, color: '#3e8e41', marginTop: 6 }}>
-                      ✓ {clipNames.length} clip{clipNames.length === 1 ? '' : 's'} found in your model
+                      Found {clipNames.length} clip{clipNames.length === 1 ? '' : 's'} in your model
                       {detectedParts.length > 0 && type === 'bundle' && ` · replaces: ${detectedParts.join(', ')}`}
                     </div>
                   )}
@@ -2173,11 +2156,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                 title="Limited — a collectible badge for rare items"
               >
                 <input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} />
-                ★ Limited
+                [LIMITED] Limited
               </label>
               <label
-                style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c' }}
-                title="Super Limited — price doubles (2x) with every single sale!"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c', fontWeight: 'bold' }}
+                title="Super Limited — price doubles (2x) with every single sale and NEVER loses value in trades!"
               >
                 <input
                   type="checkbox"
@@ -2188,11 +2171,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                     if (c) setLimited(true)
                   }}
                 />
-                🔥 Super Limited (2x on buy)
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: '#9b51e0', fontWeight: 'bold' }}>
-                <input type="checkbox" checked={superLimited} onChange={(e) => { setSuperLimited(e.target.checked); if (e.target.checked) setLimited(true); }} />
-                <span>⚡ Super Limited (price doubles 2x on every purchase!)</span>
+                [SUPER LIMITED] (2x price on purchase, never loses value)
               </label>
             </div>
             <div style={{ fontSize: 10, color: limited ? '#8a6d1a' : '#8ba0b3', marginTop: 4 }}>

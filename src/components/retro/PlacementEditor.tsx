@@ -719,7 +719,7 @@ export default function PlacementEditor({ glb, textureUrl, color, initialPlaceme
       <div className="rb-box" style={{ width: 'min(1020px, 100%)', background: '#fff' }}>
         <div className="rb-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Place your item in 3D</span>
-          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onCancel}>✕</button>
+          <button className="rb-btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={onCancel}>X</button>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap' }}>
           <div ref={hostRef} style={{ flex: '1 1 420px', height: 'min(58vh, 520px)', minHeight: 300, background: '#dcebf5', position: 'relative' }} />
@@ -880,7 +880,7 @@ export default function PlacementEditor({ glb, textureUrl, color, initialPlaceme
             </div>
             <div style={{ fontSize: 10, color: '#41586c', marginBottom: 10, minHeight: 30 }}>{status}</div>
             <button className="rb-btn rb-btn-green" style={{ fontSize: 11, width: '100%' }} onClick={save}>
-              ✓ Save placement
+              Save placement
             </button>
           </div>
         </div>
