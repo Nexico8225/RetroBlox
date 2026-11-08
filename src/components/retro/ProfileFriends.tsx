@@ -89,12 +89,25 @@ export function ProfileView({ id }: { id: string }) {
     friendState: 'none' | 'friends' | 'request_sent' | 'request_received'
     friendshipId: string | null
     isMe: boolean
+    inventory?: Array<{
+      id: string
+      assetId: string
+      name: string
+      description: string
+      type: string
+      price: number
+      isLimited: boolean
+      isSuperLimited?: boolean
+      imageFileId: string
+      stock: number | null
+      acquiredAt: string
+    }>
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [bio, setBio] = useState('')
   // profile content lives in tabs — Creations (games + videos), Favorites, Groups
-  const [contentTab, setContentTab] = useState<'creations' | 'favorites' | 'groups'>('creations')
+  const [contentTab, setContentTab] = useState<'creations' | 'favorites' | 'inventory' | 'groups'>('creations')
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -380,6 +393,15 @@ export function ProfileView({ id }: { id: string }) {
               {friendButton()}
               {followButton()}
               {messageButton()}
+              {!profile.isMe && user && (
+                <Link
+                  href={`/trades/new?with=${profile.user.id}`}
+                  className="rb-btn rb-btn-green"
+                  style={{ textDecoration: 'none', fontSize: 11, fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                >
+                  🤝 Send Trade Offer
+                </Link>
+              )}
               {profile.isMe && (
                 <>
                   <input
@@ -669,6 +691,7 @@ export function ProfileView({ id }: { id: string }) {
             {([
               ['creations', `Creations (${profile.games.length + profile.videos.length})`],
               ['favorites', `Favorites (${profile.favoriteGames.length})`],
+              ['inventory', `Inventory (${(profile.inventory || []).length})`],
               ['groups', `Groups (${profile.groups.length})`],
             ] as const).map(([t, label]) => (
               <button
@@ -761,6 +784,62 @@ export function ProfileView({ id }: { id: string }) {
         )}
 
         {/* GROUPS tab */}
+                {contentTab === 'inventory' && (
+          <div style={{ padding: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 'bold', color: '#1c4e7c', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>{profile.isMe ? 'My UGC Inventory' : `${p.username}'s UGC Inventory`} ({(profile.inventory || []).length})</span>
+              {!profile.isMe && user && (
+                <Link href={`/trades/new?with=${profile.user.id}`} className="rb-btn rb-btn-green" style={{ fontSize: 11, textDecoration: 'none' }}>
+                  🤝 Open Trade Window
+                </Link>
+              )}
+            </div>
+            {(!profile.inventory || profile.inventory.length === 0) ? (
+              <div style={{ padding: 24, textAlign: 'center', color: '#5a6b7b', fontSize: 12, fontStyle: 'italic', background: '#f8fafc', border: '1px dashed #c9d6e2' }}>
+                No UGC items in inventory.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+                {profile.inventory.map((item) => (
+                  <div key={item.id} className="rb-box" style={{ padding: 6, display: 'flex', flexDirection: 'column', textAlign: 'center', position: 'relative' }}>
+                    <Link href={`/catalog/${item.id}`} style={{ display: 'block', aspectRatio: '1', position: 'relative', background: '#f5f8fb', border: '1px solid #d4dce4', marginBottom: 5 }}>
+                      <img
+                        src={`/api/files/${item.imageFileId}`}
+                        alt={item.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                      />
+                      {item.isSuperLimited ? (
+                        <span style={{ position: 'absolute', bottom: 2, left: 2, fontSize: 8, padding: '1px 4px', background: '#9b51e0', color: '#fff', fontWeight: 'bold', borderRadius: 2 }}>
+                          ⚡ SUPER
+                        </span>
+                      ) : item.isLimited ? (
+                        <span style={{ position: 'absolute', bottom: 2, left: 2, fontSize: 8, padding: '1px 4px', background: '#2c6e31', color: '#fff', fontWeight: 'bold', borderRadius: 2 }}>
+                          ★ LIMITED
+                        </span>
+                      ) : null}
+                    </Link>
+                    <Link href={`/catalog/${item.id}`} className="rb-link" style={{ fontSize: 11, fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.name}
+                    </Link>
+                    <div style={{ fontSize: 9.5, color: '#5a6b7b', textTransform: 'capitalize', marginTop: 1 }}>
+                      {item.type} • T$ {item.price.toLocaleString('en-US')}
+                    </div>
+                    {!profile.isMe && user && (
+                      <Link
+                        href={`/trades/new?with=${profile.user.id}&item=${item.id}`}
+                        className="rb-btn rb-btn-green"
+                        style={{ fontSize: 10, padding: '3px 6px', marginTop: 5, textDecoration: 'none' }}
+                      >
+                        🤝 Trade for this
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {contentTab === 'groups' && (
         <div style={{ padding: 12 }}>
           {profile.groups.length === 0 ? (

@@ -140,6 +140,7 @@ function TradeComposerInner() {
   // one) by picking a player; ?item=<itemId> — the BUYER's flow: offer
   // something for another player's item (or just buy it outright).
   const giveParam = params.get('give') || ''
+  const counterParam = params.get('counter') || ''
 
   const [target, setTarget] = useState<{ id: string; username: string } | null>(null)
   const [theirShelf, setTheirShelf] = useState<ShelfEntry[]>([])
@@ -172,7 +173,20 @@ function TradeComposerInner() {
       try {
         let t: { id: string; username: string } | null = null
         let it: { id: string; name: string; buyPrice: number; isLimited: boolean; remaining: number | null; owned: boolean } | null = null
-        if (withParam) {
+        if (counterParam) {
+          const res = await api<{ trade: any }>(`/api/trades/${counterParam}`)
+          const tr = res.trade
+          if (tr) {
+            t = { id: tr.from.id, username: tr.from.username }
+            const shelf = await api<{ inventory: ShelfEntry[] }>(`/api/users/${t.id}`)
+            if (!dead) {
+              setTheirShelf(shelf.inventory || [])
+              setWant(new Set(tr.give || []))
+              setGive(new Set(tr.take || []))
+              setMsg(`Counter offer for trade #${counterParam.slice(-6)}`)
+            }
+          }
+        } else if (withParam) {
           const res = await api<{ user: { id: string; username: string } }>(`/api/users/${withParam}`)
           t = { id: res.user.id, username: res.user.username }
         } else if (itemParam || giveParam) {
@@ -208,7 +222,7 @@ function TradeComposerInner() {
     }
     resolve()
     return () => { dead = true }
-  }, [withParam, itemParam, giveParam])
+  }, [withParam, itemParam, giveParam, counterParam])
 
   // my own shelf — in give-mode the gifted item ticks itself
   useEffect(() => {
@@ -313,6 +327,20 @@ function TradeComposerInner() {
     setBusy(true)
     setError('')
     try {
+      if (counterParam) {
+        const res = await api<{ ok: boolean; newTradeId?: string }>(`/api/trades/${counterParam}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'counter',
+            giveItemIds: [...give],
+            takeItemIds: [...want],
+            tix: tixNum,
+            message: msg.trim() || undefined,
+          }),
+        })
+        router.push(`/trades/${res.newTradeId || counterParam}`)
+        return
+      }
       const res = await api<{ tradeId: string; message?: string }>('/api/trades', {
         method: 'POST',
         body: JSON.stringify({

@@ -166,6 +166,7 @@ interface CatalogItem {
   type: string
   price: number
   isLimited: boolean
+  isSuperLimited?: boolean
   stock: number | null
   bestPrice?: number | null
   rap?: number | null
@@ -374,7 +375,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       fallbackSrc={`/api/files/${item.imageFileId}`}
                       textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
                       color={item.baseColor || undefined}
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#fff' }}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: 'transparent' }}
                     />
                   )}
                   <span
@@ -466,6 +467,7 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                         >
                           {item.buyPrice.toLocaleString('en-US')}
                         </span>
+                        {item.isSuperLimited && <span style={{ fontSize: 9, color: '#9b51e0', fontWeight: 'bold' }}> (2x on buy)</span>}
                         {item.isLimited && item.sold > 0 && (
                           <span
                             title="The original price — it rises as copies sell"
@@ -1021,6 +1023,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [priceMode, setPriceMode] = useState<'free' | 'paid'>('free')
   const [price, setPrice] = useState('')
   const [limited, setLimited] = useState(false)
+  const [superLimited, setSuperLimited] = useState(false)
   // limited stock: how many copies will ever exist (empty = unlimited)
   const [stockInput, setStockInput] = useState('')
   // 3D flow state: the converted GLB, the creator's placement, the thumbnail
@@ -2106,6 +2109,10 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               >
                 <input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} />
                 ★ Limited
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: '#9b51e0', fontWeight: 'bold' }}>
+                <input type="checkbox" checked={superLimited} onChange={(e) => { setSuperLimited(e.target.checked); if (e.target.checked) setLimited(true); }} />
+                <span>⚡ Super Limited (price doubles 2x on every purchase!)</span>
               </label>
             </div>
             <div style={{ fontSize: 10, color: limited ? '#8a6d1a' : '#8ba0b3', marginTop: 4 }}>

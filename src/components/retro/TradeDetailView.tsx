@@ -337,6 +337,13 @@ export function TradeDetailView({ id }: { id: string }) {
                   <button type="button" className="rb-btn" disabled={busy} style={{ fontSize: 11.5 }} onClick={() => act({ action: 'decline' }, 'Trade declined.')}>
                     Decline
                   </button>
+                  <Link
+                    href={`/trades/new?with=${other.id}&counter=${trade.id}`}
+                    className="rb-btn rb-btn-blue"
+                    style={{ fontSize: 11.5, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    ⚡ Counter Trade
+                  </Link>
                 </>
               )}
               {!settled && isSender && (

@@ -140,14 +140,15 @@ export async function GET(req: NextRequest) {
         type: i.type,
         price: i.price, // for limiteds this is the ORIGINAL price
         isLimited: i.isLimited,
-        stock: i.isLimited ? i.stock : null,
+        isSuperLimited: i.isSuperLimited ?? false,
+        stock: i.isLimited && !i.isSuperLimited ? i.stock : null,
         sold,
-        remaining: i.isLimited && i.stock != null ? Math.max(0, i.stock - sold) : null,
+        remaining: i.isLimited && !i.isSuperLimited && i.stock != null ? Math.max(0, i.stock - sold) : null,
         ownersBoost: i.ownersBoost,
         owners: sold + i.ownersBoost, // displayed buyers count — REAL buyers only (creator's own copy is not a sale) + admin boost
         bestPrice: bestPriceMap.get(i.id) ?? null,
         rap: (rapSums.get(i.id) && rapSums.get(i.id)!.count > 0) ? Math.round(rapSums.get(i.id)!.sum / rapSums.get(i.id)!.count) : (bestPriceMap.get(i.id) ?? i.price),
-        buyPrice: (i.isLimited && i.stock != null && (soldMap.get(i.id) ?? 0) >= i.stock) ? (bestPriceMap.get(i.id) ?? null) : i.price,
+        buyPrice: (i.isLimited && !i.isSuperLimited && i.stock != null && (soldMap.get(i.id) ?? 0) >= i.stock) ? (bestPriceMap.get(i.id) ?? null) : i.price,
         imageFileId: i.imageFileId,
         modelFileId: i.modelFileId,
         textureFileId: i.textureFileId,
@@ -193,7 +194,8 @@ export async function POST(req: NextRequest) {
   const placementRaw = String(form.get('placement') || '').trim()
   // pricing: 0 = free item; limiteds are collectibles — the price is the price
   const price = Math.floor(Number(form.get('price') || 0))
-  const isLimited = String(form.get('limited') || '') === '1'
+  const isLimited = String(form.get('limited') || '') === '1' || String(form.get('isLimited') || '') === '1'
+  const isSuperLimited = String(form.get('superLimited') || '') === '1' || String(form.get('isSuperLimited') || '') === '1' || String(form.get('limitedType') || '') === 'super'
   // limited stock: the total print run (empty/null = unlimited copies)
   const stockRaw = String(form.get('stock') || '').trim()
   let stock: number | null = null
@@ -338,8 +340,9 @@ export async function POST(req: NextRequest) {
     description,
     type,
     price,
-    isLimited,
-    stock: isLimited ? stock : null,
+    isLimited: isLimited || isSuperLimited,
+    isSuperLimited,
+    stock: isLimited && !isSuperLimited ? stock : null,
     imageFileId: file.id,
     modelFileId,
     placementJson: placementJsonStr,

@@ -114,6 +114,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, message: 'Offer declined.' })
   }
 
+  // ---------------- counter (recipient only) ----------------
+  if (body.action === 'counter') {
+    if (!isIncoming) return NextResponse.json({ error: 'Only the recipient can counter.' }, { status: 403 })
+    const counterGive = ((body as { giveItemIds?: string[] }).giveItemIds || []) as string[]
+    const counterTake = ((body as { takeItemIds?: string[] }).takeItemIds || []) as string[]
+    const counterTix = Math.max(0, Math.floor(Number((body as { tix?: number }).tix) || 0))
+    const counterMsg = String((body as { message?: string; text?: string }).message || (body as { text?: string }).text || '').trim().slice(0, 300)
+
+    // Mark original trade as countered/declined
+    await db.trade.update({ where: { id }, data: { status: 'declined', respondedAt: new Date() } })
+
+    // Create the new counter trade
+    const newTrade = await db.trade.create({
+      data: {
+        fromUserId: user.id,
+        toUserId: t.fromUserId,
+        giveItemIds: JSON.stringify(counterGive),
+        takeItemIds: JSON.stringify(counterTake),
+        tix: counterTix,
+        message: counterMsg || `Counter offer for trade #${id.slice(-6)}`,
+        status: 'pending',
+      },
+    })
+
+    await db.notification.create({
+      data: {
+        userId: t.fromUserId,
+        type: 'trade_offer',
+        dataJson: JSON.stringify({ tradeId: newTrade.id, fromName: user.username, isCounter: true }),
+      },
+    })
+    return NextResponse.json({ ok: true, message: 'Counter offer sent!', newTradeId: newTrade.id })
+  }
+
   // ---------------- accept (recipient only) — the atomic swap ----------------
   if (body.action === 'accept') {
     if (!isIncoming) return NextResponse.json({ error: 'Only the recipient can accept.' }, { status: 403 })
@@ -181,6 +215,87 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               note: `Trade with ${sender.username} — offer accepted`,
             },
           })
+        }
+
+        // Calculate trade valuations and update RAP / UgcPricePoint:
+        // Side 1 (fresh.fromUserId): gave giveIds + fresh.tix
+        // Side 2 (fresh.toUserId): gave takeIds
+        const allTradedIds = [...giveIds, ...takeIds]
+        if (allTradedIds.length > 0) {
+          const itemDocs = await tx.avatarItem.findMany({
+            where: { id: { in: allTradedIds } },
+            select: { id: true, price: true, isLimited: true, isSuperLimited: true },
+          })
+          const itemMap = new Map(itemDocs.map((it) => [it.id, it]))
+
+          // Get latest price points for these items to determine baseline RAP
+          const recentPoints = await tx.ugcPricePoint.findMany({
+            where: { itemId: { in: allTradedIds } },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+            select: { itemId: true, price: true },
+          })
+          const rapMap = new Map<string, number>()
+          for (const it of itemDocs) {
+            const pts = recentPoints.filter((p) => p.itemId === it.id).slice(0, 10)
+            const rap = pts.length > 0 ? Math.round(pts.reduce((acc, p) => acc + p.price, 0) / pts.length) : it.price
+            rapMap.set(it.id, Math.max(1, rap))
+          }
+
+          // Side 1 total value given
+          const side1ItemVal = giveIds.reduce((sum, gid) => sum + (rapMap.get(gid) ?? itemMap.get(gid)?.price ?? 1), 0)
+          const side1TotalVal = side1ItemVal + fresh.tix
+
+          // Side 2 total value given
+          const side2TotalVal = takeIds.reduce((sum, tid) => sum + (rapMap.get(tid) ?? itemMap.get(tid)?.price ?? 1), 0)
+
+          // Apportion Side 2's value to Side 1's items (value received in exchange)
+          const netValForSide1Items = Math.max(giveIds.length, side2TotalVal - fresh.tix)
+          for (const gid of giveIds) {
+            const it = itemMap.get(gid)
+            const itemBase = rapMap.get(gid) ?? it?.price ?? 1
+            const weight = side1ItemVal > 0 ? itemBase / side1ItemVal : 1 / giveIds.length
+            const newPriceVal = Math.max(1, Math.round(netValForSide1Items * weight))
+
+            await tx.ugcPricePoint.create({
+              data: {
+                itemId: gid,
+                price: newPriceVal,
+                kind: 'trade',
+                buyerId: fresh.toUserId,
+                sellerId: fresh.fromUserId,
+              },
+            })
+
+            // Update item price valuation if limited/super limited
+            if (it && (it.isLimited || it.isSuperLimited)) {
+              await tx.avatarItem.update({ where: { id: gid }, data: { price: newPriceVal } })
+            }
+          }
+
+          // Apportion Side 1's value to Side 2's items (value received in exchange)
+          const netValForSide2Items = Math.max(takeIds.length, side1TotalVal)
+          for (const tid of takeIds) {
+            const it = itemMap.get(tid)
+            const itemBase = rapMap.get(tid) ?? it?.price ?? 1
+            const weight = side2TotalVal > 0 ? itemBase / side2TotalVal : 1 / takeIds.length
+            const newPriceVal = Math.max(1, Math.round(netValForSide2Items * weight))
+
+            await tx.ugcPricePoint.create({
+              data: {
+                itemId: tid,
+                price: newPriceVal,
+                kind: 'trade',
+                buyerId: fresh.fromUserId,
+                sellerId: fresh.toUserId,
+              },
+            })
+
+            // Update item price valuation if limited/super limited
+            if (it && (it.isLimited || it.isSuperLimited)) {
+              await tx.avatarItem.update({ where: { id: tid }, data: { price: newPriceVal } })
+            }
+          }
         }
 
         await tx.trade.update({ where: { id }, data: { status: 'accepted', respondedAt: new Date() } })

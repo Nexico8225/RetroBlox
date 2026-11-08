@@ -90,6 +90,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       type: item.type,
       price: item.price,
       isLimited: item.isLimited,
+      isSuperLimited: item.isSuperLimited ?? false,
       stock: item.isLimited ? item.stock : null,
       sold,
       remaining: item.isLimited && item.stock != null ? Math.max(0, item.stock - sold) : null,
@@ -334,7 +335,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const result = await db.$transaction(async (tx) => {
         const item = await tx.avatarItem.findUnique({
           where: { id },
-          select: { id: true, name: true, assetId: true, price: true, isLimited: true, stock: true, creatorId: true, deletedAt: true },
+          select: { id: true, name: true, assetId: true, price: true, isLimited: true, isSuperLimited: true, stock: true, creatorId: true, deletedAt: true },
         })
         if (!item || item.deletedAt) throw new RbxError('NO_ITEM', 'Item not found')
 
@@ -347,7 +348,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const sold = await tx.inventoryEntry.count({
           where: { itemId: id, NOT: { userId: item.creatorId } },
         })
-        const inStock = !item.isLimited || item.stock == null || sold < item.stock
+        const inStock = (!item.isLimited && !item.isSuperLimited) || item.isSuperLimited || item.stock == null || sold < item.stock
 
         if (!inStock) {
           // Limited item is sold out in the mint shop -> buy from active resellers!
@@ -464,7 +465,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             sellerId: item.creatorId,
           },
         })
-        return { message: `"${item.name}" is yours! T$ ${after.toLocaleString('en-US')} left.`, balanceAfter: after }
+
+        // Super limited doubles its price on every purchase!
+        if (item.isSuperLimited) {
+          const nextPrice = Math.max(1, cost * 2)
+          await tx.avatarItem.update({ where: { id }, data: { price: nextPrice } })
+        }
+
+        return {
+          message: item.isSuperLimited
+            ? `"${item.name}" is yours! (Super Limited price doubled to T$ ${(Math.max(1, cost * 2)).toLocaleString('en-US')}!) T$ ${after.toLocaleString('en-US')} left.`
+            : `"${item.name}" is yours! T$ ${after.toLocaleString('en-US')} left.`,
+          balanceAfter: after,
+        }
       })
       return NextResponse.json({ ok: true, message: result.message, balanceAfter: result.balanceAfter ?? undefined })
     } catch (e) {

@@ -4,7 +4,7 @@
    Older items were published before the clean capture existed, so their
    stored PNG has the old blue sky + player model + gizmo arrows baked in.
    Instead of asking every creator to re-upload, we render the item alone
-   (its saved placement applied EXACTLY) onto a WHITE background and show
+   (its saved placement applied EXACTLY) onto a crisp white background and show
    that everywhere a thumbnail appears. Same rule as the editor's capture:
    the shot is the art alone — no player, no grid, no arrows, no sky. */
 
@@ -27,14 +27,35 @@ function thumbPlaceholder(label: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
-/* One cache per browser session: model url + placement -> white data-url. */
+/* One cache per browser session: model url + placement -> data-url. */
 const thumbCache = new Map<string, string>()
 const inflight = new Map<string, Promise<string>>()
 
-/* QUEUE RENDERING: Browsers strictly cap active WebGL contexts (~8 to 16).
-   If 20 catalog cards render simultaneously, contexts get destroyed by the browser,
-   causing cards to turn into blank white boxes.
-   Running them through a serialized queue guarantees at most 1 active context at any time. */
+/* REUSABLE SINGLETON WEBGL RENDERER:
+   Browsers strictly cap active WebGL contexts per page (~8-16).
+   Destroying and recreating contexts on every card causes context loss
+   and blank white cards. A single shared offscreen renderer with
+   preserveDrawingBuffer: true guarantees zero context loss and reliable pixel reads. */
+let sharedRenderer: THREE.WebGLRenderer | null = null
+
+function getSharedRenderer(): THREE.WebGLRenderer {
+  if (!sharedRenderer) {
+    const canvas = document.createElement('canvas')
+    sharedRenderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: true,
+      preserveDrawingBuffer: true,
+      powerPreference: 'high-performance',
+    })
+    sharedRenderer.setPixelRatio(1)
+    sharedRenderer.outputColorSpace = THREE.SRGBColorSpace
+    sharedRenderer.setSize(512, 512, false)
+  }
+  return sharedRenderer
+}
+
+/* Serialized queue so at most one card renders at a time on the shared renderer */
 let renderQueue: Promise<unknown> = Promise.resolve()
 
 function queueRender<T>(task: () => Promise<T>): Promise<T> {
@@ -67,18 +88,14 @@ async function renderItemThumb(
   metallic?: number | null
 ): Promise<string> {
   const SIZE = 512
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-  renderer.setPixelRatio(1)
-  renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.setSize(SIZE, SIZE, false)
+  const renderer = getSharedRenderer()
 
   const scene = new THREE.Scene()
-  scene.background = null // composited onto white by the 2d canvas below
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.25))
-  const sun = new THREE.DirectionalLight(0xffffff, 1.6)
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.35))
+  const sun = new THREE.DirectionalLight(0xffffff, 1.8)
   sun.position.set(5, 10, 7)
   scene.add(sun)
-  const sun2 = new THREE.DirectionalLight(0xffffff, 0.75)
+  const sun2 = new THREE.DirectionalLight(0xffffff, 0.85)
   sun2.position.set(-7, 4, -5)
   scene.add(sun2)
 
@@ -90,32 +107,35 @@ async function renderItemThumb(
   scene.add(holder)
   scene.updateMatrixWorld(true)
 
-  // CALCULATE PROPER BOUNDS & CAMERA DISTANCE:
-  // Using bounding sphere radius + trigonometric field-of-view formula ensures
-  // wide items (like Traffic Cone, wide hats, crowns) never clip out of the frame!
+  // CENTER THE MODEL AT LOCAL (0, 0, 0):
+  // Placement might position the hat high up on a character (e.g. Y=4.85),
+  // or the model may have internal bone/mesh offsets.
+  // By shifting holder.position by -center, the visual item is centered exactly at (0, 0, 0)
+  // so the lights and camera frame it dead-center!
   const box = new THREE.Box3().setFromObject(holder)
   if (box.isEmpty()) throw new Error('empty model')
   const center = box.getCenter(new THREE.Vector3())
+  holder.position.sub(center)
+  holder.updateMatrixWorld(true)
+
+  // Recalculate true centered bounds
+  box.setFromObject(holder)
   const size = box.getSize(new THREE.Vector3())
   const maxDim = Math.max(size.x, size.y, size.z, 0.001)
 
   const sphere = new THREE.Sphere()
   box.getBoundingSphere(sphere)
-  const radius = Math.max(sphere.radius, maxDim * 0.6)
+  const radius = Math.max(sphere.radius, maxDim * 0.58)
 
-  const fov = 32 // narrow fov = clean orthographic-like product shot
+  const fov = 32
   const fovRad = (fov * Math.PI) / 180
-  // Standard sphere-in-frustum distance with ~35% safety margin:
-  const dist = (radius / Math.sin(fovRad / 2)) * 1.35 * zoom
+  // 45% margin ensures wide baseplates (traffic cone), antler horns, and tentacles never clip:
+  const dist = (radius / Math.sin(fovRad / 2)) * 1.45 * zoom
 
   // Three-quarter angle: front-right, slightly elevated
-  const cam = new THREE.PerspectiveCamera(fov, 1, 0.01, 500)
-  cam.position.set(
-    center.x + dist * 0.42,
-    center.y + dist * 0.35,
-    center.z + dist * 0.85
-  )
-  cam.lookAt(center)
+  const cam = new THREE.PerspectiveCamera(fov, 1, 0.05, 500)
+  cam.position.set(dist * 0.45, dist * 0.35, dist * 0.85)
+  cam.lookAt(0, 0, 0)
 
   renderer.render(scene, cam)
 
@@ -128,9 +148,7 @@ async function renderItemThumb(
   ctx.fillRect(0, 0, SIZE, SIZE)
   ctx.drawImage(renderer.domElement, 0, 0, SIZE, SIZE)
 
-  // Immediately release WebGL resources to preserve GPU contexts
-  renderer.dispose()
-  renderer.forceContextLoss()
+  // Clean up scene resources without destroying the shared WebGL context
   holder.traverse((o) => {
     const m = o as THREE.Mesh
     if (!m.isMesh) return
@@ -139,6 +157,7 @@ async function renderItemThumb(
     if (Array.isArray(mat)) mat.forEach((x) => x.dispose())
     else mat?.dispose()
   })
+  scene.clear()
 
   return out.toDataURL('image/png')
 }
