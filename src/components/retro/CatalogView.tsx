@@ -167,6 +167,8 @@ interface CatalogItem {
   price: number
   isLimited: boolean
   stock: number | null
+  bestPrice?: number | null
+  rap?: number | null
   sold: number
   remaining: number | null
   ownersBoost: number

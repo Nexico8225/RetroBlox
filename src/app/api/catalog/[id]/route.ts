@@ -41,6 +41,46 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       user: { select: { id: true, username: true, avatarUrl: true } },
     },
   })
+  // active resale listings for this item
+  const activeListings = await db.ugcListing.findMany({
+    where: { itemId: id, status: 'active' },
+    orderBy: { price: 'asc' },
+    include: {
+      seller: { select: { id: true, username: true, avatarUrl: true } },
+    },
+  })
+  const bestPrice = activeListings.length > 0 ? activeListings[0].price : null
+  const myListing = viewer ? activeListings.find((l) => l.sellerId === viewer.id) : null
+
+  // RAP (Recent Average Price): average of completed sales, fallback to item.price
+  const recentPricePoints = await db.ugcPricePoint.findMany({
+    where: { itemId: id },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    select: { price: true },
+  })
+  const rap = recentPricePoints.length > 0
+    ? Math.round(recentPricePoints.reduce((acc, p) => acc + p.price, 0) / recentPricePoints.length)
+    : (bestPrice ?? item.price)
+
+  // Serial number of the viewer's copy if owned
+  let userSerial: number | null = null
+  if (owned && viewer) {
+    const allOwners = await db.inventoryEntry.findMany({
+      where: { itemId: id },
+      orderBy: { acquiredAt: 'asc' },
+      select: { userId: true },
+    })
+    const idx = allOwners.findIndex((e) => e.userId === viewer.id)
+    if (idx !== -1) userSerial = idx + 1
+  }
+
+  // Effective buy price:
+  // If in stock -> original price
+  // If sold out limited -> best resale price
+  const isSoldOutLimited = item.isLimited && item.stock != null && sold >= item.stock
+  const effectiveBuyPrice = isSoldOutLimited ? (bestPrice ?? item.price) : item.price
+
   return NextResponse.json({
     item: {
       id: item.id,
@@ -48,14 +88,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       name: item.name,
       description: item.description,
       type: item.type,
-      price: item.price, // limiteds: the ORIGINAL price
+      price: item.price,
       isLimited: item.isLimited,
       stock: item.isLimited ? item.stock : null,
       sold,
       remaining: item.isLimited && item.stock != null ? Math.max(0, item.stock - sold) : null,
       ownersBoost: item.ownersBoost,
       owners: sold + item.ownersBoost,
-      buyPrice: buyPrice(item, sold), // limiteds: the DOUBLING price
+      buyPrice: effectiveBuyPrice,
       imageFileId: item.imageFileId,
       modelFileId: item.modelFileId,
       textureFileId: item.textureFileId,
@@ -70,21 +110,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       createdAt: item.createdAt,
     },
     owned,
-    // the ladder of prices this limited will climb (original, x2, x4...) —
-    // the detail page draws its price chart from this
-    priceLadder: item.isLimited
-      ? Array.from({ length: Math.min(item.stock ?? sold + 6, Math.max(sold + 6, 8)) + 1 }, (_, k) => ({
-          soldAfter: k,
-          price: buyPrice(item, k),
-        }))
-      : null,
+    rap,
+    bestPrice,
+    userSerial,
+    myListing: myListing ? { id: myListing.id, price: myListing.price, createdAt: myListing.createdAt } : null,
+    resellers: activeListings.map((l) => ({
+      id: l.id,
+      price: l.price,
+      title: l.title,
+      createdAt: l.createdAt,
+      seller: l.seller,
+    })),
+    priceLadder: null,
     sales: sales.map((s) => ({
       username: s.user.username,
       userId: s.user.id,
       avatarUrl: s.user.avatarUrl,
       at: s.acquiredAt,
-      // the price THAT buyer paid (sale #k paid ladder[k-1])
-      paid: item.isLimited ? buyPrice(item, Math.max(0, sold - sales.indexOf(s) - 1)) : buyPrice(item, sold),
+      paid: item.price,
     })),
     canDelete: !!viewer && (isUserAdmin(viewer) || viewer.id === item.creatorId || (item.groupId && viewer.id === (await db.group.findUnique({ where: { id: item.groupId }, select: { ownerId: true } }))?.ownerId)),
   })
@@ -304,15 +347,123 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const sold = await tx.inventoryEntry.count({
           where: { itemId: id, NOT: { userId: item.creatorId } },
         })
-        if (item.isLimited && item.stock != null && sold >= item.stock) {
-          throw new RbxError('SOLD_OUT', `"${item.name}" is SOLD OUT — all ${item.stock} copies are gone forever.`)
+        const inStock = !item.isLimited || item.stock == null || sold < item.stock
+
+        if (!inStock) {
+          // Limited item is sold out in the mint shop -> buy from active resellers!
+          const reqListingId = (body as { listingId?: string }).listingId
+          const listing = reqListingId
+            ? await tx.ugcListing.findUnique({
+                where: { id: String(reqListingId) },
+                include: { seller: { select: { id: true, username: true, rbxBalance: true } } },
+              })
+            : await tx.ugcListing.findFirst({
+                where: { itemId: id, status: 'active', sellerId: { not: user.id } },
+                orderBy: { price: 'asc' },
+                include: { seller: { select: { id: true, username: true, rbxBalance: true } } },
+              })
+
+          if (!listing || listing.status !== 'active') {
+            throw new RbxError('SOLD_OUT', `"${item.name}" is SOLD OUT and has no active resellers right now. Trade for it!`)
+          }
+          if (listing.sellerId === user.id) {
+            throw new RbxError('SELF', 'You cannot buy your own listing!')
+          }
+
+          const buyer = await tx.user.findUnique({ where: { id: user.id }, select: { rbxBalance: true } })
+          if (!buyer) throw new RbxError('NO_USER', 'That account does not exist.')
+          if (buyer.rbxBalance < listing.price) {
+            throw new RbxError('INSUFFICIENT', `Not enough Tix ? this copy costs T$ ${listing.price.toLocaleString('en-US')}.`)
+          }
+
+          const fee = Math.floor(listing.price * 0.10)
+          const payout = listing.price - fee
+          const buyerAfter = buyer.rbxBalance - listing.price
+          const sellerAfter = listing.seller.rbxBalance + payout
+
+          await tx.user.update({ where: { id: user.id }, data: { rbxBalance: buyerAfter } })
+          await tx.user.update({ where: { id: listing.sellerId }, data: { rbxBalance: sellerAfter } })
+
+          await tx.rbxTransaction.create({
+            data: {
+              userId: user.id,
+              amount: -listing.price,
+              type: 'spend',
+              balanceBefore: buyer.rbxBalance,
+              balanceAfter: buyerAfter,
+              note: `Bought "${item.name}" from @${listing.seller.username} (Resale)`,
+            },
+          })
+          await tx.rbxTransaction.create({
+            data: {
+              userId: listing.sellerId,
+              amount: payout,
+              type: 'admin_grant',
+              balanceBefore: listing.seller.rbxBalance,
+              balanceAfter: sellerAfter,
+              note: `Sold "${item.name}" on the market (-10% fee)`,
+            },
+          })
+
+          await tx.inventoryEntry.deleteMany({ where: { userId: listing.sellerId, itemId: id } })
+          await tx.inventoryEntry.create({ data: { userId: user.id, itemId: id } })
+
+          await tx.ugcListing.update({
+            where: { id: listing.id },
+            data: { status: 'sold', buyerId: user.id, soldPrice: listing.price, soldAt: new Date() },
+          })
+
+          await tx.ugcPricePoint.create({
+            data: {
+              itemId: id,
+              price: listing.price,
+              kind: 'resale',
+              buyerId: user.id,
+              sellerId: listing.sellerId,
+            },
+          })
+
+          return {
+            message: `Bought "${item.name}" from @${listing.seller.username} for T$ ${listing.price.toLocaleString('en-US')}!`,
+            balanceAfter: buyerAfter,
+          }
         }
 
-        const cost = buyPrice(item, sold) // limiteds: the rising price, fresh from the count
+        const cost = item.price // original mint price
 
         if (cost <= 0 || item.creatorId === user.id) {
-          // free item (or the creator grabbing a spare copy) — no money moves
           await tx.inventoryEntry.create({ data: { userId: user.id, itemId: id } })
+          return { message: cost <= 0 ? `"${item.name}" is yours ? it was free!` : `"${item.name}" is in your inventory now.`, balanceAfter: null as number | null }
+        }
+
+        const buyer = await tx.user.findUnique({ where: { id: user.id }, select: { rbxBalance: true } })
+        if (!buyer) throw new RbxError('NO_USER', 'That account does not exist.')
+        if (buyer.rbxBalance < cost) {
+          throw new RbxError('INSUFFICIENT', `Not enough Tix ? this costs T$ ${cost.toLocaleString('en-US')}.`)
+        }
+
+        const after = buyer.rbxBalance - cost
+        await tx.user.update({ where: { id: user.id }, data: { rbxBalance: after } })
+        await tx.rbxTransaction.create({
+          data: {
+            userId: user.id,
+            amount: -cost,
+            type: 'spend',
+            balanceBefore: buyer.rbxBalance,
+            balanceAfter: after,
+            note: `Bought "${item.name}" (${item.assetId})${item.isLimited ? ` ? LIMITED #${sold + 1}${item.stock != null ? `/${item.stock}` : ''}` : ''}`,
+          },
+        })
+        await tx.inventoryEntry.create({ data: { userId: user.id, itemId: id } })
+        await tx.ugcPricePoint.create({
+          data: {
+            itemId: id,
+            price: cost,
+            kind: 'mint',
+            buyerId: user.id,
+            sellerId: item.creatorId,
+          },
+        })
           return { message: cost <= 0 ? `"${item.name}" is yours — it was free!` : `"${item.name}" is in your inventory now.`, balanceAfter: null as number | null }
         }
 

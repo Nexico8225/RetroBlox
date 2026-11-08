@@ -98,6 +98,36 @@ export async function GET(req: NextRequest) {
       GROUP BY e.itemId`
     for (const r of soldRows) soldMap.set(r.itemId, Number(r.n))
   }
+  // Active listings for lowest resale prices
+  const activeListings = itemIds.length > 0
+    ? await db.ugcListing.findMany({
+        where: { itemId: { in: itemIds }, status: 'active' },
+        orderBy: { price: 'asc' },
+        select: { itemId: true, price: true },
+      })
+    : []
+  const bestPriceMap = new Map<string, number>()
+  for (const l of activeListings) {
+    if (!bestPriceMap.has(l.itemId)) bestPriceMap.set(l.itemId, l.price)
+  }
+
+  // Price points for RAP calculation
+  const pricePoints = itemIds.length > 0
+    ? await db.ugcPricePoint.findMany({
+        where: { itemId: { in: itemIds } },
+        orderBy: { createdAt: 'desc' },
+        select: { itemId: true, price: true },
+      })
+    : []
+  const rapSums = new Map<string, { sum: number; count: number }>()
+  for (const p of pricePoints) {
+    const cur = rapSums.get(p.itemId) ?? { sum: 0, count: 0 }
+    if (cur.count < 10) {
+      cur.sum += p.price
+      cur.count += 1
+      rapSums.set(p.itemId, cur)
+    }
+  }
 
   return NextResponse.json({
     items: items.map((i) => {
@@ -115,7 +145,9 @@ export async function GET(req: NextRequest) {
         remaining: i.isLimited && i.stock != null ? Math.max(0, i.stock - sold) : null,
         ownersBoost: i.ownersBoost,
         owners: sold + i.ownersBoost, // displayed buyers count — REAL buyers only (creator's own copy is not a sale) + admin boost
-        buyPrice: buyPrice(i, sold), // limiteds: the RISING price
+        bestPrice: bestPriceMap.get(i.id) ?? null,
+        rap: (rapSums.get(i.id) && rapSums.get(i.id)!.count > 0) ? Math.round(rapSums.get(i.id)!.sum / rapSums.get(i.id)!.count) : (bestPriceMap.get(i.id) ?? i.price),
+        buyPrice: (i.isLimited && i.stock != null && (soldMap.get(i.id) ?? 0) >= i.stock) ? (bestPriceMap.get(i.id) ?? null) : i.price,
         imageFileId: i.imageFileId,
         modelFileId: i.modelFileId,
         textureFileId: i.textureFileId,

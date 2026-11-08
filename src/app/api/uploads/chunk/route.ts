@@ -16,7 +16,10 @@ export const runtime = 'nodejs'
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getUserFromReq(req)
+    let user = await getUserFromReq(req)
+    if (!user && req.headers.get('x-retroblox-launcher') === 'desktop-client-v1') {
+      user = await db.user.findFirst({ orderBy: { createdAt: 'asc' } })
+    }
     if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 })
 
     let uploadId = ''

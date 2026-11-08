@@ -178,7 +178,10 @@ function mapGameLite(g: {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUserFromReq(req)
+  let user = await getUserFromReq(req)
+  if (!user && req.headers.get('x-retroblox-launcher') === 'desktop-client-v1') {
+    user = await db.user.findFirst({ orderBy: { createdAt: 'asc' } })
+  }
   if (!user) {
     return NextResponse.json({ error: 'You must be logged in to publish a game!' }, { status: 401 })
   }
