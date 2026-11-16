@@ -36,6 +36,7 @@ var _people_title: Label
 var _corner_stats: Label
 var _fps_chip: PanelContainer
 var _shift_hud_btn: Button
+var _ragdoll_hint_btn: Button = null
 var _emote_wheel: Control
 var _tab_buttons: Dictionary = {}
 var _pages: Dictionary = {}
@@ -188,7 +189,7 @@ func _ready() -> void:
 				if not ram_spawns.is_empty():
 					_spawns = ram_spawns
 					player.global_position = _spawns[0]
-					player.spawn_point = Transform3D(Basis(), _spawns[0])player.global_position = _spawns[0]
+					player.spawn_point = Transform3D(Basis(), _spawns[0])
 		_ensure_default_item_spawners(existing_world)
 		_ensure_default_gamepass_pad(existing_world)
 	_dress_me()
@@ -366,6 +367,10 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if _ragdoll_hint_btn != null and is_instance_valid(_ragdoll_hint_btn):
+		var show_hint: bool = player != null and is_instance_valid(player) and player.alive and bool(player.get("is_ragdolled"))
+		if _ragdoll_hint_btn.visible != show_hint:
+			_ragdoll_hint_btn.visible = show_hint
 	if _disconnected:
 		return
 	if _item_use_cd > 0.0:
@@ -514,6 +519,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			var muted := bool(vc.call("is_muted"))
 			_notify("Microphone Muted" if muted else "Microphone Unmuted — Voice Chat Active", false)
 			get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.is_pressed() and not event.is_echo() \
+			and (event as InputEventKey).keycode == KEY_R and not _menu_open \
+			and (chat == null or not chat.is_open):
+		var focus_owner := get_viewport().gui_get_focus_owner()
+		var in_text := (focus_owner is LineEdit or focus_owner is TextEdit)
+		var chat_busy: bool = (chat != null and is_instance_valid(chat) and (bool(chat.is_open) or (chat.has_method("is_typing") and bool(chat.call("is_typing")))))
+		if not in_text and not chat_busy and player != null and is_instance_valid(player) and player.alive:
+			var st: Node = get_node_or_null("/root/Settings")
+			if st != null and bool(st.get("ragdoll_engine")):
+				if bool(player.get("is_ragdolled")):
+					player.call("recover_from_ragdoll")
+					get_viewport().set_input_as_handled()
+				elif bool(st.get("ragdoll_key_r")):
+					player.call("trigger_ragdoll", player.velocity + Vector3(0.0, 3.0, 0.0))
+					get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("shift_lock"):
 		var focus_owner := get_viewport().gui_get_focus_owner()
 		var in_text := (focus_owner is LineEdit or focus_owner is TextEdit)
@@ -1046,6 +1066,31 @@ func _bind_or_build_shiftlock_btn() -> void:
 	_shift_hud_btn.icon = RetroUI.load_png_safe("res://assets/ui/shiftlock.png")
 	_style_topbar_btn(_shift_hud_btn)
 	_shift_hud_btn.pressed.connect(_toggle_shiftlock)
+
+	_ragdoll_hint_btn = Button.new()
+	_ragdoll_hint_btn.name = "RagdollHint"
+	_ragdoll_hint_btn.text = "Ragdoll Active — Press [Space] or [R] to Get Up"
+	_ragdoll_hint_btn.custom_minimum_size = Vector2(280, 36)
+	_ragdoll_hint_btn.focus_mode = Control.FOCUS_NONE
+	_ragdoll_hint_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_ragdoll_hint_btn.offset_left = -140.0
+	_ragdoll_hint_btn.offset_right = 140.0
+	_ragdoll_hint_btn.offset_top = -120.0
+	_ragdoll_hint_btn.offset_bottom = -84.0
+	_ragdoll_hint_btn.visible = false
+	var rhsb := StyleBoxFlat.new()
+	rhsb.bg_color = Color(0.1, 0.12, 0.16, 0.92)
+	rhsb.set_border_width_all(1)
+	rhsb.border_color = Color(0.3, 0.65, 1.0, 0.9)
+	rhsb.set_corner_radius_all(18)
+	_ragdoll_hint_btn.add_theme_stylebox_override("normal", rhsb)
+	_ragdoll_hint_btn.add_theme_stylebox_override("hover", rhsb)
+	_ragdoll_hint_btn.add_theme_stylebox_override("pressed", rhsb)
+	_ragdoll_hint_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	_ragdoll_hint_btn.pressed.connect(func() -> void:
+		if player != null and is_instance_valid(player) and bool(player.get("is_ragdolled")):
+			player.call("recover_from_ragdoll"))
+	hud.add_child(_ragdoll_hint_btn)
 
 
 func _bind_or_build_emote_wheel() -> void:
@@ -2151,6 +2196,28 @@ func _build_settings_tab() -> VBoxContainer:
 		func(on: bool) -> void:
 			if settings != null:
 				settings.set_key("bunny_hop", on))
+	_row_toggle(page, "person", "Ragdoll Engine (Push, Throw & Death Ragdoll)",
+		bool(settings.get("ragdoll_engine")) if settings != null else false,
+		func(on: bool) -> void:
+			if settings != null:
+				settings.set_key("ragdoll_engine", on))
+	_row_toggle(page, "keyboard", "Ragdoll Key [R] Toggle",
+		bool(settings.get("ragdoll_key_r")) if settings != null else false,
+		func(on: bool) -> void:
+			if settings != null:
+				settings.set_key("ragdoll_key_r", on))
+	_row_toggle(page, "fall", "Ragdoll When Falling Off High Places",
+		bool(settings.get("ragdoll_on_fall")) if settings != null else false,
+		func(on: bool) -> void:
+			if settings != null:
+				settings.set_key("ragdoll_on_fall", on))
+	_row_options(page, "height", "Ragdoll Fall Height Threshold",
+		["35 Studs (Low)", "60 Studs (Medium)", "100 Studs (High)", "150 Studs (Extreme)"],
+		1 if float(settings.get("ragdoll_fall_height", 60.0)) <= 60.0 else (2 if float(settings.get("ragdoll_fall_height", 60.0)) <= 100.0 else 3),
+		func(idx: int) -> void:
+			var h := 35.0 if idx == 0 else (60.0 if idx == 1 else (100.0 if idx == 2 else 150.0))
+			if settings != null:
+				settings.set_key("ragdoll_fall_height", h))
 
 	_section(page, "person", "ACCOUNT")
 	var acct := _row(page, "tag", "Signed in as %s" % Session.username)
@@ -3140,7 +3207,9 @@ func _apply_melee_hit(origin: Vector3, fwd: Vector3, max_dist: float, dmg: float
 func _damage_or_push_node(target: Node3D, dmg: float, impulse: Vector3) -> void:
 	if target == null or not is_instance_valid(target):
 		return
-	if target is CharacterBody3D:
+	if target.has_method("push"):
+		target.call("push", impulse)
+	elif target is CharacterBody3D:
 		(target as CharacterBody3D).velocity += impulse
 	if target.has_method("hurt"):
 		target.call("hurt", dmg)
@@ -3298,7 +3367,11 @@ func _trigger_explosion(center: Vector3, radius: float, max_dmg: float, max_kb: 
 		if d <= radius:
 			var falloff = clampf(1.0 - (d / maxf(radius, 0.1)) * 0.65, 0.25, 1.0)
 			var away: Vector3 = (player.global_position + Vector3(0, 2.5, 0) - center).normalized()
-			player.velocity += away * (max_kb * falloff) + Vector3.UP * (max_kb * 0.45 * falloff)
+			var exp_impulse: Vector3 = away * (max_kb * falloff) + Vector3.UP * (max_kb * 0.45 * falloff)
+			if player.has_method("push"):
+				player.call("push", exp_impulse)
+			else:
+				player.velocity += exp_impulse
 			if d <= radius * 0.75:
 				player.hurt(max_dmg * falloff)
 

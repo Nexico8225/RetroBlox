@@ -244,7 +244,7 @@ function FeedVideoPlayer({ video }: { video: VideoT }) {
   }
   return (
     <div style={{ maxWidth: 640 }}>
-      <RetroVideoPlayer src={`/api/files/${video.fileId || ''}`} poster={video.thumbFileId ? `/api/files/${video.thumbFileId}` : undefined} title={video.title} autoPlay />
+      <RetroVideoPlayer src={`/api/files/${video.fileId || ''}`} poster={video.thumbFileId ? `/api/files/${video.thumbFileId}` : undefined} title={video.title} autoPlay={false} />
     </div>
   )
 }
@@ -255,7 +255,7 @@ function FeedVideoMini({ id, name }: { id: string; name?: string | null }) {
   if (playing) {
     return (
       <div style={{ marginTop: 8, maxWidth: 480 }}>
-        <RetroVideoPlayer src={`/api/files/${id}`} title={name || 'Attached video'} autoPlay />
+        <RetroVideoPlayer src={`/api/files/${id}`} title={name || 'Attached video'} autoPlay={false} />
       </div>
     )
   }

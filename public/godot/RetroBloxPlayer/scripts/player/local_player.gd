@@ -49,6 +49,7 @@ const AvatarDresserScript := preload("res://scripts/player/avatar_dresser.gd")
 const ChatBubbleScript := preload("res://scripts/player/chat_bubble.gd")
 const RetroUI := preload("res://scripts/ui/retro_theme.gd")
 const ItemSpawnerScript := preload("res://scripts/world/item_spawner.gd")
+const AvatarRagdollScript := preload("res://scripts/player/avatar_ragdoll.gd")
 
 enum ClimbKind { NONE, LADDER }
 
@@ -93,6 +94,8 @@ enum ClimbKind { NONE, LADDER }
 @export var fall_damage_per_stud: float = 4.0
 ## Whether the player loses their inventory/equipped items when they die (default: On / true).
 @export var lose_item_when_dead: bool = true
+## Whether Ragdoll Engine physics are active when pushed, thrown, or on death (configured in Player Settings plugin).
+@export var ragdoll_engine_enabled: bool = true
 
 @export_group("Custom Walk Animation")
 ## Drag-and-drop a custom Animation resource here to override the default walk
@@ -173,6 +176,10 @@ var _heal_tick_cd := 0.0
 var _equipped_item: Dictionary = {}
 var _big_head_timer := 0.0
 var _carpet_visual: Node3D = null
+var is_ragdolled := false
+var ragdoll_instance: Node3D = null
+var _ragdoll_is_dead := false
+var _ragdoll_cooldown := 0.0
 
 
 func _init() -> void:
@@ -302,6 +309,8 @@ func _apply_project_settings() -> void:
 		enable_fall_damage = bool(ProjectSettings.get_setting("player/health/fall_damage_enabled"))
 	if ProjectSettings.has_setting("player/features/lose_item_when_dead"):
 		lose_item_when_dead = bool(ProjectSettings.get_setting("player/features/lose_item_when_dead"))
+	if ProjectSettings.has_setting("player/features/ragdoll_enabled"):
+		ragdoll_engine_enabled = bool(ProjectSettings.get_setting("player/features/ragdoll_enabled"))
 
 
 func _on_voice_mute_changed(_muted: bool) -> void:
@@ -366,12 +375,24 @@ func _physics_process(delta: float) -> void:
 	_time += delta
 	if _bounce_cd > 0.0:
 		_bounce_cd -= delta
+	if _ragdoll_cooldown > 0.0:
+		_ragdoll_cooldown -= delta
+	if is_ragdolled:
+		if ragdoll_instance != null and is_instance_valid(ragdoll_instance):
+			var t_pos: Vector3 = ragdoll_instance.call("get_torso_position")
+			global_position = t_pos - Vector3(0.0, 1.0 * STUD, 0.0)
+			velocity = ragdoll_instance.call("get_torso_velocity")
+		return
 	_update_loops()
 
 
 func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool, use_shiftlock: bool, first_person := false, jump_held := false) -> void:
 	_ensure_nodes()
 	if not alive:
+		return
+	if is_ragdolled:
+		if (just_pressed or jump_held or direction.length_squared() > 0.05) and _ragdoll_cooldown <= 0.0:
+			recover_from_ragdoll()
 		return
 	_sync_avatar_anim_exports()
 	_input_shiftlock = use_shiftlock
@@ -432,8 +453,13 @@ func drive(delta: float, direction: Vector2, cam_yaw: float, just_pressed: bool,
 		_perform_step_up(wish, delta)
 	for i in range(get_slide_collision_count()):
 		var sc := get_slide_collision(i)
-		if sc != null and sc.get_collider() is Node3D:
-			_on_touch_entered(sc.get_collider() as Node3D)
+		if sc != null:
+			if sc.get_collider() is Node3D:
+				_on_touch_entered(sc.get_collider() as Node3D)
+			var cvel := sc.get_collider_velocity()
+			if cvel.length() > 16.0 * STUD and is_ragdoll_enabled():
+				trigger_ragdoll(cvel * 1.25)
+				return
 	if _touch_sensor != null and is_instance_valid(_touch_sensor):
 		for b in _touch_sensor.get_overlapping_bodies():
 			if b is Node3D:
@@ -830,16 +856,21 @@ func _dust(strength := 1.0) -> void:
 
 
 func _update_fall_damage() -> void:
-	if not alive:
+	if not alive or is_ragdolled:
 		return
 	if grounded:
 		if _falling:
 			_falling = false
-			if enable_fall_damage:
-				var drop := _fall_peak_y - global_position.y
-				var drop_studs := drop / STUD
-				if drop_studs > fall_safe_height:
-					hurt((drop_studs - fall_safe_height) * fall_damage_per_stud)
+			var drop := _fall_peak_y - global_position.y
+			var drop_studs := drop / STUD
+			if enable_fall_damage and drop_studs > fall_safe_height:
+				hurt((drop_studs - fall_safe_height) * fall_damage_per_stud)
+			elif is_ragdoll_enabled():
+				var s: Node = _settings if _settings != null else get_node_or_null("/root/Settings")
+				var on_fall: bool = bool(s.get("ragdoll_on_fall")) if s != null and "ragdoll_on_fall" in s else false
+				var min_h: float = float(s.get("ragdoll_fall_height")) if s != null and "ragdoll_fall_height" in s else 60.0
+				if on_fall and drop_studs >= min_h:
+					trigger_ragdoll(Vector3(velocity.x, 2.0, velocity.z))
 	else:
 		_fall_peak_y = maxf(_fall_peak_y, global_position.y) if _falling else global_position.y
 		_falling = true
@@ -853,6 +884,8 @@ func hurt(amount: float) -> void:
 	health_changed.emit(health, max_health)
 	if health <= 0.0:
 		health_depleted.emit()
+	elif amount >= 40.0 and is_ragdoll_enabled():
+		trigger_ragdoll(Vector3(randf_range(-4, 4), 6, randf_range(-4, 4)) * STUD)
 
 
 func heal(amount: float) -> void:
@@ -890,6 +923,81 @@ func get_gravity_multiplier() -> float:
 	return _gravity_boost_mult if _gravity_boost_timer > 0.0 else 1.0
 
 
+func is_ragdoll_enabled() -> bool:
+	if not ragdoll_engine_enabled:
+		return false
+	var s: Node = _settings if _settings != null else get_node_or_null("/root/Settings")
+	if s != null and "ragdoll_engine" in s:
+		return bool(s.get("ragdoll_engine"))
+	return true
+
+
+func trigger_ragdoll(impulse: Vector3 = Vector3.ZERO, is_death: bool = false) -> void:
+	if not alive and not is_death:
+		return
+	if is_ragdolled:
+		if ragdoll_instance != null and is_instance_valid(ragdoll_instance):
+			ragdoll_instance.call("apply_torso_impulse", impulse)
+		return
+	_ensure_nodes()
+	var world := get_parent() as Node3D
+	if world == null:
+		return
+
+	is_ragdolled = true
+	_ragdoll_is_dead = is_death
+	_ragdoll_cooldown = 1.1
+
+	_stop_climb()
+	avatar.visible = false
+	var col := get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col != null:
+		col.disabled = true
+
+	ragdoll_instance = AvatarRagdollScript.spawn(avatar, world, velocity, impulse, is_death)
+
+
+func recover_from_ragdoll() -> void:
+	if not is_ragdolled or _ragdoll_is_dead or not alive:
+		return
+	if _ragdoll_cooldown > 0.0:
+		return
+
+	var get_up_pos := global_position
+	if ragdoll_instance != null and is_instance_valid(ragdoll_instance):
+		get_up_pos = ragdoll_instance.call("get_torso_position") + Vector3(0.0, 1.2 * STUD, 0.0)
+		ragdoll_instance.queue_free()
+		ragdoll_instance = null
+
+	is_ragdolled = false
+	var col := get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col != null:
+		col.disabled = false
+
+	global_position = get_up_pos
+	velocity = Vector3.ZERO
+	avatar.visible = true
+	_dust(1.2)
+	_play_jump_sound(1.1)
+
+
+func push(impulse: Vector3) -> void:
+	if not alive:
+		return
+	if is_ragdolled:
+		if ragdoll_instance != null and is_instance_valid(ragdoll_instance):
+			ragdoll_instance.call("apply_torso_impulse", impulse)
+		return
+	if is_ragdoll_enabled() and impulse.length() >= 12.0 * STUD:
+		trigger_ragdoll(impulse)
+	else:
+		velocity += impulse
+
+
+func launch(vel: Vector3) -> void:
+	push(vel)
+
+
 func die(world: Node3D) -> void:
 	if not alive:
 		return
@@ -900,11 +1008,23 @@ func die(world: Node3D) -> void:
 	_stop_climb()
 	if voice_indicator != null and is_instance_valid(voice_indicator):
 		voice_indicator.visible = false
-	avatar.call("burst", world, randi(), _input_first_person)
+	if is_ragdoll_enabled():
+		trigger_ragdoll(Vector3(randf_range(-3, 3), 4.5, randf_range(-3, 3)) * STUD, true)
+	else:
+		avatar.call("burst", world, randi(), _input_first_person)
 
 
 func respawn_at(pos: Vector3) -> void:
 	_ensure_nodes()
+	if ragdoll_instance != null and is_instance_valid(ragdoll_instance):
+		ragdoll_instance.queue_free()
+		ragdoll_instance = null
+	is_ragdolled = false
+	_ragdoll_is_dead = false
+	_ragdoll_cooldown = 0.0
+	var col := get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col != null:
+		col.disabled = false
 	alive = true
 	health = max_health
 	_regen_wait = 0.0

@@ -10,7 +10,13 @@ extends EditorPlugin
 
 const PLAYER_SETTINGS_DIALOG_PATH = "res://addons/retroblox_studio/player_settings_dialog.gd"
 const HIDER_DIALOG_PATH = "res://addons/retroblox_studio/hider_unhider_dialog.gd"
+const LIGHTING_DIALOG_PATH = "res://addons/retroblox_studio/lighting_dialog.gd"
+const LIGHTING_POPUP_PATH = "res://addons/retroblox_studio/lighting_menu_popup.gd"
 const TOOLBOX_DOCK_PATH = "res://addons/retroblox_studio/toolbox_dock.gd"
+const BUILDER_DOCK_PATH = "res://addons/retroblox_studio/builder_dock.gd"
+const ORCHESTRATOR_DIALOG_PATH = "res://addons/retroblox_studio/orchestrator_dialog.gd"
+const CUSTOM_NODES_DIALOG_PATH = "res://addons/retroblox_studio/custom_nodes_dialog.gd"
+const SCALABILITY_SCRIPT_PATH = "res://addons/retroblox_studio/editor_scalability.gd"
 const INTERACTIVE_PAD_PATH = "res://scripts/world/interactive_pad.gd"
 const ITEM_SPAWNER_PATH = "res://scripts/world/item_spawner.gd"
 const STUD_SHADER_PATH = "res://assets/studs/part_studs.gdshader"
@@ -21,11 +27,19 @@ var _toolbar: Control
 var _toolbar_scroll: ScrollContainer
 var _settings_dialog: AcceptDialog
 var _hider_dialog: AcceptDialog
+var _lighting_dialog: AcceptDialog
+var _lighting_popup: PopupPanel
+var _lighting_presets_btn: Button
 var _toolbox_dock: Control
 var _toolbox_dialog: AcceptDialog
 var _toolbox_window_panel: Control
 var _export_pkg_dialog: FileDialog
 var _fs_context_plugin: RefCounted = null
+var _builder_panel: Control = null
+var _builder_btn: Button = null
+var _orchestrator_dialog: AcceptDialog = null
+var _custom_nodes_dialog: AcceptDialog = null
+var _scalability: RefCounted = null
 var _fs_popups: Array[PopupMenu] = []
 const RBX_FS_MENU_ID: int = 998822
 
@@ -59,6 +73,23 @@ func _enter_tree() -> void:
 			_hider_dialog.set("plugin_ref", self)
 			base_ctrl.add_child(_hider_dialog)
 
+	if ResourceLoader.exists(LIGHTING_DIALOG_PATH):
+		var ld_scr: Script = load(LIGHTING_DIALOG_PATH) as Script
+		if ld_scr != null:
+			_lighting_dialog = ld_scr.new() as AcceptDialog
+			_lighting_dialog.set("plugin", self)
+			base_ctrl.add_child(_lighting_dialog)
+
+	if ResourceLoader.exists(LIGHTING_POPUP_PATH):
+		var lp_scr: Script = load(LIGHTING_POPUP_PATH) as Script
+		if lp_scr != null:
+			_lighting_popup = lp_scr.new() as PopupPanel
+			_lighting_popup.set("plugin", self)
+			_lighting_popup.set("lighting_dialog", _lighting_dialog)
+			_lighting_popup.connect("upload_requested", _on_open_lighting_upload)
+			_lighting_popup.connect("manage_requested", _on_open_lighting_dialog)
+			base_ctrl.add_child(_lighting_popup)
+
 	if ResourceLoader.exists(TOOLBOX_DOCK_PATH):
 		var tb_scr: Script = load(TOOLBOX_DOCK_PATH) as Script
 		if tb_scr != null:
@@ -87,6 +118,39 @@ func _enter_tree() -> void:
 			_toolbox_dialog.add_child(_toolbox_window_panel)
 			base_ctrl.add_child(_toolbox_dialog)
 
+	# Scalability & Toaster Optimization
+	if ResourceLoader.exists(SCALABILITY_SCRIPT_PATH):
+		var sc_scr: Script = load(SCALABILITY_SCRIPT_PATH) as Script
+		if sc_scr != null:
+			_scalability = sc_scr.new()
+			_scalability.call("setup", self)
+
+	# Draggable & Resizable Builder UI (Cyclops & Retro Building)
+	if ResourceLoader.exists(BUILDER_DOCK_PATH):
+		var bd_scr: Script = load(BUILDER_DOCK_PATH) as Script
+		if bd_scr != null:
+			_builder_panel = bd_scr.new() as Control
+			_builder_panel.set("plugin", self)
+			base_ctrl.add_child(_builder_panel)
+			_builder_panel.position = Vector2(base_ctrl.size.x - 390, 80)
+			_builder_panel.hide()
+
+	# Orchestrator Visual Logic
+	if ResourceLoader.exists(ORCHESTRATOR_DIALOG_PATH):
+		var od_scr: Script = load(ORCHESTRATOR_DIALOG_PATH) as Script
+		if od_scr != null:
+			_orchestrator_dialog = od_scr.new() as AcceptDialog
+			_orchestrator_dialog.set("plugin", self)
+			base_ctrl.add_child(_orchestrator_dialog)
+
+	# Custom Nodes Library
+	if ResourceLoader.exists(CUSTOM_NODES_DIALOG_PATH):
+		var cnd_scr: Script = load(CUSTOM_NODES_DIALOG_PATH) as Script
+		if cnd_scr != null:
+			_custom_nodes_dialog = cnd_scr.new() as AcceptDialog
+			_custom_nodes_dialog.set("plugin", self)
+			base_ctrl.add_child(_custom_nodes_dialog)
+
 	_export_pkg_dialog = FileDialog.new()
 	_export_pkg_dialog.title = "Export Lightweight Web-Ready Game Package (.rbxpkg)"
 	_export_pkg_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
@@ -104,6 +168,12 @@ func _enter_tree() -> void:
 	add_tool_menu_item("RetroBlox Publish Folder to Toolbox...", _on_save_selected_to_toolbox)
 	add_tool_menu_item("RetroBlox Player Settings...", _on_open_player_settings)
 	add_tool_menu_item("RetroBlox Hider/Unhider Node...", _on_open_hider_dialog)
+	add_tool_menu_item("RetroBlox Add Lighting to Scene (Roblox HD)", _on_add_lighting_to_scene_pressed)
+	add_tool_menu_item("RetroBlox Lighting Presets & Upload...", _on_open_lighting_dialog)
+	add_tool_menu_item("RetroBlox Level Builder (Cyclops & Retro)...", _on_toggle_builder_panel)
+	add_tool_menu_item("RetroBlox Orchestrator (Visual Logic)...", _on_open_orchestrator)
+	add_tool_menu_item("RetroBlox Custom Nodes Library...", _on_open_custom_nodes)
+	add_tool_menu_item("RetroBlox Generate Scene Occluders", _on_generate_scene_occluders)
 
 	var sel: EditorSelection = get_editor_interface().get_selection()
 	if sel != null and not sel.selection_changed.is_connected(_on_selection_changed):
@@ -131,6 +201,21 @@ func _exit_tree() -> void:
 	remove_tool_menu_item("RetroBlox Publish Folder to Toolbox...")
 	remove_tool_menu_item("RetroBlox Player Settings...")
 	remove_tool_menu_item("RetroBlox Hider/Unhider Node...")
+	remove_tool_menu_item("RetroBlox Add Lighting to Scene (Roblox HD)")
+	remove_tool_menu_item("RetroBlox Lighting Presets & Upload...")
+	remove_tool_menu_item("RetroBlox Level Builder (Cyclops & Retro)...")
+	remove_tool_menu_item("RetroBlox Orchestrator (Visual Logic)...")
+	remove_tool_menu_item("RetroBlox Custom Nodes Library...")
+	remove_tool_menu_item("RetroBlox Generate Scene Occluders")
+	if _builder_panel != null:
+		_builder_panel.queue_free()
+		_builder_panel = null
+	if _orchestrator_dialog != null:
+		_orchestrator_dialog.queue_free()
+		_orchestrator_dialog = null
+	if _custom_nodes_dialog != null:
+		_custom_nodes_dialog.queue_free()
+		_custom_nodes_dialog = null
 	set_all_workspace_nodes_hidden(false)
 	if _toolbar != null:
 		remove_control_from_container(CONTAINER_SPATIAL_EDITOR_MENU, _toolbar)
@@ -153,6 +238,12 @@ func _exit_tree() -> void:
 	if _hider_dialog != null:
 		_hider_dialog.queue_free()
 		_hider_dialog = null
+	if _lighting_dialog != null:
+		_lighting_dialog.queue_free()
+		_lighting_dialog = null
+	if _lighting_popup != null:
+		_lighting_popup.queue_free()
+		_lighting_popup = null
 
 
 func _process(_delta: float) -> void:
@@ -251,6 +342,7 @@ func _register_custom_project_settings() -> void:
 	_set_setting_default("player/features/voice_chat", true, TYPE_BOOL)
 	_set_setting_default("player/features/shift_lock", true, TYPE_BOOL)
 	_set_setting_default("player/features/lose_item_when_dead", true, TYPE_BOOL)
+	_set_setting_default("player/features/ragdoll_enabled", true, TYPE_BOOL)
 	_set_setting_default("player/appearance/default_shirt", "", TYPE_STRING)
 	_set_setting_default("player/appearance/default_pants", "", TYPE_STRING)
 	_set_setting_default("world/baseplate/size", 512.0, TYPE_FLOAT, PROPERTY_HINT_RANGE, "64,4096,64")
@@ -298,6 +390,43 @@ func _create_toolbar() -> void:
 	folder_btn.tooltip_text = "Create a Folder or Group selected nodes into a Folder (Roblox Explorer style)"
 	folder_btn.pressed.connect(_on_create_or_group_folder)
 	outer.add_child(folder_btn)
+
+	_builder_btn = Button.new()
+	_builder_btn.text = "Builder"
+	_builder_btn.tooltip_text = "Toggle Level Builder Panel (Cyclops blockout & Retro system, Hotkey: B)"
+	_builder_btn.pressed.connect(_on_toggle_builder_panel)
+	outer.add_child(_builder_btn)
+
+	var orches_btn = Button.new()
+	orches_btn.text = "Orchestrator"
+	orches_btn.tooltip_text = "Open Orchestrator Visual Logic & Blueprint Graph Studio"
+	orches_btn.pressed.connect(_on_open_orchestrator)
+	outer.add_child(orches_btn)
+
+	var cnodes_btn = Button.new()
+	cnodes_btn.text = "+Node"
+	cnodes_btn.tooltip_text = "Insert Custom Nodes (KillZone, JumpPad, RotatingPart, Shaker, PhantomCamera...)"
+	cnodes_btn.pressed.connect(_on_open_custom_nodes)
+	outer.add_child(cnodes_btn)
+
+	var perf_menu = MenuButton.new()
+	perf_menu.text = "Perf"
+	perf_menu.tooltip_text = "Editor Scalability & Toaster Optimization (Epic -> Low Mode)"
+	var pf_pop = perf_menu.get_popup()
+	pf_pop.add_item("Quality: Epic (Ultra)", 0)
+	pf_pop.add_item("Quality: High (Standard)", 1)
+	pf_pop.add_item("Quality: Medium (Balanced)", 2)
+	pf_pop.add_item("Quality: Low (Toaster / Old PC Mode)", 3)
+	pf_pop.add_separator()
+	pf_pop.add_item("Toggle In-Editor Occlusion Culling", 10)
+	pf_pop.add_item("Toggle Low-Processor Mode (Quiet / Cool)", 11)
+	pf_pop.add_item("Set Max FPS: 30", 20)
+	pf_pop.add_item("Set Max FPS: 60", 21)
+	pf_pop.add_item("Set Max FPS: Uncapped (144)", 22)
+	pf_pop.add_separator()
+	pf_pop.add_item("Generate Scene Occluders for Occlusion Culling", 30)
+	pf_pop.id_pressed.connect(_on_perf_menu_selected)
+	outer.add_child(perf_menu)
 
 	var left_scroll_btn: Button = Button.new()
 	left_scroll_btn.text = "<"
@@ -489,7 +618,20 @@ func _create_toolbar() -> void:
 	export_pkg_btn.pressed.connect(_on_open_export_rbxpkg)
 	_toolbar.add_child(export_pkg_btn)
 
-	# 8. Player Settings Button
+	# 8. Lighting Button & Presets Menu
+	var lighting_btn: Button = Button.new()
+	lighting_btn.text = "Add Lighting"
+	lighting_btn.tooltip_text = "Add vibrant Roblox HD lighting to the scene (WorldEnvironment + Sun + SkyFillLight + glTF material fix)"
+	lighting_btn.pressed.connect(_on_add_lighting_to_scene_pressed)
+	_toolbar.add_child(lighting_btn)
+
+	_lighting_presets_btn = Button.new()
+	_lighting_presets_btn.text = "Lighting Presets"
+	_lighting_presets_btn.tooltip_text = "Browse visual Lighting Presets menu with thumbnails or upload your own"
+	_lighting_presets_btn.pressed.connect(_on_toggle_lighting_presets_menu)
+	_toolbar.add_child(_lighting_presets_btn)
+
+	# 9. Player Settings Button
 	var settings_btn: Button = Button.new()
 	settings_btn.text = "Settings"
 	settings_btn.tooltip_text = "Edit player walk speed, jump power, gravity, and health"
@@ -505,6 +647,85 @@ func _expand_spatial_menu_container() -> void:
 	if _toolbar != null and is_instance_valid(_toolbar) and _toolbar.get_parent() is Control:
 		var p: Control = _toolbar.get_parent() as Control
 		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+func _on_add_lighting_to_scene_pressed() -> void:
+	apply_lighting_preset_by_id("roblox_hd")
+
+
+func _on_toggle_lighting_presets_menu() -> void:
+	var lp: PopupPanel = _ensure_lighting_popup()
+	if lp == null:
+		return
+	if lp.visible:
+		lp.hide()
+		return
+	var screen_pos: Vector2i = Vector2i(0, 0)
+	if _lighting_presets_btn != null and is_instance_valid(_lighting_presets_btn):
+		var gp: Vector2 = _lighting_presets_btn.get_screen_position()
+		screen_pos = Vector2i(int(gp.x), int(gp.y + _lighting_presets_btn.size.y + 4))
+	lp.call("open_menu", screen_pos)
+
+
+func _ensure_lighting_popup() -> PopupPanel:
+	if _lighting_popup == null or not is_instance_valid(_lighting_popup):
+		if ResourceLoader.exists(LIGHTING_POPUP_PATH):
+			var lp_scr: Script = load(LIGHTING_POPUP_PATH) as Script
+			if lp_scr != null:
+				_lighting_popup = lp_scr.new() as PopupPanel
+				_lighting_popup.set("plugin", self)
+				_lighting_popup.set("lighting_dialog", _ensure_lighting_dialog())
+				_lighting_popup.connect("upload_requested", _on_open_lighting_upload)
+				_lighting_popup.connect("manage_requested", _on_open_lighting_dialog)
+				get_editor_interface().get_base_control().add_child(_lighting_popup)
+	return _lighting_popup
+
+
+func _on_open_lighting_upload() -> void:
+	var ld: AcceptDialog = _ensure_lighting_dialog()
+	if ld != null and is_instance_valid(ld):
+		ld.popup_centered(Vector2i(860, 640))
+		if ld.has_method("open_upload_tab"):
+			ld.call("open_upload_tab")
+
+
+func _on_lighting_preset_menu_selected(id: int) -> void:
+	match id:
+		0:
+			apply_lighting_preset_by_id("roblox_hd")
+		1:
+			apply_lighting_preset_by_id("sunset")
+		2:
+			apply_lighting_preset_by_id("midnight")
+		3:
+			apply_lighting_preset_by_id("overcast")
+		4:
+			apply_lighting_preset_by_id("cyberpunk")
+		10:
+			_on_open_lighting_dialog()
+
+
+func _on_open_lighting_dialog() -> void:
+	var ld: AcceptDialog = _ensure_lighting_dialog()
+	if ld != null and is_instance_valid(ld):
+		ld.popup_centered(Vector2i(860, 640))
+
+
+func _ensure_lighting_dialog() -> AcceptDialog:
+	if _lighting_dialog == null or not is_instance_valid(_lighting_dialog):
+		if ResourceLoader.exists(LIGHTING_DIALOG_PATH):
+			var ld_scr: Script = load(LIGHTING_DIALOG_PATH) as Script
+			if ld_scr != null:
+				_lighting_dialog = ld_scr.new() as AcceptDialog
+				_lighting_dialog.set("plugin", self)
+				get_editor_interface().get_base_control().add_child(_lighting_dialog)
+	return _lighting_dialog
+
+
+func apply_lighting_preset_by_id(preset_id: String) -> void:
+	var ld: AcceptDialog = _ensure_lighting_dialog()
+	if ld != null and is_instance_valid(ld) and ld.has_method("apply_preset_by_id"):
+		ld.call("apply_preset_by_id", preset_id)
 
 
 func _on_open_toolbox_window() -> void:
@@ -1082,7 +1303,7 @@ func get_manageable_workspace_nodes() -> Array[Node]:
 	var world: Node = root.get_node_or_null("World")
 	var scan_root: Node = world if world != null else root
 	for ch in scan_root.get_children():
-		if ch.name in ["HUD", "LocalPlayer", "CameraRig", "WorldEnvironment", "Sun"]:
+		if ch.name in ["HUD", "LocalPlayer", "CameraRig", "WorldEnvironment", "Sun", "SkyFillLight", "BounceFillLight"]:
 			continue
 		list.append(ch)
 	return list
@@ -1222,3 +1443,83 @@ func _set_owner_recursive_safe(node: Node, new_owner: Node) -> void:
 		node.owner = new_owner
 	for ch in node.get_children():
 		_set_owner_recursive_safe(ch, new_owner)
+
+
+
+func _on_toggle_builder_panel() -> void:
+	if _builder_panel == null:
+		var base_ctrl: Control = get_editor_interface().get_base_control()
+		if ResourceLoader.exists(BUILDER_DOCK_PATH):
+			var bd_scr: Script = load(BUILDER_DOCK_PATH) as Script
+			if bd_scr != null:
+				_builder_panel = bd_scr.new() as Control
+				_builder_panel.set("plugin", self)
+				base_ctrl.add_child(_builder_panel)
+				_builder_panel.position = Vector2(base_ctrl.size.x - 390, 80)
+	if _builder_panel != null:
+		if _builder_panel.visible:
+			_builder_panel.hide()
+			if _builder_btn != null:
+				_builder_btn.button_pressed = false
+		else:
+			_builder_panel.show()
+			if _builder_btn != null:
+				_builder_btn.button_pressed = true
+
+
+func _on_open_orchestrator() -> void:
+	if _orchestrator_dialog == null:
+		var base_ctrl: Control = get_editor_interface().get_base_control()
+		if ResourceLoader.exists(ORCHESTRATOR_DIALOG_PATH):
+			var od_scr: Script = load(ORCHESTRATOR_DIALOG_PATH) as Script
+			if od_scr != null:
+				_orchestrator_dialog = od_scr.new() as AcceptDialog
+				_orchestrator_dialog.set("plugin", self)
+				base_ctrl.add_child(_orchestrator_dialog)
+	if _orchestrator_dialog != null:
+		_orchestrator_dialog.popup_centered_ratio(0.85)
+
+
+func _on_open_custom_nodes() -> void:
+	if _custom_nodes_dialog == null:
+		var base_ctrl: Control = get_editor_interface().get_base_control()
+		if ResourceLoader.exists(CUSTOM_NODES_DIALOG_PATH):
+			var cnd_scr: Script = load(CUSTOM_NODES_DIALOG_PATH) as Script
+			if cnd_scr != null:
+				_custom_nodes_dialog = cnd_scr.new() as AcceptDialog
+				_custom_nodes_dialog.set("plugin", self)
+				base_ctrl.add_child(_custom_nodes_dialog)
+	if _custom_nodes_dialog != null:
+		_custom_nodes_dialog.popup_centered_ratio(0.7)
+
+
+func _on_generate_scene_occluders() -> void:
+	if _scalability != null and _scalability.has_method("generate_scene_occluders"):
+		_scalability.call("generate_scene_occluders")
+	elif ResourceLoader.exists(SCALABILITY_SCRIPT_PATH):
+		var sc_scr: Script = load(SCALABILITY_SCRIPT_PATH) as Script
+		if sc_scr != null:
+			var sc = sc_scr.new()
+			sc.call("setup", self)
+			sc.call("generate_scene_occluders")
+
+
+func _on_perf_menu_selected(id: int) -> void:
+	if _scalability != null and _scalability.has_method("apply_perf_setting"):
+		_scalability.call("apply_perf_setting", id)
+	elif ResourceLoader.exists(SCALABILITY_SCRIPT_PATH):
+		var sc_scr: Script = load(SCALABILITY_SCRIPT_PATH) as Script
+		if sc_scr != null:
+			var sc = sc_scr.new()
+			sc.call("setup", self)
+			sc.call("apply_perf_setting", id)
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_B and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
+			var base_ctrl: Control = get_editor_interface().get_base_control()
+			var focus = base_ctrl.get_viewport().gui_get_focus_owner() if base_ctrl != null else null
+			if focus is LineEdit or focus is TextEdit:
+				return
+			_on_toggle_builder_panel()

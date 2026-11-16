@@ -34,6 +34,10 @@ var chat_bubbles := true
 var light_taps := true
 var ladder_auto_rotate := true
 var ui_editor_enabled := true
+var ragdoll_engine := true
+var ragdoll_key_r := false
+var ragdoll_on_fall := false
+var ragdoll_fall_height := 60.0
 
 
 func _ready() -> void:
@@ -145,6 +149,10 @@ func load_settings() -> void:
 	light_taps = bool(cf.get_value("input", "light_taps", true))
 	ladder_auto_rotate = bool(cf.get_value("input", "ladder_auto_rotate", true))
 	ui_editor_enabled = bool(cf.get_value("ui", "ui_editor_enabled", true))
+	ragdoll_engine = bool(cf.get_value("gameplay", "ragdoll_engine", bool(ProjectSettings.get_setting("player/features/ragdoll_enabled", true))))
+	ragdoll_key_r = bool(cf.get_value("gameplay", "ragdoll_key_r", false))
+	ragdoll_on_fall = bool(cf.get_value("gameplay", "ragdoll_on_fall", false))
+	ragdoll_fall_height = clampf(float(cf.get_value("gameplay", "ragdoll_fall_height", 60.0)), 20.0, 300.0)
 
 
 func save_settings() -> void:
@@ -155,6 +163,10 @@ func save_settings() -> void:
 	cf.set_value("input", "light_taps", light_taps)
 	cf.set_value("input", "ladder_auto_rotate", ladder_auto_rotate)
 	cf.set_value("ui", "ui_editor_enabled", ui_editor_enabled)
+	cf.set_value("gameplay", "ragdoll_engine", ragdoll_engine)
+	cf.set_value("gameplay", "ragdoll_key_r", ragdoll_key_r)
+	cf.set_value("gameplay", "ragdoll_on_fall", ragdoll_on_fall)
+	cf.set_value("gameplay", "ragdoll_fall_height", ragdoll_fall_height)
 	cf.set_value("camera", "fov", fov)
 	cf.set_value("audio", "master_volume", master_volume)
 	cf.set_value("audio", "sfx_volume", sfx_volume)
@@ -277,6 +289,14 @@ func set_key(key: String, value: Variant) -> void:
 			ladder_auto_rotate = bool(value)
 		"ui_editor_enabled":
 			ui_editor_enabled = bool(value)
+		"ragdoll_engine":
+			ragdoll_engine = bool(value)
+		"ragdoll_key_r":
+			ragdoll_key_r = bool(value)
+		"ragdoll_on_fall":
+			ragdoll_on_fall = bool(value)
+		"ragdoll_fall_height":
+			ragdoll_fall_height = clampf(float(value), 20.0, 300.0)
 		_:
 			return
 	save_settings()
@@ -381,6 +401,7 @@ func reset_all() -> void:
 	light_taps = true
 	ladder_auto_rotate = true
 	ui_editor_enabled = true
+	ragdoll_engine = false
 	apply_audio()
 	apply_input_device()
 	apply_window()
@@ -395,5 +416,5 @@ func reset_all() -> void:
 		"graphics_quality", "shadows", "shift_lock",
 		"fullscreen", "show_fps", "show_ping", "max_fps", "player_names",
 		"bunny_hop", "ui_opacity", "invert_y", "invert_x", "invert_movement",
-		"vsync", "render_scale", "chat_bubbles", "light_taps", "ladder_auto_rotate", "ui_editor_enabled"]:
+		"vsync", "render_scale", "chat_bubbles", "light_taps", "ladder_auto_rotate", "ui_editor_enabled", "ragdoll_engine"]:
 		changed.emit(key, null)
