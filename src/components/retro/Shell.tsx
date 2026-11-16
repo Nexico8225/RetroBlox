@@ -84,7 +84,7 @@ const NAV = [
   { label: 'Trade Market', href: '/trades' },
   { label: 'Avatar', href: '/avatar' },
   { label: 'Create', href: '/create' },
-  { label: 'Launcher', href: '/downloads/RetroBloxLauncher.exe' },
+  { label: 'Launcher', href: '/launcher' },
   { label: 'SDK', href: '/sdk' },
   { label: 'Videos', href: '/videos' },
   { label: 'Groups', href: '/groups' },
@@ -185,10 +185,9 @@ export function Header() {
         {/* Right side — guests get Log In + Sign Up (logo LEFT, Sign Up RIGHT);
             members get the wallet chip, chat and profile actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-          <a
-            href="/downloads/RetroBloxLauncher.exe"
-            download="RetroBloxLauncher.exe"
-            title="Download the RetroBlox Universal Game Launcher for Windows"
+          <Link
+            href="/launcher"
+            title="Get the RetroBlox Game Launcher for Windows"
             className="rb-header-chip"
             style={{
               display: 'flex',
@@ -206,7 +205,7 @@ export function Header() {
             }}
           >
             <span>Get Launcher</span>
-          </a>
+          </Link>
           {user ? (
             <>
               <Link
@@ -749,7 +748,7 @@ export function BootScreen() {
  * could wander games and the catalog before signing up. Everything else
  * (create, chat, wallet, settings...) bounces to /login.
  */
-const PUBLIC_ROOTS = ['/', '/games', '/catalog', '/labs', '/community', '/groups', '/music', '/videos', '/users', '/sdk', '/colorworld', '/download']
+const PUBLIC_ROOTS = ['/', '/games', '/catalog', '/labs', '/community', '/groups', '/music', '/videos', '/users', '/sdk', '/launcher', '/colorworld', '/download']
 function isPublicPath(p: string) {
   return PUBLIC_ROOTS.some((r) => (r === '/' ? p === '/' : p === r || p.startsWith(r + '/')))
 }
@@ -819,7 +818,7 @@ export function Page({ children }: { children: React.ReactNode }) {
           <Link href="/music" className="rb-link">Music</Link> ·{' '}
           <Link href="/catalog" className="rb-link">Catalog</Link> ·{' '}
           <Link href="/store" className="rb-link">Tix Store</Link> ·{' '}
-          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> · <Link href="/colorworld" className="rb-link">ColorWorld</Link> ·{' '}
+          <Link href="/avatar" className="rb-link">Avatar</Link> · <Link href="/launcher" className="rb-link">Launcher</Link> · <Link href="/sdk" className="rb-link">RetroBlox SDK</Link> · <Link href="/colorworld" className="rb-link">ColorWorld</Link> ·{' '}
           <Link href="/create" className="rb-link">Create</Link> ·{' '}
           {new Date().getFullYear()} RetroBlox Corporation
         </div>

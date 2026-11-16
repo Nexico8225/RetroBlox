@@ -478,6 +478,8 @@ export interface ModelSurface {
   textureUrl?: string
   /** optional tint painted on the model when it has no texture (#RRGGBB) */
   color?: string
+  roughness?: number | null
+  metallic?: number | null
 }
 
 /** linear-space threshold for "this surface arrived with no real paint"

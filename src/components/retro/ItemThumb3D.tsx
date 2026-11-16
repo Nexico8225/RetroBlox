@@ -39,11 +39,16 @@ const inflight = new Map<string, Promise<string>>()
 let sharedRenderer: THREE.WebGLRenderer | null = null
 
 function getSharedRenderer(): THREE.WebGLRenderer {
-  if (sharedRenderer && sharedRenderer.isContextLost()) {
+  if (sharedRenderer) {
     try {
-      sharedRenderer.dispose()
-    } catch {}
-    sharedRenderer = null
+      const gl = sharedRenderer.getContext()
+      if (!gl || (typeof (gl as any).isContextLost === 'function' && (gl as any).isContextLost())) {
+        try { sharedRenderer.dispose() } catch {}
+        sharedRenderer = null
+      }
+    } catch {
+      sharedRenderer = null
+    }
   }
   if (!sharedRenderer) {
     const canvas = document.createElement('canvas')
@@ -155,24 +160,9 @@ async function renderItemThumb(
   ctx.fillRect(0, 0, SIZE, SIZE)
   ctx.drawImage(renderer.domElement, 0, 0, SIZE, SIZE)
 
-  // Verify that visible model pixels were actually rendered (prevent caching blank context-lost frames)
-  const imgData = ctx.getImageData(0, 0, SIZE, SIZE)
-  const d = imgData.data
-  let nonWhiteCount = 0
-  for (let i = 0; i < d.length; i += 16) {
-    if (d[i] < 250 || d[i + 1] < 250 || d[i + 2] < 250) {
-      nonWhiteCount++
-      if (nonWhiteCount > 20) break
-    }
-  }
-
   // Clean up scene without destroying shared geometry/materials from cache
   scene.remove(holder)
   scene.clear()
-
-  if (nonWhiteCount <= 20) {
-    throw new Error('Render resulted in blank image (context lost or offscreen)')
-  }
 
   return out.toDataURL('image/png')
 }
