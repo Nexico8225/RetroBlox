@@ -10,7 +10,6 @@ export async function GET(req: NextRequest) {
 
   const items = await db.avatarItem.findMany({
     where: {
-      deletedAt: null,
       ...(itemId
         ? { id: itemId }
         : q

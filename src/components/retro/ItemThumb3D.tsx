@@ -39,6 +39,12 @@ const inflight = new Map<string, Promise<string>>()
 let sharedRenderer: THREE.WebGLRenderer | null = null
 
 function getSharedRenderer(): THREE.WebGLRenderer {
+  if (sharedRenderer && sharedRenderer.isContextLost()) {
+    try {
+      sharedRenderer.dispose()
+    } catch {}
+    sharedRenderer = null
+  }
   if (!sharedRenderer) {
     const canvas = document.createElement('canvas')
     sharedRenderer = new THREE.WebGLRenderer({
@@ -104,10 +110,6 @@ async function renderItemThumb(
   const inst = skeletonClone(src)
   await applyModelSurface(inst, { textureUrl, color, roughness, metallic })
   const holder = attachPlacedModel(inst, placement)
-  // If no custom placement transform was passed, default to facing front (+Z)
-  if (!placement) {
-    inst.rotation.y = Math.PI
-  }
   scene.add(holder)
   scene.updateMatrixWorld(true)
 
@@ -153,9 +155,24 @@ async function renderItemThumb(
   ctx.fillRect(0, 0, SIZE, SIZE)
   ctx.drawImage(renderer.domElement, 0, 0, SIZE, SIZE)
 
+  // Verify that visible model pixels were actually rendered (prevent caching blank context-lost frames)
+  const imgData = ctx.getImageData(0, 0, SIZE, SIZE)
+  const d = imgData.data
+  let nonWhiteCount = 0
+  for (let i = 0; i < d.length; i += 16) {
+    if (d[i] < 250 || d[i + 1] < 250 || d[i + 2] < 250) {
+      nonWhiteCount++
+      if (nonWhiteCount > 20) break
+    }
+  }
+
   // Clean up scene without destroying shared geometry/materials from cache
   scene.remove(holder)
   scene.clear()
+
+  if (nonWhiteCount <= 20) {
+    throw new Error('Render resulted in blank image (context lost or offscreen)')
+  }
 
   return out.toDataURL('image/png')
 }

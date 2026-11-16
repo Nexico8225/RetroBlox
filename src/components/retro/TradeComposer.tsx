@@ -380,7 +380,7 @@ function TradeComposerInner() {
             <span style={{ fontSize: 10, color: '#2c6e31' }}>{give.size}/8 items</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, minHeight: 140, marginBottom: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: 'minmax(96px, auto)', gap: 6, marginBottom: 8 }}>
             {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
               const id = [...give][idx]
               const it = id ? myShelf.find((x) => x.id === id) : null
@@ -390,12 +390,14 @@ function TradeComposerInner() {
                   style={{
                     border: it ? '1px solid #029a4a' : '1px dashed #c9d6e2',
                     background: it ? '#f4faf5' : '#fafbfc',
-                    minHeight: 92,
+                    height: 96,
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '4px 2px 2px',
+                    padding: '3px 2px 3px',
                     position: 'relative',
                   }}
                 >
@@ -408,13 +410,13 @@ function TradeComposerInner() {
                         style={{
                           position: 'absolute', top: 2, right: 2, zIndex: 5,
                           background: '#c81c14', color: '#fff', border: 'none',
-                          borderRadius: 2, width: 16, height: 16, fontSize: 10,
-                          cursor: 'pointer', lineHeight: '16px', textAlign: 'center', padding: 0,
+                          borderRadius: 2, width: 15, height: 15, fontSize: 9,
+                          cursor: 'pointer', lineHeight: '15px', textAlign: 'center', padding: 0,
                         }}
                       >
                         X
                       </button>
-                      <div style={{ width: '100%', height: 50, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: '100%', height: 48, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                         {it.modelFileId ? (
                           <ItemThumb3D
                             modelUrl={`/api/files/${it.modelFileId}`}
@@ -423,25 +425,25 @@ function TradeComposerInner() {
                             color={it.baseColor || undefined}
                             alt={it.name}
                             fallbackSrc={`/api/files/${it.imageFileId}`}
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                           />
                         ) : (
                           <img
                             src={`/api/files/${it.imageFileId}`}
                             alt={it.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                           />
                         )}
                       </div>
-                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center', padding: '0 2px', lineHeight: 1.2 }}>
+                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center', padding: '0 2px', lineHeight: '12px', height: 12 }}>
                         {it.name}
                       </div>
-                      <div style={{ fontSize: 8.5, color: '#2c6e31', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1, paddingBottom: 2 }}>
+                      <div style={{ fontSize: 9, color: '#1b5e20', fontWeight: 'bold', fontFamily: 'monospace', background: '#e8f5e9', border: '1px solid #c8e6c9', borderRadius: 2, padding: '0 5px', height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                         T$ {tixShort(it.price)}
                       </div>
                     </>
                   ) : (
-                    <span style={{ fontSize: 10, color: '#cbd5e1' }}>Empty</span>
+                    <span style={{ fontSize: 10, color: '#cbd5e1', margin: 'auto' }}>Empty</span>
                   )}
                 </div>
               )
@@ -544,7 +546,7 @@ function TradeComposerInner() {
             <span style={{ fontSize: 10, color: '#1c4e7c' }}>{want.size}/8 items</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, minHeight: 140, marginBottom: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: 'minmax(96px, auto)', gap: 6, marginBottom: 8 }}>
             {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
               const id = [...want][idx]
               const it = id ? theirShelf.find((x) => x.id === id) : null
@@ -554,12 +556,14 @@ function TradeComposerInner() {
                   style={{
                     border: it ? '1px solid #0070b6' : '1px dashed #c9d6e2',
                     background: it ? '#f0f7fc' : '#fafbfc',
-                    minHeight: 92,
+                    height: 96,
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '4px 2px 2px',
+                    padding: '3px 2px 3px',
                     position: 'relative',
                   }}
                 >
@@ -572,13 +576,13 @@ function TradeComposerInner() {
                         style={{
                           position: 'absolute', top: 2, right: 2, zIndex: 5,
                           background: '#c81c14', color: '#fff', border: 'none',
-                          borderRadius: 2, width: 16, height: 16, fontSize: 10,
-                          cursor: 'pointer', lineHeight: '16px', textAlign: 'center', padding: 0,
+                          borderRadius: 2, width: 15, height: 15, fontSize: 9,
+                          cursor: 'pointer', lineHeight: '15px', textAlign: 'center', padding: 0,
                         }}
                       >
                         X
                       </button>
-                      <div style={{ width: '100%', height: 50, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: '100%', height: 48, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                         {it.modelFileId ? (
                           <ItemThumb3D
                             modelUrl={`/api/files/${it.modelFileId}`}
@@ -587,25 +591,25 @@ function TradeComposerInner() {
                             color={it.baseColor || undefined}
                             alt={it.name}
                             fallbackSrc={`/api/files/${it.imageFileId}`}
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                           />
                         ) : (
                           <img
                             src={`/api/files/${it.imageFileId}`}
                             alt={it.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                           />
                         )}
                       </div>
-                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center', padding: '0 2px', lineHeight: 1.2 }}>
+                      <div style={{ fontSize: 9, fontWeight: 'bold', color: '#1c2733', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center', padding: '0 2px', lineHeight: '12px', height: 12 }}>
                         {it.name}
                       </div>
-                      <div style={{ fontSize: 8.5, color: '#0070b6', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1, paddingBottom: 2 }}>
+                      <div style={{ fontSize: 9, color: '#005a9c', fontWeight: 'bold', fontFamily: 'monospace', background: '#e1f0fa', border: '1px solid #bce0f7', borderRadius: 2, padding: '0 5px', height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                         T$ {tixShort(it.price)}
                       </div>
                     </>
                   ) : (
-                    <span style={{ fontSize: 10, color: '#cbd5e1' }}>Empty</span>
+                    <span style={{ fontSize: 10, color: '#cbd5e1', margin: 'auto' }}>Empty</span>
                   )}
                 </div>
               )

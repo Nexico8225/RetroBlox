@@ -163,6 +163,7 @@ interface CatalogItem {
   assetId: string
   name: string
   description: string
+  tags?: string
   type: string
   price: number
   isLimited: boolean
@@ -486,6 +487,11 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                       {item.isLimited && item.stock != null && ` · ${item.sold.toLocaleString('en-US')}/${item.stock} sold`}
                     </div>
                   )}
+                  {item.tags && (
+                    <div style={{ fontSize: 9, color: '#0d69ac', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }} title={item.tags}>
+                      {item.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => '#' + t).join(' ')}
+                    </div>
+                  )}
                   <div style={{ fontSize: 9, fontFamily: 'monospace', color: '#9aa7b4', marginBottom: 6 }}>{item.assetId}</div>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {owned ? (
@@ -519,6 +525,21 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
                         Delete
                       </button>
                     )}
+                    <a
+                      href={item.modelFileId
+                        ? `/api/files/${item.modelFileId}?dl=1&name=${encodeURIComponent(item.name.replace(/[^\w\d_.-]/g, '_'))}.glb`
+                        : `/api/files/${item.imageFileId}?dl=1&name=${encodeURIComponent(item.name.replace(/[^\w\d_.-]/g, '_'))}.png`
+                      }
+                      download={item.modelFileId
+                        ? `${item.name.replace(/[^\w\d_.-]/g, '_')}.glb`
+                        : `${item.name.replace(/[^\w\d_.-]/g, '_')}.png`
+                      }
+                      className="rb-btn"
+                      style={{ fontSize: 10, padding: '3px 8px', textDecoration: 'none' }}
+                      title={item.modelFileId ? 'Download 3D UGC model (.glb) to your drive' : 'Download UGC image to your drive'}
+                    >
+                      Download
+                    </a>
                   </div>
                 </div>
               </div>
@@ -629,6 +650,28 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
                 {item.assetId} · drag to spin the camera
               </div>
             </div>
+            {item.modelFileId && (
+              <a
+                href={`/api/files/${item.modelFileId}?dl=1&name=${encodeURIComponent(item.name.replace(/[^\w\d_.-]/g, '_'))}.glb`}
+                download={`${item.name.replace(/[^\w\d_.-]/g, '_')}.glb`}
+                className="rb-btn"
+                style={{ fontSize: 11, padding: '3px 10px', textDecoration: 'none' }}
+                title="Download 3D UGC model (.glb) to your drive"
+              >
+                Download Model (.glb)
+              </a>
+            )}
+            {item.textureFileId && (
+              <a
+                href={`/api/files/${item.textureFileId}?dl=1&name=${encodeURIComponent(item.name.replace(/[^\w\d_.-]/g, '_'))}_texture.png`}
+                download={`${item.name.replace(/[^\w\d_.-]/g, '_')}_texture.png`}
+                className="rb-btn"
+                style={{ fontSize: 11, padding: '3px 10px', textDecoration: 'none' }}
+                title="Download texture (.png) to your drive"
+              >
+                Download Texture
+              </a>
+            )}
             <Link href="/avatar" className="rb-btn rb-btn-green" style={{ fontSize: 11, textDecoration: 'none' }}>
               Wear it in the Avatar Editor
             </Link>
@@ -663,6 +706,7 @@ function EditItemModal({
   const isAdmin = user?.role === 'admin'
   const [name, setName] = useState(item.name)
   const [description, setDescription] = useState(item.description || '')
+  const [tags, setTags] = useState(item.tags || '')
   const [priceMode, setPriceMode] = useState<'free' | 'paid'>(item.price > 0 ? 'paid' : 'free')
   const [price, setPrice] = useState(item.price > 0 ? String(item.price) : '')
   const [limited, setLimited] = useState(item.isLimited)
@@ -755,6 +799,8 @@ function EditItemModal({
       const fd = new FormData()
       fd.append('name', name.trim())
       fd.append('description', description.trim())
+      fd.append('tags', tags.trim())
+      fd.append('tags', tags.trim())
       fd.append('price', String(finalPrice))
       fd.append('limited', limited ? '1' : '0')
       fd.append('superLimited', superLimited ? '1' : '0')
@@ -950,6 +996,10 @@ function EditItemModal({
             Description
             <textarea className="rb-input" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={600} rows={2} style={{ width: '100%', fontSize: 11, marginTop: 2, resize: 'vertical' }} />
           </label>
+          <label style={{ display: 'block', fontSize: 11, color: '#1c4e7c', marginBottom: 8 }}>
+            Tags <span style={{ color: '#8ba0b3' }}>(comma-separated, e.g. hat, dominus, cool)</span>
+            <input className="rb-input" value={tags} onChange={(e) => setTags(e.target.value)} maxLength={300} style={{ width: '100%', fontSize: 11, marginTop: 2 }} placeholder="traffic, cone, hat, orange" />
+          </label>
           <div style={{ border: '1px solid #dbe4ec', background: '#f8fbfe', padding: '8px 10px', marginBottom: 10 }}>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', fontSize: 11 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
@@ -1059,6 +1109,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [name, setName] = useState('')
   const [type, setType] = useState('hat')
   const [description, setDescription] = useState('')
+  const [tags, setTags] = useState('')
   const [groupId, setGroupId] = useState('')
   const [image, setImage] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -1840,6 +1891,10 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           <label style={{ display: 'block', fontSize: 11, color: '#1c4e7c', marginBottom: 8 }}>
             Description <span style={{ color: '#8ba0b3' }}>(optional)</span>
             <textarea className="rb-input" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={600} rows={2} style={{ width: '100%', fontSize: 11, marginTop: 2, resize: 'vertical' }} placeholder="What is it? Who made it? Any story?" />
+          </label>
+          <label style={{ display: 'block', fontSize: 11, color: '#1c4e7c', marginBottom: 8 }}>
+            Tags <span style={{ color: '#8ba0b3' }}>(comma-separated, e.g. hat, dominus, cool)</span>
+            <input className="rb-input" value={tags} onChange={(e) => setTags(e.target.value)} maxLength={300} style={{ width: '100%', fontSize: 11, marginTop: 2 }} placeholder="traffic, cone, hat, orange" />
           </label>
           {rigged && (
             /* the rigged pipeline: live animation preview on the chosen body,

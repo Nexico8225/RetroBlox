@@ -87,6 +87,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const download = urlObj.searchParams.get('dl') === '1'
+    const customName = urlObj.searchParams.get('name')
     const headers: Record<string, string> = {
       'Content-Type': rows[0].mimeType || 'application/octet-stream',
       'Content-Length': String(total),
@@ -96,7 +97,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       'Access-Control-Allow-Headers': '*',
     }
     if (download) {
-      headers['Content-Disposition'] = `attachment; filename="${path.basename(rows[0].filename || 'game.exe')}"`
+      const rawName = customName || rows[0].filename || 'game.exe'
+      const safeName = path.basename(rawName).replace(/[^\w\d_.-]/g, '_')
+      headers['Content-Disposition'] = `attachment; filename="${safeName}"`
     }
     const ids = rows.map((r) => r.id)
     const stream = new ReadableStream({
@@ -117,6 +120,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const download = new URL(req.url).searchParams.get('dl') === '1'
+  const customName = new URL(req.url).searchParams.get('name')
 
   const baseHeaders: Record<string, string> = {
     'Content-Type': file.mimeType || 'application/octet-stream',
@@ -126,7 +130,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     'Access-Control-Allow-Headers': '*',
   }
   if (download) {
-    baseHeaders['Content-Disposition'] = `attachment; filename="${path.basename(file.filename)}"`
+    const rawName = customName || file.filename || 'download.bin'
+    const safeName = path.basename(rawName).replace(/[^\w\d_.-]/g, '_')
+    baseHeaders['Content-Disposition'] = `attachment; filename="${safeName}"`
   }
 
   // ---- BLOB path: bytes live in the DB (host-independent) ----

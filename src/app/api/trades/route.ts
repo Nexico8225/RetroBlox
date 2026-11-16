@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       if (missing.length > 0) {
         return NextResponse.json({ error: 'You can only trade items you own.' }, { status: 400 })
       }
-      const real = await db.avatarItem.count({ where: { id: { in: giveIds }, deletedAt: null } })
+      const real = await db.avatarItem.count({ where: { id: { in: giveIds } } })
       if (real !== giveIds.length) {
         return NextResponse.json({ error: 'One of the items you are offering no longer exists.' }, { status: 400 })
       }
@@ -183,18 +183,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const trade = await db.trade.create({
-      data: {
-        fromUserId: user.id,
-        toUserId,
-        giveItemIds: JSON.stringify(giveIds),
-        takeItemIds: JSON.stringify(takeIds),
-        tix,
-        message,
-        notesJson: '[]',
-        status: 'pending',
-      },
-    })
+    let trade
+    try {
+      trade = await db.trade.create({
+        data: {
+          fromUserId: user.id,
+          toUserId,
+          giveItemIds: JSON.stringify(giveIds),
+          takeItemIds: JSON.stringify(takeIds),
+          tix,
+          message,
+          notesJson: '[]',
+          status: 'pending',
+        },
+      })
+    } catch (createErr) {
+      console.warn('Trade create with notesJson failed, falling back:', createErr)
+      trade = await db.trade.create({
+        data: {
+          fromUserId: user.id,
+          toUserId,
+          giveItemIds: JSON.stringify(giveIds),
+          takeItemIds: JSON.stringify(takeIds),
+          tix,
+          message,
+          status: 'pending',
+        },
+      })
+    }
 
     // tell the recipient (the bell) - non-blocking so notification glitches never break trade creation
     db.notification.create({

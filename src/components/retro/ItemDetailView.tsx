@@ -477,8 +477,41 @@ export function ItemDetailView({ id }: { id: string }) {
               )}
               {user && !data.owned && item.creator.id !== user.id && (
                 <button className="rb-btn" style={{ fontSize: 13, padding: '8px 18px' }} onClick={() => setTradeOpen(true)}>
-                  ⇄ Trade for this
+                  Trade for this
                 </button>
+              )}
+              {item.modelFileId && (
+                <a
+                  href={`/api/files/${item.modelFileId}?dl=1&name=${encodeURIComponent(item.name.replace(/[^\w\d_.-]/g, '_'))}.glb`}
+                  download={`${item.name.replace(/[^\w\d_.-]/g, '_')}.glb`}
+                  className="rb-btn"
+                  style={{ fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                  title="Download 3D UGC model (.glb) to your drive"
+                >
+                  Download Model (.glb)
+                </a>
+              )}
+              {item.textureFileId && (
+                <a
+                  href={`/api/files/${item.textureFileId}?dl=1&name=${encodeURIComponent(item.name.replace(/[^\w\d_.-]/g, '_'))}_texture.png`}
+                  download={`${item.name.replace(/[^\w\d_.-]/g, '_')}_texture.png`}
+                  className="rb-btn"
+                  style={{ fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                  title="Download UGC surface texture (.png) to your drive"
+                >
+                  Download Texture
+                </a>
+              )}
+              {!item.modelFileId && item.imageFileId && (
+                <a
+                  href={`/api/files/${item.imageFileId}?dl=1&name=${encodeURIComponent(item.name.replace(/[^\w\d_.-]/g, '_'))}.png`}
+                  download={`${item.name.replace(/[^\w\d_.-]/g, '_')}.png`}
+                  className="rb-btn"
+                  style={{ fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                  title="Download UGC image/template to your drive"
+                >
+                  Download Image
+                </a>
               )}
               {user?.role === 'admin' && (
                 <span style={{ fontSize: 10, color: '#8ba0b3' }} title="Manage stock, owners boost and the locked price from the catalog card's Edit panel">

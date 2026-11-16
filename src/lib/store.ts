@@ -97,7 +97,10 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   if (token) baseHeaders['Authorization'] = `Bearer ${token}`
   const res = await fetch(url, { ...options, headers: baseHeaders })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error((data as { error?: string }).error || 'Something went wrong')
+  if (!res.ok) {
+    const msg = (data as { error?: string; message?: string }).error || (data as { message?: string }).message || `Server request failed (${res.status})`
+    throw new Error(msg)
+  }
   return data as T
 }
 

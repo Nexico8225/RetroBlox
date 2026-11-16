@@ -295,8 +295,8 @@ export function FxToolbar({
 
   const apply = (tag: string) => {
     const ta = taRef.current
-    let start = ta && ta.selectionStart !== undefined ? ta.selectionStart : value.length
-    let end = ta && ta.selectionEnd !== undefined ? ta.selectionEnd : value.length
+    let start = ta && typeof ta.selectionStart === 'number' ? ta.selectionStart : value.length
+    let end = ta && typeof ta.selectionEnd === 'number' ? ta.selectionEnd : value.length
     // nothing selected? wrap the WHOLE text so the effect is always visible —
     // "the selected text becomes the fx": selection wins, full text is the fallback
     if (end <= start) {

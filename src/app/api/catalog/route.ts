@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
             OR: [
               { name: { contains: q } },
               { description: { contains: q } },
+              { tags: { contains: q } },
               { creator: { is: { username: { contains: q } } } },
             ],
           }
@@ -137,6 +138,7 @@ export async function GET(req: NextRequest) {
         assetId: i.assetId,
         name: i.name,
         description: i.description,
+        tags: i.tags || '',
         type: i.type,
         price: i.price, // for limiteds this is the ORIGINAL price
         isLimited: i.isLimited,
@@ -183,6 +185,7 @@ export async function POST(req: NextRequest) {
   const name = String(form.get('name') || '').trim()
   const type = String(form.get('type') || '').trim()
   const description = String(form.get('description') || '').trim().slice(0, 600)
+  const tags = String(form.get('tags') || '').trim().slice(0, 300)
   const groupIdRaw = String(form.get('groupId') || '').trim()
   // files arrive either directly (< 3MB, under the serverless body cap) or as
   // an uploadId referencing chunks uploaded via /api/uploads/chunk (models up
@@ -338,6 +341,7 @@ export async function POST(req: NextRequest) {
   const baseData = {
     name,
     description,
+    tags,
     type,
     price,
     isLimited: isLimited || isSuperLimited,

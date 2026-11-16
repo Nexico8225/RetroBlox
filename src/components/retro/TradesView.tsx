@@ -602,7 +602,7 @@ export function TradesView() {
                             ) : null}
                           </div>
                           <div style={{ fontSize: 11, color: '#5a6b7b' }}>
-                            {it.type} • T$ {it.price.toLocaleString('en-US')} • {it.owners.length} current owner(s)
+                            {it.type} • T$ {it.price.toLocaleString('en-US')} • {(it.owners || []).length} current owner(s)
                           </div>
                         </div>
                       </div>
@@ -611,11 +611,11 @@ export function TradesView() {
                         <div style={{ fontSize: 10, textTransform: 'uppercase', color: '#71869a', marginBottom: 4, fontWeight: 'bold' }}>
                           Players who own this UGC:
                         </div>
-                        {it.owners.length === 0 ? (
+                        {(it.owners || []).length === 0 ? (
                           <div style={{ fontSize: 11, color: '#8ba0b3', fontStyle: 'italic' }}>No registered owners yet.</div>
                         ) : (
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 6 }}>
-                            {it.owners.map((ow: any) => (
+                            {(it.owners || []).map((ow: any) => (
                               <div
                                 key={ow.id}
                                 style={{

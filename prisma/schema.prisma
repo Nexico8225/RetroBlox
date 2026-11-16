@@ -500,6 +500,7 @@ model AvatarItem {
   assetId     String   @unique // "hat_4", "face_9", "gear_2" ...
   name        String
   description String   @default("")
+  tags        String   @default("") // comma-separated search tags e.g. "traffic, cone, hat, orange"
   type        String // hat | face | tshirt | shirt | pants | gear | accessory
   price       Int      @default(0) // starting price in RBX — 0 = free item
   isLimited      Boolean  @default(false) // classic rare: finite stock, goes off-sale, resells & trades on market

@@ -87,6 +87,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       assetId: item.assetId,
       name: item.name,
       description: item.description,
+      tags: item.tags || '',
       type: item.type,
       price: item.price,
       isLimited: item.isLimited,
@@ -163,6 +164,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     body = {
       name: form.get('name') ?? undefined,
       description: form.get('description') ?? undefined,
+      tags: form.get('tags') ?? undefined,
       price: form.get('price') ?? undefined,
       limited: form.get('limited') ?? undefined,
       stock: form.get('stock') ?? undefined,
@@ -197,7 +199,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   }
 
-  const data: { name?: string; description?: string; price?: number; isLimited?: boolean; imageFileId?: string; textureFileId?: string | null; baseColor?: string | null; stock?: number | null; ownersBoost?: number } = {}
+  const data: {
+    name?: string
+    description?: string
+    tags?: string
+    price?: number
+    isLimited?: boolean
+    isSuperLimited?: boolean
+    placementJson?: string
+    imageFileId?: string
+    textureFileId?: string | null
+    baseColor?: string | null
+    stock?: number | null
+    ownersBoost?: number
+  } = {}
 
   if (body.name !== undefined) {
     const name = String(body.name).trim()
@@ -208,6 +223,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (body.description !== undefined) {
     data.description = String(body.description).trim().slice(0, 600)
+  }
+  if (body.tags !== undefined) {
+    data.tags = String(body.tags).trim().slice(0, 300)
   }
   if (body.price !== undefined || body.limited !== undefined) {
     const price = Math.floor(Number(body.price !== undefined ? body.price : item.price))
@@ -302,6 +320,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       assetId: updated.assetId,
       name: updated.name,
       description: updated.description,
+      tags: updated.tags || '',
       price: updated.price,
       isLimited: updated.isLimited,
       stock: updated.stock,
