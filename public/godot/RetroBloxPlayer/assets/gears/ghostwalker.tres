@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "ghostwalker"
+gear_name = "Ghostwalker"
+short_name = "GHOSTW"
+category = "swords"
+item_type = 32
+color = Color(0.78, 0.90, 1.0, 1)
+cooldown = 0.75
+rent_tix = 115
+buy_tix = 115
+slash_damage = 52.0
+lunge_damage = 85.0
+lunge_cooldown = 1.6
+sword_range = 6.5
+speed_multiplier = 1.38
+gravity_multiplier = 0.42
+jump_boost_multiplier = 1.40

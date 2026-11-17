@@ -28,14 +28,14 @@ func _ready() -> void:
 
 
 func _register_custom_url_protocol() -> void:
-	if Engine.is_editor_hint() or OS.get_name() != "Windows":
+	if OS.has_feature("editor") or Engine.is_editor_hint() or OS.get_name() != "Windows":
 		return
 	var exe_path: String = OS.get_executable_path().replace("/", "\\")
 	if exe_path == "":
 		return
-	OS.execute("reg", ["add", "HKCU\\Software\\Classes\\retroblox", "/ve", "/d", "URL:RetroBlox Protocol", "/f"], [], false)
-	OS.execute("reg", ["add", "HKCU\\Software\\Classes\\retroblox", "/v", "URL Protocol", "/d", "", "/f"], [], false)
-	OS.execute("reg", ["add", "HKCU\\Software\\Classes\\retroblox\\shell\\open\\command", "/ve", "/d", "\"%s\" \"%%1\"" % exe_path, "/f"], [], false)
+	OS.create_process("reg.exe", ["add", "HKCU\\Software\\Classes\\retroblox", "/ve", "/d", "URL:RetroBlox Protocol", "/f"])
+	OS.create_process("reg.exe", ["add", "HKCU\\Software\\Classes\\retroblox", "/v", "URL Protocol", "/d", "", "/f"])
+	OS.create_process("reg.exe", ["add", "HKCU\\Software\\Classes\\retroblox\\shell\\open\\command", "/ve", "/d", "\"%s\" \"%%1\"" % exe_path, "/f"])
 
 
 func _parse_launch_protocol_args() -> void:

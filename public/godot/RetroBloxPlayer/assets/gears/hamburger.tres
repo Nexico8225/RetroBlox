@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "hamburger"
+gear_name = "Hamburger"
+short_name = "BURGER"
+category = "items"
+item_type = 17
+color = Color(0.88, 0.58, 0.22, 1)
+cooldown = 1.0
+rent_tix = 15
+buy_tix = 15
+max_uses = 3
+heal_amount = 30.0
+heal_over_time_duration = 0.5

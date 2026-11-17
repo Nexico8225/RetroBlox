@@ -38,6 +38,8 @@ var ragdoll_engine := true
 var ragdoll_key_r := false
 var ragdoll_on_fall := false
 var ragdoll_fall_height := 60.0
+var render_distance := 600.0
+var occlusion_culling := true
 
 
 func _ready() -> void:
@@ -51,6 +53,7 @@ func _ready() -> void:
 	apply_vsync()
 	apply_graphics_quality()
 	apply_render_scale()
+	apply_occlusion_culling()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -153,10 +156,14 @@ func load_settings() -> void:
 	ragdoll_key_r = bool(cf.get_value("gameplay", "ragdoll_key_r", false))
 	ragdoll_on_fall = bool(cf.get_value("gameplay", "ragdoll_on_fall", false))
 	ragdoll_fall_height = clampf(float(cf.get_value("gameplay", "ragdoll_fall_height", 60.0)), 20.0, 300.0)
+	render_distance = clampf(float(cf.get_value("graphics", "render_distance", 600.0)), 120.0, 3000.0)
+	occlusion_culling = bool(cf.get_value("graphics", "occlusion_culling", true))
 
 
 func save_settings() -> void:
 	var cf := ConfigFile.new()
+	cf.set_value("graphics", "render_distance", render_distance)
+	cf.set_value("graphics", "occlusion_culling", occlusion_culling)
 	cf.set_value("input", "mouse_sensitivity", mouse_sensitivity)
 	cf.set_value("input", "shift_lock", shift_lock)
 	cf.set_value("input", "mobile_controls", mobile_controls)
@@ -279,8 +286,15 @@ func set_key(key: String, value: Variant) -> void:
 			vsync = bool(value)
 			apply_vsync()
 		"render_scale":
-			render_scale = clampf(float(value), 0.5, 1.0)
+			render_scale = clampf(float(value), 0.35, 1.0)
 			apply_render_scale()
+		"render_distance":
+			render_distance = clampf(float(value), 120.0, 3000.0)
+			changed.emit("render_distance", render_distance)
+		"occlusion_culling":
+			occlusion_culling = bool(value)
+			apply_occlusion_culling()
+			changed.emit("occlusion_culling", occlusion_culling)
 		"chat_bubbles":
 			chat_bubbles = bool(value)
 		"light_taps":
@@ -304,31 +318,35 @@ func set_key(key: String, value: Variant) -> void:
 
 
 func apply_graphics_quality() -> void:
-	# 0 = Low (Extreme Optimization: 60+ FPS, shadows off, FSR 0.65x, distance culling)
-	# 1 = Medium (Distance Blur & Fog Pixelation, FSR 0.82x, soft shadows)
-	# 2 = High (Native 1.0x, 4x MSAA, full draw distance)
-	# 3 = Ultra (Realistic Depth, 8x MSAA)
+	# 0 = Low (Extreme Toaster Optimization: 60+ FPS, shadows off, FSR 0.50x, 180 stud distance culling)
+	# 1 = Medium (Distance Fog, FSR 0.75x, soft shadows, 450 stud distance)
+	# 2 = High (Native 1.0x, 4x MSAA, full 1000 stud draw distance)
+	# 3 = Ultra (Realistic Depth, 8x MSAA, 2500 stud draw distance)
 	match graphics_quality:
 		0:
 			shadows = false
-			render_scale = 0.65
+			render_scale = 0.50
+			render_distance = 180.0
 		1:
 			shadows = true
-			render_scale = 0.82
+			render_scale = 0.75
+			render_distance = 450.0
 		2:
 			shadows = true
 			render_scale = 1.0
+			render_distance = 1000.0
 		3:
 			shadows = true
 			render_scale = 1.0
+			render_distance = 2500.0
 
 	if DisplayServer.get_name() != "headless":
 		var vp := get_viewport()
 		if vp != null:
-			vp.scaling_3d_scale = clampf(render_scale, 0.5, 1.0)
-			if graphics_quality <= 1:
+			vp.scaling_3d_scale = clampf(render_scale, 0.35, 1.0)
+			if render_scale < 1.0:
 				vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
-				vp.fsr_sharpness = 0.15
+				vp.fsr_sharpness = 0.20
 			else:
 				vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 
@@ -347,6 +365,7 @@ func apply_graphics_quality() -> void:
 					vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	changed.emit("shadows", shadows)
 	changed.emit("render_scale", render_scale)
+	changed.emit("render_distance", render_distance)
 	changed.emit("graphics_preset_applied", graphics_quality)
 
 
@@ -367,7 +386,20 @@ func apply_render_scale() -> void:
 		return
 	var vp := get_viewport()
 	if vp != null:
-		vp.scaling_3d_scale = clampf(render_scale, 0.5, 1.0)
+		vp.scaling_3d_scale = clampf(render_scale, 0.35, 1.0)
+		if render_scale < 1.0:
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+			vp.fsr_sharpness = 0.20
+		else:
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+
+
+func apply_occlusion_culling() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var vp := get_viewport()
+	if vp != null:
+		vp.use_occlusion_culling = occlusion_culling
 
 
 func reset_all() -> void:

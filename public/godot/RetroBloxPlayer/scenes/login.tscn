@@ -1,6 +1,6 @@
 [gd_scene load_steps=9 format=3]
 
-[ext_resource type="Script" path="res://scripts/ui/login.gd" id="1_login"]
+[ext_resource type="Script" uid="uid://cjqdusex83a36" path="res://scripts/ui/login.gd" id="1_login"]
 [ext_resource type="FontFile" path="res://assets/fonts/LiberationSans-Bold.ttf" id="2_font_bold"]
 [ext_resource type="FontFile" path="res://assets/fonts/LiberationSans-Regular.ttf" id="3_font_reg"]
 

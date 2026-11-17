@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "slateskin_potion"
+gear_name = "Slateskin Potion"
+short_name = "SLATE"
+category = "skins"
+item_type = 33
+color = Color(0.52, 0.55, 0.58, 1)
+cooldown = 1.5
+rent_tix = 30
+buy_tix = 30
+unlimited_potion_uses = true

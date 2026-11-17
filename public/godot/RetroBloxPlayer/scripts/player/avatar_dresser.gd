@@ -58,18 +58,21 @@ static func apply(api, avatar_node, avatar_data: Dictionary, await_all := false)
         # Api caches make every reopen instant, and the photo is complete.
         var face_scale := float(avatar_data.get("faceScale", 1.0))
         var accessories: Array = avatar_data.get("accessories", [])
+        var placements: Dictionary = avatar_data.get("placements", {})
         if await_all:
                 await _paint_shirt(api, avatar_node, shirt_asset)
                 await _paint_pants(api, avatar_node, pants_asset)
                 await _paint_face(api, avatar_node, head_asset, face_scale)
                 for acc_id in accessories:
-                        await _apply_accessory(api, avatar_node, String(acc_id))
+                        var custom_pl: Variant = placements.get(String(acc_id), null)
+                        await _apply_accessory(api, avatar_node, String(acc_id), custom_pl)
         else:
                 _paint_shirt(api, avatar_node, shirt_asset)
                 _paint_pants(api, avatar_node, pants_asset)
                 _paint_face(api, avatar_node, head_asset, face_scale)
                 for acc_id in accessories:
-                        _apply_accessory(api, avatar_node, String(acc_id))
+                        var custom_pl: Variant = placements.get(String(acc_id), null)
+                        _apply_accessory(api, avatar_node, String(acc_id), custom_pl)
 
 
 static func _paint_colors(avatar_node, colors: Dictionary, skin: Color, shirt_color: Color, pants_color: Color) -> void:
@@ -128,7 +131,7 @@ static func _paint_face(api, avatar_node, head_asset: Dictionary, face_scale: fl
                 avatar_node.call("set_face", ImageTexture.create_from_image(face_img), face_scale)
 
 
-static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
+static func _apply_accessory(api, avatar_node, acc_id: String, custom_placement: Variant = null) -> void:
         var asset: Dictionary = await api.get_asset(acc_id)
         if not _alive(avatar_node):
                 return
@@ -168,7 +171,7 @@ static func _apply_accessory(api, avatar_node, acc_id: String) -> void:
         var inner := Node3D.new()
         inner.name = "UGC_" + acc_id
         inner.add_child(scene)
-        _apply_placement(inner, surface_asset.get("placement", null))
+        _apply_placement(inner, custom_placement if custom_placement != null else surface_asset.get("placement", null))
         var holder := Node3D.new()
         holder.name = "UGCScaled_" + acc_id
         holder.scale = Vector3.ONE * UGC_SCALE

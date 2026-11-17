@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "illumina"
+gear_name = "Illumina"
+short_name = "ILLUMINA"
+category = "swords"
+item_type = 21
+color = Color(1, 0.45, 0.88, 1)
+cooldown = 0.75
+rent_tix = 160
+buy_tix = 160
+slash_damage = 90.0
+lunge_damage = 150.0
+lunge_cooldown = 1.5
+sword_range = 7.8
+lunge_up_boost = 52.0
+lunge_forward_boost = 74.0
+lunge_float_duration = 0.75
+knockback_power = 48.0
+gravity_multiplier = 0.46
+jump_boost_multiplier = 1.42

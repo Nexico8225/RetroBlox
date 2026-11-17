@@ -14,6 +14,7 @@ var _regen_spin: SpinBox
 var _fall_damage_check: CheckBox
 var _shiftlock_check: CheckBox
 var _lose_items_check: CheckBox
+var _ragdoll_check: CheckBox
 var _shirt_edit: LineEdit
 var _pants_edit: LineEdit
 
@@ -91,6 +92,11 @@ func _build_ui() -> void:
 	_lose_items_check.button_pressed = true
 	vb.add_child(_lose_items_check)
 
+	_ragdoll_check = CheckBox.new()
+	_ragdoll_check.text = "Enable Ragdoll Engine (Push, Throw & Death Ragdoll)"
+	_ragdoll_check.button_pressed = true
+	vb.add_child(_ragdoll_check)
+
 	vb.add_child(HSeparator.new())
 
 	var avatar_lbl: Label = Label.new()
@@ -155,6 +161,8 @@ func _load_values() -> void:
 		_shiftlock_check.button_pressed = bool(ProjectSettings.get_setting("player/features/shift_lock", true))
 	if _lose_items_check != null:
 		_lose_items_check.button_pressed = bool(ProjectSettings.get_setting("player/features/lose_item_when_dead", true))
+	if _ragdoll_check != null:
+		_ragdoll_check.button_pressed = bool(ProjectSettings.get_setting("player/features/ragdoll_enabled", true))
 	if _shirt_edit != null:
 		_shirt_edit.text = str(ProjectSettings.get_setting("player/appearance/default_shirt", ""))
 	if _pants_edit != null:
@@ -171,6 +179,8 @@ func _on_save_pressed() -> void:
 	ProjectSettings.set_setting("player/features/shift_lock", bool(_shiftlock_check.button_pressed))
 	if _lose_items_check != null:
 		ProjectSettings.set_setting("player/features/lose_item_when_dead", bool(_lose_items_check.button_pressed))
+	if _ragdoll_check != null:
+		ProjectSettings.set_setting("player/features/ragdoll_enabled", bool(_ragdoll_check.button_pressed))
 	ProjectSettings.set_setting("player/appearance/default_shirt", _shirt_edit.text.strip_edges())
 	ProjectSettings.set_setting("player/appearance/default_pants", _pants_edit.text.strip_edges())
 

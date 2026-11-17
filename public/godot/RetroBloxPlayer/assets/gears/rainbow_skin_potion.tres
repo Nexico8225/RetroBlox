@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "rainbow_skin_potion"
+gear_name = "Neon Rainbow Skin"
+short_name = "RAINBOW"
+category = "skins"
+item_type = 27
+color = Color(1, 0.3, 0.75, 1)
+cooldown = 1.5
+rent_tix = 35
+buy_tix = 35
+skin_mode = "rainbow"

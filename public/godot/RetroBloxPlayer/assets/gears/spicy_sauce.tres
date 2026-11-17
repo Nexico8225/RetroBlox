@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "spicy_sauce"
+gear_name = "Spicy Sauce"
+short_name = "SPICY"
+category = "items"
+item_type = 18
+color = Color(0.92, 0.15, 0.1, 1)
+cooldown = 2.0
+rent_tix = 35
+buy_tix = 35
+max_uses = 1
+speed_multiplier = 3.0
+buff_duration = 10.0

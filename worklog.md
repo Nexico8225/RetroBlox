@@ -458,3 +458,36 @@ Stage Summary:
 - Crammed props split into districts: `BuildingYard` (−96, 0, −24) holds bricks/stairs/fort/towers/ladders/ramp, `ObbyCourse` (86, 0, −52) holds the obby steps with 1.5× wider spacing, `Playground` moved to z 58.
 - New districts: `FoodCourt` (−72, 0, 52), `GrappleRange` (74, 0, 52) with three grapple towers, `CombatArena` (0, 0, −92) with walls/podium; combat dummies moved into the arena. Every platform is a `PlazaPlatform` node (`size` + `color` exported) so the map stays editable in the editor.
 - `HOW_TO_EDIT.gd` documents the 21 gears, the flat lunge and the district/WorldConfig layout.
+
+---
+
+## v2.1 SDK Upgrade: MrEliptik Addons, Occlusion Culling, Viewport Scalability & Fixes
+
+**Fixed game.gd and Emote Wheel**
+- Fixed parse/runtime error in `scripts/game/game.gd` at `_row_options` and `settings.get("ragdoll_fall_height", 60.0)` by standardizing to `_row_chips` and 1-argument `get()`.
+- Guarded `RetroUI.arial()` null-checks in `scripts/ui/emote_wheel.gd` preventing missing font errors.
+- Fixed `Camera3D.use_occlusion_culling` assignment error by attaching viewport-level occlusion culling correctly to `Viewport.use_occlusion_culling`.
+
+**Added In-Editor & In-Game Occlusion Culling and Toaster Optimization**
+- Added in-editor scene occluder generation (`generate_scene_occluders` / `generate_box_occluders_for_scene`) in `addons/retroblox_studio/editor_scalability.gd` covering `StaticBody3D`, `MeshInstance3D`, and `CSGShape3D`.
+- Added Toaster / Low PC preset (low processor mode sleep up to 33–45ms, 0.5x–0.6x viewport resolution scale, 30 FPS cap, in-editor occlusion culling).
+- Added `render_distance` (180 to 2500 studs) clipping in `settings.gd` and `camera_rig.gd` so faraway builds disappear outside the draw distance.
+- Expanded 3D Viewport Render Scale down to 35% with FSR upscaling for ultra-smooth potato PC execution.
+- Added settings menu rows in `game.gd` for 3D Render Scale, Render Distance chips, and Occlusion Culling toggle.
+
+**Integrated MrEliptik Video & Playlist Addons**
+- Integrated `shaker` (procedural screen shake by Eneskp3441 / MrEliptik).
+- Integrated `csg_toolkit` (CSG tool enhancements by IIFabixn).
+- Integrated `SignalVisualizer` (graph visualizer for Godot signals by Ericdowney).
+- Integrated `slidergamepad` (slider controller support by MrEliptik).
+- Integrated `globalize-plugins` (global plugin manager by dugramen).
+- Integrated `cyclops_level_builder` (3D blockout level editor).
+- Integrated `phantom_camera` (cinematic & procedural 3D camera controller).
+- Integrated `at-icons` (editor icon utilities).
+- Enabled all plugins in `project.godot`.
+
+**SDK Sync & Web Deployment**
+- Mirrored all SDK changes to `public/godot/RetroBloxPlayer`.
+- Rebuilt `public/downloads/RetroBlox_SDK.zip` (38.26 MB, 10,341 files) and `public/godot/retroblox-godot-player.zip`.
+- Bumped cache busters to `v=2.1` in `SdkView.tsx` and `HomeView.tsx`.
+

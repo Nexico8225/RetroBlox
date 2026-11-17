@@ -1,0 +1,56 @@
+[gd_scene format=3]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_hd"]
+sky_top_color = Color(0.1, 0.52, 0.92, 1)
+sky_horizon_color = Color(0.72, 0.9, 1, 1)
+ground_bottom_color = Color(0.28, 0.5, 0.72, 1)
+ground_horizon_color = Color(0.58, 0.8, 0.94, 1)
+sun_angle_max = 24.0
+sun_curve = 0.06
+
+[sub_resource type="Sky" id="Sky_hd"]
+sky_material = SubResource("ProceduralSkyMaterial_hd")
+
+[sub_resource type="Environment" id="Environment_hd"]
+background_mode = 2
+sky = SubResource("Sky_hd")
+ambient_light_source = 3
+ambient_light_color = Color(0.84, 0.88, 0.95, 1)
+ambient_light_sky_contribution = 0.32
+ambient_light_energy = 0.32
+tonemap_mode = 3
+tonemap_exposure = 1.0
+tonemap_white = 1.35
+ssao_enabled = true
+ssao_radius = 1.0
+ssao_intensity = 1.2
+fog_enabled = true
+fog_light_color = Color(0.82, 0.92, 0.99, 1)
+fog_sun_scatter = 0.18
+fog_density = 0.0001
+fog_sky_affect = 0.05
+
+[node name="LightingSetup" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_hd")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, 0.383022, -0.426786, 0, 0.743145, 0.669131, 0.573576, -0.548121, 0.608745, 0, 60, 0)
+light_color = Color(1, 0.95, 0.86, 1)
+light_energy = 0.9
+light_specular = 0.4
+shadow_enabled = true
+shadow_bias = 0.015
+shadow_normal_bias = 1.1
+shadow_opacity = 0.65
+shadow_blur = 0.35
+directional_shadow_mode = 2
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 260.0
+
+[node name="SkyFillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.819152, -0.353553, 0.451877, 0, 0.788011, 0.615661, -0.573576, 0.504312, -0.645501, 0, 45, 0)
+light_color = Color(0.68, 0.82, 0.98, 1)
+light_energy = 0.22
+light_specular = 0.06

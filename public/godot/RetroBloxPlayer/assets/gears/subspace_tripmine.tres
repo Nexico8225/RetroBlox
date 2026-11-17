@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "subspace_tripmine"
+gear_name = "Subspace Tripmine"
+short_name = "TRIPMINE"
+category = "items"
+item_type = 15
+color = Color(1, 0, 0.67, 1)
+cooldown = 4.0
+rent_tix = 55
+buy_tix = 55
+tripmine_arm_delay = 1.5
+explosion_radius = 13.0
+explosion_damage = 150.0
+explosion_knockback = 62.0

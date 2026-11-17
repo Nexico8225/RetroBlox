@@ -56,7 +56,7 @@ func _ready() -> void:
 	layer = 110
 	_instance = self
 	_hex_icon_tex = _build_currency_hex_icon()
-	if ResourceLoader.exists("res://assets/icons/gamepasses/vip_pass.png"):
+	if FileAccess.file_exists("res://assets/icons/gamepasses/vip_pass.png"):
 		_default_vip_tex = load("res://assets/icons/gamepasses/vip_pass.png") as Texture2D
 	_build_ui()
 	_backdrop.visible = false

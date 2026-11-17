@@ -254,7 +254,7 @@ func _build_ui() -> void:
 	ddsb.content_margin_right = 6.0
 
 	_type_dropdown = OptionButton.new()
-	for t_name in ["Models", "Scripts", "UI / GUIs", "Folders", "ROBLOX Sets", "Decals", "Meshes", "Audio", "All Types"]:
+	for t_name in ["Models", "Lighting", "Scripts", "UI / GUIs", "Folders", "ROBLOX Sets", "Decals", "Meshes", "Audio", "All Types"]:
 		_type_dropdown.add_item(t_name)
 	_type_dropdown.custom_minimum_size = Vector2(92, 28)
 	_type_dropdown.add_theme_font_size_override("font_size", 12)
@@ -596,6 +596,12 @@ func _get_item_thumbnail(item: Dictionary) -> Texture2D:
 		elif nm.find("tower") >= 0 or nm.find("house") >= 0 or nm.find("building") >= 0:
 			kind = "watchtower"
 		elif nm.find("light") >= 0 or nm.find("lamp") >= 0:
+			kind = "street_lamp"
+		elif cat == "Lighting" or String(item.get("type", "")) == "lighting" or kind == "lighting":
+			var l_icon_p := "res://assets/icons/lighting/lighting_roblox_hd.png"
+			var l_tex := _load_texture_from_any_path(l_icon_p)
+			if l_tex != null:
+				return l_tex
 			kind = "street_lamp"
 		elif cat == "UI / GUIs" or String(item.get("type", "")) == "ui":
 			kind = "ui_shop"
@@ -1043,21 +1049,6 @@ func _build_thumbnail_tile(item: Dictionary) -> VBoxContainer:
 	thumb_btn.add_theme_stylebox_override("pressed", thov)
 	thumb_btn.pressed.connect(func() -> void: _insert_toolbox_item(captured))
 	thumb_container.add_child(thumb_btn)
-
-	if bool(captured.get("verified", true)):
-		var shield_rect: TextureRect = TextureRect.new()
-		shield_rect.texture = _shield_tex
-		shield_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		shield_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		shield_rect.custom_minimum_size = Vector2(16, 16)
-		shield_rect.size = Vector2(16, 16)
-		shield_rect.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-		shield_rect.offset_left = -20.0
-		shield_rect.offset_top = -20.0
-		shield_rect.offset_right = -4.0
-		shield_rect.offset_bottom = -4.0
-		shield_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		thumb_container.add_child(shield_rect)
 
 	var name_btn: Button = Button.new()
 	var raw_title: String = String(captured.get("name", "Asset"))
@@ -1572,7 +1563,7 @@ func _build_publish_dialog() -> void:
 	cat_row.add_child(cat_lbl)
 	_pub_cat_option = OptionButton.new()
 	_pub_cat_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for c_opt in ["Models", "Scripts", "UI / GUIs", "Folders", "Audio & Decals"]:
+	for c_opt in ["Models", "Lighting", "Scripts", "UI / GUIs", "Folders", "Audio & Decals"]:
 		_pub_cat_option.add_item(c_opt)
 	_pub_cat_option.item_selected.connect(func(c_idx: int) -> void:
 		var c_txt: String = _pub_cat_option.get_item_text(c_idx)
@@ -2344,7 +2335,10 @@ func _confirm_publish_selected() -> void:
 # ============================================================================
 
 func _normalize_category(raw_cat: String, item_type: String) -> String:
-	if raw_cat in ["Models", "UI / GUIs", "Scripts", "Folders", "Audio & Decals"]:
+	if raw_cat in ["Models", "Lighting", "UI / GUIs", "Scripts", "Folders", "Audio & Decals"]:
+		return raw_cat
+	if item_type == "lighting" or raw_cat == "Lighting":
+		return "Lighting"
 		return raw_cat
 	if raw_cat == "Models + Scripts":
 		return "Models"
@@ -2806,6 +2800,10 @@ func _insert_toolbox_item(item: Dictionary) -> void:
 	var item_type: String = String(item.get("type", "model_script"))
 	var cat: String = _normalize_category(String(item.get("category", "Models")), item_type)
 
+	if item_type == "lighting" or cat == "Lighting":
+		_apply_lighting_item(item, root)
+		return
+
 	if item_type == "script" or res_path.ends_with(".gd"):
 		var scr: Script = load(res_path) as Script
 		if scr == null:
@@ -3187,3 +3185,105 @@ func _set_status(msg: String, col: Color) -> void:
 	if _status_label != null:
 		_status_label.text = msg
 		_status_label.add_theme_color_override("font_color", col)
+
+func _apply_lighting_item(item: Dictionary, root: Node) -> void:
+	var item_name: String = String(item.get("name", "Lighting Setup"))
+	var creator: String = String(item.get("creator", "RetroBlox"))
+	var preset_id: String = String(item.get("preset_id", ""))
+
+	if plugin != null and plugin.has_method("apply_lighting_preset_by_id") and preset_id != "":
+		plugin.call("apply_lighting_preset_by_id", preset_id)
+		_set_status("Applied Lighting preset '%s' by %s!" % [item_name, creator], Color(0.55, 0.95, 0.65))
+		return
+
+	var res_path: String = String(item.get("path", ""))
+	if not FileAccess.file_exists(res_path):
+		var up: String = String(item.get("user_path", ""))
+		if up != "" and FileAccess.file_exists(up):
+			res_path = up
+
+	if FileAccess.file_exists(res_path):
+		var p_res: Resource = load(res_path)
+		if p_res is PackedScene:
+			var inst: Node = (p_res as PackedScene).instantiate()
+			if inst != null:
+				_merge_lighting_nodes(inst, root)
+				inst.queue_free()
+				_fix_scene_materials(root)
+				_set_status("Applied Lighting preset '%s' by %s!" % [item_name, creator], Color(0.55, 0.95, 0.65))
+				return
+
+	if plugin != null and plugin.has_method("apply_lighting_preset_by_id"):
+		plugin.call("apply_lighting_preset_by_id", "roblox_hd")
+		_set_status("Applied default Roblox HD Lighting!", Color(0.55, 0.95, 0.65))
+	else:
+		_set_status("Could not apply lighting preset: " + item_name, Color(1.0, 0.55, 0.55))
+
+
+func _merge_lighting_nodes(source_container: Node, target_root: Node) -> void:
+	var src_env: WorldEnvironment = source_container.get_node_or_null("WorldEnvironment") as WorldEnvironment
+	if src_env == null:
+		for ch in source_container.get_children():
+			if ch is WorldEnvironment:
+				src_env = ch as WorldEnvironment
+				break
+	if src_env != null and src_env.environment != null:
+		var target_w_env: WorldEnvironment = target_root.get_node_or_null("WorldEnvironment") as WorldEnvironment
+		if target_w_env == null:
+			target_w_env = WorldEnvironment.new()
+			target_w_env.name = "WorldEnvironment"
+			target_root.add_child(target_w_env)
+			target_root.move_child(target_w_env, 0)
+			target_w_env.owner = target_root
+		target_w_env.environment = src_env.environment.duplicate()
+
+	for ch in source_container.get_children():
+		if ch is DirectionalLight3D:
+			var src_l := ch as DirectionalLight3D
+			var target_l: DirectionalLight3D = target_root.get_node_or_null(NodePath(src_l.name)) as DirectionalLight3D
+			if target_l == null:
+				target_l = DirectionalLight3D.new()
+				target_l.name = src_l.name
+			target_root.add_child(target_l)
+			target_l.owner = target_root
+			target_l.visible = true
+			target_l.position = src_l.position
+			target_l.rotation = src_l.rotation
+			target_l.light_color = src_l.light_color
+			target_l.light_energy = src_l.light_energy
+			target_l.light_specular = src_l.light_specular
+			target_l.shadow_enabled = src_l.shadow_enabled
+			target_l.shadow_bias = src_l.shadow_bias
+			target_l.shadow_normal_bias = src_l.shadow_normal_bias
+			target_l.shadow_opacity = src_l.shadow_opacity
+			target_l.shadow_blur = src_l.shadow_blur
+			target_l.directional_shadow_mode = src_l.directional_shadow_mode
+			target_l.directional_shadow_blend_splits = src_l.directional_shadow_blend_splits
+			target_l.directional_shadow_max_distance = src_l.directional_shadow_max_distance
+
+	var bounce_fill: DirectionalLight3D = target_root.get_node_or_null("BounceFillLight") as DirectionalLight3D
+	if bounce_fill != null:
+		bounce_fill.visible = false
+
+
+func _fix_scene_materials(scene_root: Node) -> void:
+	var stack: Array[Node] = [scene_root]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		for ch in cur.get_children():
+			stack.append(ch)
+		if cur is MeshInstance3D:
+			var mi := cur as MeshInstance3D
+			var mat: Material = mi.material_override
+			if mat == null and mi.mesh != null and mi.mesh.get_surface_count() > 0:
+				mat = mi.get_surface_override_material(0)
+				if mat == null:
+					mat = mi.mesh.surface_get_material(0)
+			if mat is BaseMaterial3D:
+				var bm := mat as BaseMaterial3D
+				if bm.metallic > 0.05 or bm.roughness > 0.65:
+					var new_bm := bm.duplicate() as BaseMaterial3D
+					new_bm.metallic = 0.0
+					new_bm.roughness = 0.36
+					new_bm.metallic_specular = 0.48
+					mi.material_override = new_bm

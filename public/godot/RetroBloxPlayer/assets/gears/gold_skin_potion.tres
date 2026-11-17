@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "gold_skin_potion"
+gear_name = "24K Gold Skin Potion"
+short_name = "GOLDSKIN"
+category = "skins"
+item_type = 25
+color = Color(1, 0.82, 0.1, 1)
+cooldown = 1.5
+rent_tix = 30
+buy_tix = 30
+skin_mode = "gold"

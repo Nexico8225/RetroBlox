@@ -129,7 +129,8 @@ func _build_ui() -> void:
 	_center_label.text = "SELECT EMOTE"
 	_center_label.add_theme_font_size_override("font_size", 14)
 	_center_label.add_theme_color_override("font_color", Color("ffffff"))
-	_center_label.add_theme_font_override("font", RetroUI.arial(700))
+	if RetroUI.arial(700) != null:
+		_center_label.add_theme_font_override("font", RetroUI.arial(700))
 	center_circle.add_child(_center_label)
 
 	# Create 8 spoke buttons arranged in a ring around the center
@@ -170,7 +171,8 @@ func _build_ui() -> void:
 		btn.add_theme_stylebox_override("hover", hov_style)
 		btn.add_theme_stylebox_override("pressed", hov_style)
 		btn.add_theme_font_size_override("font_size", 13)
-		btn.add_theme_font_override("font", RetroUI.arial(600))
+		if RetroUI.arial(600) != null:
+			btn.add_theme_font_override("font", RetroUI.arial(600))
 		btn.add_theme_color_override("font_color", Color("f1f5f9"))
 
 		var slot_idx := i
@@ -199,7 +201,8 @@ func _build_ui() -> void:
 	prev_btn.text = "<"
 	prev_btn.custom_minimum_size = Vector2(40, 36)
 	prev_btn.focus_mode = Control.FOCUS_NONE
-	prev_btn.add_theme_font_override("font", RetroUI.arial(700))
+	if RetroUI.arial(700) != null:
+		prev_btn.add_theme_font_override("font", RetroUI.arial(700))
 	prev_btn.add_theme_font_size_override("font_size", 18)
 	prev_btn.add_theme_stylebox_override("normal", RetroUI.flat(6, Color("2b2b2b")))
 	prev_btn.pressed.connect(_on_prev_page)
@@ -210,7 +213,8 @@ func _build_ui() -> void:
 	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_page_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_page_label.text = "Page 1 / 1"
-	_page_label.add_theme_font_override("font", RetroUI.arial(600))
+	if RetroUI.arial(600) != null:
+		_page_label.add_theme_font_override("font", RetroUI.arial(600))
 	_page_label.add_theme_font_size_override("font_size", 14)
 	_page_label.add_theme_color_override("font_color", Color("94a3b8"))
 	nav_bar.add_child(_page_label)
@@ -219,7 +223,8 @@ func _build_ui() -> void:
 	next_btn.text = ">"
 	next_btn.custom_minimum_size = Vector2(40, 36)
 	next_btn.focus_mode = Control.FOCUS_NONE
-	next_btn.add_theme_font_override("font", RetroUI.arial(700))
+	if RetroUI.arial(700) != null:
+		next_btn.add_theme_font_override("font", RetroUI.arial(700))
 	next_btn.add_theme_font_size_override("font_size", 18)
 	next_btn.add_theme_stylebox_override("normal", RetroUI.flat(6, Color("2b2b2b")))
 	next_btn.pressed.connect(_on_next_page)
@@ -231,7 +236,8 @@ func _build_ui() -> void:
 	close_btn.custom_minimum_size = Vector2(34, 34)
 	close_btn.position = Vector2(395, 10)
 	close_btn.focus_mode = Control.FOCUS_NONE
-	close_btn.add_theme_font_override("font", RetroUI.arial(700))
+	if RetroUI.arial(700) != null:
+		close_btn.add_theme_font_override("font", RetroUI.arial(700))
 	close_btn.add_theme_stylebox_override("normal", RetroUI.flat(6, Color(0.3, 0.1, 0.1, 0.85)))
 	close_btn.pressed.connect(close)
 	_wheel_panel.add_child(close_btn)

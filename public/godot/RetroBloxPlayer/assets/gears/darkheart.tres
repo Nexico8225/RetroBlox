@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "darkheart"
+gear_name = "Darkheart"
+short_name = "DARKHEART"
+category = "swords"
+item_type = 23
+color = Color(0.65, 0.08, 0.22, 1)
+cooldown = 0.85
+rent_tix = 120
+buy_tix = 120
+slash_damage = 58.0
+lunge_damage = 95.0
+lunge_cooldown = 1.9
+sword_range = 6.2
+lunge_float_duration = 0.85
+lifesteal_amount = 40.0

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "slingshot"
+gear_name = "Slingshot"
+short_name = "SLING"
+category = "items"
+item_type = 29
+color = Color(0.75, 0.52, 0.28, 1)
+cooldown = 0.45
+rent_tix = 20
+buy_tix = 20
+projectile_speed = 78.0
+projectile_damage = 28.0
+knockback_power = 22.0

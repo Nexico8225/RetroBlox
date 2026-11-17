@@ -8,8 +8,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-const SDK_ZIP_URL = '/downloads/RetroBlox_SDK.zip'
-const PLAYER_ZIP_URL = '/godot/retroblox-godot-player.zip'
+const SDK_ZIP_URL = '/downloads/RetroBlox_SDK.zip?v=2.1'
+const PLAYER_ZIP_URL = '/godot/retroblox-godot-player.zip?v=2.1'
 
 export function SdkView() {
   const [copiedLink, setCopiedLink] = useState(false)
@@ -111,6 +111,8 @@ export function SdkView() {
               '[Cyclops Level Builder Dock]',
               '[11 Custom Gameplay Nodes]',
               '[Toaster / Low-Spec Editor Mode]',
+              '[Occlusion Culling & Draw Distance]',
+              '[Shaker, CSG Toolkit & Phantom Camera]',
               '[Jolt 3D & Box2D Physics]',
               '[Lighting Preset Browser]',
               '[Toolbox UGC Models & Gears]',
@@ -188,7 +190,7 @@ export function SdkView() {
               color: '#657788',
             }}
           >
-            <span>~30.5 MB</span>
+            <span>~38.2 MB</span>
             <span>|</span>
             <button
               onClick={handleCopyLink}

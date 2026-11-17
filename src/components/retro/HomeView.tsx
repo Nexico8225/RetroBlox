@@ -567,7 +567,7 @@ export function HomeView() {
             Free desktop player for Windows / Mac / Linux — walk, jump and build in every game on here.
           </div>
         </div>
-        <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent('/godot/retroblox-godot-player.zip?v=2.0')}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: 12 }}>
+        <a className="rb-btn rb-btn-green" href={`/download?u=${encodeURIComponent('/godot/retroblox-godot-player.zip?v=2.1')}&n=retroblox-godot-player.zip`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: 12 }}>
           Download SDK &amp; Player
         </a>
         <Link className="rb-link" href="/sdk" style={{ fontSize: 11 }}>How to run it</Link>

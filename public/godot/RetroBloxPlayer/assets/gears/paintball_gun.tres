@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="GearData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gear_data.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+gear_id = "paintball_gun"
+gear_name = "Paintball Gun"
+short_name = "PAINT"
+category = "items"
+item_type = 30
+color = Color(0.2, 0.75, 0.95, 1)
+cooldown = 0.38
+rent_tix = 25
+buy_tix = 25
+projectile_speed = 72.0
+projectile_damage = 25.0
+knockback_power = 18.0

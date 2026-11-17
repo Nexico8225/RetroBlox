@@ -1,0 +1,1174 @@
+[gd_scene format=4 uid="uid://ccl5kokvc17n7"]
+
+[ext_resource type="Texture2D" uid="uid://bmd1fhed05x30" path="res://StudMaterials/Weld.png" id="1_buxp6"]
+[ext_resource type="Texture2D" uid="uid://7qvhoq3g1qls" path="res://StudMaterials/Universal.png" id="2_qrswn"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cvmx1"]
+albedo_color = Color(0.38129532, 0.57839876, 0.06262485, 1)
+normal_enabled = true
+normal_scale = 3.05
+normal_texture = ExtResource("1_buxp6")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4ck2i"]
+resource_name = "material_0"
+albedo_color = Color(0.5606278, 0.6796897, 0.22973512, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_ysbb5"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_0",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_3ifwr"]
+resource_name = "PalmTreeGLB_Leaf"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("RmsL/wAAAABGawv//////0ZrC////wAARmsL/wAA//9Gawv/AAAAAEZrC///////RmsL////AABGawv/AAD//0ZrC/8AAAAARmsL//////9Gawv///8AAEZrC/8AAP//RmsL/wAAAABGawv//////0ZrC////wAARmsL/wAA//9Gawv/AAAAAEZrC///////RmsL////AABGawv/AAD//0ZrC/8AAAAARmsL//////9Gawv///8AAEZrC/8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_4ck2i"),
+"name": "material_0",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_ysbb5")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1ei5d"]
+resource_name = "material_1"
+albedo_color = Color(0.622218, 0.7519025, 0.25983337, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_4ec1c"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_1",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_jpf8e"]
+resource_name = "PalmTreeGLB_Leaf2"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("WIYO/wAAAABYhg7//////1iGDv///wAAWIYO/wAA//9Yhg7/AAAAAFiGDv//////WIYO////AABYhg7/AAD//1iGDv8AAAAAWIYO//////9Yhg7///8AAFiGDv8AAP//WIYO/wAAAABYhg7//////1iGDv///wAAWIYO/wAA//9Yhg7/AAAAAFiGDv//////WIYO////AABYhg7/AAD//1iGDv8AAAAAWIYO//////9Yhg7///8AAFiGDv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_1ei5d"),
+"name": "material_1",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_4ec1c")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yq3hj"]
+resource_name = "material_2"
+albedo_color = Color(0.4800958, 0.70209694, 0.21864912, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_o0b5l"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_2",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_7h30k"]
+resource_name = "PalmTreeGLB_Leaf3"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("MnMK/wAAAAAycwr//////zJzCv///wAAMnMK/wAA//8ycwr/AAAAADJzCv//////MnMK////AAAycwr/AAD//zJzCv8AAAAAMnMK//////8ycwr///8AADJzCv8AAP//MnMK/wAAAAAycwr//////zJzCv///wAAMnMK/wAA//8ycwr/AAAAADJzCv//////MnMK////AAAycwr/AAD//zJzCv8AAAAAMnMK//////8ycwr///8AADJzCv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_yq3hj"),
+"name": "material_2",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_o0b5l")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_48rjc"]
+albedo_color = Color(0.9445684, 0.43661854, 0, 1)
+albedo_texture = ExtResource("2_qrswn")
+emission_on_uv2 = true
+normal_enabled = true
+ao_on_uv2 = true
+detail_uv_layer = 1
+uv1_scale = Vector3(1.155, 1.155, 1.155)
+uv2_scale = Vector3(0.475, 0.475, 0.475)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tg8er"]
+resource_name = "material_3"
+albedo_color = Color(0.6379926, 0.5532369, 0.53027135, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_ph8vu"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_i1ns4"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_tg8er"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_ph8vu")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ch5uf"]
+resource_name = "material_3"
+albedo_color = Color(0.6379926, 0.5532369, 0.53027135, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_2y1qi"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_hbp0s"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_ch5uf"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_2y1qi")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l4os0"]
+resource_name = "material_3"
+albedo_color = Color(0.6379926, 0.5532369, 0.53027135, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_78yyl"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_e4kuf"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_l4os0"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_78yyl")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e8wfn"]
+resource_name = "material_3"
+albedo_color = Color(0.6379926, 0.5532369, 0.53027135, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_vus8o"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_l2rh5"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_e8wfn"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_vus8o")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mvokf"]
+resource_name = "material_4"
+albedo_color = Color(0.6965827, 0.6025819, 0.5785821, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_1c6i8"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_4",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_b3rhg"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part2"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("cVJL/wAAAABxUkv//////3FSS////wAAcVJL/wAA//9xUkv/AAAAAHFSS///////cVJL////AABxUkv/AAD//3FSS/8AAAAAcVJL//////9xUkv///8AAHFSS/8AAP//cVJL/wAAAABxUkv//////3FSS////wAAcVJL/wAA//9xUkv/AAAAAHFSS///////cVJL////AABxUkv/AAD//3FSS/8AAAAAcVJL//////9xUkv///8AAHFSS/8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_mvokf"),
+"name": "material_4",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_1c6i8")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dto65"]
+resource_name = "material_4"
+albedo_color = Color(0.6965827, 0.6025819, 0.5785821, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_0wo7r"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_4",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_l53d0"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part2"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("cVJL/wAAAABxUkv//////3FSS////wAAcVJL/wAA//9xUkv/AAAAAHFSS///////cVJL////AABxUkv/AAD//3FSS/8AAAAAcVJL//////9xUkv///8AAHFSS/8AAP//cVJL/wAAAABxUkv//////3FSS////wAAcVJL/wAA//9xUkv/AAAAAHFSS///////cVJL////AABxUkv/AAD//3FSS/8AAAAAcVJL//////9xUkv///8AAHFSS/8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_dto65"),
+"name": "material_4",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_0wo7r")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gmtjh"]
+resource_name = "material_3"
+albedo_color = Color(0.6379926, 0.5532369, 0.53027135, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_t8emy"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_0i26x"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_gmtjh"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_t8emy")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cffyg"]
+resource_name = "material_3"
+albedo_color = Color(0.6379926, 0.5532369, 0.53027135, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_ve45w"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_v1l22"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_cffyg"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_ve45w")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_j2roy"]
+resource_name = "material_3"
+albedo_color = Color(0.6379926, 0.5532369, 0.53027135, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_wagwa"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_ejmme"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_j2roy"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_wagwa")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xyhon"]
+resource_name = "material_3"
+albedo_color = Color(0.6379926, 0.5532369, 0.53027135, 1)
+metallic = 1.0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_hwa1h"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQADAAIAAwAAAAIAAQAAAAQAAAADAAUAAwABAAYAAAAHAAQABwABAAQABwAAAAUAAQAHAAYAAwAHAAUABwADAAYA"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD//wAAAAAAAP//AAD//wAAAAAAAP//AAD/////AAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_pbkyl"]
+resource_local_to_scene = true
+resource_name = "PalmTreeGLB_Part"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//XUQ+/wAAAABdRD7//////11EPv///wAAXUQ+/wAA//9dRD7/AAAAAF1EPv//////XUQ+////AABdRD7/AAD//11EPv8AAAAAXUQ+//////9dRD7///8AAF1EPv8AAP//"),
+"format": 34896613407,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAQAAAAMABAAFAAYABQAEAAcACAAJAAoACQAIAAsADAANAA4ADQAMAA8AEAARABIAEQAQABMAFAAVABYAFQAUABcA"),
+"material": SubResource("StandardMaterial3D_xyhon"),
+"name": "material_3",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("////////qir//wAAAACqKv//AAD//6oq/////wAAqir///////+qKgAA//8AAKoq/////wAAqioAAP////+qKv///////wAAAAAAAP//AAAAAP////8AAP//AAD//wAAAAAAAP//qioAAP//AACqKgAA/////6oqAAAAAAAAqir//wAAAACqKgAAAAD//6oq//8AAP//qioAAAAAAACqKgAA//8AAAAA//8AAAAAAAD/////AAAAAAAAAAAAAAAAqqpUVaqqVFWqqlRVqqpUVVTVqipU1aoqVNWqKlTVqir/f/9//3//f/9//3//f/9/VNVU1VTVVNVU1VTVVNVU1aoqVNWqKlTVqipU1aoqVNX///9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_hwa1h")
+
+[node name="PalmTreeGLB" type="Node3D" unique_id=602501245]
+
+[node name="PalmTree2" type="Node3D" parent="." unique_id=1190326723]
+transform = Transform3D(-0.95980537, -0.035614096, 0.2783977, -0.03861206, 0.9992403, -0.0052910717, -0.27799776, -0.01582791, -0.96045136, 0, 0, 0)
+metadata/extras = {
+"RobloxInstanceType": "Model",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025ef"
+}
+
+[node name="Leaves" type="Node3D" parent="PalmTree2" unique_id=1345165618]
+transform = Transform3D(0.92371947, 0.2475099, -0.29237163, -0.21699643, 0.96705693, 0.13309196, 0.31568158, -0.059496023, 0.94699806, 0.35993195, 17.640785, -0.34940147)
+metadata/extras = {
+"RobloxInstanceType": "Model",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025fb"
+}
+
+[node name="Leaf" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=430711440]
+transform = Transform3D(0.2928968, 0.11279275, 0.92915154, -0.2690517, 0.4759741, -0.14630696, -0.91750896, -0.10356849, 0.33951676, 4.6344433, 0.9306183, -6.154299)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a0000261b",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf2" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1064642997]
+transform = Transform3D(0.8786904, 0.22558552, 1.8583031, -0.807155, 0.9519482, -0.29261395, -2.7525268, -0.20713694, 0.6790335, 3.9850159, 1.5019608, -4.2358646)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a0000261a",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf3" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=837420862]
+transform = Transform3D(2.0725794, 0.01896666, 1.8071954, 0.28451982, 1.4844334, -0.26987368, -2.1502242, 0.2147035, 1.7062275, 2.9253616, 1.8341141, -2.2369957)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002619",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf4" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=592038134]
+transform = Transform3D(1.6505438, -0.04621377, 2.5034301, 0.9436064, 1.4000449, -0.51875156, -2.3206277, 0.5364125, 1.5696287, 1.1357079, 1.7143326, -0.50834274)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002618",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf5" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=626449034]
+transform = Transform3D(-0.6475392, -0.36770535, 0.19966011, -0.64071584, 0.33363426, 0.37978408, -0.41252416, 0.05899985, -0.9032718, -7.7232933, -1.9447403, -4.3496323)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002617",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf6" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=2090469481]
+transform = Transform3D(-1.9426177, -0.7354107, 0.39932021, -1.9221475, 0.6672685, 0.75956815, -1.2375724, 0.1179997, -1.8065436, -6.3679237, -0.61014557, -3.449419)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_jpf8e")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(88, 134, 14)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002616",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf7" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=964207633]
+transform = Transform3D(-2.2611623, -0.65235865, 1.2317722, -0.37573528, 1.2465456, 1.3548574, -1.9354503, 0.5201464, -1.7020867, -4.744541, 0.46159363, -2.247467)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002615",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf8" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=42024171]
+transform = Transform3D(-2.6939812, -0.33248532, 1.1402977, -0.111932576, 1.3486406, 1.3084903, -1.3152703, 0.5662353, -2.446952, -2.966198, 0.8066559, -0.5375366)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_7h30k")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(50, 115, 10)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002614",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf9" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1175902918]
+transform = Transform3D(0.8822889, 0.18513744, -0.29062492, -0.38226542, 0.46195155, 0.016617866, 0.27466246, 0.04821705, 0.9566927, 7.6031284, -0.19908142, 6.282341)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_jpf8e")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(88, 134, 14)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002613",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf10" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=740564654]
+transform = Transform3D(2.6468668, 0.37027487, -0.5812497, -1.1467962, 0.9239031, 0.033235714, 0.82398725, 0.09643408, 1.9133855, 5.757061, 0.60466003, 5.6702995)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002612",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf11" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=542960438]
+transform = Transform3D(2.3116016, 0.023885898, -1.5929999, 0.1559344, 1.4921829, 0.21928696, 1.9058282, -0.15106153, 1.9142265, 3.7645683, 1.1414032, 4.685116)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_7h30k")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(50, 115, 10)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002611",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf12" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1100259199]
+transform = Transform3D(2.5529642, -0.3109463, -1.4476273, 0.7264501, 1.4552768, 0.030773763, 1.3980864, -0.18836555, 2.6274376, 1.9144821, 1.1089859, 3.017315)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002610",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf13" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1014061016]
+transform = Transform3D(-0.22530636, -0.09988842, -0.953586, -0.689956, 0.36188084, 0.011389282, 0.6878937, 0.33024925, -0.30090535, -5.0777206, -2.8740387, 7.849121)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a0000260f",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf14" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1211299518]
+transform = Transform3D(-0.6759189, -0.19977675, -1.9071721, -2.069868, 0.7237616, 0.022778627, 2.0636811, 0.6604986, -0.60181046, -4.5696373, -1.4227066, 6.412449)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a0000260e",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf15" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1318600723]
+transform = Transform3D(-1.9010234, -0.020373054, -1.9337015, -0.8572811, 1.399861, 0.54430497, 2.1566596, 0.53849244, -1.4881299, -3.6609955, -0.1293869, 4.7600594)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a0000260d",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf16" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1667971265]
+transform = Transform3D(-1.4607633, 0.019438561, -2.6200495, -0.35299918, 1.4847032, 0.24086957, 2.5964518, 0.2127881, -1.441292, -2.0085297, 0.6584015, 3.0706215)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_jpf8e")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(88, 134, 14)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a0000260c",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf17" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1088231152]
+transform = Transform3D(1.2516757, 0.3945946, 0.5770371, -0.5908268, 0.91527283, -0.12666476, -0.57812756, -0.081060335, 1.3787619, 10.054022, -0.6968994, -0.5418358)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a0000260b",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf18" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=959216668]
+transform = Transform3D(3.337802, 0.59189194, 1.1540741, -1.5755383, 1.3729093, -0.2533295, -1.5416734, -0.121590525, 2.7575238, 7.5732994, 0.4692154, 0.54912186)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a0000260a",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf19" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1698225675]
+transform = Transform3D(4, 0, 0, 0, 2, 0, 0, 0, 3.5, 4.5826225, 1.3123856, 1.3375015)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_jpf8e")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(88, 134, 14)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002609",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf20" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=481629548]
+transform = Transform3D(3.8574343, -0.37815484, 0.74040216, 0.83002573, 1.9489483, -0.34272283, -0.65670156, 0.24207297, 3.9159093, 1.0963478, 1.4613724, 1.1959267)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002608",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf21" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=816322020]
+transform = Transform3D(1.8934855, -0.053482376, -2.6404228, -2.1797886, 1.1597518, -0.97324044, 2.7682548, 0.9497976, 1.0396965, 1.3019867, -0.89956665, 8.304001)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002607",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf22" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=370058139]
+transform = Transform3D(0.7100571, -0.035654932, -1.3202114, -0.8174207, 0.7731678, -0.48662025, 1.0380955, 0.6331984, 0.5198482, 2.6543427, -2.5232925, 10.362797)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002606",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf23" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=808767806]
+transform = Transform3D(0.110279225, -0.33348286, -3.449653, -0.84510404, 1.925487, -0.5907369, 3.9081502, 0.42578027, -0.03040034, 0.27243423, 0.39175415, 5.4272842)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002605",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf24" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=2129873129]
+transform = Transform3D(0.6152032, -0.5739868, -3.7820208, 0.09495843, 1.9153749, -1.1473181, 3.9512665, 0.043337386, 0.61642486, 0.29101944, 1.2956543, 2.0540085)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_jpf8e")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(88, 134, 14)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002604",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf25" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1745575835]
+transform = Transform3D(-1.1973547, -0.4653184, -0.5737325, -0.77071905, 0.8574045, 0.04383651, 0.47152293, 0.21985531, -1.385247, -10.054848, -2.1907578, 2.887268)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002603",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf26" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=415085534]
+transform = Transform3D(-3.1929457, -0.6979776, -1.147465, -2.055251, 1.2861067, 0.087673, 1.2573944, 0.32978296, -2.770494, -7.681061, -0.6765518, 2.0061684)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_7h30k")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(50, 115, 10)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002602",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf27" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1923575012]
+transform = Transform3D(-3.9873638, -0.15836385, -0.021699179, -0.31672776, 1.9693482, 0.5438773, -0.024798438, 0.31078705, -3.4574163, -4.771492, 0.5130234, 1.3769455)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002601",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf28" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=838300673]
+transform = Transform3D(-3.9069002, 0.22113818, -0.73520327, 0.40981895, 1.9866384, 0.2124104, 0.75377756, 0.06607075, -3.9261122, -1.307148, 0.91376495, 1.5615654)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a00002600",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf29" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1920110321]
+transform = Transform3D(-0.29411674, -0.3899405, 1.3495831, -0.7488147, 0.82942677, 0.3760213, -1.2660064, -0.39999714, -0.5359415, -1.1171036, -0.51381683, -10.329468)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_7h30k")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(50, 115, 10)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025ff",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf30" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=1715832161]
+transform = Transform3D(-0.7843113, -0.58491075, 2.6991663, -1.9968392, 1.2441401, 0.7520426, -3.3760169, -0.59999573, -1.071883, -0.58368874, 0.946228, -7.8219357)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_jpf8e")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(88, 134, 14)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025fe",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf31" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=528578608]
+transform = Transform3D(0.03845135, -0.67653453, 3.2935035, 0.2850652, 1.8777665, 1.1787229, -3.989644, 0.12764853, 0.11596336, -0.11175728, 1.7546234, -4.639681)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_3ifwr")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(70, 107, 11)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025fd",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Leaf32" type="MeshInstance3D" parent="PalmTree2/Leaves" unique_id=825721924]
+transform = Transform3D(-0.8616467, -0.43510973, 3.8079238, 0.8330407, 1.8844099, 1.0497812, -3.8162298, 0.509587, -0.6306157, -0.32888412, 1.5983658, -1.1576099)
+material_override = SubResource("StandardMaterial3D_cvmx1")
+mesh = SubResource("ArrayMesh_7h30k")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(50, 115, 10)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025fc",
+"Shape": "Block",
+"Transparency": 0.0
+}
+
+[node name="Trunk" type="Node3D" parent="PalmTree2" unique_id=2069255472]
+transform = Transform3D(-0.94526803, -0.2791448, -0.16895734, -0.2731978, 0.96021026, -0.05795887, 0.1784135, -0.008627897, -0.98391783, 1.1405983, 9.786545, 0.9459686)
+metadata/extras = {
+"RobloxInstanceType": "Model",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f0"
+}
+
+[node name="Part" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=1368047182]
+transform = Transform3D(-0.8882539, -0.11946143, -0.8053761, 0.8450936, 3.154201, -0.4373526, 0.86418843, -3.2072954, -0.4001149, -0.2373656, 7.003235, -2.1104183)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_i1ns4")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(93, 68, 62)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025fa",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part2" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=2003954376]
+transform = Transform3D(3.7957947, -0.71230626, -0.830622, 0.9673928, 2.9109144, -0.017012715, 0.80999595, -0.1385552, 3.912771, 2.6736374, -7.8450775, 0.6667347)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_hbp0s")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(93, 68, 62)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f9",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part3" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=722118728]
+transform = Transform3D(2.766133, -0.9497418, -0.9171304, 0.7202363, 3.8812191, -0.08852968, 0.9109162, -0.18474033, 2.8550014, 1.8559725, -4.5462418, 0.55861473)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_e4kuf")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(93, 68, 62)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f8",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part4" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=769309330]
+transform = Transform3D(1.6407684, -1.363736, -0.96980184, 0.5850182, 4.279818, -0.19902796, 0.98266596, -0.27089205, 1.7377781, 2.302198, -0.8651962, 0.90024567)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_l2rh5")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(93, 68, 62)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f7",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part5" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=2053640879]
+transform = Transform3D(3.5, 0, 0, 0, 3, 0, 0, 0, 3.5, 1.3722843, -1.6019211, 0.47917747)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_b3rhg")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(113, 82, 75)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f6",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part6" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=2006250137]
+transform = Transform3D(-1.263728, 1.0962843, 0.49208218, 0.3229822, 4.871724, -0.065490216, -0.7407253, 0.25390652, -0.8680819, 0.6597682, 6.991287, 0.5120964)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_l53d0")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(113, 82, 75)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f5",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part7" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=30500674]
+transform = Transform3D(1.3830665, -2.136919, -0.91713023, 0.36011815, 8.732743, -0.088529676, 0.455458, -0.41566572, 2.8550014, -0.04905367, 4.0404587, 0.21291351)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_0i26x")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(93, 68, 62)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f4",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part8" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=1857435695]
+transform = Transform3D(0.41766167, -1.4177086, 0.90731275, 1.0780287, 3.1276102, 0.020779233, -0.9557265, 2.9082913, 0.4199427, -1.9473964, 6.790283, 2.2068062)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_v1l22")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(93, 68, 62)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f3",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part9" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=345366173]
+transform = Transform3D(1.6407684, -1.666788, -1.2122524, 0.5850181, 5.230889, -0.24878496, 0.982666, -0.33109015, 2.1722224, -1.293163, 5.639969, 0.3111267)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_ejmme")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(93, 68, 62)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f2",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true
+
+[node name="Part10" type="MeshInstance3D" parent="PalmTree2/Trunk" unique_id=1772071426]
+transform = Transform3D(0.6422611, -3.7349632, -0.3574641, 1.2077742, 2.3848968, -0.26609185, 0.61545277, -0.7825066, 0.8952176, -3.0324578, 5.6850967, -0.27738762)
+material_override = SubResource("StandardMaterial3D_48rjc")
+mesh = SubResource("ArrayMesh_pbkyl")
+skeleton = NodePath("")
+metadata/extras = {
+"Anchored": true,
+"Color": "(93, 68, 62)",
+"Material": "plastic",
+"RobloxInstanceType": "Part",
+"RobloxUniqueId": "6ab073b4-a2fc-3453-0afa-fe9a000025f1",
+"Shape": "Block",
+"Transparency": 0.0
+}
+metadata/_rbx_unlinked = true

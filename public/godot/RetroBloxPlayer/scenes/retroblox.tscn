@@ -1,20 +1,20 @@
 [gd_scene format=3 uid="uid://d0afr5u7welgs"]
 
-[ext_resource type="Script" uid="uid://ce3uijo5vhh24" path="res://scripts/game/game.gd" id="1_game"]
-[ext_resource type="Script" uid="uid://cyrrjc86bxtvb" path="res://scripts/player/local_player.gd" id="2_player"]
-[ext_resource type="Shader" uid="uid://bo468dck1xsqc" path="res://assets/studs/part_studs.gdshader" id="3_0gglp"]
-[ext_resource type="Script" uid="uid://bhb1msdww71su" path="res://scripts/game/camera_rig.gd" id="3_camrig"]
-[ext_resource type="Texture2D" uid="uid://ckmkgy6s85y05" path="res://assets/Materials/Studs 4x4 Normal Plastic.png" id="3_mwfpn"]
-[ext_resource type="Script" uid="uid://d0tibtl0yt0tp" path="res://scripts/game/chat_box.gd" id="4_chatbox"]
+[ext_resource type="Script" uid="uid://b3p6vvrpvr2v7" path="res://scripts/game/game.gd" id="1_game"]
+[ext_resource type="Script" uid="uid://dpl138ulkyjsr" path="res://scripts/player/local_player.gd" id="2_player"]
+[ext_resource type="Shader" uid="uid://cy3vaexierl2" path="res://assets/studs/part_studs.gdshader" id="3_0gglp"]
+[ext_resource type="Script" uid="uid://bk2pl2qsu43fb" path="res://scripts/game/camera_rig.gd" id="3_camrig"]
+[ext_resource type="Texture2D" uid="uid://cja65ilhjc1uo" path="res://assets/Materials/Studs 4x4 Normal Plastic.png" id="3_mwfpn"]
+[ext_resource type="Script" uid="uid://of4rq8f1o3oj" path="res://scripts/game/chat_box.gd" id="4_chatbox"]
 [ext_resource type="Texture2D" uid="uid://b2sdf860oadpg" path="res://assets/studs/stud_tile.png" id="4_mwfpn"]
 [ext_resource type="Texture2D" uid="uid://dy4narrqpos83" path="res://assets/icons/logo.png" id="7_logo"]
 [ext_resource type="Texture2D" uid="uid://dpvr73jah5n1c" path="res://assets/icons/chat.png" id="8_chat"]
-[ext_resource type="Script" uid="uid://be52pow04aysq" path="res://scripts/world/interactive_pad.gd" id="9_pad"]
-[ext_resource type="Script" uid="uid://do602renoe131" path="res://scripts/world/climb_ladder.gd" id="10_ladder"]
+[ext_resource type="Script" uid="uid://cyyuuysmnq4m5" path="res://scripts/world/interactive_pad.gd" id="9_pad"]
+[ext_resource type="Script" uid="uid://ctftl5k7vvqcj" path="res://scripts/world/climb_ladder.gd" id="10_ladder"]
 [ext_resource type="FontFile" uid="uid://b3vut8cavqfvd" path="res://assets/fonts/LiberationSans-Bold.ttf" id="11_font_bold"]
-[ext_resource type="Script" uid="uid://cpbbjergntc6q" path="res://scripts/world/moving_platform.gd" id="13_movplat"]
+[ext_resource type="Script" uid="uid://r63bj70fxuvp" path="res://scripts/world/moving_platform.gd" id="13_movplat"]
 [ext_resource type="Texture2D" uid="uid://chbws17u1e18f" path="res://assets/studs/SpawnPoint.png" id="14_spawnpoint"]
-[ext_resource type="Script" path="res://scripts/world/item_spawner.gd" id="15_itemspawner"]
+[ext_resource type="Script" uid="uid://nmyf1kylwiy1" path="res://scripts/world/item_spawner.gd" id="15_itemspawner"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.231373, 0.509804, 0.768627, 1)
@@ -50,6 +50,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="Mesh_Baseplate"]
 material = SubResource("Mat_Baseplate")
@@ -68,6 +75,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="Mesh_Spawn"]
 material = SubResource("Mat_Spawn")
@@ -95,6 +109,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="Mesh_Brick4x2"]
 size = Vector3(4, 2, 4)
@@ -112,6 +133,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="ShaderMaterial" id="Mat_Blue"]
 render_priority = 0
@@ -123,6 +151,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="ShaderMaterial" id="Mat_Green"]
 render_priority = 0
@@ -134,6 +169,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="ShaderMaterial" id="Mat_StepTest"]
 render_priority = 0
@@ -145,6 +187,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="Mesh_Step05"]
 material = SubResource("Mat_StepTest")
@@ -190,6 +239,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.35
 shader_parameter/specular_val = 0.55
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="Mesh_FortTop"]
 material = SubResource("Mat_Gold")
@@ -208,6 +264,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="BoxMesh_TowerCol"]
 size = Vector3(8, 20, 8)
@@ -225,6 +288,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="BoxMesh_TowerPlat"]
 size = Vector3(12, 1.5, 12)
@@ -238,7 +308,7 @@ size = Vector3(24, 1.2, 5)
 [sub_resource type="BoxShape3D" id="BoxShape3D_Bridge"]
 size = Vector3(24, 1.2, 5)
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_xut8t"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_yqhm1"]
 render_priority = 0
 shader = ExtResource("3_0gglp")
 shader_parameter/albedo = Color(0.96, 0.62, 0.05, 1)
@@ -248,14 +318,21 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
-[sub_resource type="BoxMesh" id="BoxMesh_yqhm1"]
+[sub_resource type="BoxMesh" id="BoxMesh_nypvj"]
 size = Vector3(3, 20, 0.8)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_nypvj"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_qdvxa"]
 size = Vector3(3, 20, 0.8)
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_qdvxa"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_oklny"]
 render_priority = 0
 shader = ExtResource("3_0gglp")
 shader_parameter/albedo = Color(0.96, 0.62, 0.05, 1)
@@ -265,11 +342,18 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
-[sub_resource type="BoxMesh" id="BoxMesh_oklny"]
+[sub_resource type="BoxMesh" id="BoxMesh_qecss"]
 size = Vector3(3, 20, 0.8)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_qecss"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_6lc5r"]
 size = Vector3(3, 20, 0.8)
 
 [sub_resource type="ShaderMaterial" id="Mat_Ramp"]
@@ -282,6 +366,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="Mesh_Ramp"]
 material = SubResource("Mat_Ramp")
@@ -290,30 +381,30 @@ size = Vector3(6, 1, 38)
 [sub_resource type="BoxShape3D" id="Shape_Ramp"]
 size = Vector3(6, 1, 36)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6lc5r"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jqr1e"]
 albedo_color = Color(0.96, 0.42, 0.1, 1)
 roughness = 0.28
 emission_enabled = true
 emission = Color(0.96, 0.42, 0.1, 1)
 emission_energy_multiplier = 1.25
 
-[sub_resource type="BoxMesh" id="BoxMesh_jqr1e"]
+[sub_resource type="BoxMesh" id="BoxMesh_fcjih"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_fcjih"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_hhtnm"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hhtnm"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ykfhg"]
 albedo_color = Color(0.92, 0.1, 0.14, 1)
 roughness = 0.28
 emission_enabled = true
 emission = Color(0.92, 0.1, 0.14, 1)
 emission_energy_multiplier = 1.25
 
-[sub_resource type="BoxMesh" id="BoxMesh_ykfhg"]
+[sub_resource type="BoxMesh" id="BoxMesh_rakeg"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_rakeg"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_yn4dv"]
 size = Vector3(6, 1, 6)
 
 [sub_resource type="ShaderMaterial" id="Mat_ObbyCyan"]
@@ -326,6 +417,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="ShaderMaterial" id="Mat_ObbyPink"]
 render_priority = 0
@@ -337,6 +435,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="ShaderMaterial" id="Mat_ObbyOrange"]
 render_priority = 0
@@ -348,6 +453,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="ShaderMaterial" id="Mat_ObbyPurple"]
 render_priority = 0
@@ -359,6 +471,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.52
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="BoxMesh_VictoryPlat"]
 size = Vector3(10, 1.5, 10)
@@ -366,69 +485,69 @@ size = Vector3(10, 1.5, 10)
 [sub_resource type="BoxShape3D" id="BoxShape3D_VictoryPlat"]
 size = Vector3(10, 1.5, 10)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xut8t"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ndqcg"]
 albedo_color = Color(0.15, 0.92, 0.85, 1)
 roughness = 0.28
 emission_enabled = true
 emission = Color(0.15, 0.92, 0.85, 1)
 emission_energy_multiplier = 1.25
 
-[sub_resource type="BoxMesh" id="BoxMesh_nypvj"]
+[sub_resource type="BoxMesh" id="BoxMesh_tnhah"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_qdvxa"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_x1y4d"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_x1y4d"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6m266"]
 albedo_color = Color(0.12, 0.84, 0.48, 1)
 roughness = 0.28
 emission_enabled = true
 emission = Color(0.12, 0.84, 0.48, 1)
 emission_energy_multiplier = 1.25
 
-[sub_resource type="BoxMesh" id="BoxMesh_6m266"]
+[sub_resource type="BoxMesh" id="BoxMesh_olsm0"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_olsm0"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_l5xxg"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l5xxg"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qv7j1"]
 albedo_color = Color(0.22, 0.86, 0.36, 1)
 roughness = 0.28
 emission_enabled = true
 emission = Color(0.22, 0.86, 0.36, 1)
 emission_energy_multiplier = 1.25
 
-[sub_resource type="BoxMesh" id="BoxMesh_qv7j1"]
+[sub_resource type="BoxMesh" id="BoxMesh_dcn7w"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_dcn7w"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_u4xk6"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u4xk6"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jnij7"]
 albedo_color = Color(0.15, 0.62, 0.98, 1)
 roughness = 0.28
 emission_enabled = true
 emission = Color(0.15, 0.62, 0.98, 1)
 emission_energy_multiplier = 1.25
 
-[sub_resource type="BoxMesh" id="BoxMesh_jnij7"]
+[sub_resource type="BoxMesh" id="BoxMesh_kdero"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_kdero"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_ts562"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ts562"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6rloy"]
 albedo_color = Color(0.65, 0.25, 0.96, 1)
 roughness = 0.28
 emission_enabled = true
 emission = Color(0.65, 0.25, 0.96, 1)
 emission_energy_multiplier = 1.25
 
-[sub_resource type="BoxMesh" id="BoxMesh_6rloy"]
+[sub_resource type="BoxMesh" id="BoxMesh_5cdt2"]
 size = Vector3(6, 1, 6)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_5cdt2"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_3pmvf"]
 size = Vector3(6, 1, 6)
 
 [sub_resource type="ShaderMaterial" id="Mat_WoodTrunk"]
@@ -441,6 +560,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.45
 shader_parameter/specular_val = 0.4
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="BoxMesh_Trunk"]
 size = Vector3(1.6, 4, 1.6)
@@ -458,6 +584,13 @@ shader_parameter/stud_density = 1.0
 shader_parameter/normal_depth = 1.35
 shader_parameter/roughness_val = 0.38
 shader_parameter/specular_val = 0.5
+shader_parameter/stud_full = false
+shader_parameter/stud_top = true
+shader_parameter/stud_bottom = false
+shader_parameter/stud_left = false
+shader_parameter/stud_right = false
+shader_parameter/stud_front = false
+shader_parameter/stud_back = false
 
 [sub_resource type="BoxMesh" id="BoxMesh_Leaves1"]
 size = Vector3(6, 2, 6)
@@ -731,11 +864,11 @@ metadata/color = "f59e0d"
 metadata/mat = "plastic"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/ClimbLadder" unique_id=1847276858]
-material_override = SubResource("ShaderMaterial_xut8t")
-mesh = SubResource("BoxMesh_yqhm1")
+material_override = SubResource("ShaderMaterial_yqhm1")
+mesh = SubResource("BoxMesh_nypvj")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/ClimbLadder" unique_id=1721229333]
-shape = SubResource("BoxShape3D_nypvj")
+shape = SubResource("BoxShape3D_qdvxa")
 
 [node name="ClimbLadderEast" type="StaticBody3D" parent="World" unique_id=1000000035 groups=["climb", "ladder"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 10, -27.6)
@@ -749,11 +882,11 @@ metadata/color = "f59e0d"
 metadata/mat = "plastic"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/ClimbLadderEast" unique_id=1000000036]
-material_override = SubResource("ShaderMaterial_qdvxa")
-mesh = SubResource("BoxMesh_oklny")
+material_override = SubResource("ShaderMaterial_oklny")
+mesh = SubResource("BoxMesh_qecss")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/ClimbLadderEast" unique_id=1000000037]
-shape = SubResource("BoxShape3D_qecss")
+shape = SubResource("BoxShape3D_6lc5r")
 
 [node name="SlopeRamp" type="StaticBody3D" parent="World" unique_id=1362175807]
 transform = Transform3D(1, 0, 0, 0, 0.927184, -0.374606, 0, 0.374606, 0.927184, 24, 10, -18)
@@ -789,11 +922,11 @@ metadata/infinite_duration = false
 metadata/remove_on_touch_block = false
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/DamageBrick" unique_id=1464001446]
-material_override = SubResource("StandardMaterial3D_6lc5r")
-mesh = SubResource("BoxMesh_jqr1e")
+material_override = SubResource("StandardMaterial3D_jqr1e")
+mesh = SubResource("BoxMesh_fcjih")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/DamageBrick" unique_id=1001333551]
-shape = SubResource("BoxShape3D_fcjih")
+shape = SubResource("BoxShape3D_hhtnm")
 
 [node name="KillBrick" type="StaticBody3D" parent="World" unique_id=1223060814 groups=["kill_brick", "lava"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -48, 0.5, 4)
@@ -820,11 +953,11 @@ metadata/color = "eb1a24"
 metadata/mat = "neon"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/KillBrick" unique_id=150809258]
-material_override = SubResource("StandardMaterial3D_hhtnm")
-mesh = SubResource("BoxMesh_ykfhg")
+material_override = SubResource("StandardMaterial3D_ykfhg")
+mesh = SubResource("BoxMesh_rakeg")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/KillBrick" unique_id=1425998519]
-shape = SubResource("BoxShape3D_rakeg")
+shape = SubResource("BoxShape3D_yn4dv")
 
 [node name="ObbyStep1" type="StaticBody3D" parent="World" unique_id=1000000041]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -36, 2.5, -4)
@@ -911,11 +1044,11 @@ metadata/color = "26ebd9"
 metadata/mat = "neon"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/InstaHealBrick" unique_id=1518240587]
-material_override = SubResource("StandardMaterial3D_xut8t")
-mesh = SubResource("BoxMesh_nypvj")
+material_override = SubResource("StandardMaterial3D_ndqcg")
+mesh = SubResource("BoxMesh_tnhah")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/InstaHealBrick" unique_id=2062945975]
-shape = SubResource("BoxShape3D_qdvxa")
+shape = SubResource("BoxShape3D_x1y4d")
 
 [node name="Trampoline" type="StaticBody3D" parent="World" unique_id=190296515 groups=["trampoline"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 24)
@@ -942,11 +1075,11 @@ metadata/color = "1fd67a"
 metadata/mat = "neon"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/Trampoline" unique_id=1788507206]
-material_override = SubResource("StandardMaterial3D_x1y4d")
-mesh = SubResource("BoxMesh_6m266")
+material_override = SubResource("StandardMaterial3D_6m266")
+mesh = SubResource("BoxMesh_olsm0")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/Trampoline" unique_id=1966642131]
-shape = SubResource("BoxShape3D_olsm0")
+shape = SubResource("BoxShape3D_l5xxg")
 
 [node name="HealBrick" type="StaticBody3D" parent="World" unique_id=1826686377 groups=["heal_brick"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 34)
@@ -974,11 +1107,11 @@ metadata/color = "38db5c"
 metadata/mat = "neon"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/HealBrick" unique_id=1468973162]
-material_override = SubResource("StandardMaterial3D_l5xxg")
-mesh = SubResource("BoxMesh_qv7j1")
+material_override = SubResource("StandardMaterial3D_qv7j1")
+mesh = SubResource("BoxMesh_dcn7w")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/HealBrick" unique_id=1683305181]
-shape = SubResource("BoxShape3D_dcn7w")
+shape = SubResource("BoxShape3D_u4xk6")
 
 [node name="SpeedCoilPad" type="StaticBody3D" parent="World" unique_id=316630140]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0.5, 24)
@@ -1006,11 +1139,11 @@ metadata/color = "269efa"
 metadata/mat = "neon"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/SpeedCoilPad" unique_id=1436491704]
-material_override = SubResource("StandardMaterial3D_u4xk6")
-mesh = SubResource("BoxMesh_jnij7")
+material_override = SubResource("StandardMaterial3D_jnij7")
+mesh = SubResource("BoxMesh_kdero")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/SpeedCoilPad" unique_id=718354397]
-shape = SubResource("BoxShape3D_kdero")
+shape = SubResource("BoxShape3D_ts562")
 
 [node name="GravityCoilPad" type="StaticBody3D" parent="World" unique_id=499604399]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0.5, 24)
@@ -1039,11 +1172,11 @@ metadata/color = "a640f5"
 metadata/mat = "neon"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="World/GravityCoilPad" unique_id=1018956395]
-material_override = SubResource("StandardMaterial3D_ts562")
-mesh = SubResource("BoxMesh_6rloy")
+material_override = SubResource("StandardMaterial3D_6rloy")
+mesh = SubResource("BoxMesh_5cdt2")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="World/GravityCoilPad" unique_id=896883082]
-shape = SubResource("BoxShape3D_5cdt2")
+shape = SubResource("BoxShape3D_3pmvf")
 
 [node name="MovingPlatformAlways" type="AnimatableBody3D" parent="World" unique_id=1755339031]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 1.5, -4)
@@ -1313,7 +1446,7 @@ pad_type = 7
 brick_size = Vector3(6, 0.5, 6)
 brick_color = Color(0.72, 0.78, 0.85, 1)
 label_text = "CHECKPOINT"
-metadata/spawn = Vector3(0, 1.8000001, -6)
+metadata/spawn = Vector3(0, 22.800001, -32)
 metadata/damage = 20.0
 metadata/damage_cooldown = 0.55
 metadata/heal = 15.0
@@ -1334,56 +1467,46 @@ metadata/mat = "plastic"
 [node name="SpeedCoilSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000301]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0.25, 14)
 script = ExtResource("15_itemspawner")
-item_type = 0
-lose_item_when_dead = true
 
 [node name="GravityCoilSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000302]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0.25, 14)
 script = ExtResource("15_itemspawner")
 item_type = 1
-lose_item_when_dead = true
 
 [node name="LinkedSwordSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000303]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.25, 14)
 script = ExtResource("15_itemspawner")
 item_type = 2
-lose_item_when_dead = true
 
 [node name="HealingPotionSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000304]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.25, 14)
 script = ExtResource("15_itemspawner")
 item_type = 3
-lose_item_when_dead = true
 
 [node name="BigHeadPotionSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000305]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 14)
 script = ExtResource("15_itemspawner")
 item_type = 4
-lose_item_when_dead = true
 
 [node name="FlyingCarpetSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000306]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.25, 14)
 script = ExtResource("15_itemspawner")
 item_type = 5
-lose_item_when_dead = true
 
 [node name="HyperlaserGunSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000307]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0.25, 14)
 script = ExtResource("15_itemspawner")
 item_type = 6
-lose_item_when_dead = true
 
 [node name="RocketLauncherSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000308]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0.25, 14)
 script = ExtResource("15_itemspawner")
 item_type = 7
-lose_item_when_dead = true
 
 [node name="SubspaceTripmineSpawner" type="StaticBody3D" parent="World/ItemSpawners" unique_id=1000000309]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0.25, 14)
 script = ExtResource("15_itemspawner")
 item_type = 8
-lose_item_when_dead = true
 
 [node name="LocalPlayer" type="CharacterBody3D" parent="." unique_id=1740033783]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
