@@ -164,7 +164,7 @@ export function BotCleanupView() {
       <div className="rb-box" style={{ border: '2px solid #d91e18', background: '#fffcfb' }}>
         <div className="rb-panel-head" style={{ background: 'linear-gradient(180deg, #c0392b, #962d22)', color: '#fff' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            🧹 Bot Removal & Junk Cleanup
+             Bot Removal & Junk Cleanup
           </span>
           <span style={{ fontSize: 11, fontWeight: 'normal', opacity: 0.9 }}>
             Fast bulk deletion engine
@@ -200,7 +200,7 @@ export function BotCleanupView() {
                 cursor: busy ? 'not-allowed' : 'pointer',
               }}
             >
-              {busy ? 'Processing Purge…' : `⚡ Purge All Bots Now (${detectedBotsCount} Detected)`}
+              {busy ? 'Processing Purge…' : ` Purge All Bots Now (${detectedBotsCount} Detected)`}
             </button>
           </div>
 
@@ -401,7 +401,7 @@ export function BotCleanupView() {
                               borderRadius: 2,
                               padding: '1px 5px',
                             }}>
-                              🤖 bot detected
+                               bot detected
                             </span>
                           ) : (
                             <span style={{ fontSize: 10, color: '#5a6b7b' }}>Normal</span>

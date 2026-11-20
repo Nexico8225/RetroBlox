@@ -2223,14 +2223,13 @@ func _build_settings_tab() -> VBoxContainer:
 		func(on: bool) -> void:
 			if settings != null:
 				settings.set_key("ragdoll_on_fall", on))
-	var height_opts: Array = [["35 Studs", 35], ["60 Studs", 60], ["100 Studs", 100], ["150 Studs", 150]]
-	var cur_h: int = int(round(float(settings.get("ragdoll_fall_height")))) if (settings != null and settings.get("ragdoll_fall_height") != null) else 60
-	_row_chips(page, "sliders", "Ragdoll Fall Height Threshold",
-		height_opts,
-		cur_h,
-		func(val: int) -> void:
+	var fall_h_opts: Array = [["35s", 35], ["60s", 60], ["100s", 100], ["150s", 150]]
+	var cur_fall_h: int = int(settings.get("ragdoll_fall_height")) if settings != null else 60
+	_row_chips(page, "fall", "Ragdoll Fall Height Threshold", fall_h_opts,
+		cur_fall_h,
+		func(v: int) -> void:
 			if settings != null:
-				settings.set_key("ragdoll_fall_height", float(val)))
+				settings.set_key("ragdoll_fall_height", float(v)))
 
 	_section(page, "person", "ACCOUNT")
 	var acct := _row(page, "tag", "Signed in as %s" % Session.username)

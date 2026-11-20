@@ -14,6 +14,7 @@ const LIGHTING_DIALOG_PATH = "res://addons/retroblox_studio/lighting_dialog.gd"
 const LIGHTING_POPUP_PATH = "res://addons/retroblox_studio/lighting_menu_popup.gd"
 const TOOLBOX_DOCK_PATH = "res://addons/retroblox_studio/toolbox_dock.gd"
 const BUILDER_DOCK_PATH = "res://addons/retroblox_studio/builder_dock.gd"
+const BLOCK_CODE_DIALOG_PATH = "res://addons/retroblox_studio/block_code_dialog.gd"
 const ORCHESTRATOR_DIALOG_PATH = "res://addons/retroblox_studio/orchestrator_dialog.gd"
 const CUSTOM_NODES_DIALOG_PATH = "res://addons/retroblox_studio/custom_nodes_dialog.gd"
 const SCALABILITY_SCRIPT_PATH = "res://addons/retroblox_studio/editor_scalability.gd"
@@ -37,6 +38,7 @@ var _export_pkg_dialog: FileDialog
 var _fs_context_plugin: RefCounted = null
 var _builder_panel: Control = null
 var _builder_btn: Button = null
+var _block_code_dialog: AcceptDialog = null
 var _orchestrator_dialog: AcceptDialog = null
 var _custom_nodes_dialog: AcceptDialog = null
 var _scalability: RefCounted = null
@@ -93,30 +95,11 @@ func _enter_tree() -> void:
 	if ResourceLoader.exists(TOOLBOX_DOCK_PATH):
 		var tb_scr: Script = load(TOOLBOX_DOCK_PATH) as Script
 		if tb_scr != null:
-			# 1. Docked Toolbox in right dock
+			# 1. Docked Toolbox (lightweight lazy-rendered dock; popout created only on demand)
 			_toolbox_dock = tb_scr.new() as Control
 			_toolbox_dock.set("plugin", self)
 			_toolbox_dock.set("is_window_instance", false)
 			add_control_to_dock(DOCK_SLOT_LEFT_UL, _toolbox_dock)
-
-			# 2. Freely Resizable Popup Window Toolbox (opens when clicking 'Toolbox' on top bar)
-			_toolbox_dialog = AcceptDialog.new()
-			_toolbox_dialog.title = "RetroBlox Toolbox — Marketplace, Inventory & Creations"
-			_toolbox_dialog.ok_button_text = "Close Toolbox"
-			_toolbox_dialog.size = Vector2i(780, 560)
-			_toolbox_dialog.min_size = Vector2i(360, 300)
-			_toolbox_dialog.unresizable = false
-			_toolbox_window_panel = tb_scr.new() as Control
-			_toolbox_window_panel.set("plugin", self)
-			_toolbox_window_panel.set("is_window_instance", true)
-			_toolbox_window_panel.custom_minimum_size = Vector2(740, 480)
-			_toolbox_window_panel.set("peer_toolbox", _toolbox_dock)
-			_toolbox_dock.set("peer_toolbox", _toolbox_window_panel)
-			_toolbox_dialog.close_requested.connect(_on_close_toolbox_window)
-			_toolbox_dialog.canceled.connect(_on_close_toolbox_window)
-			_toolbox_dialog.confirmed.connect(_on_close_toolbox_window)
-			_toolbox_dialog.add_child(_toolbox_window_panel)
-			base_ctrl.add_child(_toolbox_dialog)
 
 	# Scalability & Toaster Optimization
 	if ResourceLoader.exists(SCALABILITY_SCRIPT_PATH):
@@ -134,6 +117,14 @@ func _enter_tree() -> void:
 			base_ctrl.add_child(_builder_panel)
 			_builder_panel.position = Vector2(base_ctrl.size.x - 390, 80)
 			_builder_panel.hide()
+
+	# Block Code Visual Programming
+	if ResourceLoader.exists(BLOCK_CODE_DIALOG_PATH):
+		var bc_scr: Script = load(BLOCK_CODE_DIALOG_PATH) as Script
+		if bc_scr != null:
+			_block_code_dialog = bc_scr.new() as AcceptDialog
+			_block_code_dialog.set("plugin", self)
+			base_ctrl.add_child(_block_code_dialog)
 
 	# Orchestrator Visual Logic
 	if ResourceLoader.exists(ORCHESTRATOR_DIALOG_PATH):
@@ -171,9 +162,11 @@ func _enter_tree() -> void:
 	add_tool_menu_item("RetroBlox Add Lighting to Scene (Roblox HD)", _on_add_lighting_to_scene_pressed)
 	add_tool_menu_item("RetroBlox Lighting Presets & Upload...", _on_open_lighting_dialog)
 	add_tool_menu_item("RetroBlox Level Builder (Cyclops & Retro)...", _on_toggle_builder_panel)
+	add_tool_menu_item("RetroBlox Block Code (Visual Blocks)...", _on_open_block_code)
 	add_tool_menu_item("RetroBlox Orchestrator (Visual Logic)...", _on_open_orchestrator)
 	add_tool_menu_item("RetroBlox Custom Nodes Library...", _on_open_custom_nodes)
 	add_tool_menu_item("RetroBlox Generate Scene Occluders", _on_generate_scene_occluders)
+	add_tool_menu_item("RetroBlox Import Roblox Animation (.rbxm)...", _on_import_rbxm_anim)
 
 	var sel: EditorSelection = get_editor_interface().get_selection()
 	if sel != null and not sel.selection_changed.is_connected(_on_selection_changed):
@@ -204,12 +197,17 @@ func _exit_tree() -> void:
 	remove_tool_menu_item("RetroBlox Add Lighting to Scene (Roblox HD)")
 	remove_tool_menu_item("RetroBlox Lighting Presets & Upload...")
 	remove_tool_menu_item("RetroBlox Level Builder (Cyclops & Retro)...")
+	remove_tool_menu_item("RetroBlox Block Code (Visual Blocks)...")
 	remove_tool_menu_item("RetroBlox Orchestrator (Visual Logic)...")
 	remove_tool_menu_item("RetroBlox Custom Nodes Library...")
 	remove_tool_menu_item("RetroBlox Generate Scene Occluders")
+	remove_tool_menu_item("RetroBlox Import Roblox Animation (.rbxm)...")
 	if _builder_panel != null:
 		_builder_panel.queue_free()
 		_builder_panel = null
+	if _block_code_dialog != null:
+		_block_code_dialog.queue_free()
+		_block_code_dialog = null
 	if _orchestrator_dialog != null:
 		_orchestrator_dialog.queue_free()
 		_orchestrator_dialog = null
@@ -392,10 +390,16 @@ func _create_toolbar() -> void:
 	outer.add_child(folder_btn)
 
 	_builder_btn = Button.new()
-	_builder_btn.text = "Builder"
-	_builder_btn.tooltip_text = "Toggle Level Builder Panel (Cyclops blockout & Retro system, Hotkey: B)"
+	_builder_btn.text = "BuildersUI"
+	_builder_btn.tooltip_text = "Toggle BuildersUI Panel (Cyclops Blockout, Shapes, CSG Union/Subtract, Hotkey: B)"
 	_builder_btn.pressed.connect(_on_toggle_builder_panel)
 	outer.add_child(_builder_btn)
+
+	var block_code_btn = Button.new()
+	block_code_btn.text = "Block Code"
+	block_code_btn.tooltip_text = "Open Scratch-style Visual Block Code Studio for Selected Node"
+	block_code_btn.pressed.connect(_on_open_block_code)
+	outer.add_child(block_code_btn)
 
 	var orches_btn = Button.new()
 	orches_btn.text = "Orchestrator"
@@ -479,10 +483,21 @@ func _create_toolbar() -> void:
 	var popup: PopupMenu = part_menu.get_popup()
 	popup.add_item("Block (4 x 1.2 x 2)", 0)
 	popup.add_item("Brick (4 x 2 x 2)", 1)
+	popup.add_item("Small Brick (2 x 1 x 1)", 7)
 	popup.add_item("Plate (4 x 0.4 x 4)", 2)
-	popup.add_item("Cylinder (4 x 2 x 4)", 3)
-	popup.add_item("Sphere (4 x 4 x 4)", 4)
+	popup.add_item("Sphere Brick (4 x 4 x 4)", 4)
+	popup.add_item("Small Sphere (2 x 2 x 2)", 8)
+	popup.add_item("Triangle (4 x 2 x 2)", 9)
 	popup.add_item("Wedge (4 x 2 x 4)", 5)
+	popup.add_item("Cylinder (4 x 2 x 4)", 3)
+	popup.add_separator()
+	popup.add_item("Hollow Circle / Pipe (4 x 2 x 4)", 10)
+	popup.add_item("Hollow Cube (4 x 4 x 4)", 11)
+	popup.add_item("Hollow Triangle (4 x 2 x 4)", 12)
+	popup.add_separator()
+	popup.add_item("CSG Union (Merge Shapes)", 20)
+	popup.add_item("CSG Subtract (Negative Cutter)", 21)
+	popup.add_separator()
 	popup.add_item("Truss / Ladder (3 x 20 x 0.8)", 6)
 	popup.id_pressed.connect(_on_part_selected)
 	_toolbar.add_child(part_menu)
@@ -729,6 +744,29 @@ func apply_lighting_preset_by_id(preset_id: String) -> void:
 
 
 func _on_open_toolbox_window() -> void:
+	if _toolbox_dialog == null or not is_instance_valid(_toolbox_dialog):
+		if ResourceLoader.exists(TOOLBOX_DOCK_PATH):
+			var tb_scr: Script = load(TOOLBOX_DOCK_PATH) as Script
+			if tb_scr != null:
+				var base_ctrl: Control = get_editor_interface().get_base_control()
+				_toolbox_dialog = AcceptDialog.new()
+				_toolbox_dialog.title = "RetroBlox Toolbox — Marketplace, Inventory & Creations"
+				_toolbox_dialog.ok_button_text = "Close Toolbox"
+				_toolbox_dialog.size = Vector2i(780, 560)
+				_toolbox_dialog.min_size = Vector2i(360, 300)
+				_toolbox_dialog.unresizable = false
+				_toolbox_window_panel = tb_scr.new() as Control
+				_toolbox_window_panel.set("plugin", self)
+				_toolbox_window_panel.set("is_window_instance", true)
+				_toolbox_window_panel.custom_minimum_size = Vector2(740, 480)
+				if _toolbox_dock != null:
+					_toolbox_window_panel.set("peer_toolbox", _toolbox_dock)
+					_toolbox_dock.set("peer_toolbox", _toolbox_window_panel)
+				_toolbox_dialog.close_requested.connect(_on_close_toolbox_window)
+				_toolbox_dialog.canceled.connect(_on_close_toolbox_window)
+				_toolbox_dialog.confirmed.connect(_on_close_toolbox_window)
+				_toolbox_dialog.add_child(_toolbox_window_panel)
+				base_ctrl.add_child(_toolbox_dialog)
 	if _toolbox_window_panel != null and is_instance_valid(_toolbox_window_panel):
 		if _toolbox_window_panel.has_method("reload_catalog"):
 			_toolbox_window_panel.call("reload_catalog")
@@ -1273,6 +1311,55 @@ func _on_part_selected(id: int) -> void:
 		part.add_to_group("ladder")
 		part.add_to_group("climb")
 		part.collision_layer = 17
+	elif id == 7:
+		part.name = "SmallBrick"
+		part_size = Vector3(2.0, 1.0, 1.0)
+		box_mesh.size = part_size
+		shape_box.size = part_size
+		mesh_inst.mesh = box_mesh
+		col_shape.shape = shape_box
+	elif id == 8:
+		part.name = "SmallSphere"
+		part_size = Vector3(2.0, 2.0, 2.0)
+		var sph_mesh2: SphereMesh = SphereMesh.new()
+		sph_mesh2.resource_local_to_scene = true
+		sph_mesh2.radius = 1.0
+		sph_mesh2.height = 2.0
+		var sph_shape2: SphereShape3D = SphereShape3D.new()
+		sph_shape2.resource_local_to_scene = true
+		sph_shape2.radius = 1.0
+		mesh_inst.mesh = sph_mesh2
+		col_shape.shape = sph_shape2
+	elif id == 9:
+		part.name = "Triangle"
+		part_size = Vector3(4.0, 2.0, 2.0)
+		var ptri: PrismMesh = PrismMesh.new()
+		ptri.resource_local_to_scene = true
+		ptri.size = part_size
+		ptri.left_to_right = 0.5
+		mesh_inst.mesh = ptri
+		var conv := ConvexPolygonShape3D.new()
+		conv.points = PackedVector3Array([
+			Vector3(-2.0, -1.0, -1.0), Vector3(2.0, -1.0, -1.0),
+			Vector3(-2.0, -1.0, 1.0), Vector3(2.0, -1.0, 1.0),
+			Vector3(0.0, 1.0, -1.0), Vector3(0.0, 1.0, 1.0)
+		])
+		col_shape.shape = conv
+	elif id == 10:
+		# Hollow Circle (Pipe / Ring)
+		return _spawn_csg_hollow_circle(root, target_parent, collapsed_state)
+	elif id == 11:
+		# Hollow Cube (Room Frame)
+		return _spawn_csg_hollow_cube(root, target_parent, collapsed_state)
+	elif id == 12:
+		# Hollow Triangle
+		return _spawn_csg_hollow_triangle(root, target_parent, collapsed_state)
+	elif id == 20:
+		# CSG Union
+		return _spawn_csg_union(root, target_parent, collapsed_state)
+	elif id == 21:
+		# CSG Subtract
+		return _spawn_csg_subtract(root, target_parent, collapsed_state)
 
 	mesh_inst.material_override = _make_default_stud_material()
 
@@ -1288,6 +1375,181 @@ func _on_part_selected(id: int) -> void:
 	_unlink_node_resources_recursive(part)
 
 	call_deferred("_restore_collapsed_items", collapsed_state)
+
+
+func _spawn_csg_hollow_circle(root: Node, target_parent: Node, collapsed_state: Dictionary) -> void:
+	var csg := CSGCombiner3D.new()
+	csg.name = "HollowCircle"
+	csg.use_collision = true
+	var outer := CSGCylinder3D.new()
+	outer.name = "OuterCylinder"
+	outer.radius = 3.0
+	outer.height = 2.0
+	outer.sides = 24
+	outer.material = _make_default_stud_material()
+	var inner := CSGCylinder3D.new()
+	inner.name = "InnerCutout"
+	inner.operation = CSGShape3D.OPERATION_SUBTRACTION
+	inner.radius = 2.2
+	inner.height = 2.4
+	inner.sides = 24
+	csg.add_child(outer)
+	csg.add_child(inner)
+	target_parent.add_child(csg, true)
+	csg.owner = root
+	outer.owner = root
+	inner.owner = root
+	csg.global_position = _get_camera_look_spawn_world_pos(1.0)
+	_select_single_node(csg)
+	call_deferred("_restore_collapsed_items", collapsed_state)
+
+
+func _spawn_csg_hollow_cube(root: Node, target_parent: Node, collapsed_state: Dictionary) -> void:
+	var csg := CSGCombiner3D.new()
+	csg.name = "HollowCube"
+	csg.use_collision = true
+	var outer := CSGBox3D.new()
+	outer.name = "OuterBox"
+	outer.size = Vector3(6.0, 6.0, 6.0)
+	outer.material = _make_default_stud_material()
+	var inner := CSGBox3D.new()
+	inner.name = "InnerCutout"
+	inner.operation = CSGShape3D.OPERATION_SUBTRACTION
+	inner.size = Vector3(5.0, 5.0, 5.0)
+	csg.add_child(outer)
+	csg.add_child(inner)
+	target_parent.add_child(csg, true)
+	csg.owner = root
+	outer.owner = root
+	inner.owner = root
+	csg.global_position = _get_camera_look_spawn_world_pos(3.0)
+	_select_single_node(csg)
+	call_deferred("_restore_collapsed_items", collapsed_state)
+
+
+func _spawn_csg_hollow_triangle(root: Node, target_parent: Node, collapsed_state: Dictionary) -> void:
+	var csg := CSGCombiner3D.new()
+	csg.name = "HollowTriangle"
+	csg.use_collision = true
+	var outer := CSGMesh3D.new()
+	outer.name = "OuterPrism"
+	var om := PrismMesh.new()
+	om.size = Vector3(6.0, 4.0, 4.0)
+	outer.mesh = om
+	outer.material = _make_default_stud_material()
+	var inner := CSGMesh3D.new()
+	inner.name = "InnerCutout"
+	inner.operation = CSGShape3D.OPERATION_SUBTRACTION
+	var im := PrismMesh.new()
+	im.size = Vector3(4.5, 3.2, 4.6)
+	inner.mesh = im
+	inner.position = Vector3(0.0, -0.35, 0.0)
+	csg.add_child(outer)
+	csg.add_child(inner)
+	target_parent.add_child(csg, true)
+	csg.owner = root
+	outer.owner = root
+	inner.owner = root
+	csg.global_position = _get_camera_look_spawn_world_pos(2.0)
+	_select_single_node(csg)
+	call_deferred("_restore_collapsed_items", collapsed_state)
+
+
+func _spawn_csg_union(root: Node, target_parent: Node, collapsed_state: Dictionary) -> void:
+	_perform_csg_boolean(root, target_parent, collapsed_state, false)
+
+
+func _spawn_csg_subtract(root: Node, target_parent: Node, collapsed_state: Dictionary) -> void:
+	_perform_csg_boolean(root, target_parent, collapsed_state, true)
+
+
+func _perform_csg_boolean(root: Node, target_parent: Node, collapsed_state: Dictionary, is_subtract: bool) -> void:
+	var sel: EditorSelection = get_editor_interface().get_selection()
+	var selected: Array[Node] = sel.get_selected_nodes() if sel != null else []
+	var valid_nodes: Array[Node3D] = []
+	for n in selected:
+		if n is Node3D and n != root and is_instance_valid(n):
+			valid_nodes.append(n as Node3D)
+
+	var csg := CSGCombiner3D.new()
+	csg.name = "CSGSubtract" if is_subtract else "CSGUnion"
+	csg.use_collision = true
+	target_parent.add_child(csg, true)
+	csg.owner = root
+
+	if valid_nodes.size() >= 2:
+		csg.global_position = valid_nodes[0].global_position
+		for i in range(valid_nodes.size()):
+			var src: Node3D = valid_nodes[i]
+			var child_csg: CSGShape3D = _node_to_csg_shape(src)
+			if child_csg != null:
+				child_csg.operation = CSGShape3D.OPERATION_SUBTRACTION if (is_subtract and i > 0) else CSGShape3D.OPERATION_UNION
+				var xform: Transform3D = src.global_transform
+				csg.add_child(child_csg, true)
+				child_csg.owner = root
+				child_csg.global_transform = xform
+				src.queue_free()
+	else:
+		csg.global_position = _get_camera_look_spawn_world_pos(2.0)
+		var a := CSGBox3D.new()
+		a.name = "BaseBox"
+		a.size = Vector3(4.0, 4.0, 4.0)
+		a.material = _make_default_stud_material()
+		var b := CSGBox3D.new()
+		b.name = "OpBox"
+		b.size = Vector3(2.5, 2.5, 5.0) if is_subtract else Vector3(4.0, 2.0, 4.0)
+		b.position = Vector3(0.0, 0.5, 0.0) if is_subtract else Vector3(2.0, 1.0, 0.0)
+		b.operation = CSGShape3D.OPERATION_SUBTRACTION if is_subtract else CSGShape3D.OPERATION_UNION
+		b.material = _make_default_stud_material()
+		csg.add_child(a)
+		csg.add_child(b)
+		a.owner = root
+		b.owner = root
+
+	_select_single_node(csg)
+	call_deferred("_restore_collapsed_items", collapsed_state)
+
+
+func _node_to_csg_shape(node: Node3D) -> CSGShape3D:
+	var mi: MeshInstance3D = node as MeshInstance3D
+	if mi == null:
+		mi = node.get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if mi != null and mi.mesh != null:
+		if mi.mesh is BoxMesh:
+			var b := CSGBox3D.new()
+			b.size = (mi.mesh as BoxMesh).size
+			b.material = mi.material_override
+			return b
+		elif mi.mesh is CylinderMesh:
+			var cm := mi.mesh as CylinderMesh
+			var c := CSGCylinder3D.new()
+			c.radius = cm.top_radius
+			c.height = cm.height
+			c.sides = cm.radial_segments
+			c.material = mi.material_override
+			return c
+		elif mi.mesh is SphereMesh:
+			var sm := mi.mesh as SphereMesh
+			var s := CSGSphere3D.new()
+			s.radius = sm.radius
+			s.material = mi.material_override
+			return s
+		else:
+			var gm := CSGMesh3D.new()
+			gm.mesh = mi.mesh.duplicate()
+			gm.material = mi.material_override
+			return gm
+	var fallback := CSGBox3D.new()
+	fallback.size = Vector3(4.0, 2.0, 4.0)
+	fallback.material = _make_default_stud_material()
+	return fallback
+
+
+func _select_single_node(node: Node) -> void:
+	var sel: EditorSelection = get_editor_interface().get_selection()
+	if sel != null:
+		sel.clear()
+		sel.add_node(node)
 
 
 # ============================================================================
@@ -1465,6 +1727,19 @@ func _on_toggle_builder_panel() -> void:
 			_builder_panel.show()
 			if _builder_btn != null:
 				_builder_btn.button_pressed = true
+
+
+func _on_open_block_code() -> void:
+	if _block_code_dialog == null:
+		var base_ctrl: Control = get_editor_interface().get_base_control()
+		if ResourceLoader.exists(BLOCK_CODE_DIALOG_PATH):
+			var bc_scr: Script = load(BLOCK_CODE_DIALOG_PATH) as Script
+			if bc_scr != null:
+				_block_code_dialog = bc_scr.new() as AcceptDialog
+				_block_code_dialog.set("plugin", self)
+				base_ctrl.add_child(_block_code_dialog)
+	if _block_code_dialog != null:
+		_block_code_dialog.popup_centered_ratio(0.85)
 
 
 func _on_open_orchestrator() -> void:

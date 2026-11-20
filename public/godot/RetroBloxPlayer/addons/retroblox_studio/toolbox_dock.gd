@@ -74,11 +74,18 @@ var _recent_ids: Array[String] = []
 var _liked_ids: Dictionary = {}     # item_id -> true
 var _likes_bonus: Dictionary = {}   # item_id -> int delta
 var _custom_icons: Dictionary = {}  # item_id -> icon file path
+var _item_tiers: Dictionary = {}    # item_id -> "gem" | "mythic" | "featured" | ""
 var _deleted_item_ids: Dictionary = {} # item_id -> true
 var _thumb_cache: Dictionary = {}
 var _icon_cache: Dictionary = {}
 var _shield_tex: Texture2D = null
 var _thumb_up_tex: Texture2D = null
+var _render_limit: int = 36
+var _did_initial_build: bool = false
+var _assetlib_loaded: bool = false
+var _assetlib_loading: bool = false
+var _last_plugin_query: String = ""
+const PLUGIN_ICONS_CACHE_DIR: String = "user://retroblox_plugin_icons"
 
 
 func _ready() -> void:
@@ -91,8 +98,16 @@ func _ready() -> void:
 	_shield_tex = _build_shield_texture()
 	_thumb_up_tex = _get_tab_icon("thumb_up")
 	_build_ui()
-	reload_catalog()
-	call_deferred("_sync_from_cloud_marketplace", true)
+	visibility_changed.connect(_on_toolbox_visibility_changed)
+	if is_window_instance or is_visible_in_tree():
+		_did_initial_build = true
+		reload_catalog()
+
+
+func _on_toolbox_visibility_changed() -> void:
+	if not _did_initial_build and is_visible_in_tree():
+		_did_initial_build = true
+		reload_catalog()
 
 
 func _ensure_dirs() -> void:
@@ -116,6 +131,8 @@ func _load_ratings_state() -> void:
 			_likes_bonus = (d["bonus"] as Dictionary).duplicate()
 		if d.get("icons") is Dictionary:
 			_custom_icons = (d["icons"] as Dictionary).duplicate()
+		if d.get("tiers") is Dictionary:
+			_item_tiers = (d["tiers"] as Dictionary).duplicate()
 
 
 func _save_ratings_state() -> void:
@@ -126,6 +143,7 @@ func _save_ratings_state() -> void:
 		"liked": _liked_ids,
 		"bonus": _likes_bonus,
 		"icons": _custom_icons,
+		"tiers": _item_tiers,
 	}, "\t"))
 
 
@@ -254,7 +272,7 @@ func _build_ui() -> void:
 	ddsb.content_margin_right = 6.0
 
 	_type_dropdown = OptionButton.new()
-	for t_name in ["Models", "Lighting", "Scripts", "UI / GUIs", "Folders", "ROBLOX Sets", "Decals", "Meshes", "Audio", "All Types"]:
+	for t_name in ["Models", "Plugins", "Lighting", "Scripts", "UI / GUIs", "Folders", "ROBLOX Sets", "Decals", "Meshes", "Audio", "All Types"]:
 		_type_dropdown.add_item(t_name)
 	_type_dropdown.custom_minimum_size = Vector2(92, 28)
 	_type_dropdown.add_theme_font_size_override("font_size", 12)
@@ -262,6 +280,8 @@ func _build_ui() -> void:
 	_type_dropdown.item_selected.connect(func(idx: int) -> void:
 		_active_type_filter = _type_dropdown.get_item_text(idx)
 		_active_subcat = ""
+		if _active_type_filter == "Plugins" and not _assetlib_loaded:
+			_fetch_assetlib_plugins(_search_box.text.strip_edges() if _search_box != null else "")
 		_rebuild_content()
 	)
 	search_row.add_child(_type_dropdown)
@@ -283,7 +303,11 @@ func _build_ui() -> void:
 	sfocus.border_color = Color(0.0, 0.64, 1.0, 1.0)
 	_search_box.add_theme_stylebox_override("normal", ssb)
 	_search_box.add_theme_stylebox_override("focus", sfocus)
-	_search_box.text_changed.connect(func(_t: String) -> void: _rebuild_content())
+	_search_box.text_changed.connect(func(t: String) -> void:
+		if _active_type_filter == "Plugins" and t.strip_edges().length() >= 2:
+			_fetch_assetlib_plugins(t.strip_edges())
+		_rebuild_content()
+	)
 	search_row.add_child(_search_box)
 
 	# Filter & Sort Row (Filter Models by Script/Verified/Top Rated/My Liked + Sort by Thumbs Up!)
@@ -802,8 +826,17 @@ func _rebuild_content() -> void:
 	grid.add_theme_constant_override("v_separation", 12)
 	_content_vbox.add_child(grid)
 
-	for item in filtered:
-		grid.add_child(_build_thumbnail_tile(item))
+	var shown_count: int = mini(filtered.size(), _render_limit)
+	for i in range(shown_count):
+		grid.add_child(_build_thumbnail_tile(filtered[i]))
+
+	if filtered.size() > shown_count:
+		var more_btn: Button = _make_flat_btn("Show More (%d remaining)" % (filtered.size() - shown_count), Color(0.20, 0.36, 0.56), Color.WHITE)
+		more_btn.pressed.connect(func() -> void:
+			_render_limit += 36
+			_rebuild_content()
+		)
+		_content_vbox.add_child(more_btn)
 
 	if filtered.is_empty():
 		var empty_lbl: Label = Label.new()
@@ -833,6 +866,7 @@ func _build_marketplace_home_view() -> void:
 	_content_vbox.add_child(cat_grid)
 
 	var cat_cards: Array[Dictionary] = [
+		{"title": "PLUGINS", "subcat": "PLUGINS", "type": "Plugins", "bg": Color(0.16, 0.52, 0.42), "thumb": "script"},
 		{"title": "VEHICLES", "subcat": "VEHICLES", "type": "Models", "bg": Color(0.66, 0.22, 0.22), "thumb": "car"},
 		{"title": "STRUCTURE", "subcat": "STRUCTURE", "type": "Models", "bg": Color(0.32, 0.72, 0.78), "thumb": "watchtower"},
 		{"title": "LIGHT", "subcat": "LIGHT", "type": "Models", "bg": Color(0.72, 0.75, 0.78), "thumb": "street_lamp"},
@@ -842,6 +876,60 @@ func _build_marketplace_home_view() -> void:
 	]
 	for cc in cat_cards:
 		cat_grid.add_child(_build_category_banner_tile(cc))
+
+	# 1. GEMS AT THE TOP
+	var gem_items: Array[Dictionary] = []
+	var mythic_items: Array[Dictionary] = []
+	var featured_items: Array[Dictionary] = []
+	for item in _catalog_items:
+		var t: String = _get_item_tier(item)
+		if t == "gem":
+			gem_items.append(item)
+		elif t == "mythic":
+			mythic_items.append(item)
+		elif t == "featured":
+			featured_items.append(item)
+
+	if not gem_items.is_empty():
+		_content_vbox.add_child(_make_section_header("💎 Gems (Top Picks)", func() -> void:
+			_active_subcat = "ALL_LIST"
+			_rebuild_content()
+		))
+		var gem_grid: HFlowContainer = HFlowContainer.new()
+		gem_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gem_grid.add_theme_constant_override("h_separation", 10)
+		gem_grid.add_theme_constant_override("v_separation", 10)
+		_content_vbox.add_child(gem_grid)
+		for gitem in gem_items:
+			gem_grid.add_child(_build_thumbnail_tile(gitem))
+
+	# 2. FEATURED AT THE TOP (Right below Gems)
+	if not featured_items.is_empty():
+		_content_vbox.add_child(_make_section_header("⭐ Featured", func() -> void:
+			_active_subcat = "ALL_LIST"
+			_rebuild_content()
+		))
+		var feat_grid: HFlowContainer = HFlowContainer.new()
+		feat_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		feat_grid.add_theme_constant_override("h_separation", 10)
+		feat_grid.add_theme_constant_override("v_separation", 10)
+		_content_vbox.add_child(feat_grid)
+		for fitem in featured_items:
+			feat_grid.add_child(_build_thumbnail_tile(fitem))
+
+	# 3. MYTHIC PICKS (Shows Very Often)
+	if not mythic_items.is_empty():
+		_content_vbox.add_child(_make_section_header("✨ Mythic (Shown Often)", func() -> void:
+			_active_subcat = "ALL_LIST"
+			_rebuild_content()
+		))
+		var myth_grid: HFlowContainer = HFlowContainer.new()
+		myth_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		myth_grid.add_theme_constant_override("h_separation", 10)
+		myth_grid.add_theme_constant_override("v_separation", 10)
+		_content_vbox.add_child(myth_grid)
+		for mitem in mythic_items:
+			myth_grid.add_child(_build_thumbnail_tile(mitem))
 
 	var dev_items: Array[Dictionary] = []
 	for item in _catalog_items:
@@ -958,6 +1046,8 @@ func _build_category_banner_tile(cc: Dictionary) -> Button:
 			if _type_dropdown.get_item_text(i) == type_str:
 				_type_dropdown.selected = i
 				break
+		if type_str == "Plugins" and not _assetlib_loaded:
+			_fetch_assetlib_plugins("")
 		_rebuild_content()
 	)
 	return btn
@@ -988,6 +1078,37 @@ func _toggle_thumbs_up(item: Dictionary) -> void:
 	_rebuild_content()
 
 
+func _get_item_tier(item: Dictionary) -> String:
+	var item_id: String = String(item.get("id", ""))
+	if _item_tiers.has(item_id):
+		return String(_item_tiers[item_id])
+	return String(item.get("tier", ""))
+
+
+func _cycle_item_tier(item: Dictionary) -> void:
+	var item_id: String = String(item.get("id", ""))
+	if item_id == "":
+		return
+	var cur: String = _get_item_tier(item)
+	var nxt: String = ""
+	if cur == "":
+		nxt = "gem"
+	elif cur == "gem":
+		nxt = "mythic"
+	elif cur == "mythic":
+		nxt = "featured"
+	else:
+		nxt = ""
+	if nxt == "":
+		_item_tiers.erase(item_id)
+	else:
+		_item_tiers[item_id] = nxt
+	_save_ratings_state()
+	var label_txt: String = "Normal" if nxt == "" else nxt.capitalize()
+	_set_status("Marked '%s' as %s!" % [String(item.get("name", "")), label_txt], Color(0.55, 0.92, 1.0))
+	_rebuild_content()
+
+
 func _build_thumbnail_tile(item: Dictionary) -> VBoxContainer:
 	var tile: VBoxContainer = VBoxContainer.new()
 	tile.custom_minimum_size = Vector2(96, 162)
@@ -996,6 +1117,8 @@ func _build_thumbnail_tile(item: Dictionary) -> VBoxContainer:
 	var captured: Dictionary = item.duplicate()
 	var item_id: String = String(captured.get("id", ""))
 	var is_builtin: bool = bool(captured.get("builtin", false))
+	var is_plugin: bool = (String(captured.get("type", "")) == "plugin")
+	var item_tier: String = _get_item_tier(captured)
 	var likes_count: int = _get_item_likes(captured)
 	var is_liked: bool = bool(_liked_ids.get(item_id, false))
 
@@ -1010,13 +1133,31 @@ func _build_thumbnail_tile(item: Dictionary) -> VBoxContainer:
 	else:
 		tsb.bg_color = Color(0.11, 0.11, 0.11, 1.0)
 	tsb.set_corner_radius_all(4)
-	tsb.set_border_width_all(1)
-	tsb.border_color = Color(0.24, 0.24, 0.24, 1.0)
+	if item_tier == "gem":
+		tsb.set_border_width_all(2)
+		tsb.border_color = Color(0.20, 0.85, 1.0, 1.0)
+	elif item_tier == "mythic":
+		tsb.set_border_width_all(2)
+		tsb.border_color = Color(0.85, 0.32, 1.0, 1.0)
+	elif item_tier == "featured":
+		tsb.set_border_width_all(2)
+		tsb.border_color = Color(1.0, 0.78, 0.22, 1.0)
+	else:
+		tsb.set_border_width_all(1)
+		tsb.border_color = Color(0.24, 0.24, 0.24, 1.0)
 	thumb_container.add_theme_stylebox_override("panel", tsb)
 	tile.add_child(thumb_container)
 
 	var tex_rect: TextureRect = TextureRect.new()
 	tex_rect.texture = _get_item_thumbnail(captured)
+	if is_plugin and String(captured.get("icon_url", "")) != "":
+		var cached_icon: String = PLUGIN_ICONS_CACHE_DIR + "/%s.png" % String(captured.get("asset_id", item_id))
+		if FileAccess.file_exists(cached_icon):
+			var ctex: Texture2D = _load_texture_from_any_path(cached_icon)
+			if ctex != null:
+				tex_rect.texture = ctex
+		else:
+			call_deferred("_fetch_plugin_icon_async", String(captured.get("asset_id", item_id)), String(captured.get("icon_url", "")), tex_rect)
 	tex_rect.custom_minimum_size = Vector2(80, 80)
 	tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -1075,26 +1216,33 @@ func _build_thumbnail_tile(item: Dictionary) -> VBoxContainer:
 	rate_row.add_theme_constant_override("v_separation", 2)
 	tile.add_child(rate_row)
 
-	var like_btn: Button = Button.new()
-	like_btn.icon = _thumb_up_tex
-	like_btn.text = str(likes_count)
-	like_btn.focus_mode = Control.FOCUS_NONE
-	like_btn.custom_minimum_size = Vector2(46, 20)
-	like_btn.tooltip_text = "Click to rate '%s' with a Thumbs Up!" % raw_title
-	var lsb: StyleBoxFlat = StyleBoxFlat.new()
-	lsb.bg_color = Color(0.14, 0.42, 0.22, 1.0) if is_liked else Color(0.18, 0.19, 0.22, 1.0)
-	lsb.border_color = Color(0.32, 0.85, 0.45, 1.0) if is_liked else Color(0.28, 0.30, 0.34, 1.0)
-	lsb.set_border_width_all(1)
-	lsb.set_corner_radius_all(3)
-	lsb.content_margin_left = 4.0
-	lsb.content_margin_right = 5.0
-	like_btn.add_theme_stylebox_override("normal", lsb)
-	like_btn.add_theme_stylebox_override("hover", lsb)
-	like_btn.add_theme_stylebox_override("pressed", lsb)
-	like_btn.add_theme_color_override("font_color", Color(0.65, 1.0, 0.72) if is_liked else Color(0.82, 0.85, 0.90))
-	like_btn.add_theme_font_size_override("font_size", 10)
-	like_btn.pressed.connect(func() -> void: _toggle_thumbs_up(captured))
-	rate_row.add_child(like_btn)
+	if not is_plugin:
+		var like_btn: Button = Button.new()
+		like_btn.icon = _thumb_up_tex
+		like_btn.text = str(likes_count)
+		like_btn.focus_mode = Control.FOCUS_NONE
+		like_btn.custom_minimum_size = Vector2(46, 20)
+		like_btn.tooltip_text = "Click to rate '%s' with a Thumbs Up!" % raw_title
+		var lsb: StyleBoxFlat = StyleBoxFlat.new()
+		lsb.bg_color = Color(0.14, 0.42, 0.22, 1.0) if is_liked else Color(0.18, 0.19, 0.22, 1.0)
+		lsb.border_color = Color(0.32, 0.85, 0.45, 1.0) if is_liked else Color(0.28, 0.30, 0.34, 1.0)
+		lsb.set_border_width_all(1)
+		lsb.set_corner_radius_all(3)
+		lsb.content_margin_left = 4.0
+		lsb.content_margin_right = 5.0
+		like_btn.add_theme_stylebox_override("normal", lsb)
+		like_btn.add_theme_stylebox_override("hover", lsb)
+		like_btn.add_theme_stylebox_override("pressed", lsb)
+		like_btn.add_theme_color_override("font_color", Color(0.65, 1.0, 0.72) if is_liked else Color(0.82, 0.85, 0.90))
+		like_btn.add_theme_font_size_override("font_size", 10)
+		like_btn.pressed.connect(func() -> void: _toggle_thumbs_up(captured))
+		rate_row.add_child(like_btn)
+	else:
+		var ver_lbl: Label = Label.new()
+		ver_lbl.text = "v" + String(captured.get("version", "1.0"))
+		ver_lbl.add_theme_color_override("font_color", Color(0.62, 0.85, 0.75))
+		ver_lbl.add_theme_font_size_override("font_size", 10)
+		rate_row.add_child(ver_lbl)
 
 	var icon_btn: Button = _make_mini_btn("Icon", Color(0.26, 0.24, 0.38))
 	icon_btn.tooltip_text = "Change the thumbnail icon image for '%s'" % raw_title
@@ -1108,6 +1256,26 @@ func _build_thumbnail_tile(item: Dictionary) -> VBoxContainer:
 	mini_row.add_theme_constant_override("h_separation", 3)
 	mini_row.add_theme_constant_override("v_separation", 2)
 	tile.add_child(mini_row)
+
+	if is_plugin:
+		var addon_dir: String = String(captured.get("addon_dir", ""))
+		var is_installed: bool = addon_dir != "" and DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://addons/" + addon_dir))
+		var pbtn: Button = _make_mini_btn("Uninstall" if is_installed else "Install", Color(0.55, 0.22, 0.22) if is_installed else Color(0.16, 0.56, 0.34))
+		pbtn.tooltip_text = ("Uninstall %s from res://addons/" if is_installed else "Download & Install %s from Godot Asset Library") % raw_title
+		pbtn.pressed.connect(func() -> void:
+			if is_installed:
+				_uninstall_plugin_from_toolbox(captured)
+			else:
+				_install_plugin_from_toolbox(captured)
+		)
+		mini_row.add_child(pbtn)
+
+	var tier_label: String = "💎" if item_tier == "gem" else ("✨" if item_tier == "mythic" else ("⭐" if item_tier == "featured" else "Tier"))
+	var tier_bg: Color = Color(0.12, 0.45, 0.62) if item_tier == "gem" else (Color(0.45, 0.18, 0.58) if item_tier == "mythic" else (Color(0.55, 0.42, 0.12) if item_tier == "featured" else Color(0.24, 0.24, 0.28)))
+	var tier_btn: Button = _make_mini_btn(tier_label, tier_bg)
+	tier_btn.tooltip_text = "Mark Tier: Gem (Top) -> Mythic (Often) -> Featured (Down) -> Normal"
+	tier_btn.pressed.connect(func() -> void: _cycle_item_tier(captured))
+	mini_row.add_child(tier_btn)
 
 	var scr_path: String = String(captured.get("script_path", ""))
 	if scr_path != "" and FileAccess.file_exists(scr_path):
@@ -1209,18 +1377,44 @@ func _get_filtered_items() -> Array[Dictionary]:
 
 		out.append(item)
 
-	# Sort Dropdown
+	# Sort Dropdown (Tier Priority: Gem fully on top -> Featured on top -> Mythic -> Normal)
+	var tier_rank := func(it: Dictionary) -> int:
+		var tr: String = _get_item_tier(it)
+		if tr == "gem":
+			return 0
+		elif tr == "featured":
+			return 1
+		elif tr == "mythic":
+			return 2
+		return 3
+
 	if sort_mode == 1: # Most Thumbs Up
 		out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var ra: int = tier_rank.call(a)
+			var rb: int = tier_rank.call(b)
+			if ra != rb:
+				return ra < rb
 			return _get_item_likes(a) > _get_item_likes(b)
 		)
 	elif sort_mode == 2: # Newest (user creations first)
 		out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var ra: int = tier_rank.call(a)
+			var rb: int = tier_rank.call(b)
+			if ra != rb:
+				return ra < rb
 			return not bool(a.get("builtin", false)) and bool(b.get("builtin", false))
 		)
 	elif sort_mode == 3: # A - Z
 		out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var ra: int = tier_rank.call(a)
+			var rb: int = tier_rank.call(b)
+			if ra != rb:
+				return ra < rb
 			return String(a.get("name", "")).to_lower() < String(b.get("name", "")).to_lower()
+		)
+	else:
+		out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return tier_rank.call(a) < tier_rank.call(b)
 		)
 
 	return out
@@ -2335,8 +2529,10 @@ func _confirm_publish_selected() -> void:
 # ============================================================================
 
 func _normalize_category(raw_cat: String, item_type: String) -> String:
-	if raw_cat in ["Models", "Lighting", "UI / GUIs", "Scripts", "Folders", "Audio & Decals"]:
+	if raw_cat in ["Models", "Plugins", "Lighting", "UI / GUIs", "Scripts", "Folders", "Audio & Decals"]:
 		return raw_cat
+	if item_type == "plugin" or raw_cat == "Plugins":
+		return "Plugins"
 	if item_type == "lighting" or raw_cat == "Lighting":
 		return "Lighting"
 		return raw_cat
@@ -2439,7 +2635,228 @@ func reload_catalog() -> void:
 							seen_ids[item_id] = true
 							_catalog_items.append(d)
 
+	_append_builtin_plugins(seen_ids)
 	_rebuild_content()
+
+
+func _append_builtin_plugins(seen_ids: Dictionary) -> void:
+	var plugins_list: Array[Dictionary] = [
+		{
+			"id": "plugin_cyclops_level_builder",
+			"name": "Cyclops Level Builder",
+			"creator": "Mark McKay (AssetLib)",
+			"version": "1.5.2",
+			"category": "Plugins",
+			"subcat": "PLUGINS",
+			"type": "plugin",
+			"addon_dir": "cyclops_level_builder",
+			"download_url": "https://github.com/blackears/cyclopsLevelBuilder/archive/refs/heads/master.zip",
+			"icon_path": "res://assets/icons/toolbox_plugins/cyclops_level_builder.png",
+			"description": "3D level blockout & geometry tools (integrated with BuildersUI). Click Install to add to res://addons/.",
+			"tags": "cyclops level builder blockout plugin assetlib",
+			"thumbs_up": 0,
+			"builtin": true,
+			"verified": true,
+		},
+		{
+			"id": "plugin_orchestrator",
+			"name": "Orchestrator",
+			"creator": "CraterCrash (AssetLib)",
+			"version": "2.1",
+			"category": "Plugins",
+			"subcat": "PLUGINS",
+			"type": "plugin",
+			"addon_dir": "orchestrator",
+			"download_url": "https://github.com/CraterCrash/godot-orchestrator/archive/refs/heads/main.zip",
+			"icon_path": "res://assets/icons/toolbox_plugins/orchestrator.png",
+			"description": "Visual scripting / node-graph plugin from Godot Asset Library.",
+			"tags": "orchestrator visual script blueprint plugin assetlib",
+			"thumbs_up": 0,
+			"builtin": true,
+			"verified": true,
+		},
+		{
+			"id": "plugin_block_coding",
+			"name": "Block Coding",
+			"creator": "Endless OS (AssetLib #3095)",
+			"version": "0.10.1",
+			"category": "Plugins",
+			"subcat": "PLUGINS",
+			"type": "plugin",
+			"addon_dir": "block_coding",
+			"download_url": "https://github.com/endlessm/godot-block-coding/archive/f93dd517e58bc057a807bf355a8c259534477390.zip",
+			"icon_path": "res://assets/icons/toolbox_plugins/block_coding.png",
+			"description": "Scratch-style visual block coding plugin from Godot Asset Library.",
+			"tags": "block coding scratch visual programming plugin assetlib",
+			"thumbs_up": 0,
+			"builtin": true,
+			"verified": true,
+		},
+		{
+			"id": "plugin_phantom_camera",
+			"name": "Phantom Camera",
+			"creator": "ramokz (AssetLib #1822)",
+			"version": "0.12",
+			"category": "Plugins",
+			"subcat": "PLUGINS",
+			"type": "plugin",
+			"addon_dir": "phantom_camera",
+			"download_url": "https://github.com/ramokz/phantom-camera/archive/0094dde432696c7dad238bde971eb82b002d8d54.zip",
+			"icon_path": "res://assets/icons/toolbox_plugins/phantom_camera.png",
+			"description": "Smooth cinematic & follow camera system from Godot Asset Library.",
+			"tags": "phantom camera 3d follow cinematic plugin assetlib",
+			"thumbs_up": 0,
+			"builtin": true,
+			"verified": true,
+		},
+		{
+			"id": "plugin_shaker",
+			"name": "Shaker",
+			"creator": "Eneskp3441 (AssetLib #3137)",
+			"version": "1.0.7",
+			"category": "Plugins",
+			"subcat": "PLUGINS",
+			"type": "plugin",
+			"addon_dir": "shaker",
+			"download_url": "https://github.com/Eneskp3441/Shaker/archive/c127bcc49416cf1f3fb4dec63aca644b3788def9.zip",
+			"icon_path": "res://assets/icons/toolbox_plugins/shaker.png",
+			"description": "Camera & node shake effects plugin from Godot Asset Library.",
+			"tags": "shaker camera shake fx plugin assetlib",
+			"thumbs_up": 0,
+			"builtin": true,
+			"verified": true,
+		},
+		{
+			"id": "plugin_godot_jolt",
+			"name": "Godot Jolt",
+			"creator": "Jolt Physics (AssetLib #1918)",
+			"version": "0.15.0",
+			"category": "Plugins",
+			"subcat": "PLUGINS",
+			"type": "plugin",
+			"addon_dir": "godot-jolt",
+			"download_url": "https://github.com/godot-jolt/godot-asset-library/releases/download/v0.15.0-stable/godot-jolt_v0.15.0-stable.zip",
+			"icon_path": "res://assets/icons/toolbox_plugins/godot_jolt.png",
+			"description": "Jolt Physics GDExtension (optional; Godot 4.4+ also has built-in Jolt).",
+			"tags": "jolt physics plugin assetlib",
+			"thumbs_up": 0,
+			"builtin": true,
+			"verified": true,
+		},
+	]
+	for p in plugins_list:
+		var pid: String = String(p["id"])
+		if not seen_ids.has(pid) and not _deleted_item_ids.has(pid):
+			seen_ids[pid] = true
+			_catalog_items.append(p)
+
+
+func _fetch_assetlib_plugins(query: String = "") -> void:
+	if _assetlib_loading:
+		return
+	if _assetlib_loaded and query == _last_plugin_query:
+		return
+	_assetlib_loading = true
+	_last_plugin_query = query
+	_set_status("Loading plugins from Godot Asset Library...", Color(0.55, 0.85, 1.0))
+
+	var url: String = "https://godotengine.org/asset-library/api/asset?type=addon&godot_version=4.4&sort=rating&max_results=60"
+	if query != "":
+		url += "&filter=" + query.uri_encode()
+
+	var http: HTTPRequest = HTTPRequest.new()
+	http.timeout = 15.0
+	add_child(http)
+	var err: int = http.request(url)
+	if err != OK:
+		http.queue_free()
+		_assetlib_loading = false
+		return
+	var res: Array = await http.request_completed
+	http.queue_free()
+	_assetlib_loading = false
+	if res.size() < 4 or int(res[1]) != 200:
+		return
+	var parsed: Variant = JSON.parse_string((res[3] as PackedByteArray).get_string_from_utf8())
+	if not (parsed is Dictionary):
+		return
+	var results: Variant = (parsed as Dictionary).get("result", [])
+	if not (results is Array):
+		return
+
+	var existing_ids: Dictionary = {}
+	for it in _catalog_items:
+		existing_ids[String(it.get("id", ""))] = true
+
+	var added: int = 0
+	for entry in (results as Array):
+		if not (entry is Dictionary):
+			continue
+		var d: Dictionary = entry as Dictionary
+		var aid: String = String(d.get("asset_id", ""))
+		var title: String = String(d.get("title", "Plugin"))
+		var pid: String = "assetlib_" + aid
+		if aid == "" or existing_ids.has(pid) or _deleted_item_ids.has(pid):
+			continue
+		existing_ids[pid] = true
+		_catalog_items.append({
+			"id": pid,
+			"asset_id": aid,
+			"name": title,
+			"creator": String(d.get("author", "Godot AssetLib")),
+			"version": String(d.get("version_string", "1.0")),
+			"category": "Plugins",
+			"subcat": "PLUGINS",
+			"type": "plugin",
+			"addon_dir": _slugify(title),
+			"icon_url": String(d.get("icon_url", "")),
+			"description": "Godot Asset Library #%s (%s)" % [aid, String(d.get("category", "Addon"))],
+			"tags": title.to_lower() + " plugin addon assetlib",
+			"thumbs_up": 0,
+			"builtin": true,
+			"verified": true,
+		})
+		added += 1
+
+	_assetlib_loaded = true
+	_set_status("Loaded %d Godot Asset Library plugins!" % added, Color(0.45, 0.96, 0.58))
+	_rebuild_content()
+
+
+func _fetch_plugin_icon_async(asset_id: String, icon_url: String, tex_rect: TextureRect) -> void:
+	if icon_url == "" or not is_instance_valid(tex_rect):
+		return
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(PLUGIN_ICONS_CACHE_DIR))
+	var cache_path: String = PLUGIN_ICONS_CACHE_DIR + "/%s.png" % asset_id
+	if FileAccess.file_exists(cache_path):
+		var ctex: Texture2D = _load_texture_from_any_path(cache_path)
+		if ctex != null and is_instance_valid(tex_rect):
+			tex_rect.texture = ctex
+		return
+	var http: HTTPRequest = HTTPRequest.new()
+	http.timeout = 10.0
+	add_child(http)
+	if http.request(icon_url) != OK:
+		http.queue_free()
+		return
+	var res: Array = await http.request_completed
+	http.queue_free()
+	if res.size() < 4 or int(res[1]) != 200:
+		return
+	var bytes: PackedByteArray = res[3]
+	var img: Image = Image.new()
+	var err: int = img.load_png_from_buffer(bytes)
+	if err != OK:
+		err = img.load_jpg_from_buffer(bytes)
+	if err != OK:
+		err = img.load_webp_from_buffer(bytes)
+	if err == OK and not img.is_empty():
+		img.save_png(ProjectSettings.globalize_path(cache_path))
+		img.resize(128, 128, Image.INTERPOLATE_LANCZOS)
+		var tex: ImageTexture = ImageTexture.create_from_image(img)
+		_thumb_cache["file:" + cache_path] = tex
+		if is_instance_valid(tex_rect):
+			tex_rect.texture = tex
 
 
 func _save_user_catalog() -> void:
@@ -2775,6 +3192,13 @@ func _on_files_uploaded(paths: PackedStringArray) -> void:
 
 
 func _insert_toolbox_item(item: Dictionary) -> void:
+	if String(item.get("type", "")) == "plugin":
+		var addon_dir: String = String(item.get("addon_dir", ""))
+		if addon_dir != "" and DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://addons/" + addon_dir)):
+			_uninstall_plugin_from_toolbox(item)
+		else:
+			_install_plugin_from_toolbox(item)
+		return
 	if plugin == null or plugin.get_editor_interface() == null:
 		return
 	var ei: EditorInterface = plugin.get_editor_interface()
@@ -2898,6 +3322,132 @@ func _insert_toolbox_item(item: Dictionary) -> void:
 		String(item.get("creator", "RetroBlox")),
 		spawn_pos.x, spawn_pos.y, spawn_pos.z
 	], Color(0.55, 0.95, 0.65))
+
+
+func _install_plugin_from_toolbox(item: Dictionary) -> void:
+	var dl_url: String = String(item.get("download_url", ""))
+	var asset_id: String = String(item.get("asset_id", ""))
+	var addon_dir: String = String(item.get("addon_dir", ""))
+	var pname: String = String(item.get("name", addon_dir))
+	if dl_url == "" and asset_id != "":
+		_set_status("Fetching download URL for %s..." % pname, Color(0.55, 0.85, 1.0))
+		var meta_http: HTTPRequest = HTTPRequest.new()
+		meta_http.timeout = 12.0
+		add_child(meta_http)
+		if meta_http.request("https://godotengine.org/asset-library/api/asset/" + asset_id) == OK:
+			var mres: Array = await meta_http.request_completed
+			if mres.size() >= 4 and int(mres[1]) == 200:
+				var mp: Variant = JSON.parse_string((mres[3] as PackedByteArray).get_string_from_utf8())
+				if mp is Dictionary:
+					dl_url = String((mp as Dictionary).get("download_url", ""))
+		meta_http.queue_free()
+	if dl_url == "" or addon_dir == "":
+		_set_status("Plugin download info missing for %s." % pname, Color(1.0, 0.55, 0.55))
+		return
+	_set_status("Downloading %s from Godot Asset Library..." % pname, Color(0.55, 0.85, 1.0))
+	var http: HTTPRequest = HTTPRequest.new()
+	http.timeout = 30.0
+	add_child(http)
+	var err: int = http.request(dl_url)
+	if err != OK:
+		http.queue_free()
+		_set_status("Failed to start download for %s." % pname, Color(1.0, 0.55, 0.55))
+		return
+	var res: Array = await http.request_completed
+	http.queue_free()
+	if res.size() < 4 or int(res[1]) < 200 or int(res[1]) >= 300:
+		_set_status("Download failed (HTTP %s) for %s." % [str(res[1] if res.size() > 1 else 0), pname], Color(1.0, 0.55, 0.55))
+		return
+	var bytes: PackedByteArray = res[3]
+	var tmp_zip: String = "user://tmp_plugin_%s.zip" % addon_dir
+	var f: FileAccess = FileAccess.open(tmp_zip, FileAccess.WRITE)
+	if f == null:
+		_set_status("Could not write temporary zip.", Color(1.0, 0.55, 0.55))
+		return
+	f.store_buffer(bytes)
+	f.close()
+
+	var zr: ZIPReader = ZIPReader.new()
+	if zr.open(tmp_zip) != OK:
+		_set_status("Downloaded archive is not a valid ZIP.", Color(1.0, 0.55, 0.55))
+		return
+	var files: PackedStringArray = zr.get_files()
+	var extracted: int = 0
+	var detected_dir: String = addon_dir
+	for entry in files:
+		if entry.ends_with("/"):
+			continue
+		var norm: String = entry.replace("\\", "/")
+		var idx: int = norm.find("addons/" + addon_dir + "/")
+		if idx == -1:
+			idx = norm.find("addons/")
+			if idx == -1:
+				continue
+		var rel_addons: String = norm.substr(idx) # e.g. addons/phantom_camera/...
+		var parts: PackedStringArray = rel_addons.split("/", false)
+		if parts.size() >= 2:
+			detected_dir = parts[1]
+		var out_res: String = "res://" + rel_addons
+		var out_abs: String = ProjectSettings.globalize_path(out_res)
+		DirAccess.make_dir_recursive_absolute(out_abs.get_base_dir())
+		var data: PackedByteArray = zr.read_file(entry)
+		var out_f: FileAccess = FileAccess.open(out_res, FileAccess.WRITE)
+		if out_f != null:
+			out_f.store_buffer(data)
+			out_f.close()
+			extracted += 1
+	zr.close()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp_zip))
+
+	if extracted == 0:
+		_set_status("No addon files found in archive for %s." % pname, Color(1.0, 0.55, 0.55))
+		return
+	item["addon_dir"] = detected_dir
+	if plugin != null and plugin.get_editor_interface() != null:
+		var ei: EditorInterface = plugin.get_editor_interface()
+		var fs: EditorFileSystem = ei.get_resource_filesystem()
+		fs.scan()
+		var guard: int = 0
+		while fs.is_scanning() and guard < 120:
+			await get_tree().process_frame
+			guard += 1
+		await get_tree().create_timer(0.4).timeout
+		var cfg_path: String = "res://addons/%s/plugin.cfg" % detected_dir
+		if FileAccess.file_exists(cfg_path):
+			var pcfg := ConfigFile.new()
+			var can_auto_enable := false
+			if pcfg.load(cfg_path) == OK:
+				var pscript := String(pcfg.get_value("plugin", "script", ""))
+				if pscript != "":
+					var full_scr := "res://addons/%s/%s" % [detected_dir, pscript]
+					if ResourceLoader.exists(full_scr):
+						var loaded_scr = ResourceLoader.load(full_scr)
+						if loaded_scr != null:
+							can_auto_enable = true
+			if can_auto_enable:
+				ei.set_plugin_enabled(detected_dir, true)
+				_set_status("Installed & enabled %s (%d files) in res://addons/%s!" % [pname, extracted, detected_dir], Color(0.45, 0.96, 0.58))
+			else:
+				_set_status("Installed %s to res://addons/%s (enable in Project Settings -> Plugins after reload)." % [pname, detected_dir], Color(0.95, 0.85, 0.40))
+	_rebuild_content()
+
+
+func _uninstall_plugin_from_toolbox(item: Dictionary) -> void:
+	var addon_dir: String = String(item.get("addon_dir", ""))
+	var pname: String = String(item.get("name", addon_dir))
+	if addon_dir == "" or addon_dir == "retroblox_studio":
+		return
+	if plugin != null and plugin.get_editor_interface() != null:
+		var ei: EditorInterface = plugin.get_editor_interface()
+		if ei.is_plugin_enabled(addon_dir):
+			ei.set_plugin_enabled(addon_dir, false)
+	var abs_dir: String = ProjectSettings.globalize_path("res://addons/" + addon_dir)
+	if DirAccess.dir_exists_absolute(abs_dir):
+		_remove_dir_recursive(abs_dir)
+	if plugin != null and plugin.get_editor_interface() != null:
+		plugin.get_editor_interface().get_resource_filesystem().scan()
+	_set_status("Uninstalled %s from res://addons/." % pname, Color(1.0, 0.78, 0.42))
+	_rebuild_content()
 
 
 func _open_script_in_editor(scr_path: String) -> void:

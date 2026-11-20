@@ -243,7 +243,7 @@ export function TradeOfferModal({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h3 style={{ margin: 0, fontSize: 16, color: '#1c2733' }}>Offer a trade to {toLabel}</h3>
-          <button type="button" className="rb-btn" style={{ padding: '2px 9px' }} onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="rb-btn" style={{ padding: '2px 9px' }} onClick={onClose} aria-label="Close"></button>
         </div>
         <div style={{ fontSize: 11.5, color: '#5a6b7b', marginBottom: 10 }}>
           They get <b>{itemName}</b> from you{tix && Number(tix) > 0 ? ` + ${fmt(Number(tix))}` : ''} — if they accept. They can chat and counter first.
@@ -423,7 +423,7 @@ export function ProfileTradeModal({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h3 style={{ margin: 0, fontSize: 16, color: '#1c2733' }}>Trade with {toUsername}</h3>
-          <button type="button" className="rb-btn" style={{ padding: '2px 9px' }} onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="rb-btn" style={{ padding: '2px 9px' }} onClick={onClose} aria-label="Close"></button>
         </div>
         <div style={{ fontSize: 11.5, color: '#5a6b7b', marginBottom: 10 }}>
           Pick what you want from their shelf, add what you give (+ Tix if the deal needs it) — they can chat, counter, accept or decline.

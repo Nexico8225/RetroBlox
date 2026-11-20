@@ -980,3 +980,14 @@ func _norm_part_name(s: String) -> String:
 	while "  " in out:
 		out = out.replace("  ", " ")
 	return out.strip_edges()
+
+func load_rbxm_animation(file_path: String) -> Animation:
+	var anim: Animation = RbxmAnimImporter.import_animation_file(file_path)
+	if anim != null and _anim_player != null:
+		var lib := _anim_player.get_animation_library("")
+		if lib != null:
+			var clip_name := StringName(anim.resource_name)
+			if lib.has_animation(clip_name):
+				lib.remove_animation(clip_name)
+			lib.add_animation(clip_name, anim)
+	return anim

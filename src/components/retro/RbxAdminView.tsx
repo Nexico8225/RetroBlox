@@ -254,7 +254,7 @@ export function RbxAdminView() {
       {/* Bot Cleanup Highlight Banner */}
       <div className="rb-box" style={{ marginBottom: 12, border: '2px solid #d91e18', background: '#fffcfb' }}>
         <div className="rb-panel-head" style={{ background: 'linear-gradient(180deg, #c0392b, #962d22)', color: '#fff' }}>
-          <span>🧹 Bot Cleanup & Junk Account Purge</span>
+          <span> Bot Cleanup & Junk Account Purge</span>
           <span style={{ fontSize: 10, fontWeight: 'normal', opacity: 0.9 }}>Fast Bulk Deletion</span>
         </div>
         <div style={{ padding: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -274,7 +274,7 @@ export function RbxAdminView() {
               onClick={purgeAllBots}
               style={{ fontSize: 11.5, fontWeight: 'bold', padding: '5px 12px' }}
             >
-              {botBusy ? 'Purging...' : '⚡ Purge All Bots Now'}
+              {botBusy ? 'Purging...' : ' Purge All Bots Now'}
             </button>
             <Link
               href="/admin/bots"
@@ -470,7 +470,7 @@ export function RbxAdminView() {
                 display: 'inline-flex', gap: 6, textDecoration: 'none',
               }}
             >
-              <span>{h.username}{h.role === 'admin' ? ' ★' : ''}</span>
+              <span>{h.username}{h.role === 'admin' ? ' ' : ''}</span>
               <span style={{ fontFamily: 'monospace', color: '#1c4e7c' }}>T$ {h.rbxBalance.toLocaleString('en-US')}</span>
             </Link>
           ))}

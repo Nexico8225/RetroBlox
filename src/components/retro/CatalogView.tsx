@@ -77,19 +77,19 @@ function clipLabel(name: string): string {
 
 /* short placement hint per type — placement is the creator's call, we never move it */
 const TYPE_HINTS: Record<string, string> = {
-  hat: 'Upload a 3D model (FBX / GLB / OBJ), then place it on the player model in 3D. It renders exactly where you leave it.',
+  hat: 'Upload a 3D model (FBX / GLB / OBJ / RBXM), then place it on the player model in 3D. It renders exactly where you leave it.',
   hair: 'Upload a 3D hairstyle (FBX / GLB / OBJ) and place it on the head in 3D where it belongs.',
   accessory: 'Upload a 3D model — wings, capes, backpacks — and place it on the back in 3D where it belongs.',
   neck: 'Upload a 3D model — scarves, necklaces, collars — and place it around the neck in 3D.',
   shoulder: 'Upload a 3D model — pauldrons, shoulder buddies — and place it on a shoulder in 3D.',
   front: 'Upload a 3D model — badges, chest plates — and place it on the chest in 3D.',
   waist: 'Upload a 3D model — belts, capes ties, pouches — and place it around the waist in 3D.',
-  gear: 'Upload a 3D model (FBX / GLB / OBJ) — a tool or prop — and place it in 3D.',
+  gear: 'Upload a 3D model (FBX / GLB / OBJ / RBXM) — a tool or prop — and place it in 3D.',
   face: 'The whole box is the face on the front of the head. The default face is the classic Smile.',
   tshirt: 'Just an image — it goes on the FRONT of the torso, exactly where you draw it.',
   shirt: 'A texture that wraps the torso and arms. Paint inside the RIGHT ARM / TORSO / LEFT ARM zones.',
   pants: 'A texture that wraps the legs. Paint inside the RIGHT LEG / LEFT LEG zones.',
-  emote: 'A rigged GLB from Blender with an animation inside — the character performs it. Preview it right here before publishing.',
+  emote: 'A Roblox animation (.rbxm / .rbxmx) or rigged GLB from Blender — the character performs it. Preview it right here before publishing.',
   bundle: 'A rigged body model that REPLACES body parts — import a model with a rig, or animate it too. The parts are detected from their names.',
   anim: 'A rigged GLB whose clips replace the REAL idle / walk / jump / climb / fall — they play in realtime. Map each move to a clip below.',
 }
@@ -658,7 +658,7 @@ function TryOnModal({ item, onClose }: { item: CatalogItem; onClose: () => void 
                 style={{ fontSize: 11, padding: '3px 10px', textDecoration: 'none' }}
                 title="Download 3D UGC model (.glb) to your drive"
               >
-                Download Model (.glb)
+                Download Model (GLB / RBXM)
               </a>
             )}
             {item.textureFileId && (
@@ -1118,7 +1118,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   const [converting, setConverting] = useState(false)
   // progress line for big (chunked) uploads — shown on the publish button
   const [uploadNote, setUploadNote] = useState('')
-  // pricing: free or paid in Tix; ★ Limited is a collectible badge — the price is the price
+  // pricing: free or paid in Tix;  Limited is a collectible badge — the price is the price
   const [priceMode, setPriceMode] = useState<'free' | 'paid'>('free')
   const [price, setPrice] = useState('')
   const [limited, setLimited] = useState(false)
@@ -1401,7 +1401,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
         applyTexture(f)
         return
       }
-      if (!/\.(fbx|glb|gltf|obj)$/i.test(f.name)) {
+      if (!/\.(fbx|glb|gltf|obj|rbxm|rbxmx)$/i.test(f.name)) {
         setError(`${TYPE_SINGULAR[type] || type} takes a 3D model (FBX / GLB / OBJ) — "${f.name}" is not one.${is3DType(type) ? ' Images dropped here become the model texture.' : ''}`)
         return
       }
@@ -2182,7 +2182,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
               />
             </div>
           )}
-          {/* pricing — free for everyone, or Tix; ★ Limited marks a collectible */}
+          {/* pricing — free for everyone, or Tix;  Limited marks a collectible */}
           <div style={{ border: '1px solid #dbe4ec', background: '#f8fbfe', padding: '8px 10px', marginBottom: 8 }}>
             <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 5 }}>Price</div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', fontSize: 11 }}>

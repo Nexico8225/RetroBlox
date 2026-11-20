@@ -208,7 +208,7 @@ export function SettingsView() {
                 textShadow: '1px 1px 0 #3f6e28',
               }}
             >
-              ✓
+              
             </span>
             <div>
               <div style={{ marginBottom: 4 }}>Your stuff is saved — even when RetroBlox gets updated.</div>

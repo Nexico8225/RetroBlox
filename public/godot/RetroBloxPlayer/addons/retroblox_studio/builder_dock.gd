@@ -68,7 +68,7 @@ func _build_ui() -> void:
 	_header_bar.add_child(hh)
 
 	var title_lbl = Label.new()
-	title_lbl.text = "RetroBlox Builder (Cyclops & Retro)"
+	title_lbl.text = "BuildersUI"
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_lbl.add_theme_font_size_override("font_size", 11)
 	hh.add_child(title_lbl)
@@ -111,13 +111,39 @@ func _build_ui() -> void:
 	_build_materials_colors_tab()
 	_build_pads_spawners_tab()
 
+	# Quick Logic & Scripting Bar (Block Code + Orchestrator)
+	var logic_bar = HBoxContainer.new()
+	logic_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	logic_bar.add_theme_constant_override("separation", 6)
+	_content_box.add_child(logic_bar)
+
+	var bc_btn = Button.new()
+	bc_btn.text = "Block Code"
+	bc_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bc_btn.tooltip_text = "Open Scratch-style Visual Block Code for Selected Node"
+	bc_btn.pressed.connect(func():
+		if plugin != null and plugin.has_method("_on_open_block_code"):
+			plugin.call("_on_open_block_code")
+	)
+	logic_bar.add_child(bc_btn)
+
+	var orch_btn = Button.new()
+	orch_btn.text = "Orchestrator"
+	orch_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	orch_btn.tooltip_text = "Open Orchestrator Visual Blueprint Graph for Selected Node"
+	orch_btn.pressed.connect(func():
+		if plugin != null and plugin.has_method("_on_open_orchestrator"):
+			plugin.call("_on_open_orchestrator")
+	)
+	logic_bar.add_child(orch_btn)
+
 	# 3. Bottom Resize Handle Grip
 	var bottom_row = HBoxContainer.new()
 	bottom_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root_vb.add_child(bottom_row)
 
 	var tip_lbl = Label.new()
-	tip_lbl.text = "Drag header to move · Drag handle to resize"
+	tip_lbl.text = "Drag header to move | Drag corner to resize"
 	tip_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tip_lbl.add_theme_font_size_override("font_size", 9)
 	tip_lbl.add_theme_color_override("font_color", Color(0.55, 0.65, 0.78))
@@ -189,10 +215,36 @@ func _build_blockout_tab() -> void:
 	scroll.add_child(vb)
 
 	var sub_h = Label.new()
-	sub_h.text = "Cyclops Level Geometry & Blockout:"
+	sub_h.text = "Cyclops Live Viewport Tools:"
 	sub_h.add_theme_font_size_override("font_size", 11)
 	sub_h.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 	vb.add_child(sub_h)
+
+	var cyc_top = HBoxContainer.new()
+	cyc_top.add_theme_constant_override("separation", 4)
+	vb.add_child(cyc_top)
+	_add_action_button(cyc_top, "+ CyclopsBlocks Layer", func(): _ensure_cyclops_blocks_node())
+	_add_action_button(cyc_top, "Toggle 3D Bar", func(): _toggle_cyclops_3d_bar())
+
+	var cyc_grid = GridContainer.new()
+	cyc_grid.columns = 3
+	cyc_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(cyc_grid)
+
+	_add_action_button(cyc_grid, "Draw Block", func(): _activate_cyclops_tool("block"))
+	_add_action_button(cyc_grid, "Draw Cylinder", func(): _activate_cyclops_tool("cylinder"))
+	_add_action_button(cyc_grid, "Draw Prism", func(): _activate_cyclops_tool("prism"))
+	_add_action_button(cyc_grid, "Draw Sphere", func(): _activate_cyclops_tool("sphere"))
+	_add_action_button(cyc_grid, "Draw Stairs", func(): _activate_cyclops_tool("stairs"))
+	_add_action_button(cyc_grid, "Face Edit", func(): _activate_cyclops_tool("edit_face"))
+	_add_action_button(cyc_grid, "Edge Edit", func(): _activate_cyclops_tool("edit_edge"))
+	_add_action_button(cyc_grid, "Vertex Edit", func(): _activate_cyclops_tool("edit_vertex"))
+	_add_action_button(cyc_grid, "Clip / Slice", func(): _activate_cyclops_tool("clip"))
+	_add_action_button(cyc_grid, "Move Tool", func(): _activate_cyclops_tool("move"))
+	_add_action_button(cyc_grid, "Rotate Tool", func(): _activate_cyclops_tool("rotate"))
+	_add_action_button(cyc_grid, "Mat Brush", func(): _activate_cyclops_tool("material_brush"))
+
+	vb.add_child(HSeparator.new())
 
 	# Grid Snap Row
 	var snap_row = HBoxContainer.new()
@@ -277,12 +329,31 @@ func _build_parts_tab() -> void:
 
 	_add_action_button(p_grid, "Part (4x1.2x2)", func(): _spawn_part(0))
 	_add_action_button(p_grid, "Brick (4x2x2)", func(): _spawn_part(1))
+	_add_action_button(p_grid, "Small Brick (2x1x1)", func(): _spawn_part(7))
 	_add_action_button(p_grid, "Plate (4x0.4x4)", func(): _spawn_part(2))
+	_add_action_button(p_grid, "Sphere Brick (4x4x4)", func(): _spawn_part(4))
+	_add_action_button(p_grid, "Small Sphere (2x2x2)", func(): _spawn_part(8))
+	_add_action_button(p_grid, "Triangle (4x2x2)", func(): _spawn_part(9))
+	_add_action_button(p_grid, "Wedge (4x2x4)", func(): _spawn_part(5))
 	_add_action_button(p_grid, "Cylinder (4x2x4)", func(): _spawn_part(3))
-	_add_action_button(p_grid, "Wedge (4x2x4)", func(): _spawn_part(4))
-	_add_action_button(p_grid, "Truss (Climbable)", func(): _spawn_part(5))
-	_add_action_button(p_grid, "Seat (Drive/Sit)", func(): _spawn_part(6))
-	_add_action_button(p_grid, "SpawnLocation", func(): _spawn_part(7))
+	_add_action_button(p_grid, "Truss (Climbable)", func(): _spawn_part(6))
+
+	vb.add_child(HSeparator.new())
+	var h_lbl = Label.new()
+	h_lbl.text = "Hollow Shapes and CSG Operations:"
+	h_lbl.add_theme_font_size_override("font_size", 10)
+	vb.add_child(h_lbl)
+
+	var h_grid = GridContainer.new()
+	h_grid.columns = 2
+	h_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(h_grid)
+
+	_add_action_button(h_grid, "Hollow Circle / Pipe", func(): _spawn_part(10))
+	_add_action_button(h_grid, "Hollow Cube / Room", func(): _spawn_part(11))
+	_add_action_button(h_grid, "Hollow Triangle", func(): _spawn_part(12))
+	_add_action_button(h_grid, "CSG Union (Merge)", func(): _spawn_part(20))
+	_add_action_button(h_grid, "CSG Subtract (Cut)", func(): _spawn_part(21))
 
 	vb.add_child(HSeparator.new())
 	var s_lbl = Label.new()
@@ -460,11 +531,25 @@ func _spawn_gear_spawner(gear_id: int) -> void:
 	if plugin != null and plugin.has_method("_on_item_spawner_selected"):
 		plugin.call("_on_item_spawner_selected", gear_id)
 
+func _get_scene_root() -> Node:
+	if plugin != null:
+		var ei = plugin.get_editor_interface()
+		if ei != null:
+			var er = ei.get_edited_scene_root()
+			if er != null:
+				return er
+		if plugin.get_tree() != null:
+			var tr = plugin.get_tree().edited_scene_root
+			if tr != null:
+				return tr
+	return null
+
 func _spawn_cyclops_shape(shape_type: String) -> void:
 	if plugin == null:
 		return
-	var scene_root = plugin.get_tree().edited_scene_root
+	var scene_root = _get_scene_root()
 	if scene_root == null:
+		printerr("[BuildersUI] Please create or open a 3D scene first.")
 		return
 
 	var spawn_pos = _get_spawn_world_pos()
@@ -785,3 +870,73 @@ func _apply_mat_recursive(node: Node, mat_type: String) -> void:
 		mi.material_override = mat
 	for ch in node.get_children():
 		_apply_mat_recursive(ch, mat_type)
+
+
+# ============================================================================
+# CYCLOPS LEVEL BUILDER INTEGRATION
+# ============================================================================
+
+func _get_cyclops_builder() -> Node:
+	if plugin != null and plugin.get_tree() != null:
+		var autoload := plugin.get_tree().root.get_node_or_null("CyclopsAutoload")
+		if autoload != null and autoload.get("builder") != null:
+			return autoload.get("builder") as Node
+	return null
+
+
+func _ensure_cyclops_blocks_node() -> Node:
+	var scene_root := _get_scene_root()
+	if scene_root == null:
+		printerr("[BuildersUI] Open a 3D scene first to add a CyclopsBlocks layer.")
+		return null
+	var existing := scene_root.find_child("CyclopsBlocks", true, false)
+	if existing != null:
+		var sel := plugin.get_editor_interface().get_selection()
+		if sel != null:
+			sel.clear()
+			sel.add_node(existing)
+		return existing
+	if ClassDB.class_exists("CyclopsBlocks"):
+		var cb: Node = ClassDB.instantiate("CyclopsBlocks")
+		cb.name = "CyclopsBlocks"
+		scene_root.add_child(cb, true)
+		cb.owner = scene_root
+		var sel := plugin.get_editor_interface().get_selection()
+		if sel != null:
+			sel.clear()
+			sel.add_node(cb)
+		return cb
+	printerr("[BuildersUI] CyclopsBlocks class not registered. Enable Cyclops Level Builder plugin in Project Settings.")
+	return null
+
+
+func _toggle_cyclops_3d_bar() -> void:
+	var cyc := _get_cyclops_builder()
+	if cyc == null:
+		printerr("[BuildersUI] Cyclops Level Builder plugin is not active.")
+		return
+	var cur := bool(cyc.get("show_3d_toolbar"))
+	cyc.set("show_3d_toolbar", not cur)
+
+
+func _activate_cyclops_tool(tool_id: String) -> void:
+	var cyc := _get_cyclops_builder()
+	if cyc == null:
+		printerr("[BuildersUI] Cyclops Level Builder is not active. Enable it in Project -> Project Settings -> Plugins.")
+		return
+	# Ensure a CyclopsBlocks or CyclopsBlock is selected when drawing new geometry
+	if tool_id in ["block", "cylinder", "prism", "sphere", "stairs"]:
+		var sel := plugin.get_editor_interface().get_selection()
+		var has_cyclops_sel := false
+		if sel != null:
+			for n in sel.get_selected_nodes():
+				var gname: String = String(n.get_script().get_global_name()) if n.get_script() != null else ""
+				if n.get_class() == "CyclopsBlocks" or n.get_class() == "CyclopsBlock" or gname in ["CyclopsBlocks", "CyclopsBlock"]:
+					has_cyclops_sel = true
+					break
+		if not has_cyclops_sel:
+			_ensure_cyclops_blocks_node()
+	if cyc.has_method("get_tool_by_id") and cyc.has_method("switch_to_tool"):
+		var t = cyc.call("get_tool_by_id", tool_id)
+		if t != null:
+			cyc.call("switch_to_tool", t)

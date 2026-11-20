@@ -383,7 +383,7 @@ export function GroupDetailView({ id }: { id: string }) {
             <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {isMember ? (
                 <button className="rb-btn" disabled={busy || isOwner} onClick={() => joinLeave('leave')} title={isOwner ? 'Owners cannot leave' : undefined}>
-                  ✓ Member
+                   Member
                 </button>
               ) : (
                 <button className="rb-btn rb-btn-green" disabled={busy} onClick={() => joinLeave('join')}>+ Join Group</button>
@@ -657,7 +657,7 @@ function GroupWall({
                       onClick={() => delPost(p)}
                       title="Delete post"
                     >
-                      ✕ delete
+                       delete
                     </button>
                   )}
                 </div>
@@ -732,7 +732,7 @@ function GroupWall({
                                 style={{ background: 'none', border: 'none', padding: 0, fontSize: 9, color: '#a03a34', marginLeft: 'auto' }}
                                 onClick={() => delReply(p.id, r.id)}
                               >
-                                ✕
+                                
                               </button>
                             )}
                           </div>

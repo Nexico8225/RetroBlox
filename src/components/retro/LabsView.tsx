@@ -111,7 +111,7 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
   }, [onClose])
   return (
     <div className="rb-lightbox" role="dialog" aria-modal="true" aria-label="Image preview" onClick={onClose}>
-      <button type="button" className="rb-lightbox-x" aria-label="Close preview" onClick={onClose}>✕</button>
+      <button type="button" className="rb-lightbox-x" aria-label="Close preview" onClick={onClose}></button>
       <img src={src} alt="Preview" onClick={(e) => e.stopPropagation()} />
     </div>
   )
@@ -380,7 +380,7 @@ export function LabsView() {
                 style={{ fontSize: 11, color: '#a03a34', background: 'none', border: 'none', padding: '4px 12px', cursor: 'pointer' }}
                 title="Clear search + board filter"
               >
-                ✕ clear
+                 clear
               </button>
             )}
           </div>
@@ -729,7 +729,7 @@ export function LabNewView() {
                       <video src={m.url} muted playsInline preload="metadata" />
                     )}
                     <span className="rb-upload-name">{m.file.name}</span>
-                    <button type="button" className="rb-upload-x" aria-label={`Remove ${m.file.name}`} onClick={() => removeMedia(i)}>✕</button>
+                    <button type="button" className="rb-upload-x" aria-label={`Remove ${m.file.name}`} onClick={() => removeMedia(i)}></button>
                   </div>
                 ))}
               </div>

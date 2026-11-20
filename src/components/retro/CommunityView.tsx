@@ -536,7 +536,7 @@ export function CommunityView() {
                 }}
                 aria-pressed={sort === s}
               >
-                {s === 'hot' ? 'Hot' : s === 'new' ? '✦ New' : '★ Top'}
+                {s === 'hot' ? 'Hot' : s === 'new' ? ' New' : ' Top'}
               </button>
             ))}
             {(q || r !== 'r/all') && (
@@ -547,7 +547,7 @@ export function CommunityView() {
                 style={{ fontSize: 10, color: '#a03a34', background: 'none', border: 'none', padding: '4px 10px', cursor: 'pointer' }}
                 title="Clear search + filters"
               >
-                ✕ clear
+                 clear
               </button>
             )}
           </div>

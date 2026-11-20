@@ -208,7 +208,7 @@ export function CommunitySidebar({
               disabled={joinBusy === activeSub.slug}
               onClick={() => toggleJoin(activeSub)}
             >
-              {activeSub.joined ? 'Joined ✓ — leave' : '+ Join community'}
+              {activeSub.joined ? 'Joined  — leave' : '+ Join community'}
             </button>
           </div>
         </div>
@@ -312,7 +312,7 @@ export function CommunitySidebar({
                   {s.members} member{s.members === 1 ? '' : 's'} · {s.posts} post{s.posts === 1 ? '' : 's'}
                 </span>
               </span>
-              {s.joined && <span style={{ fontSize: 9, color: '#2c6e31' }}>✓</span>}
+              {s.joined && <span style={{ fontSize: 9, color: '#2c6e31' }}></span>}
             </Link>
           ))}
           <Link href="/labs" className="rb-clickable" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 4, textDecoration: 'none' }}>
@@ -470,7 +470,7 @@ export function SubsBrowseView() {
                   disabled={busy === s.slug}
                   onClick={() => toggleJoin(s)}
                 >
-                  {s.joined ? 'Joined ✓' : '+ Join'}
+                  {s.joined ? 'Joined ' : '+ Join'}
                 </button>
                 {user && (user.id === s.creator.id || user.role === 'admin') && (
                   <button type="button" className="rb-btn rb-btn-red" style={{ fontSize: 10, padding: '4px 12px' }} onClick={() => remove(s)}>
@@ -608,7 +608,7 @@ export function SubsNewView() {
             )}
             {slugClean !== '' && slugValid && slugState !== 'idle' && (
               <div aria-live="polite" style={{ fontSize: 10, marginTop: 4, color: slugState === 'free' ? '#2c6e31' : slugState === 'checking' ? '#5a6b7b' : '#a81a13' }}>
-                {slugState === 'free' ? '✓ r/' + slugClean + ' is available!'
+                {slugState === 'free' ? ' r/' + slugClean + ' is available!'
                   : slugState === 'checking' ? 'Checking...'
                   : 'r/' + slugClean + ' is already taken.'}
               </div>

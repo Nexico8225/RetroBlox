@@ -17,7 +17,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { dedupeBoneNameCollisions, sanitizeBoneTracks } from './sanitizeTracks'
 
-export const MODEL_ACCEPT = '.fbx,.glb,.gltf,.obj'
+export const MODEL_ACCEPT = '.fbx,.glb,.gltf,.obj,.rbxm,.rbxmx'
 export const MAX_MODEL_MB = 24
 
 /** linear-space threshold for "this material is plain white" (~sRGB 0.97+) */
@@ -352,6 +352,25 @@ export async function fileToGlb(file: File, opts?: { keepAnimations?: boolean })
   const keep = !!opts?.keepAnimations
   const name = (file.name || '').toLowerCase()
   if (name.endsWith('.glb')) return file
+
+  if (name.endsWith('.rbxm') || name.endsWith('.rbxmx')) {
+    try {
+      const { parseRbxAnimationFile } = await import('@/lib/rbxAnimParser')
+      const animData = await parseRbxAnimationFile(file)
+      if (animData && animData.threeClip) {
+        const root = new THREE.Group()
+        root.name = animData.name
+        for (const bName of ['Torso', 'Head', 'RightArm', 'LeftArm', 'RightLeg', 'LeftLeg']) {
+          const bone = new THREE.Bone()
+          bone.name = bName
+          root.add(bone)
+        }
+        return await objectToGlb(root, [animData.threeClip])
+      }
+    } catch (e) {
+      console.warn('Could not parse rbxm animation:', e)
+    }
+  }
 
   if (name.endsWith('.fbx')) {
     try {

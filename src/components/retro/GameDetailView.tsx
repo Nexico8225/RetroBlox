@@ -987,7 +987,7 @@ export function GameDetailView({ id }: { id: string }) {
                         )}
                         {(user?.id === c.user.id || isAdmin) && (
                           <button type="button" className="rb-link" style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: '#a03a34' }} onClick={() => delReview(c.id)}>
-                            ✕ delete
+                             delete
                           </button>
                         )}
                       </div>
@@ -1142,7 +1142,7 @@ export function GameDetailView({ id }: { id: string }) {
                         {launching ? 'Launching Launcher...' : '▶ Open in RetroBlox Launcher'}
                       </button>
                       <div style={{ textAlign: 'center', marginTop: 6, fontSize: 11, color: '#008a32', fontWeight: 'bold' }}>
-                        ✓ Installed on Web (No drive space used)
+                         Installed on Web (No drive space used)
                       </div>
                     </>
                   ) : (
@@ -1154,7 +1154,7 @@ export function GameDetailView({ id }: { id: string }) {
                         disabled={busy || launching}
                         style={{ width: '100%', fontSize: 16, padding: '11px 0', borderRadius: 5 }}
                       >
-                        {launching ? 'Installing...' : '📥 Install & Play (Web)'}
+                        {launching ? 'Installing...' : ' Install & Play (Web)'}
                       </button>
                       <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, color: '#5a6b7b' }}>
                         Installs on the web · 0 MB drive space used · Opens in Launcher
@@ -1178,7 +1178,7 @@ export function GameDetailView({ id }: { id: string }) {
                       borderColor: '#9cb0c1',
                     }}
                   >
-                    💾 Download to Drive ({game.fileName || 'Game Build'})
+                     Download to Drive ({game.fileName || 'Game Build'})
                   </button>
 
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 7, flexWrap: 'wrap' }}>
@@ -1477,7 +1477,7 @@ export function GameDetailView({ id }: { id: string }) {
                   fontWeight: 'bold',
                 }}
               >
-                ✕
+                
               </button>
             </div>
             <div style={{ padding: 22, textAlign: 'center' }}>
@@ -1496,7 +1496,7 @@ export function GameDetailView({ id }: { id: string }) {
                   boxShadow: '0 4px 14px rgba(0, 162, 255, 0.35)',
                 }}
               >
-                {installProgress !== null ? '📥' : '▶'}
+                {installProgress !== null ? '' : '▶'}
               </div>
               <h2 style={{ margin: '0 0 6px', fontSize: 18, color: '#1c2733' }}>
                 {installProgress !== null ? `Installing ${game.name} on Web...` : `Ready: ${game.name}`}
@@ -1546,7 +1546,7 @@ export function GameDetailView({ id }: { id: string }) {
                     onClick={downloadDirectFile}
                     style={{ width: '100%', padding: '9px 0', fontSize: 12, fontWeight: 'bold', background: '#fff' }}
                   >
-                    💾 Download Game to Drive ({game.fileName || 'Game Build'})
+                     Download Game to Drive ({game.fileName || 'Game Build'})
                   </button>
                 )}
                 <a
@@ -1555,7 +1555,7 @@ export function GameDetailView({ id }: { id: string }) {
                   className="rb-btn rb-btn-blue"
                   style={{ display: 'block', width: '100%', padding: '9px 0', fontSize: 12, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
                 >
-                  📥 Download RetroBlox Launcher (.exe)
+                   Download RetroBlox Launcher (.exe)
                 </a>
               </div>
             </div>

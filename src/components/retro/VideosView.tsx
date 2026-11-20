@@ -637,7 +637,7 @@ export function VideoWatchView({ id }: { id: string }) {
                     : { background: 'linear-gradient(180deg,#8ec9ff,#3f7ad1)', borderColor: '#2b5cab', color: '#fff' }
                 }
               >
-                {isFollowing ? 'Following ✓' : '+ Follow'}
+                {isFollowing ? 'Following ' : '+ Follow'}
               </button>
             )}
             {canDelete && (

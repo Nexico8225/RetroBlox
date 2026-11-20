@@ -268,16 +268,16 @@ export function CreateView() {
         <div>
           <label style={labelStyle} htmlFor="g-visibility">Privacy &amp; Visibility</label>
           <select id="g-visibility" className="rb-select" value={visibility} onChange={(e) => setVisibility(e.target.value as any)} style={{ width: '100%' }}>
-            <option value="public">🌐 Public — listed on Browse Games &amp; Home for everyone</option>
-            <option value="private">🔒 Private (Cloud Drive Mode) — only YOU can see &amp; play</option>
-            <option value="friends">👥 Friends Only — only your friends can see &amp; play</option>
+            <option value="public"> Public — listed on Browse Games &amp; Home for everyone</option>
+            <option value="private"> Private (Cloud Drive Mode) — only YOU can see &amp; play</option>
+            <option value="friends"> Friends Only — only your friends can see &amp; play</option>
           </select>
           <div style={{ fontSize: 10, color: '#5a6b7b', marginTop: 4 }}>
             {visibility === 'private'
-              ? '🔒 Private Cloud Drive: Stored in your library for you to play anytime. It will NOT appear in public browse or search!'
+              ? ' Private Cloud Drive: Stored in your library for you to play anytime. It will NOT appear in public browse or search!'
               : visibility === 'friends'
-              ? '👥 Only your friends can see and launch this game.'
-              : '🌐 Public: Anyone on RetroBlox can discover, download, and play your game.'}
+              ? ' Only your friends can see and launch this game.'
+              : ' Public: Anyone on RetroBlox can discover, download, and play your game.'}
           </div>
         </div>
 
@@ -448,7 +448,7 @@ export function CreateView() {
             />
             {gameFile && (
               <div style={{ marginTop: 6, fontSize: 11, color: '#1c3a5c', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>📁 <strong>{gameFile.name}</strong></span>
+                <span> <strong>{gameFile.name}</strong></span>
                 <span style={{ color: '#667788' }}>({(gameFile.size / (1024 * 1024)).toFixed(1)} MB)</span>
                 {gameFile.name.toLowerCase().endsWith('.exe') && (
                   <span style={{ fontSize: 9, padding: '2px 6px', background: '#e1f5fe', color: '#0277bd', borderRadius: 3, fontWeight: 'bold' }}>

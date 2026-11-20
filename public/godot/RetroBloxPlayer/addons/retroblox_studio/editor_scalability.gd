@@ -141,82 +141,27 @@ func set_fps_cap(fps: int) -> void:
 	save_settings()
 	apply_current_settings()
 
-func apply_perf_setting(id: int) -> void:
-	match id:
-		0:
-			set_preset(QualityPreset.EPIC)
-		1:
-			set_preset(QualityPreset.HIGH)
-		2:
-			set_preset(QualityPreset.MEDIUM)
-		3:
-			set_preset(QualityPreset.LOW_TOASTER)
-		10:
-			toggle_occlusion_culling(not occlusion_culling_enabled)
-		11:
-			toggle_low_processor(not low_processor_mode)
-		20:
-			set_fps_cap(30)
-		21:
-			set_fps_cap(60)
-		22:
-			set_fps_cap(144)
-		30:
-			generate_scene_occluders()
-
-func generate_scene_occluders() -> int:
-	if _plugin_ref == null:
-		return 0
-	var ei = _plugin_ref.get_editor_interface()
-	if ei == null:
-		return 0
-	var root: Node = ei.get_edited_scene_root()
-	if root == null:
-		return 0
-	var total: int = generate_box_occluders_for_scene(root)
-	print("[RetroBlox Scalability] Generated %d occlusion culling instances for scene." % total)
-	return total
-
 func generate_box_occluders_for_scene(scene_root: Node) -> int:
 	if scene_root == null:
 		return 0
 	var count = 0
-	# 1. Static bodies and mesh instances
-	for node in scene_root.find_children("*", "Node3D"):
-		if node is StaticBody3D or node is CSGBox3D or node is MeshInstance3D:
-			if node.get_node_or_null("BoxOccluder") != null:
-				continue
-			var occ_size: Vector3 = Vector3.ZERO
-			if node is CSGBox3D:
-				occ_size = (node as CSGBox3D).size
-			elif node is MeshInstance3D:
-				var mi := node as MeshInstance3D
-				if mi.mesh is BoxMesh:
-					occ_size = (mi.mesh as BoxMesh).size
-				elif mi.mesh != null:
-					occ_size = mi.mesh.get_aabb().size
-			elif node is StaticBody3D:
-				for ch in node.get_children():
-					if ch is MeshInstance3D:
-						var mi := ch as MeshInstance3D
-						if mi.mesh is BoxMesh:
-							occ_size = (mi.mesh as BoxMesh).size
-						elif mi.mesh != null:
-							occ_size = mi.mesh.get_aabb().size
-						break
-					elif ch is CollisionShape3D:
-						var cs := ch as CollisionShape3D
-						if cs.shape is BoxShape3D:
-							occ_size = (cs.shape as BoxShape3D).size
-							break
-
-			if occ_size.length_squared() > 1.0:
-				var occ_inst = OccluderInstance3D.new()
-				occ_inst.name = "BoxOccluder"
-				var box_occ = BoxOccluder3D.new()
-				box_occ.size = occ_size
-				occ_inst.occluder = box_occ
-				node.add_child(occ_inst, true)
-				occ_inst.owner = scene_root
-				count += 1
+	for node in scene_root.find_children("*", "StaticBody3D"):
+		if node is StaticBody3D:
+			var mi: MeshInstance3D = null
+			for ch in node.get_children():
+				if ch is MeshInstance3D:
+					mi = ch
+					break
+			if mi != null and mi.mesh is BoxMesh:
+				var bm := mi.mesh as BoxMesh
+				var occ = node.get_node_or_null("BoxOccluder")
+				if occ == null:
+					var occ_inst = OccluderInstance3D.new()
+					occ_inst.name = "BoxOccluder"
+					var box_occ = BoxOccluder3D.new()
+					box_occ.size = bm.size
+					occ_inst.occluder = box_occ
+					node.add_child(occ_inst, true)
+					occ_inst.owner = scene_root
+					count += 1
 	return count
