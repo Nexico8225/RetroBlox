@@ -31,6 +31,7 @@ import {
   type Placement,
 } from '@/lib/avatarAssets'
 import { MODEL_ACCEPT, fileToGlb, fileToGlbWithCheck, modelTooBig, inspectGlbAnimations } from '@/lib/three/convert'
+import { parseRbxAnimationPackage, buildR6AnimationGlb } from '@/lib/rbxAnimParser'
 import { captureNoobThumb, captureRiggedThumb } from '@/lib/three/animCapture'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AvatarLook3D } from '@/lib/three/rig'
@@ -1498,11 +1499,30 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   function pick(f: File | null) {
     setError('')
     if (rigged) {
-      // rigged: convert to GLB KEEPING the Blender clips, then enumerate them
+      // rigged: convert to GLB KEEPING the Blender clips (or parse .rbxm/.rbxmx AnimSaves), then enumerate them
       if (!f) return
       const tooBig = modelTooBig(f)
       if (tooBig) { setError(tooBig); return }
       setConverting(true)
+      const lowerName = f.name.toLowerCase()
+      if (lowerName.endsWith('.rbxm') || lowerName.endsWith('.rbxmx')) {
+        parseRbxAnimationPackage(f)
+          .then(async (pkg) => {
+            if (!pkg || pkg.animations.length === 0) {
+              throw new Error('No KeyframeSequence animations were found in this .rbxm / .rbxmx file.')
+            }
+            const glb = await buildR6AnimationGlb(pkg)
+            setModelBlob(glb)
+            setEditorOpen(false)
+            await ingestRiggedGlb(glb, f)
+            if (pkg.animSavesCount > 1) {
+              setModelNotice(`Found ${pkg.animSavesCount} animations in AnimSaves (${pkg.clipNames.join(', ')}). Choose which emote to preview and publish below.`)
+            }
+          })
+          .catch((e) => setError(e instanceof Error ? e.message : 'Could not parse that Roblox animation file.'))
+          .finally(() => setConverting(false))
+        return
+      }
       fileToGlb(f, { keepAnimations: true })
         .then(async (glb) => {
           setModelBlob(glb)
@@ -1644,7 +1664,9 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           fd.append('animClips', JSON.stringify({
             clips: clipNames,
             ...(type === 'anim' ? { map: clipMap } : {}),
-            ...(type === 'emote' && iconPose && iconPose.clip ? { useClip: iconPose.clip, iconTime: iconPose.t } : {}),
+            ...(type === 'emote' && (iconPose?.clip || previewClip)
+              ? { useClip: iconPose?.clip || previewClip, ...(iconPose ? { iconTime: iconPose.t } : {}) }
+              : {}),
           }))
           fd.append('animTarget', JSON.stringify({ kind: targetKind, ...(targetKind !== 'avatar' && targetAssetId ? { assetId: targetAssetId } : {}) }))
         }
@@ -1989,7 +2011,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                 <div style={{ flex: 1, minWidth: 220, fontSize: 11 }}>
                   {type !== 'bundle' && clipNames.length > 0 && (
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ color: '#1c4e7c', marginBottom: 3 }}>{type === 'anim' ? 'Map each move to a clip from your model' : 'NLA track (the action that plays)'}</div>
+                      <div style={{ color: '#1c4e7c', marginBottom: 3 }}>
+                        {type === 'anim'
+                          ? 'Map each move to a clip from your model'
+                          : (clipNames.length > 1 ? 'Choose emote to publish (multiple animations found)' : 'NLA track (the action that plays)')}
+                      </div>
                       {type === 'anim' ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 5 }}>
                           {ANIM_SLOTS.map((slot) => (
@@ -2009,9 +2035,26 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                           ))}
                         </div>
                       ) : (
-                        <select className="rb-input" value={previewClip} onChange={(e) => { setPreviewClip(e.target.value); setScrub(null) }} style={{ fontSize: 11, width: '100%' }} aria-label="Preview clip">
-                          {clipNames.map((c) => <option key={c} value={c}>{clipLabel(c)}</option>)}
-                        </select>
+                        <>
+                          <select className="rb-input" value={previewClip} onChange={(e) => { setPreviewClip(e.target.value); setScrub(null) }} style={{ fontSize: 11, width: '100%' }} aria-label="Preview clip">
+                            {clipNames.map((c) => <option key={c} value={c}>{clipLabel(c)}</option>)}
+                          </select>
+                          {clipNames.length > 1 && (
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
+                              {clipNames.map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  className={previewClip === c ? 'rb-btn rb-btn-primary' : 'rb-btn'}
+                                  style={{ fontSize: 10, padding: '2px 7px' }}
+                                  onClick={() => { setPreviewClip(c); setScrub(null) }}
+                                >
+                                  {clipLabel(c)}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}

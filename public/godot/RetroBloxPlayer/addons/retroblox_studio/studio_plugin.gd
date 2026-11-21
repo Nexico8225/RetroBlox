@@ -1798,3 +1798,25 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if focus is LineEdit or focus is TextEdit:
 				return
 			_on_toggle_builder_panel()
+
+
+func _on_import_rbxm_anim() -> void:
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_FILESYSTEM
+	fd.filters = PackedStringArray(["*.rbxm, *.rbxmx ; Roblox Model / Animation"])
+	fd.title = "Import Roblox Animation (.rbxm / .rbxmx)"
+	fd.file_selected.connect(func(path: String):
+		var imp_scr = load("res://scripts/utils/rbxm_anim_importer.gd")
+		if imp_scr != null:
+			var res = imp_scr.import_file(path)
+			if res != null:
+				print("[RetroBlox] Successfully imported animation: ", path)
+		fd.queue_free()
+	)
+	fd.canceled.connect(func(): fd.queue_free())
+	var base_ctrl: Control = get_editor_interface().get_base_control()
+	if base_ctrl != null:
+		base_ctrl.add_child(fd)
+		fd.popup_centered_ratio(0.6)
+

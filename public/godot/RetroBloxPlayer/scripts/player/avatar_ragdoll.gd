@@ -10,6 +10,7 @@ extends Node3D
 ## - Inherited momentum and impulse forces (push, throw, explosion, fling).
 ## - Torso tracking for camera follow and get-up recovery.
 
+@warning_ignore("unused_signal")
 signal recovered
 
 const STUD := 1.0
