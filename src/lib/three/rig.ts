@@ -106,42 +106,32 @@ function matchPart(name: string): PartKey | null {
 }
 export { matchPart }
 
-/** Load + normalize the R6 player model once per session (cached). */
+/** Load + normalize the authentic R6 player model once per session (cached). */
 export function loadRig(): Promise<LoadedRig> {
   if (rigPromise) return rigPromise
   rigPromise = (async () => {
-    const fbx = await new FBXLoader().loadAsync(RIG_MODEL_URL)
+    const gltf = await new GLTFLoader().loadAsync(R6_TEMPLATE_URL)
+    const rawRoot = gltf.scene
 
-    // The R6IK rig comes out of Blender facing -Z; turn it to face us (+Z).
-    const yawWrap = new THREE.Group()
-    yawWrap.add(fbx)
-    fbx.rotation.y = Math.PI
-
-    // normalize: 5 units tall, feet on y=0, centered on x/z
-    const box = new THREE.Box3().setFromObject(yawWrap)
-    const size = box.getSize(new THREE.Vector3())
-    const s = RIG_HEIGHT / Math.max(size.y, 0.0001)
-    yawWrap.scale.setScalar(s)
-    yawWrap.updateMatrixWorld(true)
-
+    // The official R6 template faces us (+Z) with feet on y=0
     const group = new THREE.Group()
-    group.add(yawWrap)
+    group.add(rawRoot)
     group.updateMatrixWorld(true)
 
+    // normalize: exactly RIG_HEIGHT (5.2 units) tall, feet on y=0, centered on x/z
     const nb = new THREE.Box3().setFromObject(group)
     const nc = nb.getCenter(new THREE.Vector3())
-    yawWrap.position.x -= nc.x
-    yawWrap.position.z -= nc.z
-    yawWrap.position.y -= nb.min.y
+    rawRoot.position.x -= nc.x
+    rawRoot.position.z -= nc.z
+    rawRoot.position.y -= nb.min.y
     group.updateMatrixWorld(true)
 
-    // find body part meshes + hide everything that is not body (IK controls,
-    // helper planes the rig author left around, etc.)
+    // find body part meshes
     const parts = new Map<PartKey, THREE.Object3D[]>()
-    const bodyish: THREE.Object3D[] = []
     group.traverse((o) => {
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh) return
+      mesh.castShadow = true
       const key = matchPart(o.name)
       const geoName = mesh.geometry?.name || ''
       if (key || matchPart(geoName)) {
@@ -149,34 +139,7 @@ export function loadRig(): Promise<LoadedRig> {
         const list = parts.get(k) || []
         list.push(mesh)
         parts.set(k, list)
-        bodyish.push(o)
       }
-    })
-    group.traverse((o) => {
-      const mesh = o as THREE.Mesh
-      if (!mesh.isMesh) return
-      if (bodyish.includes(o)) return
-      o.visible = false // IK control meshes, helper planes, etc.
-    })
-
-    // UNIQUE BONE NAMES: the FBX carries a skinned MESH and a BONE that share
-    // the exact names "Head" and "Torso". THREE.PropertyBinding resolves a
-    // track named "Head.quaternion" to the first node it meets in the subtree
-    // — the MESH — so any clip (an uploaded emote, the official anims) that
-    // keys those bones silently never moves them; the retarget maps the track
-    // correctly and the mixer still lands it on the wrong node. Renaming the
-    // colliding meshes gives every bone name a unique owner. The ".Mesh"
-    // suffix keeps the part-alias match (normName "head mesh" still starts
-    // with "head ") so clothing, decals and UGC attachment are untouched —
-    // and skinned meshes follow their bones regardless of their own name.
-    const boneNames = new Set<string>()
-    group.traverse((o) => {
-      if ((o as THREE.Bone).isBone && o.name) boneNames.add(normName(o.name))
-    })
-    group.traverse((o) => {
-      if ((o as THREE.Bone).isBone || !o.name) return
-      if (!boneNames.has(normName(o.name))) return
-      o.name = `${o.name}.Mesh`
     })
 
     const boxes = new Map<PartKey, THREE.Box3>()
@@ -188,14 +151,13 @@ export function loadRig(): Promise<LoadedRig> {
       const b = new THREE.Box3()
       let zmax = -Infinity
       for (const m of list) {
-        b.expandByObject(m)
-        // walk the REAL vertices — the rendered surface is the truth
         const mesh = m as THREE.Mesh
         const pos = mesh.geometry?.attributes?.position
         if (pos) {
           mesh.updateWorldMatrix(true, false)
           for (let i = 0; i < pos.count; i++) {
             vtx.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(mesh.matrixWorld)
+            b.expandByPoint(vtx)
             if (vtx.z > zmax) zmax = vtx.z
           }
         }
@@ -800,17 +762,12 @@ export function retargetClipWithRest(
     }
 
     if (prop === '.position') {
-      // Positions must land on BONE nodes only — a bone offset from another
-      // file drives nothing on a skinned mesh (the bones own the vertices).
-      if (!(mappedEntry.node as THREE.Bone).isBone) continue
+      const isTorso = partKey === 'torso' || key === 'torso'
+      if (!isTorso && !(mappedEntry.node as THREE.Bone).isBone) continue
       if (!src || !tgt) continue // no rest to correct against — drop, never guess
       // CONSTANT tracks (Blender bakes every bone's offset into every clip)
       // mean "the bone sits at its own rest" — the TARGET bone already does
-      // exactly that, so the right transfer is to drop the track. Scaling or
-      // copying the foreign offset would RIP THE BODY APART: the same bone
-      // rests at (0, 2.56, 0) in a Y-up Blender GLB but (0, 0, 2.56) on our
-      // FBX rig (the -90deg pre-rotation lives on the parent Armature node),
-      // so a length-scaled verbatim copy bent the whole skeleton 90deg.
+      // exactly that, so the right transfer is to drop the track.
       const v = track as THREE.VectorKeyframeTrack
       const values = Float32Array.from(v.values)
       const scale = Math.max(Math.abs(values[0]), Math.abs(values[1]), Math.abs(values[2]), 1e-6)
@@ -824,14 +781,11 @@ export function retargetClipWithRest(
         ) { constant = false; break }
       }
       if (constant) continue
-      // genuinely moving position (root motion, IK pops): transfer the DELTA
-      // from rest, unit-scaled, on top of the target's own rest offset —
-      // never the raw foreign offset with its foreign direction
+      // genuinely moving position (root motion, Torso dance sway): transfer the DELTA
+      // from rest, unit-scaled, on top of the target's own rest offset
       const ls = src.pose.pos.length()
       const lt = tgt.pos.length()
-      if (!Number.isFinite(ls) || !Number.isFinite(lt) || ls < 1e-6) continue
-      const f = lt / ls
-      if (f < 0.01 || f > 100) continue // rigs too unlike each other — drop
+      const f = (Number.isFinite(ls) && Number.isFinite(lt) && ls >= 1e-6) ? (lt / ls) : 1.0
       const out = new Float32Array(values.length)
       for (let i = 0; i < values.length; i += 3) {
         out[i] = tgt.pos.x + (values[i] - src.pose.pos.x) * f
