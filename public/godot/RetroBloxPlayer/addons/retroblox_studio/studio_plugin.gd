@@ -14,8 +14,6 @@ const LIGHTING_DIALOG_PATH = "res://addons/retroblox_studio/lighting_dialog.gd"
 const LIGHTING_POPUP_PATH = "res://addons/retroblox_studio/lighting_menu_popup.gd"
 const TOOLBOX_DOCK_PATH = "res://addons/retroblox_studio/toolbox_dock.gd"
 const BUILDER_DOCK_PATH = "res://addons/retroblox_studio/builder_dock.gd"
-const BLOCK_CODE_DIALOG_PATH = "res://addons/retroblox_studio/block_code_dialog.gd"
-const ORCHESTRATOR_DIALOG_PATH = "res://addons/retroblox_studio/orchestrator_dialog.gd"
 const CUSTOM_NODES_DIALOG_PATH = "res://addons/retroblox_studio/custom_nodes_dialog.gd"
 const SCALABILITY_SCRIPT_PATH = "res://addons/retroblox_studio/editor_scalability.gd"
 const INTERACTIVE_PAD_PATH = "res://scripts/world/interactive_pad.gd"
@@ -38,8 +36,6 @@ var _export_pkg_dialog: FileDialog
 var _fs_context_plugin: RefCounted = null
 var _builder_panel: Control = null
 var _builder_btn: Button = null
-var _block_code_dialog: AcceptDialog = null
-var _orchestrator_dialog: AcceptDialog = null
 var _custom_nodes_dialog: AcceptDialog = null
 var _scalability: RefCounted = null
 var _fs_popups: Array[PopupMenu] = []
@@ -118,22 +114,6 @@ func _enter_tree() -> void:
 			_builder_panel.position = Vector2(base_ctrl.size.x - 390, 80)
 			_builder_panel.hide()
 
-	# Block Code Visual Programming
-	if ResourceLoader.exists(BLOCK_CODE_DIALOG_PATH):
-		var bc_scr: Script = load(BLOCK_CODE_DIALOG_PATH) as Script
-		if bc_scr != null:
-			_block_code_dialog = bc_scr.new() as AcceptDialog
-			_block_code_dialog.set("plugin", self)
-			base_ctrl.add_child(_block_code_dialog)
-
-	# Orchestrator Visual Logic
-	if ResourceLoader.exists(ORCHESTRATOR_DIALOG_PATH):
-		var od_scr: Script = load(ORCHESTRATOR_DIALOG_PATH) as Script
-		if od_scr != null:
-			_orchestrator_dialog = od_scr.new() as AcceptDialog
-			_orchestrator_dialog.set("plugin", self)
-			base_ctrl.add_child(_orchestrator_dialog)
-
 	# Custom Nodes Library
 	if ResourceLoader.exists(CUSTOM_NODES_DIALOG_PATH):
 		var cnd_scr: Script = load(CUSTOM_NODES_DIALOG_PATH) as Script
@@ -161,9 +141,7 @@ func _enter_tree() -> void:
 	add_tool_menu_item("RetroBlox Hider/Unhider Node...", _on_open_hider_dialog)
 	add_tool_menu_item("RetroBlox Add Lighting to Scene (Roblox HD)", _on_add_lighting_to_scene_pressed)
 	add_tool_menu_item("RetroBlox Lighting Presets & Upload...", _on_open_lighting_dialog)
-	add_tool_menu_item("RetroBlox Level Builder (Cyclops & Retro)...", _on_toggle_builder_panel)
-	add_tool_menu_item("RetroBlox Block Code (Visual Blocks)...", _on_open_block_code)
-	add_tool_menu_item("RetroBlox Orchestrator (Visual Logic)...", _on_open_orchestrator)
+	add_tool_menu_item("RetroBlox Level Builder (ProBuilder)...", _on_toggle_builder_panel)
 	add_tool_menu_item("RetroBlox Custom Nodes Library...", _on_open_custom_nodes)
 	add_tool_menu_item("RetroBlox Generate Scene Occluders", _on_generate_scene_occluders)
 	add_tool_menu_item("RetroBlox Import Roblox Animation (.rbxm)...", _on_import_rbxm_anim)
@@ -196,21 +174,13 @@ func _exit_tree() -> void:
 	remove_tool_menu_item("RetroBlox Hider/Unhider Node...")
 	remove_tool_menu_item("RetroBlox Add Lighting to Scene (Roblox HD)")
 	remove_tool_menu_item("RetroBlox Lighting Presets & Upload...")
-	remove_tool_menu_item("RetroBlox Level Builder (Cyclops & Retro)...")
-	remove_tool_menu_item("RetroBlox Block Code (Visual Blocks)...")
-	remove_tool_menu_item("RetroBlox Orchestrator (Visual Logic)...")
+	remove_tool_menu_item("RetroBlox Level Builder (ProBuilder)...")
 	remove_tool_menu_item("RetroBlox Custom Nodes Library...")
 	remove_tool_menu_item("RetroBlox Generate Scene Occluders")
 	remove_tool_menu_item("RetroBlox Import Roblox Animation (.rbxm)...")
 	if _builder_panel != null:
 		_builder_panel.queue_free()
 		_builder_panel = null
-	if _block_code_dialog != null:
-		_block_code_dialog.queue_free()
-		_block_code_dialog = null
-	if _orchestrator_dialog != null:
-		_orchestrator_dialog.queue_free()
-		_orchestrator_dialog = null
 	if _custom_nodes_dialog != null:
 		_custom_nodes_dialog.queue_free()
 		_custom_nodes_dialog = null
@@ -391,21 +361,9 @@ func _create_toolbar() -> void:
 
 	_builder_btn = Button.new()
 	_builder_btn.text = "BuildersUI"
-	_builder_btn.tooltip_text = "Toggle BuildersUI Panel (Cyclops Blockout, Shapes, CSG Union/Subtract, Hotkey: B)"
+	_builder_btn.tooltip_text = "Toggle ProBuilder-style BuildersUI Panel (Hotkey: B)"
 	_builder_btn.pressed.connect(_on_toggle_builder_panel)
 	outer.add_child(_builder_btn)
-
-	var block_code_btn = Button.new()
-	block_code_btn.text = "Block Code"
-	block_code_btn.tooltip_text = "Open Scratch-style Visual Block Code Studio for Selected Node"
-	block_code_btn.pressed.connect(_on_open_block_code)
-	outer.add_child(block_code_btn)
-
-	var orches_btn = Button.new()
-	orches_btn.text = "Orchestrator"
-	orches_btn.tooltip_text = "Open Orchestrator Visual Logic & Blueprint Graph Studio"
-	orches_btn.pressed.connect(_on_open_orchestrator)
-	outer.add_child(orches_btn)
 
 	var cnodes_btn = Button.new()
 	cnodes_btn.text = "+Node"
@@ -1729,32 +1687,6 @@ func _on_toggle_builder_panel() -> void:
 				_builder_btn.button_pressed = true
 
 
-func _on_open_block_code() -> void:
-	if _block_code_dialog == null:
-		var base_ctrl: Control = get_editor_interface().get_base_control()
-		if ResourceLoader.exists(BLOCK_CODE_DIALOG_PATH):
-			var bc_scr: Script = load(BLOCK_CODE_DIALOG_PATH) as Script
-			if bc_scr != null:
-				_block_code_dialog = bc_scr.new() as AcceptDialog
-				_block_code_dialog.set("plugin", self)
-				base_ctrl.add_child(_block_code_dialog)
-	if _block_code_dialog != null:
-		_block_code_dialog.popup_centered_ratio(0.85)
-
-
-func _on_open_orchestrator() -> void:
-	if _orchestrator_dialog == null:
-		var base_ctrl: Control = get_editor_interface().get_base_control()
-		if ResourceLoader.exists(ORCHESTRATOR_DIALOG_PATH):
-			var od_scr: Script = load(ORCHESTRATOR_DIALOG_PATH) as Script
-			if od_scr != null:
-				_orchestrator_dialog = od_scr.new() as AcceptDialog
-				_orchestrator_dialog.set("plugin", self)
-				base_ctrl.add_child(_orchestrator_dialog)
-	if _orchestrator_dialog != null:
-		_orchestrator_dialog.popup_centered_ratio(0.85)
-
-
 func _on_open_custom_nodes() -> void:
 	if _custom_nodes_dialog == null:
 		var base_ctrl: Control = get_editor_interface().get_base_control()
@@ -1809,9 +1741,13 @@ func _on_import_rbxm_anim() -> void:
 	fd.file_selected.connect(func(path: String):
 		var imp_scr = load("res://scripts/utils/rbxm_anim_importer.gd")
 		if imp_scr != null:
-			var res = imp_scr.import_file(path)
+			var res = imp_scr.import_animation_file(path)
 			if res != null:
-				print("[RetroBlox] Successfully imported animation: ", path)
+				var save_path := path.get_basename() + ".tres"
+				ResourceSaver.save(res, save_path)
+				print("[RetroBlox] Successfully imported animation to: ", save_path)
+				if Engine.is_editor_hint():
+					get_editor_interface().get_resource_filesystem().scan()
 		fd.queue_free()
 	)
 	fd.canceled.connect(func(): fd.queue_free())

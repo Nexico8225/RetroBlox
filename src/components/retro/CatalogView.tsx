@@ -1542,6 +1542,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       // The conversion also checks the materials — a model that landed with
       // no colors at all would be plain white in game, so we say so NOW.
       if (!f) return
+      const lowerName = f.name.toLowerCase()
+      if (lowerName.endsWith('.rbxm') || lowerName.endsWith('.rbxmx')) {
+        setError('Roblox .rbxm / .rbxmx animation files must be uploaded as an Emote or Animation Pack. Switch the Item Type above to Emote or Animation Pack, then pick this file again.')
+        return
+      }
       const tooBig = modelTooBig(f)
       if (tooBig) { setError(tooBig); return }
       setConverting(true)
@@ -1795,7 +1800,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
           {is3D || rigged ? (
             <>
               <div style={{ fontSize: 9, color: '#7b8896', marginTop: 4 }}>
-                {rigged ? 'Click or drop — rigged GLB or FBX (rig + clips), max 24MB' : 'Click or drop — FBX / GLB / OBJ, max 24MB'}
+                {rigged ? 'Click or drop — rigged GLB, FBX, or Roblox .rbxm/.rbxmx (AnimSaves), max 24MB' : 'Click or drop — FBX / GLB / OBJ, max 24MB'}
               </div>
               {rigged && (
                 <div style={{ fontSize: 9, color: '#1c4e7c', marginTop: 3, lineHeight: 1.4 }}>
