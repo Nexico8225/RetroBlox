@@ -50,6 +50,101 @@ export const R6_BONE_MAP: Record<string, string> = {
 
 const R6_BONES = ['HumanoidRootPart', 'Torso', 'Head', 'RightArm', 'LeftArm', 'RightLeg', 'LeftLeg'] as const
 
+function makeCFrameMatrix(
+  x: number, y: number, z: number,
+  r00 = 1, r01 = 0, r02 = 0,
+  r10 = 0, r11 = 1, r12 = 0,
+  r20 = 0, r21 = 0, r22 = 1
+): THREE.Matrix4 {
+  const m = new THREE.Matrix4()
+  m.set(
+    r00, r01, r02, x,
+    r10, r11, r12, y,
+    r20, r21, r22, z,
+    0, 0, 0, 1
+  )
+  return m
+}
+
+/**
+ * Official Roblox R6 Motor6D joint definitions:
+ * C0 specifies the joint transform relative to Part0 (Torso or RootPart).
+ */
+export const ROBLOX_R6_JOINTS: Record<string, { C0: THREE.Matrix4; node: string; restPos: [number, number, number] }> = {
+  Torso: {
+    C0: makeCFrameMatrix(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
+    node: 'Torso',
+    restPos: [0, 3, 0],
+  },
+  HumanoidRootPart: {
+    C0: makeCFrameMatrix(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
+    node: 'Torso',
+    restPos: [0, 3, 0],
+  },
+  Head: {
+    C0: makeCFrameMatrix(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
+    node: 'Head',
+    restPos: [0, 1, 0],
+  },
+  RightArm: {
+    C0: makeCFrameMatrix(1, 0.5, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0),
+    node: 'Right_Arm',
+    restPos: [-1.5, 0.5, 0],
+  },
+  LeftArm: {
+    C0: makeCFrameMatrix(-1, 0.5, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+    node: 'Left_Arm',
+    restPos: [1.5, 0.5, 0],
+  },
+  RightLeg: {
+    C0: makeCFrameMatrix(1, -1, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0),
+    node: 'Right_Leg',
+    restPos: [-0.5, -1, 0],
+  },
+  LeftLeg: {
+    C0: makeCFrameMatrix(-1, -1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+    node: 'Left_Leg',
+    restPos: [0.5, -1, 0],
+  },
+}
+
+const R_Y180 = new THREE.Matrix4().makeRotationY(Math.PI)
+const INV_R_Y180 = new THREE.Matrix4().copy(R_Y180).invert()
+
+/**
+ * Transform a Roblox Pose CFrame into RetroBlox Three.js space:
+ * 1. Joint change-of-basis: C0 * Pose * inv(C0)
+ * 2. World orientation (Roblox character faces -Z, Three.js rig faces +Z): R_Y180 * M * inv(R_Y180)
+ */
+export function convertRobloxPoseToThree(
+  boneName: string,
+  rawPos: [number, number, number],
+  rawQuat: [number, number, number, number]
+): { position: [number, number, number]; quaternion: [number, number, number, number] } {
+  const j = ROBLOX_R6_JOINTS[boneName]
+  if (!j) {
+    return { position: rawPos, quaternion: rawQuat }
+  }
+
+  const rawQ = new THREE.Quaternion(rawQuat[0], rawQuat[1], rawQuat[2], rawQuat[3])
+  const poseM = new THREE.Matrix4().makeRotationFromQuaternion(rawQ)
+  poseM.setPosition(rawPos[0], rawPos[1], rawPos[2])
+
+  const invC0 = new THREE.Matrix4().copy(j.C0).invert()
+  const jointM_roblox = new THREE.Matrix4().multiplyMatrices(j.C0, poseM).multiply(invC0)
+  const jointM_three = new THREE.Matrix4().multiplyMatrices(R_Y180, jointM_roblox).multiply(INV_R_Y180)
+
+  const pos = new THREE.Vector3()
+  const quat = new THREE.Quaternion()
+  const scale = new THREE.Vector3()
+  jointM_three.decompose(pos, quat, scale)
+
+  return {
+    position: [pos.x, pos.y, pos.z],
+    quaternion: [quat.x, quat.y, quat.z, quat.w],
+  }
+}
+
 /**
  * Convert Roblox CFrame rotation matrix (R00..R22) to Three.js Quaternion (x, y, z, w).
  */
@@ -78,24 +173,37 @@ function buildClipFromKeyframes(
   parsedKeyframes.sort((a, b) => a.time - b.time)
   const tracks: THREE.KeyframeTrack[] = []
 
-  for (const bone of R6_BONES) {
+  const BONE_TARGETS: Array<{ rbx: string; nodes: string[]; restPos: [number, number, number] }> = [
+    { rbx: 'Torso', nodes: ['Torso'], restPos: [0, 3, 0] },
+    { rbx: 'Head', nodes: ['Head'], restPos: [0, 1, 0] },
+    { rbx: 'RightArm', nodes: ['Right_Arm', 'RightArm'], restPos: [-1.5, 0.5, 0] },
+    { rbx: 'LeftArm', nodes: ['Left_Arm', 'LeftArm'], restPos: [1.5, 0.5, 0] },
+    { rbx: 'RightLeg', nodes: ['Right_Leg', 'RightLeg'], restPos: [-0.5, -1, 0] },
+    { rbx: 'LeftLeg', nodes: ['Left_Leg', 'LeftLeg'], restPos: [0.5, -1, 0] },
+    { rbx: 'HumanoidRootPart', nodes: ['HumanoidRootPart'], restPos: [0, 0, 0] },
+  ]
+
+  for (const b of BONE_TARGETS) {
     const times: number[] = []
     const quatValues: number[] = []
     const posValues: number[] = []
 
     for (const kf of parsedKeyframes) {
-      if (kf.poses[bone]) {
+      if (kf.poses[b.rbx]) {
         times.push(kf.time)
-        const p = kf.poses[bone]
-        quatValues.push(p.quaternion[0], p.quaternion[1], p.quaternion[2], p.quaternion[3])
-        posValues.push(p.position[0], p.position[1], p.position[2])
+        const p = kf.poses[b.rbx]
+        const conv = convertRobloxPoseToThree(b.rbx, p.position, p.quaternion)
+        quatValues.push(conv.quaternion[0], conv.quaternion[1], conv.quaternion[2], conv.quaternion[3])
+        posValues.push(b.restPos[0] + conv.position[0], b.restPos[1] + conv.position[1], b.restPos[2] + conv.position[2])
       }
     }
 
     if (times.length > 0) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${bone}.quaternion`, times, quatValues))
-      if (bone === 'Torso' || bone === 'HumanoidRootPart') {
-        tracks.push(new THREE.VectorKeyframeTrack(`${bone}.position`, times, posValues))
+      for (const nodeName of b.nodes) {
+        tracks.push(new THREE.QuaternionKeyframeTrack(`${nodeName}.quaternion`, times, quatValues))
+        if (b.rbx === 'Torso' && nodeName === 'Torso') {
+          tracks.push(new THREE.VectorKeyframeTrack(`${nodeName}.position`, times, posValues))
+        }
       }
     }
   }
@@ -604,21 +712,47 @@ export async function buildR6AnimationGlb(pkg: RbxAnimationPackage): Promise<Blo
 
   const mat = new THREE.MeshStandardMaterial({ color: 0xa3a2a5, roughness: 0.7 })
 
-  const makePart = (name: string, size: [number, number, number], pos: [number, number, number]) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(size[0], size[1], size[2]), mat)
-    mesh.name = name
-    mesh.position.set(pos[0], pos[1], pos[2])
-    return mesh
-  }
-
-  const torso = makePart('Torso', [2, 2, 1], [0, 3, 0])
+  // Torso at [0, 3, 0], box 2x2x1 centered at [0, 0, 0]
+  const torsoGeo = new THREE.BoxGeometry(2, 2, 1)
+  const torso = new THREE.Mesh(torsoGeo, mat)
+  torso.name = 'Torso'
+  torso.position.set(0, 3, 0)
   hrp.add(torso)
 
-  const head = makePart('Head', [1.2, 1.2, 1.2], [0, 1.6, 0])
-  const rightArm = makePart('RightArm', [1, 2, 1], [1.5, 0, 0])
-  const leftArm = makePart('LeftArm', [1, 2, 1], [-1.5, 0, 0])
-  const rightLeg = makePart('RightLeg', [1, 2, 1], [0.5, -2, 0])
-  const leftLeg = makePart('LeftLeg', [1, 2, 1], [-0.5, -2, 0])
+  // Head at [0, 1, 0] (neck pivot relative to Torso), box 1.2x1.2x1.2 offset +0.6 up
+  const headGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2)
+  headGeo.translate(0, 0.6, 0)
+  const head = new THREE.Mesh(headGeo, mat)
+  head.name = 'Head'
+  head.position.set(0, 1, 0)
+
+  // Right_Arm at [-1.5, 0.5, 0] (shoulder pivot relative to Torso), box 1x2x1 offset -0.5 down
+  const armGeoR = new THREE.BoxGeometry(1, 2, 1)
+  armGeoR.translate(0, -0.5, 0)
+  const rightArm = new THREE.Mesh(armGeoR, mat)
+  rightArm.name = 'Right_Arm'
+  rightArm.position.set(-1.5, 0.5, 0)
+
+  // Left_Arm at [1.5, 0.5, 0] (shoulder pivot relative to Torso), box 1x2x1 offset -0.5 down
+  const armGeoL = new THREE.BoxGeometry(1, 2, 1)
+  armGeoL.translate(0, -0.5, 0)
+  const leftArm = new THREE.Mesh(armGeoL, mat)
+  leftArm.name = 'Left_Arm'
+  leftArm.position.set(1.5, 0.5, 0)
+
+  // Right_Leg at [-0.5, -1, 0] (hip pivot relative to Torso), box 1x2x1 offset -1.0 down
+  const legGeoR = new THREE.BoxGeometry(1, 2, 1)
+  legGeoR.translate(0, -1.0, 0)
+  const rightLeg = new THREE.Mesh(legGeoR, mat)
+  rightLeg.name = 'Right_Leg'
+  rightLeg.position.set(-0.5, -1, 0)
+
+  // Left_Leg at [0.5, -1, 0] (hip pivot relative to Torso), box 1x2x1 offset -1.0 down
+  const legGeoL = new THREE.BoxGeometry(1, 2, 1)
+  legGeoL.translate(0, -1.0, 0)
+  const leftLeg = new THREE.Mesh(legGeoL, mat)
+  leftLeg.name = 'Left_Leg'
+  leftLeg.position.set(0.5, -1, 0)
 
   torso.add(head, rightArm, leftArm, rightLeg, leftLeg)
 
