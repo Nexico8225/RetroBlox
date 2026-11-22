@@ -31,8 +31,10 @@ const nextConfig: NextConfig = {
   },
   outputFileTracingExcludes: {
     "/**": [
-      "./public/godot/**",
-      "./public/downloads/**",
+      "./public/**",
+      "./.godot/**",
+      "./addons/**",
+      "./scripts/**",
     ],
   },
   // Every "SDK" download IS the Godot player kit — always force a real
