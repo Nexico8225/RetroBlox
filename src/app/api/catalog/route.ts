@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
   // pricing: 0 = free item; limiteds are collectibles — the price is the price
   const price = Math.floor(Number(form.get('price') || 0))
   const isLimited = String(form.get('limited') || '') === '1' || String(form.get('isLimited') || '') === '1'
-  const isSuperLimited = String(form.get('superLimited') || '') === '1' || String(form.get('isSuperLimited') || '') === '1' || String(form.get('limitedType') || '') === 'super'
+  const isSuperLimited = user.role === 'admin' && (String(form.get('superLimited') || '') === '1' || String(form.get('isSuperLimited') || '') === '1' || String(form.get('limitedType') || '') === 'super')
   // limited stock: the total print run (empty/null = unlimited copies)
   const stockRaw = String(form.get('stock') || '').trim()
   let stock: number | null = null

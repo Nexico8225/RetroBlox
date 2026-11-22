@@ -1030,21 +1030,23 @@ function EditItemModal({
                 <input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} />
                 Limited
               </label>
-              <label
-                style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c' }}
-                title="Super Limited — price doubles (2x) with every single sale!"
-              >
-                <input
-                  type="checkbox"
-                  checked={superLimited}
-                  onChange={(e) => {
-                    const c = e.target.checked
-                    setSuperLimited(c)
-                    if (c) setLimited(true)
-                  }}
-                />
-                Super Limited (2x price on buy)
-              </label>
+              {isAdmin && (
+                <label
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c' }}
+                  title="Super Limited — price doubles (2x) with every single sale!"
+                >
+                  <input
+                    type="checkbox"
+                    checked={superLimited}
+                    onChange={(e) => {
+                      const c = e.target.checked
+                      setSuperLimited(c)
+                      if (c) setLimited(true)
+                    }}
+                  />
+                  Super Limited (2x price on buy)
+                </label>
+              )}
             </div>
             <div style={{ fontSize: 10, color: '#8ba0b3', marginTop: 4 }}>
               {limited && item.isLimited && !isAdmin
@@ -1106,7 +1108,8 @@ function EditItemModal({
 /* ---------------- publish form ---------------- */
 
 function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[] }) {
-  const { setToast } = useRetro()
+  const { user, setToast } = useRetro()
+  const isAdmin = user?.role === 'admin'
   const [name, setName] = useState('')
   const [type, setType] = useState('hat')
   const [description, setDescription] = useState('')
@@ -1645,6 +1648,7 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       fd.append('description', description.trim())
       fd.append('price', String(finalPrice))
       fd.append('limited', limited ? '1' : '0')
+      if (isAdmin && superLimited) fd.append('superLimited', '1')
       if (limited && stockInput.trim() !== '') fd.append('stock', stockInput.trim())
       if (groupId) fd.append('groupId', groupId)
       if (rigged && modelBlob) {
@@ -2261,21 +2265,23 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
                 <input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} />
                 [LIMITED] Limited
               </label>
-              <label
-                style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c', fontWeight: 'bold' }}
-                title="Super Limited — price doubles (2x) with every single sale and NEVER loses value in trades!"
-              >
-                <input
-                  type="checkbox"
-                  checked={superLimited}
-                  onChange={(e) => {
-                    const c = e.target.checked
-                    setSuperLimited(c)
-                    if (c) setLimited(true)
-                  }}
-                />
-                [SUPER LIMITED] (2x price on purchase, never loses value)
-              </label>
+              {isAdmin && (
+                <label
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: superLimited ? '#e65100' : '#1c4e7c', fontWeight: 'bold' }}
+                  title="Super Limited — price doubles (2x) with every single sale and NEVER loses value in trades!"
+                >
+                  <input
+                    type="checkbox"
+                    checked={superLimited}
+                    onChange={(e) => {
+                      const c = e.target.checked
+                      setSuperLimited(c)
+                      if (c) setLimited(true)
+                    }}
+                  />
+                  [SUPER LIMITED] (2x price on purchase, never loses value)
+                </label>
+              )}
             </div>
             <div style={{ fontSize: 10, color: limited ? '#8a6d1a' : '#8ba0b3', marginTop: 4 }}>
               {limited
