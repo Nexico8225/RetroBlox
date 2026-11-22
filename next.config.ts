@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
       "./prisma/schema.prisma",
     ],
   },
+  outputFileTracingExcludes: {
+    "/**": [
+      "./public/godot/**",
+      "./public/downloads/**",
+    ],
+  },
   // Every "SDK" download IS the Godot player kit — always force a real
   // download (never navigate/open) and never let an edge cache serve a
   // stale kit after a redeploy.

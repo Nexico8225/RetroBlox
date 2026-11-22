@@ -27,8 +27,9 @@ function resolveDatasourceUrl(): string {
 
   if (env && env.startsWith('file:')) {
     const raw = env.replace(/^file:/, '')
-    const abs = path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw)
-    if (fs.existsSync(abs)) return env
+    const abs = path.isAbsolute(raw) ? raw : path.join(process.cwd(), 'db', path.basename(raw))
+    if (fs.existsSync(abs)) return 'file:' + abs
+    return env
   }
 
   const cwd = process.cwd()
