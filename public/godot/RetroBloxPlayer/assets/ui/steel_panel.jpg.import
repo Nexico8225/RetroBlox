@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dmjdtirvnq0av"
-path="res://.godot/imported/steel_panel.jpg-781ae1e8803f1c04e984572cbda04c52.ctex"
+uid="uid://cyh4u8hm4tsgt"
+path="res://.godot/imported/steel_panel.jpg-d7fc9f5ebc1aa0dd7f79a340de467479.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/UI/steel_panel.jpg"
-dest_files=["res://.godot/imported/steel_panel.jpg-781ae1e8803f1c04e984572cbda04c52.ctex"]
+source_file="res://assets/ui/steel_panel.jpg"
+dest_files=["res://.godot/imported/steel_panel.jpg-d7fc9f5ebc1aa0dd7f79a340de467479.ctex"]
 
 [params]
 

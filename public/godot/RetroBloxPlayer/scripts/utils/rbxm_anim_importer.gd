@@ -6,18 +6,41 @@ extends RefCounted
 ## directly into Godot 4.x Animation resources for R6 characters and custom rigs.
 
 const R6_PART_MAPPING := {
-	"Torso": "Torso",
-	"Head": "Head",
-	"Right Arm": "Pivot_3",
-	"RightArm": "Pivot_3",
-	"Left Arm": "Pivot_2",
-	"LeftArm": "Pivot_2",
-	"Right Leg": "Pivot_5",
-	"RightLeg": "Pivot_5",
-	"Left Leg": "Pivot_4",
-	"LeftLeg": "Pivot_4",
-	"HumanoidRootPart": "Torso"
+	"Torso": ["Pivot_1", "Torso"],
+	"Head": ["Pivot_0", "Head"],
+	"Right Arm": ["Pivot_3", "Right_Arm", "RightArm"],
+	"RightArm": ["Pivot_3", "Right_Arm", "RightArm"],
+	"Left Arm": ["Pivot_2", "Left_Arm", "LeftArm"],
+	"LeftArm": ["Pivot_2", "Left_Arm", "LeftArm"],
+	"Right Leg": ["Pivot_5", "Right_Leg", "RightLeg"],
+	"RightLeg": ["Pivot_5", "Right_Leg", "RightLeg"],
+	"Left Leg": ["Pivot_4", "Left_Leg", "LeftLeg"],
+	"LeftLeg": ["Pivot_4", "Left_Leg", "LeftLeg"],
+	"HumanoidRootPart": ["Pivot_1", "Torso"]
 }
+
+const ROBLOX_C0_BASIS := {
+	"Torso": Basis(Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 0)),
+	"HumanoidRootPart": Basis(Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 0)),
+	"Head": Basis(Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 0)),
+	"Right Arm": Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0)),
+	"RightArm": Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0)),
+	"Left Arm": Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0)),
+	"LeftArm": Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0)),
+	"Right Leg": Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0)),
+	"RightLeg": Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0)),
+	"Left Leg": Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0)),
+	"LeftLeg": Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0)),
+}
+
+static func convert_roblox_pose(bone_name: String, raw_basis: Basis, raw_pos: Vector3) -> Dictionary:
+	var c0: Basis = ROBLOX_C0_BASIS.get(bone_name, Basis.IDENTITY)
+	var joint_basis: Basis = (c0 * raw_basis * c0.inverse()).orthonormalized()
+	var joint_quat: Quaternion = joint_basis.get_rotation_quaternion()
+	var joint_pos: Vector3 = c0 * raw_pos
+	if bone_name == "Torso" or bone_name == "HumanoidRootPart":
+		joint_pos += Vector3(0.0, 3.0, 0.0)
+	return { "quat": joint_quat, "pos": joint_pos }
 
 static func import_animation_file(file_path: String) -> Animation:
 	var file := FileAccess.open(file_path, FileAccess.READ)
@@ -135,22 +158,24 @@ static func import_from_rbxmx_xml(xml_text: String, default_name: String = "Robl
 			if end_el == "CoordinateFrame" and reading_cframe:
 				reading_cframe = false
 				if pose_name.length() > 0:
-					var basis := Basis(
+					var raw_basis := Basis(
 						Vector3(cf_r00, cf_r10, cf_r20),
 						Vector3(cf_r01, cf_r11, cf_r21),
 						Vector3(cf_r02, cf_r12, cf_r22)
 					).orthonormalized()
-					var quat := basis.get_rotation_quaternion()
-					var pos := Vector3(cf_x, cf_y, cf_z)
-					var target_bone = R6_PART_MAPPING.get(pose_name, pose_name)
-
-					if not tracks_data.has(target_bone):
-						tracks_data[target_bone] = []
-					tracks_data[target_bone].append({
-						"time": current_kf_time,
-						"quat": quat,
-						"pos": pos
-					})
+					var raw_pos := Vector3(cf_x, cf_y, cf_z)
+					var conv := convert_roblox_pose(pose_name, raw_basis, raw_pos)
+					var targets = R6_PART_MAPPING.get(pose_name, [pose_name])
+					if typeof(targets) != TYPE_ARRAY:
+						targets = [targets]
+					for target_bone in targets:
+						if not tracks_data.has(target_bone):
+							tracks_data[target_bone] = []
+						tracks_data[target_bone].append({
+							"time": current_kf_time,
+							"quat": conv["quat"],
+							"pos": conv["pos"]
+						})
 			elif end_el == "Properties":
 				in_props = false
 			elif end_el == "Item":
@@ -161,15 +186,18 @@ static func import_from_rbxmx_xml(xml_text: String, default_name: String = "Robl
 	# Build Godot Animation tracks
 	for bone in tracks_data.keys():
 		var keys: Array = tracks_data[bone]
+		keys.sort_custom(func(a, b): return a["time"] < b["time"])
 		# Rotation track (as euler or quaternion rotation)
 		var rot_track_idx := anim.add_track(Animation.TYPE_ROTATION_3D)
 		anim.track_set_path(rot_track_idx, NodePath(bone))
 		for k in keys:
 			anim.rotation_track_insert_key(rot_track_idx, k["time"], k["quat"])
 
-		if bone == "Torso":
+		if bone == "Torso" or bone == "Pivot_1":
 			var pos_track_idx := anim.add_track(Animation.TYPE_POSITION_3D)
 			anim.track_set_path(pos_track_idx, NodePath(bone))
+			for k in keys:
+				anim.position_track_insert_key(pos_track_idx, k["time"], k["pos"])
 			for k in keys:
 				anim.position_track_insert_key(pos_track_idx, k["time"], k["pos"])
 
@@ -251,7 +279,7 @@ static func _read_interleaved_f32(d: PackedByteArray, off: int, cnt: int) -> Arr
 	return out
 
 
-static func _orient_id_to_quat(oid: int) -> Quaternion:
+static func _orient_id_to_basis(oid: int) -> Basis:
 	var norms: Array[Vector3] = [
 		Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1),
 		Vector3(-1, 0, 0), Vector3(0, -1, 0), Vector3(0, 0, -1)
@@ -262,8 +290,7 @@ static func _orient_id_to_quat(oid: int) -> Quaternion:
 	var r: Vector3 = norms[r_idx] if r_idx >= 0 and r_idx < 6 else Vector3(1, 0, 0)
 	var u: Vector3 = norms[u_idx] if u_idx >= 0 and u_idx < 6 else Vector3(0, 1, 0)
 	var f: Vector3 = r.cross(u)
-	var basis := Basis(r, u, f).orthonormalized()
-	return basis.get_rotation_quaternion()
+	return Basis(r, u, f).orthonormalized()
 
 
 static func import_from_rbxm_binary(bytes: PackedByteArray, default_name: String = "RobloxAnim") -> Animation:
@@ -308,7 +335,7 @@ static func import_from_rbxm_binary(bytes: PackedByteArray, default_name: String
 					"loop": true,
 					"time": 0.0,
 					"pos": Vector3.ZERO,
-					"quat": Quaternion.IDENTITY,
+					"basis": Basis.IDENTITY,
 					"has_cf": false
 				}
 			classes[class_id] = {"cls": cls_name, "ids": ids}
@@ -339,12 +366,12 @@ static func import_from_rbxm_binary(bytes: PackedByteArray, default_name: String
 				for i in range(cnt):
 					instances[ids[i]]["time"] = vals[i]
 			elif prop_type == 0x10 and prop_name == "CFrame":
-				var quats: Array[Quaternion] = []
+				var bases: Array[Basis] = []
 				var spb := StreamPeerBuffer.new()
 				spb.big_endian = false
 				for i in range(cnt):
 					if p >= data.size():
-						quats.append(Quaternion.IDENTITY)
+						bases.append(Basis.IDENTITY)
 						continue
 					var oid: int = data[p]; p += 1
 					if oid == 0 and p + 36 <= data.size():
@@ -355,21 +382,21 @@ static func import_from_rbxm_binary(bytes: PackedByteArray, default_name: String
 						var r10 := spb.get_float(); var r11 := spb.get_float(); var r12 := spb.get_float()
 						var r20 := spb.get_float(); var r21 := spb.get_float(); var r22 := spb.get_float()
 						p += 36
-						var basis := Basis(
+						var b := Basis(
 							Vector3(r00, r10, r20),
 							Vector3(r01, r11, r21),
 							Vector3(r02, r12, r22)
 						).orthonormalized()
-						quats.append(basis.get_rotation_quaternion())
+						bases.append(b)
 					else:
-						quats.append(_orient_id_to_quat(oid))
+						bases.append(_orient_id_to_basis(oid))
 				if p + cnt * 12 <= data.size():
 					var xs := _read_interleaved_f32(data, p, cnt)
 					var ys := _read_interleaved_f32(data, p + cnt * 4, cnt)
 					var zs := _read_interleaved_f32(data, p + cnt * 8, cnt)
 					for i in range(cnt):
 						instances[ids[i]]["pos"] = Vector3(xs[i], ys[i], zs[i])
-						instances[ids[i]]["quat"] = quats[i]
+						instances[ids[i]]["basis"] = bases[i]
 						instances[ids[i]]["has_cf"] = true
 		elif chunk_name == "PRNT":
 			var p: int = 1
@@ -421,14 +448,19 @@ static func import_from_rbxm_binary(bytes: PackedByteArray, default_name: String
 			var cur_id: int = stack.pop_back()
 			var cur: Dictionary = instances[cur_id]
 			if cur["cls"] == "Pose" and bool(cur["has_cf"]):
-				var target_bone: String = R6_PART_MAPPING.get(cur["name"], cur["name"])
-				if not tracks_data.has(target_bone):
-					tracks_data[target_bone] = []
-				tracks_data[target_bone].append({
-					"time": t,
-					"quat": cur["quat"],
-					"pos": cur["pos"]
-				})
+				var p_name: String = str(cur["name"])
+				var conv := convert_roblox_pose(p_name, cur["basis"], cur["pos"])
+				var targets = R6_PART_MAPPING.get(p_name, [p_name])
+				if typeof(targets) != TYPE_ARRAY:
+					targets = [targets]
+				for target_bone in targets:
+					if not tracks_data.has(target_bone):
+						tracks_data[target_bone] = []
+					tracks_data[target_bone].append({
+						"time": t,
+						"quat": conv["quat"],
+						"pos": conv["pos"]
+					})
 			for ch_id in children_of.get(cur_id, []):
 				stack.append(ch_id)
 
@@ -440,11 +472,14 @@ static func import_from_rbxm_binary(bytes: PackedByteArray, default_name: String
 		anim.track_set_path(rot_idx, NodePath(bone))
 		for k in keys:
 			anim.rotation_track_insert_key(rot_idx, k["time"], k["quat"])
-		if bone == "Torso":
+		if bone == "Torso" or bone == "Pivot_1":
 			var pos_idx := anim.add_track(Animation.TYPE_POSITION_3D)
 			anim.track_set_path(pos_idx, NodePath(bone))
 			for k in keys:
 				anim.position_track_insert_key(pos_idx, k["time"], k["pos"])
+
+	print("[RbxmAnimImporter] Successfully imported binary .rbxm '", anim.resource_name, "' (Length: ", anim.length, "s, Tracks: ", anim.get_track_count(), ")")
+	return anim
 
 	print("[RbxmAnimImporter] Successfully imported binary .rbxm '", anim.resource_name, "' (Length: ", anim.length, "s, Tracks: ", anim.get_track_count(), ")")
 	return anim

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d3s241vo4wrqx"
-path="res://.godot/imported/shiftlock.png-35174afe5272ecac121e16406d5371ec.ctex"
+uid="uid://cigjpxuf6hpq1"
+path="res://.godot/imported/shiftlock.png-fce6ef2794d1c22782d1ab312e78aee9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/UI/shiftlock.png"
-dest_files=["res://.godot/imported/shiftlock.png-35174afe5272ecac121e16406d5371ec.ctex"]
+source_file="res://assets/ui/shiftlock.png"
+dest_files=["res://.godot/imported/shiftlock.png-fce6ef2794d1c22782d1ab312e78aee9.ctex"]
 
 [params]
 

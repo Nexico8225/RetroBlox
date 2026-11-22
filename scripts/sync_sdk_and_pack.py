@@ -4,7 +4,7 @@ import shutil
 import zipfile
 from pathlib import Path
 
-SRC_SDK = Path(r"d:\Apps\Retroblox\RetrobloxSDK")
+SRC_SDK = Path(r"D:\Folders\RetroBlox\RetroBlox_SDK") if Path(r"D:\Folders\RetroBlox\RetroBlox_SDK").exists() else Path(r"d:\Apps\Retroblox\RetrobloxSDK")
 REPO_DIR = Path(__file__).resolve().parent.parent
 GODOT_PLAYER_DIR = REPO_DIR / "public" / "godot" / "RetroBloxPlayer"
 SDK_ZIP_OUT = REPO_DIR / "public" / "downloads" / "RetroBlox_SDK.zip"

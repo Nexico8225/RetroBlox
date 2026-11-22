@@ -2071,24 +2071,12 @@ func _build_settings_tab() -> VBoxContainer:
 		func(on: bool) -> void:
 			if settings != null:
 				settings.set_key("shadows", on))
-	_slider_row(page, "monitor", "3D Render Scale (Viewport Scale)", 0.35, 1.0,
+	_slider_row(page, "monitor", "3D Render Scale", 0.5, 1.0,
 		float(settings.get("render_scale")) if settings != null else 1.0,
 		_fmt_pct,
 		func(v: float) -> void:
 			if settings != null:
 				settings.set_key("render_scale", v))
-	var dist_opts: Array = [["180 (Toaster)", 180], ["450 (Low)", 450], ["1000 (Medium)", 1000], ["2500 (Far)", 2500]]
-	var cur_dist: int = int(round(float(settings.get("render_distance")))) if (settings != null and settings.get("render_distance") != null) else 1000
-	_row_chips(page, "gauge", "Render Distance (Studs)", dist_opts,
-		cur_dist,
-		func(v: int) -> void:
-			if settings != null:
-				settings.set_key("render_distance", float(v)))
-	_row_toggle(page, "sliders", "Occlusion Culling (Hide Geometry Behind Walls)",
-		bool(settings.get("occlusion_culling")) if settings != null else true,
-		func(on: bool) -> void:
-			if settings != null:
-				settings.set_key("occlusion_culling", on))
 	var fps_opts: Array = [["Unlimited", 0], ["30", 30], ["60", 60], ["120", 120], ["240", 240]]
 	_row_chips(page, "gauge", "Max FPS", fps_opts,
 		int(settings.get("max_fps")) if settings != null else 0,

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bwmu8d55l6w0i"
-path="res://.godot/imported/retroblox_anims_0.png-49d55ff9ac04da25094767baffebb1d5.ctex"
+uid="uid://b7wx30jb84lcw"
+path="res://.godot/imported/retroblox_anims_0.png-ef7a64f319ced902ac56b1b7b363d305.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Models/retroblox_anims_0.png"
-dest_files=["res://.godot/imported/retroblox_anims_0.png-49d55ff9ac04da25094767baffebb1d5.ctex"]
+source_file="res://assets/models/retroblox_anims_0.png"
+dest_files=["res://.godot/imported/retroblox_anims_0.png-ef7a64f319ced902ac56b1b7b363d305.ctex"]
 
 [params]
 

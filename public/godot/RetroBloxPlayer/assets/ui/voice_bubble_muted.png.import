@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ci1gquc60n7a4"
-path="res://.godot/imported/voice_bubble_muted.png-a71f46b27d480ec1b34892613613ec2e.ctex"
+uid="uid://bkvkcrshve1tx"
+path="res://.godot/imported/voice_bubble_muted.png-1de3fb98b1816b5069e679a5b1e557ea.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/UI/voice_bubble_muted.png"
-dest_files=["res://.godot/imported/voice_bubble_muted.png-a71f46b27d480ec1b34892613613ec2e.ctex"]
+source_file="res://assets/ui/voice_bubble_muted.png"
+dest_files=["res://.godot/imported/voice_bubble_muted.png-1de3fb98b1816b5069e679a5b1e557ea.ctex"]
 
 [params]
 

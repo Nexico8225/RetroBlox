@@ -111,32 +111,6 @@ func _build_ui() -> void:
 	_build_materials_colors_tab()
 	_build_pads_spawners_tab()
 
-	# Quick Logic & Scripting Bar (Block Code + Orchestrator)
-	var logic_bar = HBoxContainer.new()
-	logic_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	logic_bar.add_theme_constant_override("separation", 6)
-	_content_box.add_child(logic_bar)
-
-	var bc_btn = Button.new()
-	bc_btn.text = "Block Code"
-	bc_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bc_btn.tooltip_text = "Open Scratch-style Visual Block Code for Selected Node"
-	bc_btn.pressed.connect(func():
-		if plugin != null and plugin.has_method("_on_open_block_code"):
-			plugin.call("_on_open_block_code")
-	)
-	logic_bar.add_child(bc_btn)
-
-	var orch_btn = Button.new()
-	orch_btn.text = "Orchestrator"
-	orch_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	orch_btn.tooltip_text = "Open Orchestrator Visual Blueprint Graph for Selected Node"
-	orch_btn.pressed.connect(func():
-		if plugin != null and plugin.has_method("_on_open_orchestrator"):
-			plugin.call("_on_open_orchestrator")
-	)
-	logic_bar.add_child(orch_btn)
-
 	# 3. Bottom Resize Handle Grip
 	var bottom_row = HBoxContainer.new()
 	bottom_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -204,47 +178,21 @@ func _on_toggle_minimize() -> void:
 
 func _build_blockout_tab() -> void:
 	var scroll = ScrollContainer.new()
-	scroll.name = "Cyclops Blockout"
+	scroll.name = "ProBuilder"
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tab_container.add_child(scroll)
 
 	var vb = VBoxContainer.new()
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vb.add_theme_constant_override("separation", 8)
+	vb.add_theme_constant_override("separation", 6)
 	scroll.add_child(vb)
 
 	var sub_h = Label.new()
-	sub_h.text = "Cyclops Live Viewport Tools:"
+	sub_h.text = "ProBuilder Mesh & Vertex Editor:"
 	sub_h.add_theme_font_size_override("font_size", 11)
 	sub_h.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 	vb.add_child(sub_h)
-
-	var cyc_top = HBoxContainer.new()
-	cyc_top.add_theme_constant_override("separation", 4)
-	vb.add_child(cyc_top)
-	_add_action_button(cyc_top, "+ CyclopsBlocks Layer", func(): _ensure_cyclops_blocks_node())
-	_add_action_button(cyc_top, "Toggle 3D Bar", func(): _toggle_cyclops_3d_bar())
-
-	var cyc_grid = GridContainer.new()
-	cyc_grid.columns = 3
-	cyc_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vb.add_child(cyc_grid)
-
-	_add_action_button(cyc_grid, "Draw Block", func(): _activate_cyclops_tool("block"))
-	_add_action_button(cyc_grid, "Draw Cylinder", func(): _activate_cyclops_tool("cylinder"))
-	_add_action_button(cyc_grid, "Draw Prism", func(): _activate_cyclops_tool("prism"))
-	_add_action_button(cyc_grid, "Draw Sphere", func(): _activate_cyclops_tool("sphere"))
-	_add_action_button(cyc_grid, "Draw Stairs", func(): _activate_cyclops_tool("stairs"))
-	_add_action_button(cyc_grid, "Face Edit", func(): _activate_cyclops_tool("edit_face"))
-	_add_action_button(cyc_grid, "Edge Edit", func(): _activate_cyclops_tool("edit_edge"))
-	_add_action_button(cyc_grid, "Vertex Edit", func(): _activate_cyclops_tool("edit_vertex"))
-	_add_action_button(cyc_grid, "Clip / Slice", func(): _activate_cyclops_tool("clip"))
-	_add_action_button(cyc_grid, "Move Tool", func(): _activate_cyclops_tool("move"))
-	_add_action_button(cyc_grid, "Rotate Tool", func(): _activate_cyclops_tool("rotate"))
-	_add_action_button(cyc_grid, "Mat Brush", func(): _activate_cyclops_tool("material_brush"))
-
-	vb.add_child(HSeparator.new())
 
 	# Grid Snap Row
 	var snap_row = HBoxContainer.new()
@@ -260,6 +208,65 @@ func _build_blockout_tab() -> void:
 		s_btn.add_theme_font_size_override("font_size", 9)
 		s_btn.pressed.connect(func(): _blockout_snap_studs = s_val)
 		snap_row.add_child(s_btn)
+
+	# Vertex Selection Tools
+	var v_lbl = Label.new()
+	v_lbl.text = "Vertex Selection (3D Handles):"
+	v_lbl.add_theme_font_size_override("font_size", 10)
+	vb.add_child(v_lbl)
+
+	var v_grid = GridContainer.new()
+	v_grid.columns = 3
+	v_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(v_grid)
+	_add_action_button(v_grid, "Show Verts", func(): _pb_refresh_vertex_handles())
+	_add_action_button(v_grid, "Hide Verts", func(): _pb_clear_vertex_handles())
+	_add_action_button(v_grid, "Select All", func(): _pb_select_vertices("all"))
+	_add_action_button(v_grid, "Top (+Y)", func(): _pb_select_vertices("top"))
+	_add_action_button(v_grid, "Bottom (-Y)", func(): _pb_select_vertices("bottom"))
+	_add_action_button(v_grid, "Front (+Z)", func(): _pb_select_vertices("front"))
+	_add_action_button(v_grid, "Back (-Z)", func(): _pb_select_vertices("back"))
+	_add_action_button(v_grid, "Left (-X)", func(): _pb_select_vertices("left"))
+	_add_action_button(v_grid, "Right (+X)", func(): _pb_select_vertices("right"))
+	_add_action_button(v_grid, "< Prev Vert", func(): _pb_step_vertex(-1))
+	_add_action_button(v_grid, "Next Vert >", func(): _pb_step_vertex(1))
+	_add_action_button(v_grid, "Invert Sel", func(): _pb_select_vertices("invert"))
+
+	# Move Selected Vertices
+	var mv_lbl = Label.new()
+	mv_lbl.text = "Move Selected Vertices (by Snap):"
+	mv_lbl.add_theme_font_size_override("font_size", 10)
+	vb.add_child(mv_lbl)
+
+	var mv_grid = GridContainer.new()
+	mv_grid.columns = 3
+	mv_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(mv_grid)
+	_add_action_button(mv_grid, "Move +X", func(): _pb_move_selected_vertices(Vector3(1, 0, 0)))
+	_add_action_button(mv_grid, "Move +Y", func(): _pb_move_selected_vertices(Vector3(0, 1, 0)))
+	_add_action_button(mv_grid, "Move +Z", func(): _pb_move_selected_vertices(Vector3(0, 0, 1)))
+	_add_action_button(mv_grid, "Move -X", func(): _pb_move_selected_vertices(Vector3(-1, 0, 0)))
+	_add_action_button(mv_grid, "Move -Y", func(): _pb_move_selected_vertices(Vector3(0, -1, 0)))
+	_add_action_button(mv_grid, "Move -Z", func(): _pb_move_selected_vertices(Vector3(0, 0, -1)))
+
+	# Face & Mesh Operations
+	var f_lbl = Label.new()
+	f_lbl.text = "Face & Mesh Operations:"
+	f_lbl.add_theme_font_size_override("font_size", 10)
+	vb.add_child(f_lbl)
+
+	var f_grid = GridContainer.new()
+	f_grid.columns = 2
+	f_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(f_grid)
+	_add_action_button(f_grid, "Flip Faces (Invert)", func(): _pb_flip_faces())
+	_add_action_button(f_grid, "Subdivide Mesh", func(): _pb_subdivide_mesh())
+	_add_action_button(f_grid, "Expand Verts (+)", func(): _pb_scale_selected_vertices(1.2))
+	_add_action_button(f_grid, "Shrink Verts (-)", func(): _pb_scale_selected_vertices(0.8))
+	_add_action_button(f_grid, "Convert to Editable", func(): _pb_ensure_editable_mesh())
+	_add_action_button(f_grid, "Rebuild Collision", func(): _pb_rebuild_collision())
+
+	vb.add_child(HSeparator.new())
 
 	# Brush Creation Grid
 	var b_lbl = Label.new()
@@ -873,70 +880,295 @@ func _apply_mat_recursive(node: Node, mat_type: String) -> void:
 
 
 # ============================================================================
-# CYCLOPS LEVEL BUILDER INTEGRATION
+# PROBUILDER-STYLE MESH, FACE & VERTEX EDITOR
 # ============================================================================
 
-func _get_cyclops_builder() -> Node:
-	if plugin != null and plugin.get_tree() != null:
-		var autoload := plugin.get_tree().root.get_node_or_null("CyclopsAutoload")
-		if autoload != null and autoload.get("builder") != null:
-			return autoload.get("builder") as Node
-	return null
+var _pb_selected_vert_indices: Array[int] = []
+var _pb_cursor_vert: int = 0
 
 
-func _ensure_cyclops_blocks_node() -> Node:
-	var scene_root := _get_scene_root()
-	if scene_root == null:
-		printerr("[BuildersUI] Open a 3D scene first to add a CyclopsBlocks layer.")
+func _pb_get_target_mi_and_body() -> Array:
+	if plugin == null:
+		return [null, null]
+	var sel := plugin.get_editor_interface().get_selection()
+	if sel == null or sel.get_selected_nodes().is_empty():
+		return [null, null]
+	var n: Node = sel.get_selected_nodes()[0]
+	if n is MeshInstance3D:
+		return [n as MeshInstance3D, n.get_parent() as CollisionObject3D]
+	var mi := n.get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if mi == null:
+		for ch in n.get_children():
+			if ch is MeshInstance3D:
+				mi = ch as MeshInstance3D
+				break
+	return [mi, n as CollisionObject3D]
+
+
+func _pb_ensure_editable_mesh() -> MeshInstance3D:
+	var pair := _pb_get_target_mi_and_body()
+	var mi: MeshInstance3D = pair[0]
+	if mi == null or mi.mesh == null:
+		printerr("[BuildersUI] Select a 3D Part / MeshInstance3D first.")
 		return null
-	var existing := scene_root.find_child("CyclopsBlocks", true, false)
-	if existing != null:
-		var sel := plugin.get_editor_interface().get_selection()
-		if sel != null:
-			sel.clear()
-			sel.add_node(existing)
-		return existing
-	if ClassDB.class_exists("CyclopsBlocks"):
-		var cb: Node = ClassDB.instantiate("CyclopsBlocks")
-		cb.name = "CyclopsBlocks"
-		scene_root.add_child(cb, true)
-		cb.owner = scene_root
-		var sel := plugin.get_editor_interface().get_selection()
-		if sel != null:
-			sel.clear()
-			sel.add_node(cb)
-		return cb
-	printerr("[BuildersUI] CyclopsBlocks class not registered. Enable Cyclops Level Builder plugin in Project Settings.")
-	return null
+	if mi.mesh is ArrayMesh:
+		return mi
+	var arrays: Array = mi.mesh.get_mesh_arrays()
+	var arr_mesh := ArrayMesh.new()
+	arr_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mi.mesh = arr_mesh
+	return mi
 
 
-func _toggle_cyclops_3d_bar() -> void:
-	var cyc := _get_cyclops_builder()
-	if cyc == null:
-		printerr("[BuildersUI] Cyclops Level Builder plugin is not active.")
+func _pb_get_unique_positions(mi: MeshInstance3D) -> PackedVector3Array:
+	var uniq := PackedVector3Array()
+	if mi == null or not (mi.mesh is ArrayMesh):
+		return uniq
+	var mdt := MeshDataTool.new()
+	if mdt.create_from_surface(mi.mesh as ArrayMesh, 0) != OK:
+		return uniq
+	for i in range(mdt.get_vertex_count()):
+		var v: Vector3 = mdt.get_vertex(i)
+		var found := false
+		for u in uniq:
+			if u.distance_squared_to(v) < 0.0001:
+				found = true
+				break
+		if not found:
+			uniq.append(v)
+	return uniq
+
+
+func _pb_clear_vertex_handles() -> void:
+	var pair := _pb_get_target_mi_and_body()
+	var mi: MeshInstance3D = pair[0]
+	if mi != null:
+		var old := mi.get_node_or_null("_PBVertexHandles")
+		if old != null:
+			old.queue_free()
+
+
+func _pb_refresh_vertex_handles() -> void:
+	var mi := _pb_ensure_editable_mesh()
+	if mi == null:
 		return
-	var cur := bool(cyc.get("show_3d_toolbar"))
-	cyc.set("show_3d_toolbar", not cur)
+	var old := mi.get_node_or_null("_PBVertexHandles")
+	if old != null:
+		old.queue_free()
+	var holder := Node3D.new()
+	holder.name = "_PBVertexHandles"
+	mi.add_child(holder)
+	var uniq := _pb_get_unique_positions(mi)
+	var mat_unsel := StandardMaterial3D.new()
+	mat_unsel.albedo_color = Color(0.2, 0.85, 1.0)
+	mat_unsel.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var mat_sel := StandardMaterial3D.new()
+	mat_sel.albedo_color = Color(1.0, 0.55, 0.1)
+	mat_sel.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var sph := SphereMesh.new()
+	sph.radius = 0.14
+	sph.height = 0.28
+	for idx in range(uniq.size()):
+		var dot := MeshInstance3D.new()
+		dot.mesh = sph
+		dot.position = uniq[idx]
+		dot.material_override = mat_sel if _pb_selected_vert_indices.has(idx) else mat_unsel
+		holder.add_child(dot)
 
 
-func _activate_cyclops_tool(tool_id: String) -> void:
-	var cyc := _get_cyclops_builder()
-	if cyc == null:
-		printerr("[BuildersUI] Cyclops Level Builder is not active. Enable it in Project -> Project Settings -> Plugins.")
+func _pb_select_vertices(mode: String) -> void:
+	var mi := _pb_ensure_editable_mesh()
+	if mi == null:
 		return
-	# Ensure a CyclopsBlocks or CyclopsBlock is selected when drawing new geometry
-	if tool_id in ["block", "cylinder", "prism", "sphere", "stairs"]:
-		var sel := plugin.get_editor_interface().get_selection()
-		var has_cyclops_sel := false
-		if sel != null:
-			for n in sel.get_selected_nodes():
-				var gname: String = String(n.get_script().get_global_name()) if n.get_script() != null else ""
-				if n.get_class() == "CyclopsBlocks" or n.get_class() == "CyclopsBlock" or gname in ["CyclopsBlocks", "CyclopsBlock"]:
-					has_cyclops_sel = true
-					break
-		if not has_cyclops_sel:
-			_ensure_cyclops_blocks_node()
-	if cyc.has_method("get_tool_by_id") and cyc.has_method("switch_to_tool"):
-		var t = cyc.call("get_tool_by_id", tool_id)
-		if t != null:
-			cyc.call("switch_to_tool", t)
+	var uniq := _pb_get_unique_positions(mi)
+	if uniq.is_empty():
+		return
+	var min_v := uniq[0]
+	var max_v := uniq[0]
+	for u in uniq:
+		min_v = min_v.min(u)
+		max_v = max_v.max(u)
+	if mode != "invert":
+		_pb_selected_vert_indices.clear()
+	for idx in range(uniq.size()):
+		var p := uniq[idx]
+		var pick := false
+		match mode:
+			"all": pick = true
+			"top": pick = absf(p.y - max_v.y) < 0.05
+			"bottom": pick = absf(p.y - min_v.y) < 0.05
+			"left": pick = absf(p.x - min_v.x) < 0.05
+			"right": pick = absf(p.x - max_v.x) < 0.05
+			"front": pick = absf(p.z - max_v.z) < 0.05
+			"back": pick = absf(p.z - min_v.z) < 0.05
+			"invert":
+				if _pb_selected_vert_indices.has(idx):
+					_pb_selected_vert_indices.erase(idx)
+				else:
+					_pb_selected_vert_indices.append(idx)
+				continue
+		if pick:
+			_pb_selected_vert_indices.append(idx)
+	_pb_refresh_vertex_handles()
+
+
+func _pb_step_vertex(dir: int) -> void:
+	var mi := _pb_ensure_editable_mesh()
+	if mi == null:
+		return
+	var uniq := _pb_get_unique_positions(mi)
+	if uniq.is_empty():
+		return
+	_pb_cursor_vert = posmod(_pb_cursor_vert + dir, uniq.size())
+	_pb_selected_vert_indices = [_pb_cursor_vert]
+	_pb_refresh_vertex_handles()
+
+
+func _pb_move_selected_vertices(direction: Vector3) -> void:
+	var mi := _pb_ensure_editable_mesh()
+	if mi == null:
+		return
+	var uniq := _pb_get_unique_positions(mi)
+	if uniq.is_empty():
+		return
+	if _pb_selected_vert_indices.is_empty():
+		_pb_select_vertices("top")
+	var selected_pts: Array[Vector3] = []
+	for idx in _pb_selected_vert_indices:
+		if idx >= 0 and idx < uniq.size():
+			selected_pts.append(uniq[idx])
+	var delta := direction * _blockout_snap_studs
+	var mdt := MeshDataTool.new()
+	if mdt.create_from_surface(mi.mesh as ArrayMesh, 0) != OK:
+		return
+	for i in range(mdt.get_vertex_count()):
+		var v := mdt.get_vertex(i)
+		for sp in selected_pts:
+			if v.distance_squared_to(sp) < 0.0001:
+				mdt.set_vertex(i, v + delta)
+				break
+	_pb_commit_mdt(mi, mdt)
+	_pb_refresh_vertex_handles()
+
+
+func _pb_scale_selected_vertices(factor: float) -> void:
+	var mi := _pb_ensure_editable_mesh()
+	if mi == null:
+		return
+	var uniq := _pb_get_unique_positions(mi)
+	if uniq.is_empty():
+		return
+	if _pb_selected_vert_indices.is_empty():
+		_pb_select_vertices("all")
+	var center := Vector3.ZERO
+	var selected_pts: Array[Vector3] = []
+	for idx in _pb_selected_vert_indices:
+		if idx >= 0 and idx < uniq.size():
+			selected_pts.append(uniq[idx])
+			center += uniq[idx]
+	if selected_pts.is_empty():
+		return
+	center /= float(selected_pts.size())
+	var mdt := MeshDataTool.new()
+	if mdt.create_from_surface(mi.mesh as ArrayMesh, 0) != OK:
+		return
+	for i in range(mdt.get_vertex_count()):
+		var v := mdt.get_vertex(i)
+		for sp in selected_pts:
+			if v.distance_squared_to(sp) < 0.0001:
+				mdt.set_vertex(i, center + (v - center) * factor)
+				break
+	_pb_commit_mdt(mi, mdt)
+	_pb_refresh_vertex_handles()
+
+
+func _pb_flip_faces() -> void:
+	var mi := _pb_ensure_editable_mesh()
+	if mi == null:
+		return
+	var am := mi.mesh as ArrayMesh
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for surf_idx in range(am.get_surface_count()):
+		var mdt := MeshDataTool.new()
+		if mdt.create_from_surface(am, surf_idx) != OK:
+			continue
+		for f in range(mdt.get_face_count()):
+			var i0 := mdt.get_face_vertex(f, 0)
+			var i1 := mdt.get_face_vertex(f, 1)
+			var i2 := mdt.get_face_vertex(f, 2)
+			for vi in [i0, i2, i1]:
+				st.set_normal(-mdt.get_vertex_normal(vi))
+				st.set_uv(mdt.get_vertex_uv(vi))
+				st.add_vertex(mdt.get_vertex(vi))
+	var new_mesh := ArrayMesh.new()
+	st.commit(new_mesh)
+	mi.mesh = new_mesh
+	_pb_rebuild_collision()
+
+
+func _pb_subdivide_mesh() -> void:
+	var mi := _pb_ensure_editable_mesh()
+	if mi == null:
+		return
+	var mdt := MeshDataTool.new()
+	if mdt.create_from_surface(mi.mesh as ArrayMesh, 0) != OK:
+		return
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for f in range(mdt.get_face_count()):
+		var i0 := mdt.get_face_vertex(f, 0)
+		var i1 := mdt.get_face_vertex(f, 1)
+		var i2 := mdt.get_face_vertex(f, 2)
+		var p0 := mdt.get_vertex(i0)
+		var p1 := mdt.get_vertex(i1)
+		var p2 := mdt.get_vertex(i2)
+		var n := mdt.get_face_normal(f)
+		var m01 := (p0 + p1) * 0.5
+		var m12 := (p1 + p2) * 0.5
+		var m20 := (p2 + p0) * 0.5
+		var u0 := mdt.get_vertex_uv(i0)
+		var u1 := mdt.get_vertex_uv(i1)
+		var u2 := mdt.get_vertex_uv(i2)
+		var u01 := (u0 + u1) * 0.5
+		var u12 := (u1 + u2) * 0.5
+		var u20 := (u2 + u0) * 0.5
+		var tris := [
+			[p0, m01, m20, u0, u01, u20],
+			[m01, p1, m12, u01, u1, u12],
+			[m20, m12, p2, u20, u12, u2],
+			[m01, m12, m20, u01, u12, u20],
+		]
+		for t in tris:
+			for k in range(3):
+				st.set_normal(n)
+				st.set_uv(t[k + 3])
+				st.add_vertex(t[k])
+	var new_mesh := ArrayMesh.new()
+	st.commit(new_mesh)
+	mi.mesh = new_mesh
+	_pb_rebuild_collision()
+	_pb_refresh_vertex_handles()
+
+
+func _pb_commit_mdt(mi: MeshInstance3D, mdt: MeshDataTool) -> void:
+	var am := ArrayMesh.new()
+	mdt.commit_to_surface(am)
+	var st := SurfaceTool.new()
+	st.create_from(am, 0)
+	st.generate_normals()
+	var final_mesh := ArrayMesh.new()
+	st.commit(final_mesh)
+	mi.mesh = final_mesh
+	_pb_rebuild_collision()
+
+
+func _pb_rebuild_collision() -> void:
+	var pair := _pb_get_target_mi_and_body()
+	var mi: MeshInstance3D = pair[0]
+	var body: CollisionObject3D = pair[1]
+	if mi == null or mi.mesh == null or body == null:
+		return
+	var cs := body.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if cs != null:
+		cs.shape = mi.mesh.create_trimesh_shape()

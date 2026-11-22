@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dr2mc78tijxj1"
-path="res://.godot/imported/wordmark.png-a2874911bbb86c1c08cc5b2e9fae2bbf.ctex"
+uid="uid://wijdjmsxgip5"
+path="res://.godot/imported/wordmark.png-51ea2f69479cd27433c4400211bc1c84.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/UI/wordmark.png"
-dest_files=["res://.godot/imported/wordmark.png-a2874911bbb86c1c08cc5b2e9fae2bbf.ctex"]
+source_file="res://assets/ui/wordmark.png"
+dest_files=["res://.godot/imported/wordmark.png-51ea2f69479cd27433c4400211bc1c84.ctex"]
 
 [params]
 

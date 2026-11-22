@@ -198,8 +198,17 @@ export async function prepareRigView(): Promise<{ view: THREE.Group; rig: Loaded
     if (!mesh.isMesh) return
     mesh.castShadow = true
     const mat = mesh.material as THREE.Material | THREE.Material[]
-    if (Array.isArray(mat)) mesh.material = mat.map((m) => m.clone())
-    else mesh.material = mat.clone()
+    if (Array.isArray(mat)) {
+      mesh.material = mat.map((m) => {
+        const c = m.clone()
+        c.side = THREE.DoubleSide
+        return c
+      })
+    } else {
+      const c = mat.clone()
+      c.side = THREE.DoubleSide
+      mesh.material = c
+    }
   })
   return { view, rig }
 }
@@ -329,9 +338,39 @@ function overlayMaterial(map: THREE.Texture | null, color?: string): THREE.MeshL
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
+    side: THREE.DoubleSide,
   }
   if (color) params.color = new THREE.Color(color)
   return new THREE.MeshLambertMaterial(params)
+}
+
+/** A clothing box hugging one body part in that part's local space. */
+async function clothingBoxLocal(size: THREE.Vector3, localCenter: THREE.Vector3, tex: THREE.Texture, zone: UvRect | null): Promise<THREE.Mesh> {
+  const geo = new THREE.BoxGeometry(size.x * 1.015, size.y * 1.015, size.z * 1.015)
+  const rect = zone || fullUv()
+  boxFaceUv(geo, [rect, rect, rect, rect, rect, rect])
+  const mesh = new THREE.Mesh(geo, overlayMaterial(tex))
+  mesh.name = 'worn_item'
+  mesh.position.copy(localCenter)
+  mesh.castShadow = true
+  return mesh
+}
+
+/** A flat decal stuck on the front face in the part's local space. */
+function frontDecalLocal(tex: THREE.Texture, maxW: number, maxH: number, localZ: number, localCenter: THREE.Vector3): THREE.Mesh {
+  const img = tex.image as { width?: number; height?: number }
+  const aspect = img?.width && img?.height ? img.width / img.height : 1
+  let w = maxW
+  let h = w / aspect
+  if (h > maxH) {
+    h = maxH
+    w = h * aspect
+  }
+  const geo = new THREE.PlaneGeometry(w, h)
+  const mesh = new THREE.Mesh(geo, overlayMaterial(tex))
+  mesh.name = 'worn_item'
+  mesh.position.set(localCenter.x, localCenter.y, localZ + 0.006)
+  return mesh
 }
 
 /** A clothing box hugging one body part, textured like the classic template wrap. */
@@ -414,6 +453,7 @@ export function loadGltfWithClips(url: string): Promise<{ scene: THREE.Group; cl
           const mats = Array.isArray(mat) ? mat : [mat]
           mats.forEach((m) => {
             if (m && 'map' in m && m.map) m.map.colorSpace = THREE.SRGBColorSpace
+            if (m) m.side = THREE.DoubleSide
           })
         }
       })
@@ -483,6 +523,7 @@ export async function applyModelSurface(root: THREE.Object3D, surface: ModelSurf
     mats.forEach((m) => {
       if (!m || !('color' in m)) return
       const std = m as THREE.MeshStandardMaterial
+      std.side = THREE.DoubleSide
       if (surface.textureUrl) {
         if (std.map) return // the model's own texture is data — it wins
         // tracked so callers can await the texture before their first render
@@ -1007,11 +1048,16 @@ export function measureParts(model: THREE.Object3D): {
  */
 export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarLook3D): Promise<void> {
   // 0) clear previous overlays / worn items (stopping their mixers first)
-  const old = view.getObjectByName('worn')
-  if (old) {
-    stopWornMixers(old)
-    view.remove(old)
-    disposeObject(old)
+  const toRemove: THREE.Object3D[] = []
+  view.traverse((o) => {
+    if (o.name === 'worn' || o.name === 'worn_item') {
+      toRemove.push(o)
+    }
+  })
+  for (const obj of toRemove) {
+    stopWornMixers(obj)
+    if (obj.parent) obj.parent.remove(obj)
+    disposeObject(obj)
   }
   const worn = new THREE.Group()
   worn.name = 'worn'
@@ -1103,6 +1149,23 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
   if (!replacedParts.includes('legL')) paint('legL', pc.legL || look.pantsColor)
   if (!replacedParts.includes('legR')) paint('legR', pc.legR || look.pantsColor)
 
+  const getPartNode = (key: PartKey): THREE.Object3D | null => {
+    let res: THREE.Object3D | null = null
+    view.traverse((o) => {
+      if (res) return
+      if (o.name === 'worn' || o.name === 'worn_item') return
+      if (matchPart(o.name) === key) res = o
+    })
+    return res
+  }
+
+  const headNode = getPartNode('head')
+  const torsoNode = getPartNode('torso')
+  const armLNode = getPartNode('armL')
+  const armRNode = getPartNode('armR')
+  const legLNode = getPartNode('legL')
+  const legRNode = getPartNode('legR')
+
   const jobs: Promise<unknown>[] = []
 
   // 2) shirt texture — wraps torso + arms (template zones when detected);
@@ -1111,16 +1174,28 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
     jobs.push(
       getTexture(look.shirtImage).then(async (tex) => {
         const tpl = isShirtTemplate(tex)
-        const torsoBox = boxes.get('torso')
-        if (torsoBox && !replacedParts.includes('torso')) {
+        if (torsoNode && !replacedParts.includes('torso')) {
           const zone = tpl ? zoneToUv(SHIRT_TEMPLATE.torso, SHIRT_TEMPLATE.w, SHIRT_TEMPLATE.h) : null
-          worn.add(await clothingBox(torsoBox, tex, zone))
+          torsoNode.add(await clothingBoxLocal(new THREE.Vector3(2, 2, 1), new THREE.Vector3(0, 0, 0), tex, zone))
+        } else {
+          const torsoBox = boxes.get('torso')
+          if (torsoBox && !replacedParts.includes('torso')) {
+            const zone = tpl ? zoneToUv(SHIRT_TEMPLATE.torso, SHIRT_TEMPLATE.w, SHIRT_TEMPLATE.h) : null
+            worn.add(await clothingBox(torsoBox, tex, zone))
+          }
         }
-        for (const [key, zoneDef] of [['armR', SHIRT_TEMPLATE.armR], ['armL', SHIRT_TEMPLATE.armL]] as const) {
-          const b = boxes.get(key)
-          if (!b || replacedParts.includes(key)) continue
+        for (const [key, node, zoneDef] of [
+          ['armR', armRNode, SHIRT_TEMPLATE.armR],
+          ['armL', armLNode, SHIRT_TEMPLATE.armL],
+        ] as const) {
+          if (replacedParts.includes(key as PartKey)) continue
           const zone = tpl ? zoneToUv(zoneDef, SHIRT_TEMPLATE.w, SHIRT_TEMPLATE.h) : null
-          worn.add(await clothingBox(b, tex, zone))
+          if (node) {
+            node.add(await clothingBoxLocal(new THREE.Vector3(1, 2, 1), new THREE.Vector3(0, -0.5, 0), tex, zone))
+          } else {
+            const b = boxes.get(key as PartKey)
+            if (b) worn.add(await clothingBox(b, tex, zone))
+          }
         }
       })
     )
@@ -1131,11 +1206,18 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
     jobs.push(
       getTexture(look.pantsImage).then(async (tex) => {
         const tpl = isPantsTemplate(tex)
-        for (const [key, zoneDef] of [['legR', PANTS_TEMPLATE.legR], ['legL', PANTS_TEMPLATE.legL]] as const) {
-          const b = boxes.get(key)
-          if (!b || replacedParts.includes(key)) continue
+        for (const [key, node, zoneDef] of [
+          ['legR', legRNode, PANTS_TEMPLATE.legR],
+          ['legL', legLNode, PANTS_TEMPLATE.legL],
+        ] as const) {
+          if (replacedParts.includes(key as PartKey)) continue
           const zone = tpl ? zoneToUv(zoneDef, PANTS_TEMPLATE.w, PANTS_TEMPLATE.h) : null
-          worn.add(await clothingBox(b, tex, zone))
+          if (node) {
+            node.add(await clothingBoxLocal(new THREE.Vector3(1, 2, 1), new THREE.Vector3(0, -1, 0), tex, zone))
+          } else {
+            const b = boxes.get(key as PartKey)
+            if (b) worn.add(await clothingBox(b, tex, zone))
+          }
         }
       })
     )
@@ -1145,10 +1227,14 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
   for (const url of look.tshirtUrls || []) {
     jobs.push(
       getTexture(url).then((tex) => {
-        const torsoBox = boxes.get('torso')
-        if (!torsoBox) return
-        const size = torsoBox.getSize(new THREE.Vector3())
-        worn.add(frontDecal(torsoBox, tex, size.x * 0.92, size.y * 0.92, frontZ.get('torso')))
+        if (torsoNode && !replacedParts.includes('torso')) {
+          torsoNode.add(frontDecalLocal(tex, 2.0 * 0.92, 2.0 * 0.92, 0.5, new THREE.Vector3(0, 0, 0)))
+        } else {
+          const torsoBox = boxes.get('torso')
+          if (!torsoBox) return
+          const size = torsoBox.getSize(new THREE.Vector3())
+          worn.add(frontDecal(torsoBox, tex, size.x * 0.92, size.y * 0.92, frontZ.get('torso')))
+        }
       })
     )
   }
@@ -1160,26 +1246,59 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
   if (look.faceUrl) {
     jobs.push(
       getTexture(look.faceUrl).then((tex) => {
-        const headBox = boxes.get('head')
-        if (!headBox) return
-        const size = headBox.getSize(new THREE.Vector3())
         const fs = sanitizeFaceScale(look.faceScale)
-        worn.add(frontDecal(headBox, tex, size.x * 0.62 * fs, size.y * 0.62 * fs, frontZ.get('head')))
+        if (headNode && !replacedParts.includes('head')) {
+          headNode.add(frontDecalLocal(tex, 1.2 * 0.62 * fs, 1.2 * 0.62 * fs, 0.6, new THREE.Vector3(0, 0.6, 0)))
+        } else {
+          const headBox = boxes.get('head')
+          if (!headBox) return
+          const size = headBox.getSize(new THREE.Vector3())
+          worn.add(frontDecal(headBox, tex, size.x * 0.62 * fs, size.y * 0.62 * fs, frontZ.get('head')))
+        }
       })
     )
   }
 
   // 6) 3D UGC — placed EXACTLY where the creator left it; models whose GLB
-  //    carries clips (and the creator marked them) loop their own animation
+  //    carries clips (and the creator marked them) loop their own animation.
+  //    Accessories parent directly to their respective animated body parts (Head or Torso)
+  //    so they move 100% naturally with full animation fidelity.
   for (const m of look.models || []) {
     if (m.url) {
       jobs.push(
         loadGltfWithClips(m.url).then(async ({ scene: model, clips }) => {
           const inst = skeletonClone(model) // clone so many views can wear one item
           await applyModelSurface(inst, { textureUrl: m.textureUrl, color: m.color })
-          const holder = attachPlacedModel(inst, m.placement)
+          const holder = new THREE.Group()
+          holder.name = 'worn_item'
+          holder.add(inst)
+          if (m.placement) {
+            const [px, py, pz] = m.placement.p
+            const [rx, ry, rz] = m.placement.r
+            const [sx, sy, sz] = m.placement.s
+            holder.rotation.set(
+              THREE.MathUtils.degToRad(rx),
+              THREE.MathUtils.degToRad(ry),
+              THREE.MathUtils.degToRad(rz)
+            )
+            holder.scale.set(sx, sy, sz)
+            // Placement Y determines attachment body part:
+            // py >= 3.8: Head accessory (hats, hairs, dominus, masks, halos)
+            // py < 3.8: Torso accessory (wings, capes, backpacks, waist, front gear)
+            if (py >= 3.8 && headNode) {
+              holder.position.set(px, py - 4.0, pz)
+              headNode.add(holder)
+            } else if (torsoNode) {
+              holder.position.set(px, py - 3.0, pz)
+              torsoNode.add(holder)
+            } else {
+              holder.position.set(px, py, pz)
+              worn.add(holder)
+            }
+          } else {
+            worn.add(holder)
+          }
           if (m.animClips && m.animClips.length > 0) playOwnClips(inst, clips, m.animClips)
-          worn.add(holder)
         })
       )
     } else if (m.imageUrl) {
@@ -1187,17 +1306,22 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
       // exactly like the classic 2D slot rendered it
       jobs.push(
         getTexture(m.imageUrl).then((tex) => {
-          const headBox = boxes.get('head')
-          if (!headBox) return
-          const c = headBox.getCenter(new THREE.Vector3())
-          const size = headBox.getSize(new THREE.Vector3())
           const img = tex.image as { width?: number; height?: number }
           const aspect = img?.width && img?.height ? img.width / img.height : 1
-          const w = size.x * 1.6
+          const w = 1.2 * 1.6
           const geo = new THREE.PlaneGeometry(w, w / aspect)
           const mesh = new THREE.Mesh(geo, overlayMaterial(tex))
-          mesh.position.set(c.x, headBox.max.y + w / aspect / 2 + 0.1, c.z)
-          worn.add(mesh)
+          mesh.name = 'worn_item'
+          if (headNode) {
+            mesh.position.set(0, 1.2 + w / aspect / 2 + 0.1, 0)
+            headNode.add(mesh)
+          } else {
+            const headBox = boxes.get('head')
+            if (!headBox) return
+            const c = headBox.getCenter(new THREE.Vector3())
+            mesh.position.set(c.x, headBox.max.y + w / aspect / 2 + 0.1, c.z)
+            worn.add(mesh)
+          }
         })
       )
     }

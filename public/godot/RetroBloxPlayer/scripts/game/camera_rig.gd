@@ -81,11 +81,7 @@ func setup(p_player: Node3D) -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings != null:
 		_camera.fov = float(settings.get("fov"))
-		var rd = settings.get("render_distance")
-		if rd != null:
-			_camera.far = float(rd)
-		else:
-			_apply_quality_far(int(settings.get("graphics_quality")))
+		_apply_quality_far(int(settings.get("graphics_quality")))
 		if not settings.changed.is_connected(_on_setting_changed):
 			settings.changed.connect(_on_setting_changed)
 	_apply_mouse_mode()
@@ -101,16 +97,10 @@ func _on_land_impact(speed: float) -> void:
 func _on_setting_changed(key: String, value: Variant) -> void:
 	if key == "fov" and _camera != null:
 		_camera.fov = float(value)
-	elif key == "render_distance" and _camera != null:
-		_camera.far = float(value)
 	elif key == "graphics_quality" and _camera != null:
 		var settings: Node = get_node_or_null("/root/Settings")
 		if settings != null:
-			var rd = settings.get("render_distance")
-			if rd != null:
-				_camera.far = float(rd)
-			else:
-				_apply_quality_far(int(settings.get("graphics_quality")))
+			_apply_quality_far(int(settings.get("graphics_quality")))
 	elif key == "mobile_controls":
 		_apply_mouse_mode()
 
@@ -119,10 +109,10 @@ func _apply_quality_far(q: int) -> void:
 	if _camera == null:
 		return
 	match q:
-		0: _camera.far = 180.0
-		1: _camera.far = 450.0
+		0: _camera.far = 160.0
+		1: _camera.far = 380.0
 		2: _camera.far = 1000.0
-		3: _camera.far = 2500.0
+		3: _camera.far = 2000.0
 
 
 func set_shift_locked(on: bool) -> void:

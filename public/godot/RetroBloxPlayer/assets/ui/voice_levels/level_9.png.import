@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cmx35ur5sof1e"
-path="res://.godot/imported/level_9.png-ad1c4cfc48c72b3b089d47be71ec6ea5.ctex"
+uid="uid://doegueag1dvep"
+path="res://.godot/imported/level_9.png-3de9ffeda4cce10e9ebe6b13dbab2cf3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/UI/voice_levels/level_9.png"
-dest_files=["res://.godot/imported/level_9.png-ad1c4cfc48c72b3b089d47be71ec6ea5.ctex"]
+source_file="res://assets/ui/voice_levels/level_9.png"
+dest_files=["res://.godot/imported/level_9.png-3de9ffeda4cce10e9ebe6b13dbab2cf3.ctex"]
 
 [params]
 
