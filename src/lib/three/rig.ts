@@ -858,8 +858,7 @@ export async function loadClipsRetargeted(
   const { scene, clips } = await loadGltfWithClips(url)
   const out: THREE.AnimationClip[] = []
   for (const c of clips) {
-    if (!clipHasBoneTracks(c, scene)) continue // object-level junk — never poses the body
-    const r = retargetClipWithRest(c, scene, root)
+    const r = retargetClipWithRest(c, scene, root) || retargetClipToRoot(c, root)
     if (r) out.push(r)
   }
   return out

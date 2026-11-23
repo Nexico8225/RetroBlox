@@ -311,31 +311,26 @@ export default function Player3DView({ look, height = 320, interactive = true, z
       startSeq(self.group, wanted.length > 0 ? wanted : self.clips)
     }
 
-    if (selfAnim) {
-      // WYSIWYG: never retarget — the creator's own rig is the truth.
-      // Retargeting a custom rig onto the R6 body is an approximation that
-      // breaks the moment rest poses differ (frozen torso, an arm floating
-      // off); the game never retargets custom emotes either.
-      standIn().catch(() => {})
-    } else {
-      loadClipsRetargeted(anim.url, view)
-        .then(async (bound) => {
-          if (cancelled) return
-          if (bound.length > 0) {
-            const ordered: THREE.AnimationClip[] = []
-            for (const name of anim.clips) {
-              const hit = bound.find((c) => c.name === name)
-              if (hit) ordered.push(hit)
-            }
-            if (ordered.length === 0) ordered.push(...bound)
-            startSeq(view, ordered)
-            return
+    // Try retargeting onto the player's customized avatar view first so all worn items and custom appearance animate!
+    loadClipsRetargeted(anim.url, view)
+      .then(async (bound) => {
+        if (cancelled) return
+        if (bound.length > 0) {
+          const ordered: THREE.AnimationClip[] = []
+          for (const name of anim.clips) {
+            const hit = bound.find((c) => c.name === name)
+            if (hit) ordered.push(hit)
           }
-          // nothing bound — self-preview fallback so the body never stands frozen
-          await standIn()
-        })
-        .catch(() => {})
-    }
+          if (ordered.length === 0) ordered.push(...bound)
+          startSeq(view, ordered)
+          return
+        }
+        // Fallback for custom non-R6 rigs (creatures, pets): stand in with their own model
+        await standIn()
+      })
+      .catch(async () => {
+        if (!cancelled) await standIn().catch(() => {})
+      })
     return () => {
       cancelled = true
       cleanupSelf()

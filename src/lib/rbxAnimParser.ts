@@ -176,11 +176,10 @@ function buildClipFromKeyframes(
   const BONE_TARGETS: Array<{ rbx: string; nodes: string[]; restPos: [number, number, number] }> = [
     { rbx: 'Torso', nodes: ['Torso'], restPos: [0, 3, 0] },
     { rbx: 'Head', nodes: ['Head'], restPos: [0, 1, 0] },
-    { rbx: 'RightArm', nodes: ['Right_Arm', 'RightArm'], restPos: [-1.5, 0.5, 0] },
-    { rbx: 'LeftArm', nodes: ['Left_Arm', 'LeftArm'], restPos: [1.5, 0.5, 0] },
-    { rbx: 'RightLeg', nodes: ['Right_Leg', 'RightLeg'], restPos: [-0.5, -1, 0] },
-    { rbx: 'LeftLeg', nodes: ['Left_Leg', 'LeftLeg'], restPos: [0.5, -1, 0] },
-    { rbx: 'HumanoidRootPart', nodes: ['HumanoidRootPart'], restPos: [0, 0, 0] },
+    { rbx: 'RightArm', nodes: ['Right Arm'], restPos: [-1.5, 0.5, 0] },
+    { rbx: 'LeftArm', nodes: ['Left Arm'], restPos: [1.5, 0.5, 0] },
+    { rbx: 'RightLeg', nodes: ['Right Leg'], restPos: [-0.5, -1, 0] },
+    { rbx: 'LeftLeg', nodes: ['Left Leg'], restPos: [0.5, -1, 0] },
   ]
 
   for (const b of BONE_TARGETS) {
@@ -726,32 +725,32 @@ export async function buildR6AnimationGlb(pkg: RbxAnimationPackage): Promise<Blo
   head.name = 'Head'
   head.position.set(0, 1, 0)
 
-  // Right_Arm at [-1.5, 0.5, 0] (shoulder pivot relative to Torso), box 1x2x1 offset -0.5 down
+  // Right Arm at [-1.5, 0.5, 0] (shoulder pivot relative to Torso), box 1x2x1 offset -0.5 down
   const armGeoR = new THREE.BoxGeometry(1, 2, 1)
   armGeoR.translate(0, -0.5, 0)
   const rightArm = new THREE.Mesh(armGeoR, mat)
-  rightArm.name = 'Right_Arm'
+  rightArm.name = 'Right Arm'
   rightArm.position.set(-1.5, 0.5, 0)
 
-  // Left_Arm at [1.5, 0.5, 0] (shoulder pivot relative to Torso), box 1x2x1 offset -0.5 down
+  // Left Arm at [1.5, 0.5, 0] (shoulder pivot relative to Torso), box 1x2x1 offset -0.5 down
   const armGeoL = new THREE.BoxGeometry(1, 2, 1)
   armGeoL.translate(0, -0.5, 0)
   const leftArm = new THREE.Mesh(armGeoL, mat)
-  leftArm.name = 'Left_Arm'
+  leftArm.name = 'Left Arm'
   leftArm.position.set(1.5, 0.5, 0)
 
-  // Right_Leg at [-0.5, -1, 0] (hip pivot relative to Torso), box 1x2x1 offset -1.0 down
+  // Right Leg at [-0.5, -1, 0] (hip pivot relative to Torso), box 1x2x1 offset -1.0 down
   const legGeoR = new THREE.BoxGeometry(1, 2, 1)
   legGeoR.translate(0, -1.0, 0)
   const rightLeg = new THREE.Mesh(legGeoR, mat)
-  rightLeg.name = 'Right_Leg'
+  rightLeg.name = 'Right Leg'
   rightLeg.position.set(-0.5, -1, 0)
 
-  // Left_Leg at [0.5, -1, 0] (hip pivot relative to Torso), box 1x2x1 offset -1.0 down
+  // Left Leg at [0.5, -1, 0] (hip pivot relative to Torso), box 1x2x1 offset -1.0 down
   const legGeoL = new THREE.BoxGeometry(1, 2, 1)
   legGeoL.translate(0, -1.0, 0)
   const leftLeg = new THREE.Mesh(legGeoL, mat)
-  leftLeg.name = 'Left_Leg'
+  leftLeg.name = 'Left Leg'
   leftLeg.position.set(0.5, -1, 0)
 
   torso.add(head, rightArm, leftArm, rightLeg, leftLeg)
