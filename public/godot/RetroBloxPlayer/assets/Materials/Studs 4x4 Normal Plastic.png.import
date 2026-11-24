@@ -3,6 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cja65ilhjc1uo"
+path="res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.ctex"
 path.s3tc="res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
@@ -12,7 +13,7 @@ metadata={
 [deps]
 
 source_file="res://assets/Materials/Studs 4x4 Normal Plastic.png"
-dest_files=["res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.s3tc.ctex"]
+dest_files=["res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.ctex", "res://.godot/imported/Studs 4x4 Normal Plastic.png-87eaf5fde0025bd4d6bfecf3d2c5d31c.s3tc.ctex"]
 
 [params]
 

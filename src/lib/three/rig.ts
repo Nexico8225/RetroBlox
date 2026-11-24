@@ -336,9 +336,10 @@ function overlayMaterial(map: THREE.Texture | null, color?: string): THREE.MeshL
     transparent: true,
     alphaTest: 0.01,
     polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
     side: THREE.DoubleSide,
+    depthTest: true,
   }
   if (color) params.color = new THREE.Color(color)
   return new THREE.MeshLambertMaterial(params)
@@ -369,7 +370,8 @@ function frontDecalLocal(tex: THREE.Texture, maxW: number, maxH: number, localZ:
   const geo = new THREE.PlaneGeometry(w, h)
   const mesh = new THREE.Mesh(geo, overlayMaterial(tex))
   mesh.name = 'worn_item'
-  mesh.position.set(localCenter.x, localCenter.y, localZ + 0.006)
+  mesh.renderOrder = 10
+  mesh.position.set(localCenter.x, localCenter.y, localZ + 0.015)
   return mesh
 }
 
