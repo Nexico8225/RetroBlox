@@ -205,7 +205,7 @@ static func stream_game_into_ram(api_node: Node, game_id: String, explicit_pkg_u
 		pkg["game_id"] = gid
 		pkg["creator_username"] = creator_uname
 		if String(pkg.get("format", "")) == "tscn_raw":
-			# Save to user cache dir for seamless Godot Resource loading
+			clean_games_cache(15, 200 * 1024 * 1024)
 			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://games_cache"))
 			var cache_path: String = "user://games_cache/%s.tscn" % gid.validate_filename()
 			var f: FileAccess = FileAccess.open(cache_path, FileAccess.WRITE)
@@ -214,6 +214,38 @@ static func stream_game_into_ram(api_node: Node, game_id: String, explicit_pkg_u
 				pkg["format"] = "tscn"
 				pkg["scene_path"] = cache_path
 	return pkg
+
+
+static func clean_games_cache(max_files: int = 15, max_bytes: int = 200 * 1024 * 1024) -> void:
+	var cache_dir_path: String = "user://games_cache"
+	var dir: DirAccess = DirAccess.open(cache_dir_path)
+	if dir == null:
+		return
+	var file_list: Array[Dictionary] = []
+	var total_size: int = 0
+	dir.list_dir_begin()
+	var fname: String = dir.get_next()
+	while fname != "":
+		if not dir.current_is_dir():
+			var full_p: String = cache_dir_path + "/" + fname
+			var mod_time: int = FileAccess.get_modified_time(full_p)
+			var fsz: int = 0
+			var fa: FileAccess = FileAccess.open(full_p, FileAccess.READ)
+			if fa != null:
+				fsz = fa.get_length()
+			total_size += fsz
+			file_list.append({ "name": fname, "path": full_p, "time": mod_time, "size": fsz })
+		fname = dir.get_next()
+	dir.list_dir_end()
+
+	file_list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a["time"]) < int(b["time"])
+	)
+
+	while (file_list.size() > max_files or total_size > max_bytes) and not file_list.is_empty():
+		var oldest: Dictionary = file_list.pop_front()
+		dir.remove(oldest["name"])
+		total_size -= int(oldest["size"])
 
 
 static func apply_ram_package_to_world(world_node: Node3D, pkg: Dictionary) -> Array[Vector3]:
