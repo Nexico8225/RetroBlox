@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, makeToken, publicUser, setSessionCookie } from '@/lib/auth'
+import { ensureTables, diagnoseDb } from '@/lib/dbdiag'
 
 export async function POST(req: NextRequest) {
+  // Paramedic first: ensure cloud database tables exist
+  await ensureTables()
   try {
     const form = await req.formData()
     const username = String(form.get('username') || '').trim()
@@ -102,8 +105,16 @@ export async function POST(req: NextRequest) {
     const res = NextResponse.json({ user: publicUser(user), token })
     setSessionCookie(res, req, token)
     return res
-  } catch (e) {
+  } catch (e: unknown) {
     console.error('signup error', e)
-    return NextResponse.json({ error: 'Sign up failed. Try again.' }, { status: 500 })
+    const errMessage = e instanceof Error ? e.message : String(e || '')
+    const reason = await diagnoseDb()
+    return NextResponse.json(
+      {
+        error: reason ? `Sign up failed. ${reason}` : (errMessage || 'Sign up failed. Try again.'),
+        detail: errMessage,
+      },
+      { status: 500 }
+    )
   }
 }

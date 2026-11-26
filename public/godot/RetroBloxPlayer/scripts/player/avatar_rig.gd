@@ -139,6 +139,53 @@ var _tool_is_lunge := false
 var _has_equipped_tool := false
 var _equipped_tool_node: Node3D = null
 var _head_scale_mult := 1.0
+var _head_shape := "classic"
+
+
+func set_head_shape(shape: String) -> void:
+	var s := shape.to_lower().strip_edges()
+	if s == "":
+		s = "classic"
+	_head_shape = s
+	_apply_head_shape()
+
+
+func _create_head_mesh(size: Vector3) -> Mesh:
+	match _head_shape:
+		"blocky", "block", "cube", "blockhead":
+			var m := BoxMesh.new()
+			m.size = size
+			return m
+		"sphere", "round", "perfection", "roundy":
+			var m := SphereMesh.new()
+			m.radius = size.x * 0.52
+			m.height = size.y
+			return m
+		"triangle", "diamond", "cone", "prism":
+			var m := PrismMesh.new()
+			m.size = size
+			return m
+		_:
+			var m := CylinderMesh.new()
+			m.top_radius = size.x * 0.49
+			m.bottom_radius = size.x * 0.49
+			m.height = size.y
+			m.radial_segments = 24
+			return m
+
+
+func _apply_head_shape() -> void:
+	if parts.size() <= HEAD:
+		return
+	var mi := parts[HEAD]
+	if mi == null or not is_instance_valid(mi):
+		return
+	var head_size = _part_sizes[HEAD] if _part_sizes.size() > HEAD else BOX_HEAD
+	mi.mesh = _create_head_mesh(head_size)
+	if _applied_colors.has(HEAD):
+		mi.material_override = _make_material(_applied_colors[HEAD])
+	elif mi.material_override == null:
+		mi.material_override = _make_material(NOOB_HEAD)
 
 
 func _ready() -> void:
@@ -278,7 +325,12 @@ func set_face(tex: Texture2D, face_scale: float) -> void:
 	quad.material_override = material
 	var host: Node3D = _mounts[HEAD_INDEX] if _mounts.size() > HEAD_INDEX else self
 	host.add_child(quad)
-	quad.position = Vector3(0.0, head_size.y * 0.04, -head_size.z * 0.5 - 0.015)
+	var z_off: float = -head_size.z * 0.5 - 0.015
+	if _head_shape in ["sphere", "round", "perfection", "roundy"]:
+		z_off = -head_size.z * 0.52 - 0.025
+	elif _head_shape in ["triangle", "diamond", "cone", "prism"]:
+		z_off = -head_size.z * 0.48 - 0.015
+	quad.position = Vector3(0.0, head_size.y * 0.04, z_off)
 	quad.rotation = Vector3(0.0, PI, 0.0)
 	_face_decal = quad
 
@@ -319,9 +371,12 @@ func animate(delta: float, speed: float, grounded: bool, climbing: bool = false)
 		_active_emote = ""
 
 	var has_custom_walk: bool = custom_walk_anim != null or (_anim_player != null and _anim_player.has_animation(&"CustomWalk"))
-	if use_animation_player or has_custom_walk:
+	var em_active := _active_emote.strip_edges() != "" and grounded and speed <= 0.8 * STUD and not climbing
+	if (use_animation_player or has_custom_walk) and not (em_active and (_anim_player == null or not _anim_player.has_animation(StringName(_active_emote)))):
 		_drive_animation_player(speed, grounded, climbing)
 		return
+	if em_active and _anim_player != null and _anim_player.is_playing() and not _anim_player.has_animation(StringName(_active_emote)):
+		_anim_player.stop()
 
 	_animate_pivots(delta, speed, grounded, climbing)
 
@@ -383,7 +438,7 @@ func set_head_scale(mult: float) -> void:
 		_nameplate.position.y = (RIG_HEIGHT + 0.9 * STUD) + (_head_scale_mult - 1.0) * 1.1 * STUD
 
 
-func set_equipped_hand_model(model: Node3D) -> void:
+func set_equipped_hand_model(model: Node3D, grip_pos: Variant = null, grip_rot_deg: Variant = null, grip_scale: Variant = null) -> void:
 	_ensure_built()
 	if _equipped_tool_node != null and is_instance_valid(_equipped_tool_node):
 		_equipped_tool_node.queue_free()
@@ -392,8 +447,12 @@ func set_equipped_hand_model(model: Node3D) -> void:
 	if model != null and _pivots.size() > ARM_R and is_instance_valid(_pivots[ARM_R]):
 		_equipped_tool_node = model
 		_pivots[ARM_R].add_child(model)
-		model.position = Vector3(0.0, -1.35 * STUD, -0.55 * STUD)
-		model.rotation_degrees = Vector3(-75.0, 0.0, 0.0)
+		var gpos: Vector3 = (grip_pos as Vector3) if grip_pos is Vector3 else Vector3(0.0, -1.45, 0.25)
+		var grot: Vector3 = (grip_rot_deg as Vector3) if grip_rot_deg is Vector3 else Vector3(65.0, 0.0, 0.0)
+		var gscl: Vector3 = (grip_scale as Vector3) if grip_scale is Vector3 else Vector3(0.72, 0.72, 0.72)
+		model.position = gpos * STUD
+		model.rotation_degrees = grot
+		model.scale = gscl
 
 
 func trigger_tool_swing(is_lunge: bool = false) -> void:
@@ -501,6 +560,21 @@ func _animate_pivots(delta: float, speed: float, grounded: bool, climbing: bool)
 				arm_r_z = 0.40
 				head_x = -0.32
 				torso_x = sin(c_t) * 0.08
+			"distractiondance", "distraction", "henry":
+				# Iconic Distraction Dance: rhythmic alternating arm-cross claps, high leg kicks, and torso sway
+				var dd_t := et * 9.0
+				var beat := sin(dd_t)
+				var half := sin(dd_t * 0.5)
+				arm_l_x = -1.35 + beat * 0.65
+				arm_r_x = -1.35 - beat * 0.65
+				arm_l_z = -0.55 + absf(beat) * 0.75
+				arm_r_z = 0.55 - absf(beat) * 0.75
+				leg_l_x = maxf(0.0, half) * -1.05 + minf(0.0, half) * -0.20
+				leg_r_x = maxf(0.0, -half) * -1.05 + minf(0.0, -half) * -0.20
+				torso_x = 0.10 + absf(beat) * 0.10
+				torso_y = half * 0.28
+				head_x = -0.08 + absf(beat) * 0.12
+				head_z = half * 0.18
 			_:
 				arm_l_x = sin(et * 3.0) * 0.25
 				arm_r_x = -sin(et * 3.0) * 0.25
@@ -635,6 +709,7 @@ func _clear_rig_nodes() -> void:
 
 
 func _reapply_saved_appearance() -> void:
+	_apply_head_shape()
 	for index in _applied_colors.keys():
 		if int(index) >= 0 and int(index) < parts.size():
 			parts[int(index)].material_override = _make_material(_applied_colors[index])
@@ -853,8 +928,13 @@ func _build_boxes() -> void:
 		var mesh_node := MeshInstance3D.new()
 		mesh_node.name = "Part_%d" % index
 		mesh_node.position = center - pivot_pos
-		var mesh := BoxMesh.new()
-		mesh.size = size
+		var mesh: Mesh
+		if index == HEAD:
+			mesh = _create_head_mesh(size)
+		else:
+			var bm := BoxMesh.new()
+			bm.size = size
+			mesh = bm
 		mesh_node.mesh = mesh
 		pivot.add_child(mesh_node)
 		parts.append(mesh_node)

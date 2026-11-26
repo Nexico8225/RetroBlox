@@ -35,6 +35,16 @@ export type AvatarKind =
   | 'accessory' | 'neck' | 'shoulder' | 'front' | 'waist'
   | 'emote' | 'bundle' | 'anim'
 
+export type HeadShapeT = 'classic' | 'blocky' | 'sphere' | 'triangle'
+
+export function sanitizeHeadShape(raw: unknown): HeadShapeT {
+  const s = String(raw || '').toLowerCase().trim()
+  if (s === 'blocky' || s === 'block' || s === 'cube' || s === 'blockhead') return 'blocky'
+  if (s === 'sphere' || s === 'round' || s === 'perfection' || s === 'roundy') return 'sphere'
+  if (s === 'triangle' || s === 'diamond' || s === 'cone' || s === 'prism') return 'triangle'
+  return 'classic'
+}
+
 /**
  * Creator-placed transform for 3D UGC (hats / gear / accessories).
  * SACRED RULE: this is authored in the 3D placement editor by whoever
@@ -117,6 +127,8 @@ export interface AvatarConfigT {
   bundleAssetId?: string | null
   /** active animation pack — clips replace idle/walk/jump/climb in realtime (null/'' = classic anims) */
   animPackAssetId?: string | null
+  /** head shape: classic (rounded bevel), blocky (cube), sphere (ball), triangle (diamond/wedge) */
+  headShape?: HeadShapeT
   /** custom UGC placement overrides: assetId -> { p, r, s } */
   placements?: CustomPlacements
 }
@@ -199,6 +211,7 @@ export const DEFAULT_AVATAR: AvatarConfigT = {
   shirtAssetId: 'shirt_01',
   pantsAssetId: 'pants_01',
   accessories: [],
+  headShape: 'classic',
 }
 
 /* ---------------- R6 player model geometry (see header) ---------------- */

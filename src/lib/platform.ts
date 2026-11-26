@@ -14,7 +14,7 @@
 ------------------------------------------------------------------ */
 
 import { db } from '@/lib/db'
-import { DEFAULT_AVATAR, resolveDefaultAsset, parsePlacement, sanitizePartColors, sanitizeFaceScale, sanitizeCustomPlacements, ACCESSORY_KINDS, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson, type AvatarConfigT, type AssetInfo, type AnimClipsT, type AnimTargetT } from '@/lib/avatarAssets'
+import { DEFAULT_AVATAR, resolveDefaultAsset, parsePlacement, sanitizePartColors, sanitizeFaceScale, sanitizeHeadShape, sanitizeCustomPlacements, ACCESSORY_KINDS, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson, type AvatarConfigT, type AssetInfo, type AnimClipsT, type AnimTargetT } from '@/lib/avatarAssets'
 
 /** Load a user's avatar config from the database (defaults if they never customized). */
 export async function getAvatarConfig(userId: string): Promise<AvatarConfigT> {
@@ -27,14 +27,18 @@ export async function getAvatarConfig(userId: string): Promise<AvatarConfigT> {
   } catch {
     accessories = []
   }
+  const colors = sanitizePartColors(safeJson(cfg.colorsJson))
+  const colorsRaw = safeJson(cfg.colorsJson) as Record<string, unknown> | null
+  const headShape = sanitizeHeadShape((cfg as { headShape?: unknown }).headShape || colorsRaw?._headShape)
   return {
     bodyAssetId: cfg.bodyAssetId,
     headAssetId: cfg.headAssetId,
     shirtAssetId: cfg.shirtAssetId,
     pantsAssetId: cfg.pantsAssetId,
     accessories,
-    colors: sanitizePartColors(safeJson(cfg.colorsJson)),
+    colors,
     faceScale: sanitizeFaceScale((cfg as { faceScale?: unknown }).faceScale),
+    headShape,
     bundleAssetId: cfg.bundleAssetId || null,
     animPackAssetId: cfg.animPackAssetId || null,
     placements: sanitizeCustomPlacements(safeJson((cfg as { placementsJson?: string }).placementsJson)),
@@ -63,6 +67,8 @@ export function avatarPayload(userId: string, username: string, cfg: AvatarConfi
       accessories: cfg.accessories,
       colors: cfg.colors && Object.keys(cfg.colors).length > 0 ? cfg.colors : null,
       faceScale: sanitizeFaceScale(cfg.faceScale),
+      headShape: sanitizeHeadShape(cfg.headShape || (cfg.colors as Record<string, unknown> | undefined)?._headShape),
+      head_shape: sanitizeHeadShape(cfg.headShape || (cfg.colors as Record<string, unknown> | undefined)?._headShape),
       bundle: cfg.bundleAssetId || null,
       animPack: cfg.animPackAssetId || null,
       placements: cfg.placements && Object.keys(cfg.placements).length > 0 ? cfg.placements : null,

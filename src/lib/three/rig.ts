@@ -224,6 +224,8 @@ export interface AvatarLook3D {
   faceUrl?: string | null
   /** face decal size multiplier — 1 = the classic look (face-size slider) */
   faceScale?: number
+  /** head shape: 'classic' | 'blocky' | 'sphere' | 'triangle' */
+  headShape?: 'classic' | 'blocky' | 'sphere' | 'triangle'
   /** advanced per-part body colors (Body Colors editor) — overrides skin/shirt/pants mapping */
   partColors?: AvatarPartColors
   tshirtUrls?: string[]
@@ -253,6 +255,7 @@ export function buildLook3D(cfg: AvatarConfigT, resolve: (id: string) => AssetIn
     pantsImage: pants?.imageUrl || null,
     faceUrl: head?.imageUrl || faceImageUrl('head_01'),
     faceScale: sanitizeFaceScale(cfg.faceScale),
+    headShape: (cfg as { headShape?: 'classic' | 'blocky' | 'sphere' | 'triangle' }).headShape || ((cfg.colors as Record<string, unknown> | undefined)?._headShape as any) || 'classic',
     partColors: cfg.colors,
     tshirtUrls: acc.filter((a) => a.kind === 'tshirt' && a.imageUrl).map((a) => a.imageUrl!),
     models: acc
@@ -1126,6 +1129,28 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
       const key = matchPart(o.name) || matchPart((o as THREE.Mesh).geometry?.name || '')
       if (key && !o.visible) o.visible = true
     })
+  }
+
+  // 0) Head shape customization (classic, blocky, sphere, triangle)
+  const headList = rig.parts.get('head') || []
+  const headShape = look.headShape || 'classic'
+  for (const m of headList) {
+    const mesh = m as THREE.Mesh
+    if (!mesh.isMesh) continue
+    if (!mesh.userData.__origGeo) {
+      mesh.userData.__origGeo = mesh.geometry
+    }
+    if (headShape === 'blocky') {
+      mesh.geometry = new THREE.BoxGeometry(1.2, 1.2, 1.2)
+    } else if (headShape === 'sphere') {
+      mesh.geometry = new THREE.SphereGeometry(0.65, 32, 32)
+    } else if (headShape === 'triangle') {
+      const geo = new THREE.ConeGeometry(0.72, 1.2, 4)
+      geo.rotateY(Math.PI / 4)
+      mesh.geometry = geo
+    } else {
+      mesh.geometry = mesh.userData.__origGeo
+    }
   }
 
   // 1) body colors — head/arms take skin, torso takes shirt color, legs pants color

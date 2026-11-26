@@ -36,7 +36,13 @@ static func apply(api, avatar_node, avatar_data: Dictionary, await_all := false)
 
         if api == null:
                 # colors-only dry run (no network) — classic noob paint
-                _paint_colors(avatar_node, colors, SKIN_FALLBACK, SHIRT_FALLBACK, PANTS_FALLBACK)
+                var head_shape := String(avatar_data.get("head_shape", avatar_data.get("headShape", "")))
+        if head_shape == "" and colors.has("_headShape"):
+                head_shape = String(colors["_headShape"])
+        if head_shape != "" and avatar_node.has_method("set_head_shape"):
+                avatar_node.call("set_head_shape", head_shape)
+
+        _paint_colors(avatar_node, colors, SKIN_FALLBACK, SHIRT_FALLBACK, PANTS_FALLBACK)
                 return
 
         var body_asset: Dictionary = await api.get_asset(String(avatar_data.get("body", "body_01")))
@@ -45,6 +51,12 @@ static func apply(api, avatar_node, avatar_data: Dictionary, await_all := false)
         var pants_asset: Dictionary = await api.get_asset(String(avatar_data.get("pants", "pants_01")))
         if not _alive(avatar_node):
                 return
+
+        var head_shape := String(avatar_data.get("head_shape", avatar_data.get("headShape", "")))
+        if head_shape == "" and colors.has("_headShape"):
+                head_shape = String(colors["_headShape"])
+        if head_shape != "" and avatar_node.has_method("set_head_shape"):
+                avatar_node.call("set_head_shape", head_shape)
 
         _paint_colors(avatar_node, colors,
                 _asset_color(body_asset, SKIN_FALLBACK),

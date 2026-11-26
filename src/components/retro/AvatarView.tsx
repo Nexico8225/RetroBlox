@@ -99,6 +99,7 @@ export function AvatarView() {
         bundleAssetId: res.avatar.bundle || '',
         animPackAssetId: res.avatar.animPack || '',
         placements: res.avatar.placements || {},
+        headShape: res.avatar.headShape || (res.avatar.colors as Record<string, unknown> | undefined)?._headShape as any || 'classic',
       })
       setInventory((res.inventory || []).map((e: InvEntry) => ({
         ...e,
@@ -565,10 +566,48 @@ export function AvatarView() {
             <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 5 }}>
               Classic Body <span style={{ color: '#8ba0b3' }}>(click the worn one to go back to the classic look)</span>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
               {BODY_ASSETS.map((b) =>
                 builtinChip(b.assetId, cfg.bodyAssetId === b.assetId, () => clickBuiltinSlot('bodyAssetId', b.assetId))
               )}
+            </div>
+
+            {/* Head Shape: Classic rounded, Blocky cube, Sphere ball, Triangle diamond */}
+            <div style={{ fontSize: 11, color: '#1c4e7c', marginBottom: 5 }}>
+              Head Shape <span style={{ color: '#8ba0b3' }}>(Classic rounded, Blocky cube, Sphere ball, or Triangle diamond)</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {[
+                { id: 'classic', label: 'Classic (Round Bevel)' },
+                { id: 'blocky', label: 'Blocky (Cube / Blockhead)' },
+                { id: 'sphere', label: 'Sphere (Round / Perfection)' },
+                { id: 'triangle', label: 'Triangle (Diamond / Wedge)' },
+              ].map((s) => {
+                const active = (cfg.headShape || 'classic') === s.id
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      patch({
+                        headShape: s.id as any,
+                        colors: { ...(cfg.colors || {}), _headShape: s.id } as any,
+                      })
+                    }}
+                    className="rb-btn"
+                    style={{
+                      fontSize: 11,
+                      padding: '4px 10px',
+                      background: active ? 'linear-gradient(180deg,#3d7dbd,#2a5f96)' : '#fff',
+                      color: active ? '#fff' : '#1c4e7c',
+                      border: active ? '1px solid #1c4e7c' : '1px solid #b7c6d4',
+                      fontWeight: active ? 'bold' : 'normal',
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                )
+              })}
             </div>
             </>
             )}

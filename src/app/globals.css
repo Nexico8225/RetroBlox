@@ -76,11 +76,12 @@ body {
   background-attachment: fixed;
 }
 
-/* ---------- Custom retro cursors (user assets, outlined) ---------- */
+/* ---------- Custom retro cursors (Roblox classic behavior) ----------
+   In Roblox, the arrow cursor is used everywhere by default, including
+   over clickable links, buttons, and catalog cards. The pointer hand
+   only appears when clicking down (:active). */
 body,
-body * {
-  cursor: url('/retro/cursor.png') 2 2, auto;
-}
+body *,
 body a,
 body button,
 body select,
@@ -88,14 +89,28 @@ body label,
 body [role='button'],
 body .rb-clickable,
 body summary {
-  cursor: url('/retro/pointer.png') 12 2, pointer;
+  cursor: url('/retro/cursor.png') 2 2, auto !important;
 }
+
+/* Clicking down on interactive elements shows the classic pointing hand */
+body:active,
+body *:active,
+body a:active,
+body button:active,
+body [role='button']:active,
+body .rb-clickable:active,
+body summary:active {
+  cursor: url('/retro/pointer.png') 12 2, pointer !important;
+}
+
 body input[type='text'],
 body input[type='password'],
 body input[type='search'],
+body input[type='email'],
+body input[type='number'],
 body input:not([type]),
 body textarea {
-  cursor: url('/retro/pointer.png') 12 2, text;
+  cursor: text !important;
 }
 
 /* ---------- Typography: regular weight everywhere (no bold text) ----------
@@ -640,7 +655,7 @@ select.rb-magic {
   appearance: none;
   -webkit-appearance: none;
   padding-right: 30px;
-  cursor: url('/retro/pointer.png') 12 2, pointer;
+  cursor: url('/retro/cursor.png') 2 2, auto;
 }
 select.rb-magic option {
   color: #333;
@@ -737,7 +752,7 @@ select.rb-magic option {
   background: radial-gradient(circle at 50% 42%, #ffffff 0%, #eef4fa 78%);
   padding: 0;
   overflow: hidden;
-  cursor: url('/retro/pointer.png') 12 2, pointer;
+  cursor: url('/retro/cursor.png') 2 2, auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -997,7 +1012,7 @@ select.rb-magic option {
   border: 1px solid #b4c2cf;
   background: linear-gradient(180deg, #fff, #dbe4ec);
   color: #24425f;
-  cursor: pointer;
+  cursor: url('/retro/cursor.png') 2 2, auto;
 }
 .rb-like-btn.rb-liked {
   background: linear-gradient(180deg, #ffe3ec, #ffc2d5);
