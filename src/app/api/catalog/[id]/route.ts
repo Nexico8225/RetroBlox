@@ -3,7 +3,10 @@ import { db } from '@/lib/db'
 import { getUserFromReq, isUserAdmin } from '@/lib/auth'
 import { parsePlacement, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson } from '@/lib/avatarAssets'
 import { buyPrice, RbxError } from '@/lib/rbx'
-import { saveUpload, resolveUpload } from '@/lib/uploads'
+import { saveUpload, resolveUpload, resolveUgcUpload } from '@/lib/uploads'
+
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
 
 /**
  * GET    /api/catalog/[id] — one item + whether the viewer owns it
@@ -173,7 +176,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       clearColor: form.get('clearColor') ?? undefined,
       clearTexture: form.get('clearTexture') ?? undefined,
     }
-    const file = await resolveUpload(form.get('image'), form.get('imageUploadId'))
+    const imgUp = await resolveUgcUpload(form.get('image'), form.get('imageUploadId'), user.id, 'thumbnail.png', 'image/png')
+    if (imgUp) newImageFileId = imgUp.fileId
+    const file = null as any
     if (file instanceof File && file.size > 0) {
       if (!file.type.startsWith('image/')) {
         return NextResponse.json({ error: 'The thumbnail must be an image.' }, { status: 400 })
@@ -184,7 +189,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const saved = await saveUpload(file, user.id)
       newImageFileId = saved.id
     }
-    const tex = await resolveUpload(form.get('texture'), form.get('textureUploadId'))
+    const texUp = await resolveUgcUpload(form.get('texture'), form.get('textureUploadId'), user.id, 'texture.png', 'image/png')
+    if (texUp) newTextureFileId = texUp.fileId
+    const tex = null as any
     if (tex instanceof File && tex.size > 0) {
       if (!tex.type.startsWith('image/')) {
         return NextResponse.json({ error: 'The texture must be an image (PNG / JPG).' }, { status: 400 })

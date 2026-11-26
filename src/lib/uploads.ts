@@ -61,7 +61,7 @@ export async function saveUpload(file: File, userId?: string) {
 
   // For small files, also keep the Buffer in SQLite for host portability
   let dbBuf: Buffer | null = null
-  if (!isLarge) {
+  if (!isLarge && file.size <= 4 * 1024 * 1024) {
     try {
       dbBuf = Buffer.from(await file.arrayBuffer())
     } catch {}
@@ -335,6 +335,66 @@ export async function resolveGameUpload(
   if (field instanceof File && field.size > 0) {
     const saved = await saveUpload(field, userId)
     return { id: saved.id, filename: saved.filename, size: saved.size }
+  }
+
+  return null
+}
+
+/**
+ * Fast UGC Upload Resolver: handles direct Files or chunked uploadIds without
+ * re-downloading or re-inserting multi-megabyte blobs over database HTTP.
+ */
+export async function resolveUgcUpload(
+  field: FormDataEntryValue | null,
+  idField: FormDataEntryValue | null,
+  userId?: string,
+  fallbackName = 'model.glb',
+  fallbackMime = 'model/gltf-binary'
+): Promise<{ fileId: string; size: number } | null> {
+  const uploadId = typeof idField === 'string' ? idField.trim() : ''
+  if (uploadId && /^[a-zA-Z0-9_-]{8,64}$/.test(uploadId)) {
+    const keptCount = await keepChunks(uploadId)
+    if (keptCount > 0) {
+      finalizeDiskChunkUpload(uploadId, fallbackName, fallbackMime).catch(() => {})
+      const chunkRow = await db.uploadedFile.findFirst({
+        where: { path: { startsWith: `keep:${uploadId}:` } },
+        select: { filename: true, mimeType: true },
+      })
+      const totalAgg = await db.uploadedFile.aggregate({
+        where: { path: { startsWith: `keep:${uploadId}:` } },
+        _sum: { size: true },
+      })
+      const totalSize = totalAgg._sum.size || 0
+      const resolvedName = chunkRow?.filename || fallbackName
+
+      await db.uploadedFile.upsert({
+        where: { id: uploadId },
+        create: {
+          id: uploadId,
+          filename: resolvedName,
+          path: path.join(UPLOAD_DIR, `${uploadId}_${resolvedName}`),
+          mimeType: chunkRow?.mimeType || fallbackMime,
+          size: totalSize,
+          data: null,
+        },
+        update: {
+          filename: resolvedName,
+          size: totalSize,
+        },
+      }).catch(() => {})
+
+      return { fileId: uploadId, size: totalSize }
+    }
+
+    const existing = await db.uploadedFile.findUnique({ where: { id: uploadId } })
+    if (existing) {
+      return { fileId: existing.id, size: existing.size }
+    }
+  }
+
+  if (field instanceof File && field.size > 0) {
+    const saved = await saveUpload(field, userId)
+    return { fileId: saved.id, size: saved.size }
   }
 
   return null

@@ -140,19 +140,19 @@ export async function attachUpload(
   }
   const total = Math.ceil(blob.size / CHUNK_BYTES)
   for (let idx = 0; idx < total; idx++) {
-    const b64 = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader()
-      r.onload = () => resolve(String(r.result || '').split(',')[1] || '')
-      r.onerror = () => reject(new Error(`Could not read "${name}".`))
-      r.readAsDataURL(blob.slice(idx * CHUNK_BYTES, (idx + 1) * CHUNK_BYTES))
-    })
-    if (!b64) throw new Error(`Could not read "${name}".`)
+    const chunk = blob.slice(idx * CHUNK_BYTES, (idx + 1) * CHUNK_BYTES)
     const pct = Math.round(((idx + 1) / total) * 100)
     onProgress?.(pct)
     onNote?.(`Uploading ${name} — part ${idx + 1} of ${total} (${pct}%)…`)
+    const chunkFd = new FormData()
+    chunkFd.append('uploadId', uploadId)
+    chunkFd.append('idx', String(idx))
+    chunkFd.append('name', name)
+    chunkFd.append('mime', mime)
+    chunkFd.append('file', chunk, name)
     await api(`/api/uploads/chunk`, {
       method: 'POST',
-      body: JSON.stringify({ uploadId, idx, name, mime, b64 }),
+      body: chunkFd,
     })
   }
   fd.append(`${field}UploadId`, uploadId)

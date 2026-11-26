@@ -4,6 +4,7 @@ import { getUserFromReq } from '@/lib/auth'
 import { purgeStaleChunks, saveDiskChunk } from '@/lib/uploads'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 /** POST /api/uploads/chunk — one slice of an upload (supports models & games up to 5 GB).
  *
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
       data: { filename: name, path, mimeType: mime, size: buf.length, data: new Uint8Array(buf) },
     }).catch(() => {})
 
-    purgeStaleChunks().catch(() => {})
+    if (idx === 0) purgeStaleChunks().catch(() => {})
 
     return NextResponse.json({ ok: true, idx, size: buf.length })
   } catch (err: any) {

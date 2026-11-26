@@ -355,12 +355,22 @@ export function CatalogView({ initialType = '', initialQ = '' }: { initialType?:
             return (
               <div key={item.id} className="rb-box rb-card" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{ background: '#ffffff', borderBottom: '1px solid #dbe4ec', position: 'relative', aspectRatio: '1' }}>
-                  {item.modelFileId ? (
+                  {item.imageFileId ? (
+                    <img
+                      src={`/api/files/${item.imageFileId}`}
+                      alt={item.name}
+                      loading="lazy"
+                      onError={(e) => {
+                        const ph = thumbPlaceholder(item.type)
+                        if (!e.currentTarget.src.startsWith('data:')) e.currentTarget.src = ph
+                      }}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#ffffff' }}
+                    />
+                  ) : item.modelFileId ? (
                     <ItemThumb3D
                       modelUrl={`/api/files/${item.modelFileId}`}
                       placement={item.placement}
                       alt={item.name}
-                      fallbackSrc={`/api/files/${item.imageFileId}`}
                       textureUrl={item.textureFileId ? `/api/files/${item.textureFileId}` : undefined}
                       color={item.baseColor || undefined}
                       style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#ffffff' }}
@@ -857,7 +867,13 @@ function EditItemModal({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              {item.modelFileId && !newImage ? (
+              {item.imageFileId || newImagePreview ? (
+                <img
+                  src={newImagePreview || `/api/files/${item.imageFileId}`}
+                  alt={item.name}
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
+                />
+              ) : item.modelFileId ? (
                 <ItemThumb3D
                   modelUrl={`/api/files/${item.modelFileId}`}
                   placement={item.placement}

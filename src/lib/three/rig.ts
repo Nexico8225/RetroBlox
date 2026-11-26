@@ -62,6 +62,63 @@ const PART_ALIASES: Record<PartKey, string[]> = {
   legR: ['right leg', 'rightleg', 'leg_r', 'r leg', 'leg_right', 'rleg', 'right upper leg', 'right upperleg', 'rightupperleg', 'right lower leg', 'right lowerleg', 'rightlowerleg', 'right foot', 'rightfoot', 'upperleg_r', 'lowerleg_r', 'upper leg r', 'lower leg r'],
 }
 
+/** Create head geometry according to shape (classic rounded bevel cylinder, blocky cube, sphere ball, triangle diamond, etc.) */
+export function createHeadShapeGeometry(shape?: string): THREE.BufferGeometry {
+  const s = (shape || 'classic').toLowerCase().trim()
+  if (s === 'blocky' || s === 'blockhead' || s === 'cube') {
+    const geo = new THREE.BoxGeometry(1.2, 1.2, 1.2)
+    geo.translate(0, 0.6, 0)
+    return geo
+  }
+  if (s === 'sphere' || s === 'round' || s === 'perfection') {
+    const geo = new THREE.SphereGeometry(0.6, 32, 32)
+    geo.translate(0, 0.6, 0)
+    return geo
+  }
+  if (s === 'triangle' || s === 'diamond' || s === 'cone' || s === 'wedge') {
+    const geo = new THREE.ConeGeometry(0.72, 1.2, 4)
+    geo.rotateY(Math.PI / 4)
+    geo.translate(0, 0.6, 0)
+    return geo
+  }
+  if (s === 'barrel') {
+    const points: THREE.Vector2[] = [
+      new THREE.Vector2(0, 0),
+      new THREE.Vector2(0.42, 0.05),
+      new THREE.Vector2(0.58, 0.25),
+      new THREE.Vector2(0.66, 0.6),
+      new THREE.Vector2(0.58, 0.95),
+      new THREE.Vector2(0.42, 1.15),
+      new THREE.Vector2(0, 1.2),
+    ]
+    const geo = new THREE.LatheGeometry(points, 32)
+    geo.computeVertexNormals()
+    return geo
+  }
+  if (s === 'roundy') {
+    const geo = new THREE.SphereGeometry(0.6, 32, 24)
+    geo.scale(1.05, 0.9, 1.05)
+    geo.translate(0, 0.6, 0)
+    return geo
+  }
+  // Authentic classic Roblox rounded-bevel cylinder head (SpecialMesh Head)
+  const points: THREE.Vector2[] = [
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(0.28, 0.02),
+    new THREE.Vector2(0.46, 0.08),
+    new THREE.Vector2(0.55, 0.18),
+    new THREE.Vector2(0.585, 0.32),
+    new THREE.Vector2(0.585, 0.88),
+    new THREE.Vector2(0.55, 1.02),
+    new THREE.Vector2(0.46, 1.12),
+    new THREE.Vector2(0.28, 1.18),
+    new THREE.Vector2(0, 1.2),
+  ]
+  const geo = new THREE.LatheGeometry(points, 32)
+  geo.computeVertexNormals()
+  return geo
+}
+
 export interface LoadedRig {
   /** identity group standing on y=0, facing +Z, exactly RIG_HEIGHT tall */
   group: THREE.Group
@@ -136,6 +193,9 @@ export function loadRig(): Promise<LoadedRig> {
       const geoName = mesh.geometry?.name || ''
       if (key || matchPart(geoName)) {
         const k = key || matchPart(geoName)!
+        if (k === 'head') {
+          mesh.geometry = createHeadShapeGeometry('classic')
+        }
         const list = parts.get(k) || []
         list.push(mesh)
         parts.set(k, list)
@@ -1131,26 +1191,13 @@ export async function applyLook(view: THREE.Group, rig: LoadedRig, look: AvatarL
     })
   }
 
-  // 0) Head shape customization (classic, blocky, sphere, triangle)
+  // 0) Head shape customization (classic rounded bevel, blocky cube, sphere ball, triangle diamond, etc.)
   const headList = rig.parts.get('head') || []
   const headShape = look.headShape || 'classic'
   for (const m of headList) {
     const mesh = m as THREE.Mesh
     if (!mesh.isMesh) continue
-    if (!mesh.userData.__origGeo) {
-      mesh.userData.__origGeo = mesh.geometry
-    }
-    if (headShape === 'blocky') {
-      mesh.geometry = new THREE.BoxGeometry(1.2, 1.2, 1.2)
-    } else if (headShape === 'sphere') {
-      mesh.geometry = new THREE.SphereGeometry(0.65, 32, 32)
-    } else if (headShape === 'triangle') {
-      const geo = new THREE.ConeGeometry(0.72, 1.2, 4)
-      geo.rotateY(Math.PI / 4)
-      mesh.geometry = geo
-    } else {
-      mesh.geometry = mesh.userData.__origGeo
-    }
+    mesh.geometry = createHeadShapeGeometry(headShape)
   }
 
   // 1) body colors — head/arms take skin, torso takes shirt color, legs pants color

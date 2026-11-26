@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { getUserFromReq } from '@/lib/auth'
-import { saveUpload, resolveUpload } from '@/lib/uploads'
+import { saveUpload, resolveUpload, resolveUgcUpload } from '@/lib/uploads'
 import {
   UGC_TYPES, UGC_TYPE_LABELS, is3DType, isRiggedType, parseAssetId, parsePlacement, placementJson,
   sanitizeAnimClips, sanitizeAnimTarget, sanitizeBundleParts, parseAnimClipsJson, parseAnimTargetJson, parseBundlePartsJson,
 } from '@/lib/avatarAssets'
 import { buyPrice } from '@/lib/rbx'
+
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
 
 /** Parse a JSON form field (animClips / animTarget / bundleParts). */
 async function safeFormJson(v: FormDataEntryValue | null): Promise<unknown> {
@@ -35,17 +38,27 @@ async function canPublishForGroup(groupId: string, userId: string, siteAdmin: bo
   }
 }
 
-/** next free asset id for a UGC type: hat_1, hat_2 ... (never collides) */
+/** next free asset id for a UGC type: hat_1, hat_2 ... (never collides, single query) */
 async function nextAssetId(type: string): Promise<string> {
-  let n = 1
-  // keep scanning until the id is free (deleted items leave gaps, that's fine)
-  for (;;) {
-    const candidate = `${type}_${n}`
-    const clash = await db.avatarItem.findUnique({ where: { assetId: candidate }, select: { id: true } })
-    if (!clash) return candidate
-    n++
-    if (n > 9999) return `${type}_${Date.now()}` // paranoia fallback
+  const existing = await db.avatarItem.findMany({
+    where: { assetId: { startsWith: `${type}_` } },
+    select: { assetId: true },
+  })
+  const used = new Set<number>()
+  const prefix = `${type}_`
+  for (const item of existing) {
+    if (item.assetId.startsWith(prefix)) {
+      const num = parseInt(item.assetId.slice(prefix.length), 10)
+      if (Number.isFinite(num) && num > 0) {
+        used.add(num)
+      }
+    }
   }
+  let n = 1
+  while (used.has(n)) {
+    n++
+  }
+  return `${type}_${n}`
 }
 
 // GET /api/catalog?type=hat&q=wizard&group=<groupId>&limited=1 — browse avatar UGC
@@ -189,10 +202,10 @@ export async function POST(req: NextRequest) {
   const groupIdRaw = String(form.get('groupId') || '').trim()
   // files arrive either directly (< 3MB, under the serverless body cap) or as
   // an uploadId referencing chunks uploaded via /api/uploads/chunk (models up
-  // to 24MB). resolveUpload returns null when neither is present.
-  const image = await resolveUpload(form.get('image'), form.get('imageUploadId'))
-  const model = await resolveUpload(form.get('model'), form.get('modelUploadId'))
-  const texture = await resolveUpload(form.get('texture'), form.get('textureUploadId'))
+  // to 24MB). Fast resolver keeps chunk rows with 0 re-upload database roundtrips.
+  const imageUpload = await resolveUgcUpload(form.get('image'), form.get('imageUploadId'), user.id, 'thumbnail.png', 'image/png')
+  const modelUpload = await resolveUgcUpload(form.get('model'), form.get('modelUploadId'), user.id, 'model.glb', 'model/gltf-binary')
+  const textureUpload = await resolveUgcUpload(form.get('texture'), form.get('textureUploadId'), user.id, 'texture.png', 'image/png')
   const colorRaw = String(form.get('color') || '').trim()
   const placementRaw = String(form.get('placement') || '').trim()
   // pricing: 0 = free item; limiteds are collectibles — the price is the price
@@ -255,29 +268,18 @@ export async function POST(req: NextRequest) {
       }
       baseColor = colorRaw.toLowerCase()
     }
-    if (texture instanceof File && texture.size > 0) {
-      if (texture.size > 8 * 1024 * 1024) {
-        return NextResponse.json({ error: 'Texture too large (max 8MB).' }, { status: 400 })
-      }
-      if (texture.type && !texture.type.startsWith('image/')) {
-        return NextResponse.json({ error: 'The texture must be an image (PNG / JPG).' }, { status: 400 })
-      }
+    if (textureUpload) {
+      textureFileId = textureUpload.fileId
     }
   }
 
   if (is3DType(type)) {
     // 3D UGC: the GLB model is the item; the image is the try-on thumbnail
     // captured in the placement editor; placement is the creator's transform
-    if (!(model instanceof File) || model.size === 0) {
+    if (!modelUpload) {
       return NextResponse.json({ error: `A 3D model is required for ${UGC_TYPE_LABELS[type] || type}.` }, { status: 400 })
     }
-    if (model.size > 24 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Model too large (max 24MB).' }, { status: 400 })
-    }
-    const head = Buffer.from(await model.slice(0, 4).arrayBuffer())
-    if (head.toString('ascii') !== 'glTF') {
-      return NextResponse.json({ error: 'The model must be a GLB file (the site converts it for you).' }, { status: 400 })
-    }
+    modelFileId = modelUpload.fileId
     const placement = parsePlacement(placementRaw)
     if (!placement) {
       return NextResponse.json({ error: 'Missing placement — place the item on the player model first.' }, { status: 400 })
@@ -286,31 +288,19 @@ export async function POST(req: NextRequest) {
   } else if (rigged) {
     // rigged UGC: the rigged GLB IS the item; no placement editor — the
     // animation plays on the body, the bundle replaces it
-    if (!(model instanceof File) || model.size === 0) {
+    if (!modelUpload) {
       return NextResponse.json({ error: `A rigged GLB model is required for ${UGC_TYPE_LABELS[type] || type}.` }, { status: 400 })
     }
-    if (model.size > 24 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Model too large (max 24MB).' }, { status: 400 })
-    }
-    const head = Buffer.from(await model.slice(0, 4).arrayBuffer())
-    if (head.toString('ascii') !== 'glTF') {
-      return NextResponse.json({ error: 'The model must be a GLB file (the site converts it for you).' }, { status: 400 })
-    }
-  } else if (model) {
+    modelFileId = modelUpload.fileId
+  } else if (modelUpload) {
     return NextResponse.json({ error: 'Only 3D-worn UGC (hats, hair, accessories, gear...) takes a 3D model.' }, { status: 400 })
   }
 
-  if (!(image instanceof File) || image.size === 0) {
+  if (!imageUpload) {
     return NextResponse.json(
       { error: is3DType(type) || rigged ? 'A preview image is required.' : 'An image is required — draw it or export it from your editor.' },
       { status: 400 }
     )
-  }
-  if (image.size > 8 * 1024 * 1024) {
-    return NextResponse.json({ error: 'Image too large (max 8MB).' }, { status: 400 })
-  }
-  if (image.type && !image.type.startsWith('image/')) {
-    return NextResponse.json({ error: 'Only image files are allowed for the picture.' }, { status: 400 })
   }
 
   let groupId: string | null = null
@@ -321,15 +311,6 @@ export async function POST(req: NextRequest) {
     groupId = groupIdRaw
   }
 
-  const file = await saveUpload(image, user.id)
-  if (model instanceof File && model.size > 0) {
-    const mf = await saveUpload(model, user.id)
-    modelFileId = mf.id
-  }
-  if (is3DType(type) && texture instanceof File && texture.size > 0) {
-    const tf = await saveUpload(texture, user.id)
-    textureFileId = tf.id
-  }
   const assetId = await nextAssetId(type)
   if (!parseAssetId(assetId)) {
     return NextResponse.json({ error: 'Could not allocate an asset id' }, { status: 500 })
@@ -347,7 +328,7 @@ export async function POST(req: NextRequest) {
     isLimited: isLimited || isSuperLimited,
     isSuperLimited,
     stock: isLimited && !isSuperLimited ? stock : null,
-    imageFileId: file.id,
+    imageFileId: imageUpload.fileId,
     modelFileId,
     placementJson: placementJsonStr,
     textureFileId,

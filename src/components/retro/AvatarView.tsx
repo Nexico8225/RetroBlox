@@ -579,9 +579,11 @@ export function AvatarView() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {[
                 { id: 'classic', label: 'Classic (Round Bevel)' },
-                { id: 'blocky', label: 'Blocky (Cube / Blockhead)' },
-                { id: 'sphere', label: 'Sphere (Round / Perfection)' },
-                { id: 'triangle', label: 'Triangle (Diamond / Wedge)' },
+                { id: 'blocky', label: 'Blockhead (Cube)' },
+                { id: 'sphere', label: 'Perfection (Sphere)' },
+                { id: 'triangle', label: 'Diamond (Triangle)' },
+                { id: 'barrel', label: 'Barrel (Round Cylinder)' },
+                { id: 'roundy', label: 'Roundy (Soft Dome)' },
               ].map((s) => {
                 const active = (cfg.headShape || 'classic') === s.id
                 return (
