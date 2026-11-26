@@ -109,9 +109,12 @@ export async function POST(req: NextRequest) {
     console.error('signup error', e)
     const errMessage = e instanceof Error ? e.message : String(e || '')
     const reason = await diagnoseDb()
+    const errorText = reason.startsWith('Reason found:')
+      ? `Sign up failed. ${reason}`
+      : (errMessage || 'Sign up failed. Try again.')
     return NextResponse.json(
       {
-        error: reason ? `Sign up failed. ${reason}` : (errMessage || 'Sign up failed. Try again.'),
+        error: errorText,
         detail: errMessage,
       },
       { status: 500 }

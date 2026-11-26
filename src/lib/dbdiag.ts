@@ -51,6 +51,14 @@ export async function ensureTables(): Promise<EnsureResult> {
         )
         const tableCount = Number(before.rows[0]?.n ?? 0)
         if (tableCount > 0) {
+          // Paramedic self-repair on existing cloud database:
+          // Remove legacy columns/indexes that cause schema drift collisions (e.g. legacy playerNo)
+          try {
+            await client.execute('DROP INDEX IF EXISTS "User_playerNo_key"')
+          } catch {}
+          try {
+            await client.execute('ALTER TABLE "User" DROP COLUMN "playerNo"')
+          } catch {}
           return { ok: true, tableCount }
         }
 
