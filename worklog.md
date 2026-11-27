@@ -491,3 +491,28 @@ Stage Summary:
 - Rebuilt `public/downloads/RetroBlox_SDK.zip` (38.26 MB, 10,341 files) and `public/godot/retroblox-godot-player.zip`.
 - Bumped cache busters to `v=2.1` in `SdkView.tsx` and `HomeView.tsx`.
 
+
+---
+Task ID: v12-glb-clip-accuracy
+Agent: Super Z (main)
+Task: "the glb anims play but they're inaccurate, two of the same actions, legs lag"
+
+Root causes found in the site 3D preview (Player3DView):
+1. FIXED TIMESTEP LAG — every rAF tick advanced the mixer by a fixed 1/60s.
+   On 120Hz+ displays rAF fires twice as often, so every clip played at HALF
+   SPEED: the "legs lag a bit" report. Now uses real frame delta (clamped to
+   0.1s), same delta feeds worn-UGC mixers and the cycle timer.
+2. CYCLE MODE PLAYED EVERY ACTION AT ONCE — startSeq() called play() on ALL
+   clips; an animation pack blended idle+walk+jump simultaneously into mush
+   (limbs pulled between poses = "inaccurate"). Now only the first clip
+   starts; the raf loop fades the next one in on its turn (standard
+   crossfade sequencing).
+3. DUPLICATE ACTIONS — a GLB can export the same action twice under one name
+   (two Blender NLA strips), and two anim-pack slots could map one clip.
+   Result: "two of the same actions" in every dropdown + the same clip
+   queued/played twice with doubled weight. Deduped at clip extraction
+   (CatalogView publish), pack cycle lists (AvatarView/ItemDetailView/
+   CatalogView), item clip buttons, and playback (per-clip uuid + per-name).
+
+Verified: eslint clean, next build green. No Godot/zip changes needed (the
+in-game rig uses its own procedural curves; the symptoms were site previews).

@@ -158,8 +158,10 @@ export function AvatarView() {
   const previewAnim = useMemo(() => {
     if (!animPackEntry?.modelFileId || !animPackEntry.animClips) return null
     const map = animPackEntry.animClips.map || {}
-    const mapped = ANIM_SLOTS.map((s) => map[s]).filter(Boolean) as string[]
-    const rest = (animPackEntry.animClips.clips || []).filter((c) => !mapped.includes(c))
+    // dedupe: two slots mapped to one clip (or a pack list with the same
+    // clip twice) used to queue the same move back to back
+    const mapped = [...new Set(ANIM_SLOTS.map((s) => map[s]).filter(Boolean) as string[])]
+    const rest = [...new Set((animPackEntry.animClips.clips || []))].filter((c) => !mapped.includes(c))
     const clips = [...mapped, ...rest].slice(0, 6)
     return clips.length > 0 ? { url: `/api/files/${animPackEntry.modelFileId}`, clips, single: false } : null
   }, [animPackEntry])

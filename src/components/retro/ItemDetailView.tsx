@@ -264,7 +264,9 @@ export function ItemDetailView({ id }: { id: string }) {
     const clips = item.animClips?.clips || []
     if (clips.length === 0) return null
     if (item.type === 'anim' && item.animClips?.map) {
-      const seq = ANIM_SLOTS.map((s) => item.animClips!.map![s]).filter(Boolean) as string[]
+      // two slots mapped to the same clip must not queue it twice — the
+      // cycle would play the same move back to back
+      const seq = [...new Set(ANIM_SLOTS.map((s) => item.animClips!.map![s]).filter(Boolean) as string[])]
       if (seq.length > 0) return { url: `/api/files/${item.modelFileId}`, clips: seq, single: false }
     }
     const pick = clip && clips.includes(clip) ? clip : clips[0]
@@ -303,7 +305,9 @@ export function ItemDetailView({ id }: { id: string }) {
   }
 
   const soldOut = item.isLimited && item.remaining === 0
-  const clips = item.animClips?.clips || []
+  // one button per clip — a file with the same action twice must not show
+  // two of the same button
+  const clips = [...new Set(item.animClips?.clips || [])]
   const typeLabel = UGC_TYPE_LABELS[item.type] || item.type
   const createdBy = item.group ? `${item.group.name} (group)` : item.creator.username
 

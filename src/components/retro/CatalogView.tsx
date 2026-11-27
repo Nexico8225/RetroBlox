@@ -1243,9 +1243,11 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
   }, [targetKind, targetAssetId, marketRigs, marketUgc, previewBody])
 
   /* the realtime cycle order for an anim pack: mapped slots first (the moves
-     that take over the classic ones), any remaining clips after */
+     that take over the classic ones), any remaining clips after. Two slots
+     mapped to the SAME clip must not queue it twice — the cycle would play
+     the same move back to back. */
   const animCycleClips = useMemo(() => {
-    const mapped = ANIM_SLOTS.map((s) => clipMap[s]).filter(Boolean) as string[]
+    const mapped = [...new Set(ANIM_SLOTS.map((s) => clipMap[s]).filter(Boolean) as string[])]
     const rest = clipNames.filter((c) => !mapped.includes(c))
     return [...mapped, ...rest].slice(0, 6)
   }, [clipMap, clipNames])
@@ -1307,8 +1309,13 @@ function PublishForm({ onDone, groups }: { onDone: () => void; groups: GroupOpt[
       // even though the file DID carry the animation. Unnamed clips become
       // "Clip 1", "Clip 2", ... and play exactly the same.
       const names = usable.map((c: { name?: string }, i: number) => (c.name && c.name.trim() ? c.name.trim() : `Clip ${i + 1}`))
-      setClipNames(names)
-      setPreviewClip(names[0] || '')
+      // a GLB can export the SAME action twice under one name (two Blender
+      // NLA strips of one action) — that used to list "two of the same
+      // actions" in every dropdown and play the move with doubled weight.
+      // Keep the first entry only.
+      const uniqNames = [...new Set(names)]
+      setClipNames(uniqNames)
+      setPreviewClip(uniqNames[0] || '')
       if (names.length === 0) {
         // the file plays nothing — tell the creator WHICH export step went
         // wrong instead of leaving an empty dropdown. The raw-JSON peek

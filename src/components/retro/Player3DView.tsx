@@ -163,9 +163,17 @@ export default function Player3DView({ look, height = 320, interactive = true, z
     ro.observe(host)
     resize()
 
+    // REAL frame delta — the old fixed 1/60-per-frame advanced every clip at
+    // HALF SPEED on 120Hz+ displays (the "legs lag behind" report: each rAF
+    // tick moved the mixer by 1/60s but fired twice as often). Clamp so a
+    // tab switch never fast-forwards the pose.
+    let lastT = performance.now()
     const animate = () => {
       if (disposed) return
       raf = requestAnimationFrame(animate)
+      const now = performance.now()
+      const dt = Math.min(Math.max((now - lastT) / 1000, 0.0001), 0.1)
+      lastT = now
       controls?.update()
       // advance the retargeted clip sequence (emote loop / anim-pack cycle)
       const seq = mixerSeqRef.current
@@ -184,8 +192,8 @@ export default function Player3DView({ look, height = 320, interactive = true, z
             for (const a of seq.seq) a.paused = false
             scrubbingRef.current = false
           }
-          seq.mixer.update(1 / 60)
-          seq.timer += 1 / 60
+          seq.mixer.update(dt)
+          seq.timer += dt
           if (!seq.single && seq.seq.length > 1) {
             const cur = seq.seq[seq.idx]
             const dur = Math.min(cur.getClip().duration, 2.6)
@@ -200,7 +208,7 @@ export default function Player3DView({ look, height = 320, interactive = true, z
       }
       // advance self-animated UGC worn on this view (pets, wings, ...)
       const stash = stateRef.current
-      if (stash) updateWornMixers(stash.view, 1 / 60)
+      if (stash) updateWornMixers(stash.view, dt)
       renderer.render(scene, camera)
     }
     animate()
@@ -284,13 +292,25 @@ export default function Player3DView({ look, height = 320, interactive = true, z
 
     const startSeq = (root: THREE.Object3D, ordered: THREE.AnimationClip[]) => {
       if (ordered.length === 0) return
-      const mixer = new THREE.AnimationMixer(root)
-      const actions = ordered.map((c) => mixer.clipAction(c))
-      actions.forEach((a) => a.play())
-      mixerSeqRef.current = { mixer, seq: actions, idx: 0, timer: 0, single: !!anim.single }
-      if (anim.single && actions[0]) {
-        actions.slice(1).forEach((a) => a.stop())
+      // ONE action per clip: a file can carry the same track twice (a Blender
+      // NLA strip exported as two animations, or a saved picker list listing
+      // the same clip twice) — two actions then drove the SAME bones and the
+      // mixer SUMMED their weights, so every step played doubled and jittery.
+      const uniq: THREE.AnimationClip[] = []
+      const seen = new Set<string>()
+      for (const c of ordered) {
+        if (seen.has(c.uuid)) continue
+        seen.add(c.uuid)
+        uniq.push(c)
       }
+      const mixer = new THREE.AnimationMixer(root)
+      const actions = uniq.map((c) => mixer.clipAction(c))
+      // cycle mode: ONLY the first clip starts. Everything used to play at
+      // once — idle + walk + jump blending into mush, limbs pulled between
+      // poses (the "inaccurate" report). The raf loop fades each next clip
+      // in on its turn instead.
+      actions[0]?.reset().play()
+      mixerSeqRef.current = { mixer, seq: actions, idx: 0, timer: 0, single: !!anim.single }
       reportRef.current?.(actions[0].getClip().duration)
     }
 
@@ -317,7 +337,12 @@ export default function Player3DView({ look, height = 320, interactive = true, z
         if (cancelled) return
         if (bound.length > 0) {
           const ordered: THREE.AnimationClip[] = []
+          const seenNames = new Set<string>()
           for (const name of anim.clips) {
+            // a repeated name in the saved picker list must not queue the
+            // same clip twice ("two of the same actions")
+            if (seenNames.has(name)) continue
+            seenNames.add(name)
             const hit = bound.find((c) => c.name === name)
             if (hit) ordered.push(hit)
           }
